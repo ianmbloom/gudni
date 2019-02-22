@@ -1,0 +1,636 @@
+[ListStart
+,
+ThresholdState
+{ tsThresholds = [
+Threshold
+{ thrIndex         = 0
+, thrTop           = 1.009766
+, thrBottom        = 1.030273
+, thrLeft          = 0.000000
+, thrRight         = 0.020508
+, thrPositiveSlope = 1
+, thrTopPersist    = 1
+, thrBottomPersist = 0
+, thrShapeIndex    = 0
+, thrBrush         = 1
+}
+
+,Threshold
+{ thrIndex         = 1
+, thrTop           = 1.030273
+, thrBottom        = 1.519531
+, thrLeft          = 0.020508
+, thrRight         = 0.510254
+, thrPositiveSlope = 1
+, thrTopPersist    = 0
+, thrBottomPersist = 0
+, thrShapeIndex    = 0
+, thrBrush         = 1
+}
+
+,Threshold
+{ thrIndex         = 2
+, thrTop           = 1.030273
+, thrBottom        = 1.519531
+, thrLeft          = 0.510254
+, thrRight         = 1.000000
+, thrPositiveSlope = 0
+, thrTopPersist    = 0
+, thrBottomPersist = 0
+, thrShapeIndex    = 0
+, thrBrush         = 1
+}
+
+,Threshold
+{ thrIndex         = 3
+, thrTop           = 1.519531
+, thrBottom        = 2.009766
+, thrLeft          = 0.019547
+, thrRight         = 0.510254
+, thrPositiveSlope = 0
+, thrTopPersist    = 0
+, thrBottomPersist = 0
+, thrShapeIndex    = 0
+, thrBrush         = 1
+}
+
+,Threshold
+{ thrIndex         = 4
+, thrTop           = 1.519531
+, thrBottom        = 2.009766
+, thrLeft          = 0.510254
+, thrRight         = 1.000000
+, thrPositiveSlope = 1
+, thrTopPersist    = 0
+, thrBottomPersist = 0
+, thrShapeIndex    = 0
+, thrBrush         = 1
+}
+
+,Threshold
+{ thrIndex         = 5
+, thrTop           = 2.009766
+, thrBottom        = 2.029297
+, thrLeft          = 0.000000
+, thrRight         = 0.019547
+, thrPositiveSlope = 0
+, thrTopPersist    = 0
+, thrBottomPersist = 1
+, thrShapeIndex    = 0
+, thrBrush         = 1
+}
+
+]
+, tsRenderTop    = 0.000000
+, tsRenderBottom = 16.000000
+}
+,
+ColorState
+{ csColors = [ ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+]
+ }
+
+, Section
+{ sectionActiveStart  = 0
+, sectionActiveEnd    = 0
+, sectionTop          = 0.000000
+, sectionBottom       = 1.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 0
+, sectionActiveEnd    = 0
+, sectionTop          = 1.000000
+, sectionBottom       = 1.009766
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+,
+ColorState
+{ csColors = [ ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+,ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+]
+ }
+
+, Section
+{ sectionActiveStart  = 0
+, sectionActiveEnd    = 1
+, sectionTop          = 1.009766
+, sectionBottom       = 1.030273
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 0.010254
+, sectionColor = ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 0
+, sectionActiveEnd    = 1
+, sectionTop          = 1.009766
+, sectionBottom       = 1.030273
+, sectionLastX        = 0.010254
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+,
+ColorState
+{ csColors = [ ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+,ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+,ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+]
+ }
+
+, Section
+{ sectionActiveStart  = 1
+, sectionActiveEnd    = 3
+, sectionTop          = 1.030273
+, sectionBottom       = 1.519531
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 0.265381
+, sectionColor = ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 1
+, sectionActiveEnd    = 3
+, sectionTop          = 1.030273
+, sectionBottom       = 1.519531
+, sectionLastX        = 0.265381
+, sectionCurrentX     = 0.755127
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 1
+, sectionActiveEnd    = 3
+, sectionTop          = 1.030273
+, sectionBottom       = 1.519531
+, sectionLastX        = 0.755127
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+}
+,
+ColorState
+{ csColors = [ ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+,ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+,ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+]
+ }
+
+, Section
+{ sectionActiveStart  = 3
+, sectionActiveEnd    = 5
+, sectionTop          = 1.519531
+, sectionBottom       = 2.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 0.269788
+, sectionColor = ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 3
+, sectionActiveEnd    = 5
+, sectionTop          = 1.519531
+, sectionBottom       = 2.000000
+, sectionLastX        = 0.269788
+, sectionCurrentX     = 0.750249
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 3
+, sectionActiveEnd    = 5
+, sectionTop          = 1.519531
+, sectionBottom       = 2.000000
+, sectionLastX        = 0.750249
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 3
+, sectionActiveEnd    = 5
+, sectionTop          = 2.000000
+, sectionBottom       = 2.009766
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 0.024434
+, sectionColor = ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 3
+, sectionActiveEnd    = 5
+, sectionTop          = 2.000000
+, sectionBottom       = 2.009766
+, sectionLastX        = 0.024434
+, sectionCurrentX     = 0.995122
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 3
+, sectionActiveEnd    = 5
+, sectionTop          = 2.000000
+, sectionBottom       = 2.009766
+, sectionLastX        = 0.995122
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+}
+,
+ColorState
+{ csColors = [ ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+,ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+]
+ }
+
+, Section
+{ sectionActiveStart  = 5
+, sectionActiveEnd    = 6
+, sectionTop          = 2.009766
+, sectionBottom       = 2.029297
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 0.009773
+, sectionColor = ColorTuple
+{ redChan   = 0.282471
+, greenChan = 0.282471
+, blueChan  = 0.282471
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 5
+, sectionActiveEnd    = 6
+, sectionTop          = 2.009766
+, sectionBottom       = 2.029297
+, sectionLastX        = 0.009773
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+,
+ColorState
+{ csColors = [ ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+]
+ }
+
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 2.029297
+, sectionBottom       = 3.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 3.000000
+, sectionBottom       = 4.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 4.000000
+, sectionBottom       = 5.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 5.000000
+, sectionBottom       = 6.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 6.000000
+, sectionBottom       = 7.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 7.000000
+, sectionBottom       = 8.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 8.000000
+, sectionBottom       = 9.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 9.000000
+, sectionBottom       = 10.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 10.000000
+, sectionBottom       = 11.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 11.000000
+, sectionBottom       = 12.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 12.000000
+, sectionBottom       = 13.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 13.000000
+, sectionBottom       = 14.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 14.000000
+, sectionBottom       = 15.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+, Section
+{ sectionActiveStart  = 6
+, sectionActiveEnd    = 6
+, sectionTop          = 15.000000
+, sectionBottom       = 16.000000
+, sectionLastX        = 0.000000
+, sectionCurrentX     = 1.000000
+, sectionColor = ColorTuple
+{ redChan   = 0.501953
+, greenChan = 0.501953
+, blueChan  = 0.501953
+, alphaChan = 1.000000
+}
+
+}
+]

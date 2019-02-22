@@ -1,0 +1,9 @@
+packages: ../CLUtil
+          ../opencl
+          ./
+package sdl2
+  extra-include-dirs: /Library/Frameworks/SDL2.framework/Versions/A/Headers/
+
+package gudni
+
+jobs: 4
