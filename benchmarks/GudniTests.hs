@@ -99,31 +99,31 @@ instance Show BenchmarkState where
      show (state ^. stateStep       ) ++ ", " ++
      show (state ^. statePictures   ) ++ " }"
 
-testList = [ ("benchmark1"        , benchmark1          ) --  0 -
-           , ("fuzz testing 2"    , fuzzy2              ) --  1 -
-           , ("fuzz testing 3"    , fuzzy3              ) --  2 -
-           , ("fuzz testing 4"    , fuzzy4              ) --  3 -
-           , ("fuzz testing 5"    , fuzzy6              ) --  4 -
-           , ("plots"             , plots               ) --  5 -
+testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
+           , ("benchmark1"        , benchmark1          ) --  1 -
+           , ("fuzz testing 2"    , fuzzy2              ) --  2 -
+           , ("fuzz testing 3"    , fuzzy3              ) --  3 -
+           , ("fuzz testing 4"    , fuzzy4              ) --  4 -
+           , ("fuzz testing 5"    , fuzzy6              ) --  5 -
            , ("testPict"          , testPict            ) --  6 -
-           , ("simpleKnob"        , simpleKnob          ) --  7 -
-           , ("hourGlass"         , hourGlass           ) --  8 -
-           , ("simpleRectangle"   , simpleRectangle     ) --  9 -
-           , ("tallRectangle"     , tallRectangle       ) -- 10 -
-           , ("openSquare"        , openSquare          ) -- 11 -
-           , ("openSquareOverlap2", openSquareOverlap2  ) -- 12 -
-           , ("openSquareOverlap3", openSquareOverlap3  ) -- 13 -
-           , ("stackOfSquares"    , stackOfSquares      ) -- 14 -
-           , ("concentricSquares2", concentricSquares2  ) -- 15 -
-           , ("concentricSquares3", concentricSquares3  ) -- 16 -
-           , ("simpleGlyph"       , simpleGlyph         ) -- 17 -
-           , ("simpleGlyph2"      , simpleGlyph2        ) -- 18 -
-           , ("simpleArc"         , simpleArc           ) -- 19 -
-           , ("sixPointRectangle" , sixPointRectangle   ) -- 20 -
-           , ("tinySquare"        , tinySquare          ) -- 21 -
-           , ("anotherThreshold"  , anotherThreshold    ) -- 22 -
-           , ("subtractDiamond "  , subtractDiamond     ) -- 23 -
-           , ("rectGrid"          , rectGrid            ) -- 24 -
+           , ("rectGrid"          , rectGrid            ) --  7 -
+           , ("plotter test"      , plots               ) --  8 -
+           , ("simpleKnob"        , simpleKnob          ) --  9 -
+           , ("hourGlass"         , hourGlass           ) -- 10 -
+           , ("simpleRectangle"   , simpleRectangle     ) -- 11 -
+           , ("tallRectangle"     , tallRectangle       ) -- 12 -
+           , ("openSquare"        , openSquare          ) -- 13 -
+           , ("openSquareOverlap2", openSquareOverlap2  ) -- 14 -
+           , ("stackOfSquares"    , stackOfSquares      ) -- 15 -
+           , ("concentricSquares2", concentricSquares2  ) -- 16 -
+           , ("concentricSquares3", concentricSquares3  ) -- 17 -
+           , ("simpleGlyph"       , simpleGlyph         ) -- 18 -
+           , ("simpleGlyph2"      , simpleGlyph2        ) -- 19 -
+           , ("simpleArc"         , simpleArc           ) -- 20 -
+           , ("sixPointRectangle" , sixPointRectangle   ) -- 21 -
+           , ("tinySquare"        , tinySquare          ) -- 22 -
+           , ("anotherThreshold"  , anotherThreshold    ) -- 23 -
+           , ("subtractDiamond "  , subtractDiamond     ) -- 24 -
            , ("fuzz testing 5"    , fuzzy5              ) -- 25 -
            , ("maxThresholdTest"  , maxThresholdTest    ) -- 26 -
            , ("maxShapeTest"      , maxShapeTest        ) -- 27 -
@@ -154,34 +154,34 @@ maxShapeTest state =
 
 fromJust (Just x) = x
 plots :: BenchmarkState -> ShapeTree
-plots state = tScale 100 . overlap . makeGrid 10 16 1 . catMaybes . map (fmap (solid purple . rawPlot) . plotLibrary) $ turtleNames
+plots state = tTranslateXY 100 100 . tScale 30 . overlap . makeGrid 10 16 1 . catMaybes . map (fmap (solid purple . rawPlot) . plotLibrary) $ turtleNames
 
 fuzzy2 :: BenchmarkState -> ShapeTree
 fuzzy2 state = let time = view stateLastTime state
                in  tTranslateXY 500 500 .
-                   overlap $ evalRand (sequence . replicate 16 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep + 5))
+                   overlap $ evalRand (sequence . replicate 16 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 fuzzy3 :: BenchmarkState -> ShapeTree
 fuzzy3 state = let time = view stateLastTime state
                in  tTranslateXY (-100) (-100) .
                    overlap $
-                   evalRand (sequence . replicate 4 $ fuzzyCurve (makePoint 3000 2000) 200) (mkStdGen $ state ^. stateStep)
+                   evalRand (sequence . replicate 4 $ fuzzyCurve (makePoint 1440 900) 200) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 fuzzy4 :: BenchmarkState -> ShapeTree
 fuzzy4 state = let time = view stateLastTime state
                in  tTranslateXY (-100) (-100) .
                    overlap $
-                   evalRand (sequence . replicate 10000 $ fuzzyCircle (makePoint 2880 1800) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   evalRand (sequence . replicate 5000 $ fuzzyCircle (makePoint 1440 900) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 fuzzy5 :: BenchmarkState -> ShapeTree
 fuzzy5 state = let time = view stateLastTime state
                in  overlap $
-                   evalRand (sequence . replicate 500 $ fuzzySquare (makePoint 100 100) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   evalRand (sequence . replicate 100 $ fuzzySquare (makePoint 100 100) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 fuzzy6 :: BenchmarkState -> ShapeTree
 fuzzy6 state = let time = view stateLastTime state
                in  overlap $
-                   evalRand (sequence . replicate 10000 $ fuzzySquare (makePoint 2880 1800) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   evalRand (sequence . replicate 5000 $ fuzzySquare (makePoint 1440 900) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 benchmark1 :: BenchmarkState -> ShapeTree
 benchmark1 state =
@@ -280,8 +280,9 @@ tallRectangle state =
 -- Color Overlays with subtraction.
 openSquareOverlap3 :: BenchmarkState -> ShapeTree
 openSquareOverlap3 state =
-    let angle         = view statePlayhead state @@ turn
-    in  tScale 50 $
+    let angle = view statePlayhead state @@ turn
+    in  tTranslateXY 400 400 .
+        tScale 50 $
         overlap [ (tTranslateXY 0 0 . tRotate angle        $ solid (transparent 0.5 blue   ) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
                 , (tTranslateXY 4 4 . tRotate (angle ^/ 2) $ solid (transparent 0.5 orange ) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
                 , (tTranslateXY 8 8 . tRotate (angle ^/ 3) $ solid (transparent 0.5 green  ) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )

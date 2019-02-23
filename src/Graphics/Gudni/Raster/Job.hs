@@ -81,7 +81,7 @@ data RasterJob = RasterJob
   , _rJGroupPile       :: !(Pile ShapeHeader)
   , _rJTileIndexList   :: [CUInt]
   , _rJBackgroundColor :: !Color
-  , _rJShapeMap      :: M.Map PrimId ShapeId
+  , _rJShapeMap        :: M.Map PrimId ShapeId
   } deriving (Show)
 makeLenses ''RasterJob
 

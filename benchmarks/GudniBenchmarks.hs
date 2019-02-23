@@ -65,15 +65,16 @@ instance Model BenchmarkState where
                                          (tTranslateXY 0 (-size/2) $ rectangle $ Point2 thickness size)
             withCursor = if False then overlap [cursor 100 1, tree] else tree
             statusTree = statusDisplay state status
-            withStatus = if False then overlap [statusTree, withCursor] else withCursor
+            withStatus = if True then overlap [statusTree, withCursor] else withCursor
         in  return (ShapeRoot gray withStatus, "textForm")
     pictureData state = return $ state ^. statePictures
 
 statusDisplay state status =
-    --tTranslateXY 1500 800 . --3200 2100 .
+    tTranslateXY 1800 800 . --3200 2100 .
+    tRotate (45 @@ deg) .
     tTranslate (state ^. stateDelta) .
-    tScale 20 .
-    solid black .
+    tScale 30 .
+    solid (dark red) .
     overlap .
     paraGrid 1 $
     fst (getTest state) ++
