@@ -101,6 +101,7 @@ library
                      , Graphics.Gudni.Util.Bag
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util
+                     , Graphics.Gudni.Util.RandomField
 
   -- LANGUAGE extensions used by modules in this package.
   other-extensions:    FlexibleContexts, TypeFamilies, ScopedTypeVariables, MultiParamTypeClasses, UndecidableInstances, DatatypeContexts, TemplateHaskell, GeneralizedNewtypeDeriving, StandaloneDeriving, GADTs, LambdaCase, FlexibleInstances, AllowAmbiguousTypes, PatternSynonyms, KindSignatures, ConstraintKinds, Rank2Types, TypeOperators, RankNTypes, CPP, DeriveDataTypeable, ViewPatterns, ExistentialQuantification

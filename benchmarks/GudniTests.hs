@@ -76,7 +76,7 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 8
+    , _stateCurrentTest = 24
     , _stateStep        = 3
     , _stateFrameNumber = 0
     }
@@ -100,33 +100,33 @@ instance Show BenchmarkState where
      show (state ^. statePictures   ) ++ " }"
 
 testList = [ ("benchmark1"        , benchmark1          ) --  0 -
-           , ("fuzz testing 2"    , fuzzy2              ) --  2 -
-           , ("fuzz testing 3"    , fuzzy3              ) --  3 -
-           , ("fuzz testing 4"    , fuzzy4              ) --  4 -
-           , ("fuzz testing 5"    , fuzzy6              ) --  5 -
-           , ("plots"             , plots               ) --  6 -
-           , ("testPict"          , testPict            ) --  7 -
-           , ("simpleKnob"        , simpleKnob          ) --  8 -
-           , ("maxThresholdTest"  , maxThresholdTest    ) --  9 -
-           , ("maxShapeTest"      , maxShapeTest        ) -- 10 -
-           , ("hourGlass"         , hourGlass           ) -- 11 -
-           , ("simpleRectangle"   , simpleRectangle     ) -- 12 -
-           , ("tallRectangle"     , tallRectangle       ) -- 13 -
-           , ("openSquare"        , openSquare          ) -- 14 -
-           , ("openSquareOverlap2", openSquareOverlap2  ) -- 15 -
-           , ("openSquareOverlap3", openSquareOverlap3  ) -- 16 -
-           , ("stackOfSquares"    , stackOfSquares      ) -- 17 -
-           , ("concentricSquares2", concentricSquares2  ) -- 18 -
-           , ("concentricSquares3", concentricSquares3  ) -- 19 -
-           , ("simpleGlyph"       , simpleGlyph         ) -- 20 -
-           , ("simpleGlyph2"      , simpleGlyph2        ) -- 21 -
-           , ("simpleArc"         , simpleArc           ) -- 22 -
-           , ("sixPointRectangle" , sixPointRectangle   ) -- 23 -
-           , ("tinySquare"        , tinySquare          ) -- 24 -
-           , ("anotherThreshold"  , anotherThreshold    ) -- 25 -
-           , ("subtractDiamond "  , subtractDiamond     ) -- 26 -
-           , ("rectGrid"          , rectGrid            ) -- 27 -
-           , ("fuzz testing 5"    , fuzzy5              ) -- 28 -
+           , ("fuzz testing 2"    , fuzzy2              ) --  1 -
+           , ("fuzz testing 3"    , fuzzy3              ) --  2 -
+           , ("fuzz testing 4"    , fuzzy4              ) --  3 -
+           , ("fuzz testing 5"    , fuzzy6              ) --  4 -
+           , ("plots"             , plots               ) --  5 -
+           , ("testPict"          , testPict            ) --  6 -
+           , ("simpleKnob"        , simpleKnob          ) --  7 -
+           , ("hourGlass"         , hourGlass           ) --  8 -
+           , ("simpleRectangle"   , simpleRectangle     ) --  9 -
+           , ("tallRectangle"     , tallRectangle       ) -- 10 -
+           , ("openSquare"        , openSquare          ) -- 11 -
+           , ("openSquareOverlap2", openSquareOverlap2  ) -- 12 -
+           , ("openSquareOverlap3", openSquareOverlap3  ) -- 13 -
+           , ("stackOfSquares"    , stackOfSquares      ) -- 14 -
+           , ("concentricSquares2", concentricSquares2  ) -- 15 -
+           , ("concentricSquares3", concentricSquares3  ) -- 16 -
+           , ("simpleGlyph"       , simpleGlyph         ) -- 17 -
+           , ("simpleGlyph2"      , simpleGlyph2        ) -- 18 -
+           , ("simpleArc"         , simpleArc           ) -- 19 -
+           , ("sixPointRectangle" , sixPointRectangle   ) -- 20 -
+           , ("tinySquare"        , tinySquare          ) -- 21 -
+           , ("anotherThreshold"  , anotherThreshold    ) -- 22 -
+           , ("subtractDiamond "  , subtractDiamond     ) -- 23 -
+           , ("rectGrid"          , rectGrid            ) -- 24 -
+           , ("fuzz testing 5"    , fuzzy5              ) -- 25 -
+           , ("maxThresholdTest"  , maxThresholdTest    ) -- 26 -
+           , ("maxShapeTest"      , maxShapeTest        ) -- 27 -
            ]
 
 maxThresholdTest :: BenchmarkState -> ShapeTree
@@ -216,7 +216,7 @@ benchmarkfault state =
 rectGrid :: BenchmarkState -> ShapeTree
 rectGrid state =
     let grid  :: CompoundTree
-        grid   = foldl1 cContinue . makeGrid 1 10 1000 . repeat . rectangle $ Point2 0.5 0.5
+        grid   = foldl1 cContinue . makeGrid 1 100 100 . repeat . rectangle $ Point2 0.5 0.5
     in
         --tTranslate (Point2 0.3 0.3) .
         --tRotate (5 @@ deg) .

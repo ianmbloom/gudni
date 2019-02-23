@@ -7,8 +7,9 @@ Here are some of the features of the system:
 
 -- GPU accelerated rasterization.
 -- High quality anti-aliasing of objects with large amount of subpixel detail.
+-- Stochastic anti-aliasing (experimental) is an attempt to add a random factor to mask spatial aliasing and "naturalize" an image.
 -- Support for transparency.
--- Support for additive and subtractive shape geometry.
+-- Support for additive and subtractive shape geometry on the fly.
 -- Rudimentary image texturing support.
 
 The goal is to create an engine that can create a realtime output for figures with the complexity of a normal interface and slower but perfect

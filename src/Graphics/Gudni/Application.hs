@@ -47,6 +47,7 @@ import Graphics.Gudni.OpenCL.CallKernels
 
 import Graphics.Gudni.Raster.Types
 
+import Graphics.Gudni.Raster.Constants (rANDOMFIELDsIZE)
 import Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
 import Graphics.Gudni.Raster.TileArray
 import Graphics.Gudni.Raster.Job
@@ -57,6 +58,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Util.RandomField
 
 import System.Info
 
@@ -72,6 +74,7 @@ data ApplicationState s = AppState
     , _appStatus        :: String
     , _appCycle         :: Int
     , _appState         :: s
+    , _appRandomField   :: RandomField -- can't find a better place to put this.
     }
 makeLenses ''ApplicationState
 
@@ -97,7 +100,8 @@ setupApplication state  =
       ------------ Start TimeKeeper -------------------
       timeKeeper <- startTimeKeeper
       startTime <- getTime Realtime
-      return $ AppState backendState timeKeeper startTime openCLLibrary "No Status" 0 state
+      randomField <- makeRandomField rANDOMFIELDsIZE
+      return $ AppState backendState timeKeeper startTime openCLLibrary "No Status" 0 state randomField
 
 closeApplication :: ApplicationMonad s ()
 closeApplication = withIO appBackend closeInterface
@@ -182,13 +186,15 @@ drawFrame cursor frame shapeTree =
         markAppTime "Traverse Shape Tree"
         lift $ mapM_ addPrimBlock blockShapes
         markAppTime "Build Tile Array"
+        randomField <- use appRandomField
         tileArray <- lift $ get
         let pictRefs = shapeState ^. stPictureRefs
             rasterParams = RasterParams library
                                         tileGrid
                                         target
                                         mPictData
-                                        pictRefs
+                                        (shapeState ^. stPictureRefs)
+                                        randomField
             jobInput = RasterJobInput (backgroundColor shapeTree)
                                       shapes
                                       primBag

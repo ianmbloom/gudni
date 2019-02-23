@@ -1,5 +1,6 @@
 // ---------------- Macros, Type definitions and type accessors -----------------------------------
 
+#define STOCHASTIC_FACTOR 10.0f // relative amount of variability in an edge.
 #define MAXTHRESHOLDS 512 // the size of the threshold header and threshold geometry buffers (must be a power of 2)
 #define MAXTHRESHOLDMASK 511 // = MAXTHRESHOLDS - 1
 #define MAXSHAPE 511 // total number of shapes per build. must be one less than the number of bits available.
@@ -402,6 +403,11 @@ inline void popTop(ThresholdState *tS) {
   //DEBUG_IF(printf("popTop\n");)
 }
 
+#define RANDOMFIELD_SIZE 4096
+#define RANDOMFIELD_MASK 0xFFF
+
+#define RANDOM_POS int
+
 typedef struct ParseState {
     LMEM   GROUPID  shapeIndices[MAXSHAPE];        // a mapping from shape bit positions in the shapeStacks to shapeIndices in the tile.
     PMEM SHAPESHACK  shapeStack[SHAPESHACKSECTIONS]; // the current shape Stack. (Each bit represents the presence of a shape in the stack.)
@@ -413,7 +419,7 @@ typedef struct ParseState {
             SPACE2  sectionStart;       // the top of the current vertical section being processed
             SPACE2  sectionEnd;         // the bottom of the current vertical section being processed
              float  pixelY;             // the bottom of the current pixel.
-             COLOR  accColor;           // accumulated color.
+            float8  accColorArea;       // accumulated color and area.
               bool  needHorizontalPass; // did we overrun the number of simultaneous horizontal thresholds.
               bool  inHorizontalPass;   // special mode where we handle too many horizontal thresholds.
                int  thresholdWasAdded;  // used to determine if a shape ever interacted with the column as it's being added.
@@ -424,6 +430,8 @@ typedef struct ParseState {
                int  buildCount;
               bool  debugEnabled;
                int  passCount;
+        RANDOM_POS  randomFieldCursor;
+    CMEM     float *randomField;
   } ParseState;
 
 // Since the continuation array must be allocated by the host and the size of a continuation depends on the size of half2 and bool
@@ -434,7 +442,7 @@ typedef struct ParseState {
 typedef struct Continuation {
     SPACE2 contRenderStart;         // 4
     SPACE2 contRenderEnd;           // 4
-    COLOR contAccColor;            // 16
+    float8 contAccColorArea;       // 32
     int  contYInt;                 // 4
     bool contIsContinued;          // 2
     bool contInHorizontalPass;     // 2
@@ -701,11 +709,20 @@ void nextRenderArea ( PMEM ParseState *pS
                     ,           SPACE  height
                     );
 
+void initRandomField( ParseState *pS
+                    , TileState *tileS
+                    , CMEM float *randomField
+                    );
+
+float getRandom(ParseState *pS);
+
 void initParseState ( PMEM  ParseState *pS
+                    , PMEM  TileState  *tileS
                     ,              int  frameNumber
                     ,             bool  debugEnabled
                     ,     Continuation  cont
                     ,              int  passCount
+                    ,CMEM        float *randomField
                     );
 
 void initTileState ( PMEM TileState *tileS
@@ -739,13 +756,13 @@ void setContinuation(        TileState *tileS
                     ,      Continuation c
                     );
 
-COLOR sectionColor ( PMEM ThresholdState *tS
-                   , PMEM     ParseState *pS
-                   , PMEM     ColorState *cS
-                   , SMEM          Group *groups
-                   , SMEM           Shape *shapeHeap
-                   , SMEM      GEO_ENTRY *shapeRefs
-                   );
+float8 sectionColor ( PMEM ThresholdState *tS
+                    , PMEM     ParseState *pS
+                    , PMEM     ColorState *cS
+                    , SMEM          Group *groups
+                    , SMEM           Shape *shapeHeap
+                    , SMEM      GEO_ENTRY *shapeRefs
+                    );
 
 bool calculatePixel ( PMEM      TileState *tileS
                     , PMEM ThresholdState *tS
@@ -776,6 +793,7 @@ Continuation renderPixelBuffer ( PMEM  TileState *tileS
                                ,            bool  debugEnabled
                                ,             int  passCount
                                ,    Continuation  cont
+                               , CMEM      float *randomField
                                );
 
 void initColorState ( PMEM  ColorState *init
@@ -1889,7 +1907,7 @@ inline Continuation newContinuation() {
     Continuation c;
     c.contRenderStart = (SPACE2)(LEFTBORDER,0);
     c.contRenderEnd  = (SPACE2)(RIGHTBORDER,0); // the lowest vertical position that can be properly rendered with the current list of thresholds.
-    c.contAccColor = TRANSPARENT_COLOR;
+    c.contAccColorArea = (float8)(TRANSPARENT_COLOR,(float4)(0,0,0,0));
     c.contYInt = 0;
     c.contIsContinued = false;
     c.contInHorizontalPass = false;
@@ -1917,7 +1935,7 @@ Continuation makeContinuation(PMEM  ParseState *pS
     Continuation c;
     c.contRenderStart = pS->renderStart;
     c.contRenderEnd   = pS->renderEnd;
-    c.contAccColor    = pS->accColor;
+    c.contAccColorArea = pS->accColorArea;
     c.contYInt        = yInt;
     c.contIsContinued = isContinued;
     c.contInHorizontalPass = pS->inHorizontalPass;
@@ -1934,16 +1952,36 @@ void setContinuation(            TileState *tileS
     *p = c;
 }
 
+void initRandomField( ParseState *pS
+                    , TileState *tileS
+                    , CMEM float *randomField) {
+  // find a random starting point in the field passed on the absolute start position of the column.
+  int start = (tileS->column + (tileS->tileIndex * tileS->tileWidth)) & RANDOMFIELD_MASK;
+  pS->randomFieldCursor = (as_uint(randomField[start]) & RANDOMFIELD_MASK);
+  DEBUG_IF(printf("start %i pS->randomFieldCursor %i tileS->column %i tileS->tileIndex %i tileS->tileWidth %i\n"
+                  ,start   ,pS->randomFieldCursor,   tileS->column,   tileS->tileIndex,   tileS->tileWidth );)
+  pS->randomField = randomField;
+}
+
+float getRandom(ParseState *pS) {
+    pS->randomFieldCursor = (pS->randomFieldCursor + 1) & RANDOMFIELD_MASK;
+    float random = pS->randomField[pS->randomFieldCursor];
+    DEBUG_IF(printf("random %f\n", random);)
+    return random;
+}
+
 void initParseState (PMEM ParseState *pS
+                    ,PMEM TileState  *tileS
                     ,            int  frameNumber
                     ,           bool  debugEnabled
                     ,   Continuation  cont
                     ,            int  passCount
+                    , CMEM     float *randomField
                     ) {
     resetParser(pS);
     pS->renderStart  = cont.contRenderStart;
     pS->renderEnd    = cont.contRenderEnd; // the lowest vertical position that can be properly rendered with the current list of thresholds.
-    pS->accColor     = cont.contAccColor;
+    pS->accColorArea = cont.contAccColorArea;
     pS->inHorizontalPass = cont.contInHorizontalPass;
     pS->needHorizontalPass = cont.contNeedHorizontalPass;
     // if we go below render bottom we must rebuild the threshold list.
@@ -1957,7 +1995,7 @@ void initParseState (PMEM ParseState *pS
     pS->debugEnabled = debugEnabled;
     pS->thresholdWasAdded = false;
     pS->passCount = passCount;
-
+    initRandomField(pS,tileS,randomField);
     DEBUG_HS(printf("[ListStart\n");)
 }
 
@@ -1984,13 +2022,13 @@ void initTileState ( PMEM TileState *tileS
 
 #define DEBUG_NEXTSECTION DEBUG_HS(printf(",\n");showParseStateHs(tS, pS, groups, shapeHeap, color);)
 
-COLOR sectionColor ( PMEM ThresholdState *tS
-                   , PMEM     ParseState *pS
-                   , PMEM     ColorState *cS
-                   , SMEM               Group *groups
-                   , SMEM                Shape *shapeHeap
-                   , SMEM           GEO_ENTRY *shapeRefs
-                   ) {
+float8 sectionColor ( PMEM ThresholdState *tS
+                    , PMEM     ParseState *pS
+                    , PMEM     ColorState *cS
+                    , SMEM               Group *groups
+                    , SMEM                Shape *shapeHeap
+                    , SMEM           GEO_ENTRY *shapeRefs
+                    ) {
     COLOR color = determineColor( pS
                                 , cS
                                 , groups
@@ -1998,9 +2036,11 @@ COLOR sectionColor ( PMEM ThresholdState *tS
                                 , shapeRefs
                                 );
     DEBUG_NEXTSECTION
+    float random = getRandom(pS);
     float area = (pS->sectionEnd.x - pS->sectionStart.x) * (pS->sectionEnd.y - pS->sectionStart.y);
+    float4 adjustedArea = (float4) (area + (area * random * STOCHASTIC_FACTOR));
     //DEBUG_IF(printf("         color: %2.2v4f  area %f \n", color, area);)
-    return color * area;
+    return (float8)(color * adjustedArea, adjustedArea);
 }
 
 #define DEBUG_SHOW_SECTION(rightSide) DEBUG_HS(\
@@ -2149,7 +2189,7 @@ void writePixelGlobal ( PMEM TileState *tileS
                       ,            int  y
                       ) {
     uint colorWord = colorToSolidPixel_Word32_BGRA(color);
-    DEBUG_IF(printf("write %3i    %2.2v4f    %x\n", y, color,colorWord);)
+    //DEBUG_IF(printf("write %3i    %2.2v4f    %x\n", y, color,colorWord);)
     if (column < tileS->tileWidth) {
         int outPos = (mul24(tileS->tileDeltaY + y, tileS->bitmapWidth)) + tileS->tileDeltaX + column;
         out[outPos] = colorWord;
@@ -2157,15 +2197,15 @@ void writePixelGlobal ( PMEM TileState *tileS
 }
 
 #define DEBUG_SECTION DEBUG_IF(float area = (pS->sectionEnd.x - pS->sectionStart.x) * (pS->sectionEnd.y - pS->sectionStart.y);\
-                               printf("next %3i cr %i ae %i area %f c %2.2v4f sStart %2.2v2f sEnd %2.2v2f accC %2.2v4f" \
+                               printf("next %3i cr %i ae %i area %f c %2.2v8f sStart %2.2v2f sEnd %2.2v2f accC %2.2v8f" \
                                      , pS->sectionCount \
                                      , pS->currentThreshold \
                                      , pS->numActive \
                                      , area \
-                                     , color \
+                                     , colorArea \
                                      , pS->sectionStart \
                                      , pS->sectionEnd \
-                                     , pS->accColor); \
+                                     , pS->accColorArea); \
                                showShapeStack(pS->shapeStack); \
                                printf("\n"); \
                                )
@@ -2247,15 +2287,15 @@ bool calculatePixel ( PMEM      TileState *tileS
             //DEBUG_IF(printf("afterV  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
             horizontalAdvance(tS, pS);
             //DEBUG_IF(printf("afterH  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
-            COLOR color = sectionColor( tS
-                                      , pS
-                                      , cS
-                                      , groups
-                                      , shapeHeap
-                                      , shapeRefs
-                                      );
-            pS->accColor += color;
-            DEBUG_SECTION
+            float8 colorArea = sectionColor( tS
+                                           , pS
+                                           , cS
+                                           , groups
+                                           , shapeHeap
+                                           , shapeRefs
+                                           );
+            pS->accColorArea += colorArea;
+            //DEBUG_SECTION
             if (pS->currentThreshold < pS->numActive) {
                 //DEBUG_IF(printf("pass %i %i\n",pS->currentThreshold,headerShapeBit(getHeader(tS, pS->currentThreshold)));)
                 passHeader(getHeader(tS, pS->currentThreshold), pS);
@@ -2301,13 +2341,14 @@ Continuation renderPixelBuffer ( PMEM   TileState *tileS
                                ,             bool  debugEnabled
                                ,              int  passCount
                                ,     Continuation  cont
+                               ,CMEM        float *randomField
                                ) {
     //DEBUG_IF(printf("INDEX %i gTileIndex %i numShapes %i \n", INDEX, gTileIndex, numShapes);)
     //barrier (CLK_LOCAL_MEM_FENCE);
     float x = ((float) column * COLUMNSPACING); // actual x position we are transecting
     ThresholdState tS;
     ParseState pS;
-    initParseState(&pS, frameNumber, debugEnabled, cont, passCount);
+    initParseState(&pS, tileS, frameNumber, debugEnabled, cont, passCount, randomField);
     ColorState cS;
     initColorState( &cS
                   ,  backgroundColor
@@ -2345,8 +2386,9 @@ Continuation renderPixelBuffer ( PMEM   TileState *tileS
             }
             if (!isContinued) {
               // write the accumulated color information to the pixel buffer.
+              float4 color = pS.accColorArea.s0123 / pS.accColorArea.s4567;
               writePixelGlobal ( tileS
-                               , pS.accColor
+                               , color
                                , out
                                , column
                                , yInt
@@ -2355,13 +2397,13 @@ Continuation renderPixelBuffer ( PMEM   TileState *tileS
             //else {
               //DEBUG_IF(printf("skip   %i    %2.2v4f\n\n", yInt, pS.accColor);)
             //}
-            pS.accColor = TRANSPARENT_COLOR;
+            pS.accColorArea = (float8)(TRANSPARENT_COLOR,(float4)(0,0,0,0));
             pS.sectionStart = (SPACE2)(LEFTBORDER,pS.pixelY);
             cS.absolutePosition += (int2)(0,1);
         }
     } // for y
     DEBUG_HSP(printf("]\n");)
-    DEBUG_IF(printf("slotThresholdCount = %i\n",pS.slotThresholdCount);)
+    //DEBUG_IF(printf("slotThresholdCount = %i\n",pS.slotThresholdCount);)
     return cont;
 }
 
@@ -2372,6 +2414,7 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                               , SMEM      Slice *tileHeap
                               , GMEM      uchar *pictureData
                               , CMEM PictureRef *pictureRefs
+                              , CMEM      float *randomField
                               ,           COLOR  backgroundColor
                               , GMEM        uint *out
                               ,             int  bitmapWidth
@@ -2445,6 +2488,7 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                                        ,  debugEnabled
                                        ,  passCount
                                        ,  c
+                                       ,  randomField
                                        );
              }
             //DEBUG_IF(printf("raster\n");showContinuation(c);)
@@ -2720,7 +2764,7 @@ void showShapeColors(      ParseState *pS
 void showContinuation(Continuation c) {
     printf ("        contRenderStart %2i %v2f \n" , (long) &c.contRenderStart        - (long)&c, c.contRenderStart        );
     printf ("          contRenderEnd %2i %v2f \n" , (long) &c.contRenderEnd          - (long)&c, c.contRenderEnd          );
-    printf ("           contAccColor %2i %v4f \n" , (long) &c.contAccColor           - (long)&c, c.contAccColor           );
+    printf ("           contAccColor %2i %v8f \n" , (long) &c.contAccColorArea       - (long)&c, c.contAccColorArea       );
     printf ("               contYInt %2i %i   \n" , (long) &c.contYInt               - (long)&c, c.contYInt               );
     printf ("        contIsContinued %2i %i   \n" , (long) &c.contIsContinued        - (long)&c, c.contIsContinued        );
     printf ("   contInHorizontalPass %2i %i   \n" , (long) &c.contInHorizontalPass   - (long)&c, c.contInHorizontalPass   );

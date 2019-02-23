@@ -5,6 +5,7 @@ module Graphics.Gudni.Raster.Constants
     , dEFAULTNUMMASKS
     , sECTIONsIZE
     , cONTINUATIONaLIGN
+    , rANDOMFIELDsIZE
     )
 where
 
@@ -23,3 +24,6 @@ sECTIONsIZE = 16
 
 cONTINUATIONaLIGN :: CInt
 cONTINUATIONaLIGN = 40
+
+rANDOMFIELDsIZE :: Int
+rANDOMFIELDsIZE = 4096

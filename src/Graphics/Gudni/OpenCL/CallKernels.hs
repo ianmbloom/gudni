@@ -34,6 +34,7 @@ import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Bag
 import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Util.RandomField
 
 import Graphics.Gudni.OpenCL.KernelLibrary
 import Graphics.Gudni.OpenCL.DeviceQuery
@@ -69,6 +70,7 @@ data RasterParams = RasterParams
   , _rpTarget          :: DrawTarget
   , _rpPictData        :: Maybe (Pile Word8)
   , _rpPictRefs        :: [PictureRef PictureMemory]
+  , _rpRandomField     :: RandomField
   }
 makeLenses ''RasterParams
 
@@ -114,6 +116,7 @@ generateCall  :: (KernelArgs
               -> CLKernel
               -> Maybe (Pile Word8)
               -> [PictureRef PictureMemory]
+              -> VS.Vector CFloat
               -> CInt
               -> CInt
               -> CInt
@@ -126,7 +129,7 @@ generateCall  :: (KernelArgs
               -> CInt
               -> a
               -> CL ()
-generateCall state kernel pictData pictRefs tileWidth tileHeight gridWidth bitmapWidth bitmapHeight frame cursor job continuations passCount target =
+generateCall state kernel pictData pictRefs randomField tileWidth tileHeight gridWidth bitmapWidth bitmapHeight frame cursor job continuations passCount target =
     let geometryHeap    = job ^. rJGeometryPile
         shapeHeap       = job ^. rJShapePile
         shapeRefHeap    = job ^. rJShapeRefPile
@@ -144,6 +147,7 @@ generateCall state kernel pictData pictRefs tileWidth tileHeight gridWidth bitma
                       tileHeap
                       pictPile
                       pictRefPile
+                      randomField
                       backgroundColor
                       target
                       bitmapWidth
@@ -227,6 +231,7 @@ raster cursor frame params job =
                     generateCall state (multiTileRasterCL (params ^. rpLibrary))
                                        (params ^. rpPictData)
                                        (params ^. rpPictRefs)
+                                       (params ^. rpRandomField)
                                        tileW
                                        tileH
                                        gridWidth
