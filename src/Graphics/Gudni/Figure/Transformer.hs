@@ -17,7 +17,7 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Box
-import Graphics.Gudni.Figure.Curve
+import Graphics.Gudni.Figure.Outline
 
 import Graphics.Gudni.Util.Debug
 

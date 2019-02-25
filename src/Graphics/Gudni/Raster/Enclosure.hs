@@ -13,6 +13,7 @@ where
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Figure.Outline
 import Graphics.Gudni.Raster.Strand
 import Graphics.Gudni.Raster.StrandLookupTable
 import Graphics.Gudni.Util.StorableM

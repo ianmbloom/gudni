@@ -32,20 +32,20 @@ import Data.Char (ord)
 lPath :: String -> CompoundTree
 lPath name =
   case plotLibrary name of
-    Just path -> ShapeGroup $ RawPlot path
-    Nothing -> glyph 'X'
+    Just path -> SLeaf $ RawPlot path
+    Nothing -> rectangle (Point2 1 1)
 
-glyphR :: Angle DisplaySpace -> Point2 DisplaySpace -> Char -> CompoundTree
-glyphR a p x = tTranslate p . tRotate a . ShapeGroup $ let codepoint = CodePoint . ord $ x in RawGlyph codepoint
+glyphR :: Angle DisplaySpace -> Point2 DisplaySpace -> Glyph DisplaySpace -> CompoundTree
+glyphR a p = tTranslate p . tRotate a . SLeaf . RawGlyph
 
-glyph :: Char -> CompoundTree
-glyph x = ShapeGroup $ let codepoint = CodePoint . ord $ x in RawGlyph codepoint
+glyph :: Glyph DisplaySpace -> CompoundTree
+glyph = SLeaf . RawGlyph
 
 rectangle :: Point2 DisplaySpace -> CompoundTree
-rectangle p = ShapeGroup $ RawRectangle p
+rectangle p = SLeaf $ RawRectangle p
 
 unitSquare :: CompoundTree
-unitSquare = ShapeGroup $ RawRectangle (Point2 1 1)
+unitSquare = SLeaf $ RawRectangle (Point2 1 1)
 
 openRectangle :: DisplaySpace -> Point2 DisplaySpace -> CompoundTree
 openRectangle s p = let strokeDelta = Point2 s s in
@@ -61,7 +61,7 @@ diamond point = let box = makeBox zeroPoint point :: Box DisplaySpace
                 in raw  [Vert True t, Vert True r, Vert True b, Vert True l]
 
 line :: DisplaySpace -> Point2 DisplaySpace -> Point2 DisplaySpace -> CompoundTree
-line s a b = ShapeGroup $ RawLine a b s
+line s a b = SLeaf $ RawLine a b s
 
 makeRow :: Transformable f => DisplaySpace -> [f] -> [f]
 makeRow s = zipWith ($) (map tTranslate $ iterate (^+^ Point2 s 0) zeroPoint)
@@ -78,29 +78,29 @@ increasingAngles = take 23 $ iterate ( ^+^ (15 @@ deg)) (15 @@ deg)
 arc :: Angle DisplaySpace -> CompoundTree
 arc = rawPlot . plotArc
 
-makeLine :: DisplaySpace -> String -> [CompoundTree]
+makeLine :: DisplaySpace -> [Glyph DisplaySpace]-> [CompoundTree]
 makeLine y = makeRow y . map glyph
 
-paraGrid :: DisplaySpace -> String -> [CompoundTree]
-paraGrid s = concat . makeColumn s . map (makeRow s . map glyph) . lines
+paraGrid :: DisplaySpace -> [[Glyph DisplaySpace]] -> [CompoundTree]
+paraGrid s = concat . makeColumn s . map (makeRow s . map glyph)
 
 arcSet :: CompoundTree
 arcSet = foldl1 cAdd . makeGrid 3 6 4 . map arc $ increasingAngles
 
 overlap :: DefaultOverlap o => [STree o t] -> STree o t
-overlap = foldl1 (ShapeOverlap defaultOverlap)
+overlap = foldl1 (SOverlap defaultOverlap)
 
 circle :: CompoundTree
 circle = tTranslateXY 0.0 (-0.5) $ arc fullTurn
 
 solid :: Color -> CompoundTree -> ShapeTree
-solid color = ShapeGroup . SRep 0 (Solid color)
+solid color = SLeaf . SRep 0 (Solid color)
 
 textureWith :: PictureRef PictId -> CompoundTree -> ShapeTree
-textureWith pict = ShapeGroup . SRep 0 (Texture pict)
+textureWith pict = SLeaf . SRep 0 (Texture pict)
 
 raw :: [Vertex DisplaySpace] -> CompoundTree
-raw = ShapeGroup . Raw
+raw = SLeaf . Raw
 
 rawPlot :: Plot DisplaySpace -> CompoundTree
-rawPlot = ShapeGroup . RawPlot
+rawPlot = SLeaf . RawPlot

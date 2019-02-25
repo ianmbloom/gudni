@@ -54,7 +54,7 @@ data BenchmarkState = BenchmarkState
   , _statePlayhead    :: DisplaySpace
   , _stateCursor      :: Point2 IntSpace
   , _statePictures    :: (Maybe (Pile Word8), [PictureMemory])
-  , _stateTests       :: [(String, BenchmarkState -> ShapeTree)]
+  , _stateTests       :: [(String, BenchmarkState -> GlyphMonad IO ShapeTree)]
   , _stateCurrentTest :: Int
   , _stateStep        :: Int
   , _stateFrameNumber :: Int
@@ -118,19 +118,19 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("concentricSquares2", concentricSquares2  ) -- 16 -
            , ("concentricSquares3", concentricSquares3  ) -- 17 -
            , ("simpleGlyph"       , simpleGlyph         ) -- 18 -
-           , ("simpleGlyph2"      , simpleGlyph2        ) -- 19 -
-           , ("simpleArc"         , simpleArc           ) -- 20 -
-           , ("sixPointRectangle" , sixPointRectangle   ) -- 21 -
-           , ("tinySquare"        , tinySquare          ) -- 22 -
-           , ("anotherThreshold"  , anotherThreshold    ) -- 23 -
-           , ("subtractDiamond "  , subtractDiamond     ) -- 24 -
-           , ("fuzz testing 5"    , fuzzy5              ) -- 25 -
-           , ("maxThresholdTest"  , maxThresholdTest    ) -- 26 -
-           , ("maxShapeTest"      , maxShapeTest        ) -- 27 -
+           , ("simpleArc"         , simpleArc           ) -- 19 -
+           , ("sixPointRectangle" , sixPointRectangle   ) -- 20 -
+           , ("tinySquare"        , tinySquare          ) -- 21 -
+           , ("anotherThreshold"  , anotherThreshold    ) -- 22 -
+           , ("subtractDiamond "  , subtractDiamond     ) -- 23 -
+           , ("fuzz testing 5"    , fuzzy5              ) -- 24 -
+           , ("maxThresholdTest"  , maxThresholdTest    ) -- 25 -
+           , ("maxShapeTest"      , maxShapeTest        ) -- 26 -
            ]
 
-maxThresholdTest :: BenchmarkState -> ShapeTree
+maxThresholdTest :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 maxThresholdTest state =
+    return $
     let frame = view stateFrameNumber state
     in
     tTranslateXY (-1) 1 .
@@ -140,8 +140,9 @@ maxThresholdTest state =
     overlap $
     makeGrid 2 1 2 $ repeat (rectangle (Point2 1000 1))
 
-maxShapeTest :: BenchmarkState -> ShapeTree
+maxShapeTest :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 maxShapeTest state =
+     return .
      overlap . reverse .
      makeGrid 1 1 (state ^. stateStep + 2000 + 1) .
      concat .
@@ -153,68 +154,61 @@ maxShapeTest state =
 
 
 fromJust (Just x) = x
-plots :: BenchmarkState -> ShapeTree
-plots state = tTranslateXY 100 100 . tScale 30 . overlap . makeGrid 10 16 1 . catMaybes . map (fmap (solid purple . rawPlot) . plotLibrary) $ turtleNames
+plots :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+plots state = return $
+              tTranslateXY 100 100 . tScale 30 . overlap . makeGrid 10 16 1 . catMaybes . map (fmap (solid purple . rawPlot) . plotLibrary) $ turtleNames
 
-fuzzy2 :: BenchmarkState -> ShapeTree
-fuzzy2 state = let time = view stateLastTime state
+fuzzy2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+fuzzy2 state = return $
+               let time = view stateLastTime state
                in  tTranslateXY 500 500 .
                    overlap $ evalRand (sequence . replicate 16 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
-fuzzy3 :: BenchmarkState -> ShapeTree
-fuzzy3 state = let time = view stateLastTime state
+fuzzy3 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+fuzzy3 state = return $
+               let time = view stateLastTime state
                in  tTranslateXY (-100) (-100) .
                    overlap $
                    evalRand (sequence . replicate 4 $ fuzzyCurve (makePoint 1440 900) 200) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
-fuzzy4 :: BenchmarkState -> ShapeTree
-fuzzy4 state = let time = view stateLastTime state
+fuzzy4 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+fuzzy4 state = return $
+               let time = view stateLastTime state
                in  tTranslateXY (-100) (-100) .
                    overlap $
                    evalRand (sequence . replicate 5000 $ fuzzyCircle (makePoint 1440 900) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
-fuzzy5 :: BenchmarkState -> ShapeTree
-fuzzy5 state = let time = view stateLastTime state
+fuzzy5 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+fuzzy5 state = return $
+               let time = view stateLastTime state
                in  overlap $
                    evalRand (sequence . replicate 100 $ fuzzySquare (makePoint 100 100) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
-fuzzy6 :: BenchmarkState -> ShapeTree
-fuzzy6 state = let time = view stateLastTime state
+fuzzy6 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+fuzzy6 state = return $
+               let time = view stateLastTime state
                in  overlap $
                    evalRand (sequence . replicate 5000 $ fuzzySquare (makePoint 1440 900) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
-benchmark1 :: BenchmarkState -> ShapeTree
+benchmark1 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 benchmark1 state =
-    let dSize         = state ^. stateScale
-        angle         = normalizeAngle ((((fromIntegral $ state ^. stateStep) / 100) + (state ^. statePlayhead)) @@ turn)
-        defaultString = cycle "***O***X" --"ALl WoRk AnD nO pLaY mAkEs JaCk A dUlL bOy" ++ ['a'..'z']++['A'..'Z']++['0'..'9']++"!@#$%^&*()_+-={}[]:;\"'<>,./?\\|"
-        angles        = {-repeat (0 @@ deg) -} map (normalizeAngle . (angle ^+^) . (^*0.5) . (@@ deg) ) [0..]
-        textGrid  :: CompoundTree
-        textGrid   = tScale dSize . foldl1 cAdd . makeGrid 0.5 50 50 . zipWith tRotate angles . map glyph $ defaultString
-        subtractor:: CompoundTree
-        subtractor = tScale (dSize * 15) . foldl1 cAdd . makeGrid 0.5 4 4 . map glyph . cycle $ "*" -- take 50 $ cycle $ "+@$" -- message
-    in  tTranslateXY 0 0 .
-        tScale 50 .
-        solid (transparent 1.0 black) $
-        cSubtract textGrid subtractor
+    do defaultGlyphs <- glyphString "***O***X" --"ALl WoRk AnD nO pLaY mAkEs JaCk A dUlL bOy" ++ ['a'..'z']++['A'..'Z']++['0'..'9']++"!@#$%^&*()_+-={}[]:;\"'<>,./?\\|"
+       subtractorGlyphs <- glyphString "*"
+       let dSize         = state ^. stateScale
+           angle         = normalizeAngle ((((fromIntegral $ state ^. stateStep) / 100) + (state ^. statePlayhead)) @@ turn)
+           defaultString = cycle $ defaultGlyphs
+           angles        = {-repeat (0 @@ deg) -} map (normalizeAngle . (angle ^+^) . (^*0.5) . (@@ deg) ) [0..]
+           textGrid  :: CompoundTree
+           textGrid   = tScale dSize . foldl1 cAdd . makeGrid 0.5 50 50 . zipWith tRotate angles . map glyph $ defaultString
+           subtractor:: CompoundTree
+           subtractor = tScale (dSize * 15) . foldl1 cAdd . makeGrid 0.5 4 4 . map glyph . cycle $ subtractorGlyphs -- "*" -- take 50 $ cycle $ "+@$" -- message
+       return $ tTranslateXY 0 0 .
+                tScale 50 .
+                solid (transparent 1.0 black) $
+                cSubtract textGrid subtractor
 
-benchmarkfault :: BenchmarkState -> ShapeTree
-benchmarkfault state =
-    let dSize         = state ^. stateScale
-        angle         = normalizeAngle ((((fromIntegral $ state ^. stateStep + 298) / 100) + (state ^. statePlayhead)) @@ turn)
-        defaultString = (take 150 $ cycle " ") ++ (take 50 $ cycle $ "*") -- "***O***X" --"ALl WoRk AnD nO pLaY mAkEs JaCk A dUlL bOy" ++ ['a'..'z']++['A'..'Z']++['0'..'9']++"!@#$%^&*()_+-={}[]:;\"'<>,./?\\|"
-        angles        = {-repeat (0 @@ deg) -} map (normalizeAngle . (angle ^+^) . (^*0.5) . (@@ deg) ) [0..]
-        textGrid  :: CompoundTree
-        textGrid   = tScale dSize . foldl1 cAdd . makeGrid 0.5 50 50 . zipWith tRotate angles . map glyph $ defaultString
-        subtractor:: CompoundTree
-        subtractor = tScale (dSize * 15) . foldl1 cAdd . makeGrid 0.5 4 4 . map glyph . cycle $ "*" -- take 50 $ cycle $ "+@$" -- message
-    in  tTranslate (Point2 (-247) 0) .
-        tScale 25 .
-        solid (transparent 1.0 black) $
-        textGrid -- cSubtract textGrid subtractor
-
-rectGrid :: BenchmarkState -> ShapeTree
-rectGrid state =
+rectGrid :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+rectGrid state = return $
     let grid  :: CompoundTree
         grid   = foldl1 cContinue . makeGrid 1 100 100 . repeat . rectangle $ Point2 0.5 0.5
     in
@@ -223,16 +217,8 @@ rectGrid state =
         solid (transparent 1.0 white) $
         grid
 
-rectGrid2 :: BenchmarkState -> ShapeTree
-rectGrid2 state =
-    let grid  :: CompoundTree
-        grid   = foldl1 cContinue . makeGrid 1 100 100 . repeat . rectangle $ Point2 0.5 0.5
-    in
-        solid (transparent 1.0 white) $
-        grid
-
-simpleKnob :: BenchmarkState -> ShapeTree
-simpleKnob state =
+simpleKnob :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+simpleKnob state = return $
         tScale 100 .
         solid (transparent 1.0 (dark $ dark gray)) .
         raw $
@@ -241,8 +227,8 @@ simpleKnob state =
         , Vert True  $ makePoint 0 2
         ]
 
-hourGlass :: BenchmarkState -> ShapeTree
-hourGlass state =
+hourGlass :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+hourGlass state = return $
   let step = fromIntegral $ state ^. stateStep
   in    tTranslateXY 0 0 .
         tTranslateXY 0.5 0.52 .
@@ -256,30 +242,30 @@ hourGlass state =
         ]
 
 -- Very simple box
-simpleRectangle :: BenchmarkState -> ShapeTree
-simpleRectangle state =
+simpleRectangle :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+simpleRectangle state = return $
   tTranslateXY (0.35 + 0.1) 0 .
   tRotate (45 @@ deg) .
   tScale 1 .
   solid (transparent 1.0 white) $
   rectangle (Point2 2 2)
 
-testPict :: BenchmarkState -> ShapeTree
-testPict state =
+testPict :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+testPict state = return $
         overlap [ textureWith (PictureRef (Point2 0 0) 0 0) $ tTranslateXY 100 100 (cSubtract (tScale 200 circle) (tScale 100 circle))
                 , tTranslateXY 50 50 $ solid (transparent 0.2 blue) $ rectangle (Point2 40  2000)]
 
 -- this caused a precision error
-tallRectangle :: BenchmarkState -> ShapeTree
-tallRectangle state =
+tallRectangle :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+tallRectangle state = return $
         tTranslateXY 0 1 .
         --tRotate (3 @@ deg) .
         solid (transparent 1.0 white) $
         rectangle (Point2 0.5 10)
 
 -- Color Overlays with subtraction.
-openSquareOverlap3 :: BenchmarkState -> ShapeTree
-openSquareOverlap3 state =
+openSquareOverlap3 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+openSquareOverlap3 state = return $
     let angle = view statePlayhead state @@ turn
     in  tTranslateXY 400 400 .
         tScale 50 $
@@ -288,8 +274,8 @@ openSquareOverlap3 state =
                 , (tTranslateXY 8 8 . tRotate (angle ^/ 3) $ solid (transparent 0.5 green  ) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
                 ]
 
-stackOfSquares :: BenchmarkState -> ShapeTree
-stackOfSquares state =
+stackOfSquares :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+stackOfSquares state = return $
         overlap
           [ (tTranslateXY 0 0  . solid (transparent 1.0 red    ) $ rectangle (Point2 4 4) )
           , (tTranslateXY 0 4  . solid (transparent 1.0 green  ) $ rectangle (Point2 4 4) )
@@ -297,71 +283,62 @@ stackOfSquares state =
           --, (tTranslateXY 0 12 . solid (transparent 1.0 purple ) $ rectangle (Point2 4 4) )
           ]
 
-openSquareOverlap2 :: BenchmarkState -> ShapeTree
-openSquareOverlap2 state =
+openSquareOverlap2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+openSquareOverlap2 state = return $
         tScale 0.25 $
         overlap [ (tTranslateXY 0 0 . solid (transparent 0.25 blue  ) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
                 , (tTranslateXY 8 8 . solid (transparent 1.0  orange) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
                 ]
 
-openSquare :: BenchmarkState -> ShapeTree
-openSquare state =
+openSquare :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+openSquare state = return $
     solid (transparent 0.5 white) $
           cSubtract (rectangle (Point2 5 5))
                     (tTranslate (Point2 1 1) $ rectangle (Point2 3 3))
 
-concentricSquares2 :: BenchmarkState -> ShapeTree
-concentricSquares2 state =
+concentricSquares2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+concentricSquares2 state = return $
         overlap [ (tTranslateXY 0 0 . solid (transparent 1.0 red ) $ cSubtract (rectangle (Point2 5 5)) (tTranslate (Point2 1 1) $ rectangle (Point2 3 3) ) )
                 , (tTranslateXY 1 1 . solid (transparent 1.0 blue) $ cSubtract (rectangle (Point2 3 3)) (tTranslate (Point2 1 1) $ rectangle (Point2 1 1) ) )
                 ]
 
-concentricSquares3 :: BenchmarkState -> ShapeTree
-concentricSquares3 state =
+concentricSquares3 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+concentricSquares3 state = return $
         overlap [ (tTranslateXY 0 0 . solid (transparent 1.0 red   ) $ cSubtract (rectangle (Point2 10 10)) (tTranslate (Point2 2 2) $ rectangle (Point2 6 6) ) )
                 , (tTranslateXY 2 2 . solid (transparent 1.0 green ) $ cSubtract (rectangle (Point2  6  6)) (tTranslate (Point2 2 2) $ rectangle (Point2 2 2) ) )
                 , (tTranslateXY 4 4 . solid (transparent 1.0 blue  ) $            rectangle (Point2  2  2))
                 ]
 
-simpleGlyph :: BenchmarkState -> ShapeTree
+simpleGlyph :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 simpleGlyph state =
-  let character = chr $ state ^. stateStep
-  in  tTranslateXY 0 0 .
-      tRotate (6.28248 @@ rad) .
-      tScale 20 .
-      solid (transparent 1.0 white) $
-      glyph character
+  do let character = chr $ state ^. stateStep
+     characterGlyph <- getGlyph . CodePoint . ord $ character
+     return .   tTranslateXY 0 0 .
+                tRotate (6.28248 @@ rad) .
+                tScale 20 .
+                solid (transparent 1.0 white) $
+                glyph characterGlyph
 
-simpleGlyph2 :: BenchmarkState -> ShapeTree
-simpleGlyph2 state =
-  let character = chr 67
-  in  tTranslateXY (-18.90004) 1.6 .
-      tTranslateXY (-1.98000) (-13.46012) .
-      tRotate (6.22548 @@ rad) .
-      tScale 33 .
-      solid (transparent 1.0 $ light purple) $
-      glyph character
-
-simpleArc :: BenchmarkState -> ShapeTree
-simpleArc state =
+simpleArc :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+simpleArc state = return $
         tScale 100 .
         solid (transparent 1.0 $ dark gray) $
         arc (0.3 @@ turn)
 
-sixPointRectangle :: BenchmarkState -> ShapeTree
-sixPointRectangle state =
+sixPointRectangle :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+sixPointRectangle state = return $
         solid (transparent 1.0 (dark gray)) $
         raw [Vert2 True 0 0, Vert2 True 1 0, Vert2 True 2 0
             ,Vert2 True 2 1, Vert2 True 1 1, Vert2 True 0 1
             ]
 
-tinySquare :: BenchmarkState -> ShapeTree
-tinySquare state =
+tinySquare :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+tinySquare state = return $
         solid red $
         rectangle (Point2 2 2)
 
-anotherThreshold :: BenchmarkState -> ShapeTree
-anotherThreshold state =
+anotherThreshold :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+anotherThreshold state = return $
     solid white $
     overlap [ raw  [Vert2 True (-0.2) 0.0, Vert2 True   1.2  1.4
                    ,Vert2 True   1.2  1.6, Vert2 True (-0.2) 0.2
@@ -371,8 +348,8 @@ anotherThreshold state =
                    ]
             ]
 
-subtractDiamond :: BenchmarkState -> ShapeTree
-subtractDiamond state =
+subtractDiamond :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+subtractDiamond state = return $
     solid white $
     cSubtract (diamond $ makePoint 8 8) (tTranslateXY 2 0 $ diamond $ makePoint 8 8)
 

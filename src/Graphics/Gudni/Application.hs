@@ -83,11 +83,11 @@ class Model s where
   shouldLoop      :: s -> Bool
   fontFile        :: s -> IO String
   modelCursor     :: s -> Point2 IntSpace
-  constructFigure :: Monad m => s -> String -> m (ShapeTreeRoot, String)
+  constructFigure :: s -> String -> GlyphMonad IO (ShapeTreeRoot, String)
   updateModel     :: Monad m => Int -> SimpleTime -> [Input (Point2 IntSpace)] -> s -> m s
   pictureData     :: s -> IO (Maybe (Pile Word8), [PictureMemory])
 
-type ApplicationMonad s = StateT (ApplicationState s) (TileArrayMonad IO)
+type ApplicationMonad s = StateT (ApplicationState s) (TileArrayMonad (EnclosureMonad (GlyphMonad IO)))
 
 runApplicationMonad = flip evalStateT
 
@@ -160,7 +160,7 @@ processState elapsedTime inputs =
         else appMessage $ show state ++ show inputs
 
         --shapeTree <- lift . evalRandIO $ fuzz 5000
-        (shapeTree, textForm) <- constructFigure state status
+        (shapeTree, textForm) <- lift . lift . lift $ constructFigure state status
         --appMessage $ "ShapeTree " ++ show shapeTree
         --lift . putStrLn $ textForm
         markAppTime "Build State"

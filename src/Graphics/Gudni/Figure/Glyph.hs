@@ -6,11 +6,13 @@
 module Graphics.Gudni.Figure.Glyph
   ( CodePoint (..)
   , Glyph (..)
+  , glyphHeight
   , GlyphCache (..)
   , emptyGlyphCache
   , GlyphMonad (..)
   , runGlyphMonad
   , getGlyph
+  , glyphString
   , addFont
   )
 where
@@ -53,8 +55,17 @@ data Glyph a =
   Glyph
   { glyphVertices        :: [[Point2 a]]
   , glyphAdvanceWidth    :: Ortho XDimension a
-  , glyphHeight          :: Ortho YDimension a
-  } deriving (Show, Eq)
+  , glyphAscent          :: Ortho YDimension a
+  , glyphDescent         :: Ortho YDimension a
+  } deriving (Show, Eq, Ord)
+
+glyphHeight glyph = glyphAscent glyph + glyphDescent glyph
+
+instance Hashable a => Hashable (Glyph a) where
+    hashWithSalt s (Glyph  a b c d) = s `hashWithSalt` a `hashWithSalt` b `hashWithSalt` c `hashWithSalt` d
+
+instance NFData a => NFData (Glyph a) where
+  rnf (Glyph a b c d ) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()
 
 data GlyphCache =
   GlyphCache
@@ -112,7 +123,11 @@ getGlyph codepoint =
                 glyph :: Glyph DisplaySpace
                 glyph = Glyph { glyphVertices        = shape
                               , glyphAdvanceWidth    = Ortho $ realToFrac advance * fontScaleFactor
-                              , glyphHeight          = Ortho $ realToFrac height  * fontScaleFactor
+                              , glyphAscent          = Ortho $ realToFrac ascent  * fontScaleFactor
+                              , glyphDescent         = Ortho $ realToFrac descent * fontScaleFactor
                               }
             in  do  gCMap .= M.insert codepoint glyph dict
                     return glyph
+
+glyphString :: (MonadState GlyphCache m, Monad m) => String -> m [Glyph DisplaySpace]
+glyphString = mapM (getGlyph . CodePoint . ord)

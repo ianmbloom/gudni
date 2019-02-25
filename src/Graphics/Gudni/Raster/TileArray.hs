@@ -52,9 +52,9 @@ data TileArray = TileArray
   }
 makeLenses ''TileArray
 
-type TileArrayMonad m = StateT TileArray (EnclosureMonad m)
+type TileArrayMonad m = StateT TileArray m
 
-runTileArrayMonad :: MonadIO m => TileArrayMonad m () -> EnclosureMonad m ()
+runTileArrayMonad :: MonadIO m => TileArrayMonad m () -> m ()
 runTileArrayMonad code = do tileArray <- liftIO $ newTileArray tILEsIZE zeroPoint
                             runStateT code tileArray
                             liftIO $ freeTileArray tileArray
@@ -111,7 +111,7 @@ newTileArray tileSize screenSize =
                        , _tAGrid = tileGrid
                        }
 
-resizeTileArray :: Point2 DisplaySpace -> TileArrayMonad IO ()
+resizeTileArray :: MonadIO m => Point2 DisplaySpace -> TileArrayMonad m ()
 resizeTileArray displaySize =
   do  tileArray <- get
       let oldDisplaySize = tileArray ^. tAGrid . tGScreenSize
@@ -137,11 +137,12 @@ freeTileArray tileArray = mapM_ (\ i -> do tile <- readArray (tileArray ^. tArr)
 findTile :: Ortho XDimension IntSpace -> Ortho YDimension IntSpace -> Ortho XDimension IntSpace -> Int
 findTile offsetGridX offsetGridY gridSizeX = fromIntegral $ unOrtho offsetGridX + unOrtho offsetGridY * unOrtho gridSizeX
 
-addPrimToTileArray :: Ortho XDimension IntSpace
+addPrimToTileArray :: MonadIO m
+                   => Ortho XDimension IntSpace
                    -> PrimId
                    -> Ortho YDimension IntSpace
                    -> Ortho XDimension IntSpace
-                   -> TileArrayMonad IO ()
+                   -> TileArrayMonad m ()
 addPrimToTileArray gridSizeX primId offsetGridY offsetGridX =
   do tileArray <- get
      -- get the tile index
@@ -154,7 +155,7 @@ addPrimToTileArray gridSizeX primId offsetGridY offsetGridX =
                  writeArray (tileArray ^. tArr) i (Tile tilePrims')
 
 {-# INLINE addPrimBlock #-}
-addPrimBlock :: (Block, PrimId) -> TileArrayMonad IO ()
+addPrimBlock :: MonadIO m => (Block, PrimId) -> TileArrayMonad m ()
 addPrimBlock (block, primId) =
   -- iterate over all of the tiles covered by the block
     do  tileArray <- get
@@ -168,13 +169,13 @@ readTile array index =
     do liftIO $ do tile <- readArray (array ^. tArr) index
                    pileToList (tilePrims tile)
 
-resetTile :: Int -> TileArrayMonad IO ()
+resetTile :: MonadIO m => Int -> TileArrayMonad m ()
 resetTile index =
     do array <- use tArr
        liftIO $ do (Tile prims) <- readArray array index
                    let prims'  = resetPile prims
                    writeArray array index (Tile prims')
 
-resetTileArray :: TileArrayMonad IO ()
+resetTileArray :: MonadIO m => TileArrayMonad m ()
 resetTileArray = do indices <- tileArrayIndices <$> get
                     traverse_ resetTile =<< liftIO indices

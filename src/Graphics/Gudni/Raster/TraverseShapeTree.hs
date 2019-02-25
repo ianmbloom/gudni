@@ -46,9 +46,9 @@ import Data.List
 
 import Control.Parallel.Strategies
 
-type EnclosureMonad m = StateT (CurveTable, Int) (GlyphMonad m)
+type EnclosureMonad m = StateT (CurveTable, Int) m
 
-runEnclosureMonad :: (Monad m) => EnclosureMonad m a -> GlyphMonad m a
+runEnclosureMonad :: (Monad m) => EnclosureMonad m a -> m a
 runEnclosureMonad code =
   do let curveTable = buildCurveTable sECTIONsIZE
      (evalStateT code) (curveTable, sECTIONsIZE)
@@ -137,7 +137,7 @@ parseShapeTree :: (Ord token)
                =>                       STree overlap (SRep token (PictureRef PictId) a)
                -> ShapeTreeMonad token (STree overlap (SRep GroupId PictId            a))
 parseShapeTree = \case
-  ShapeGroup (SRep token substance compound) ->
+  SLeaf (SRep token substance compound) ->
       do  shapeId  <- use stGroupId
           stGroupId += 1
           tokenMap <- use stTokenMap
@@ -154,12 +154,12 @@ parseShapeTree = \case
                      stCurrentPictureRef += 1
                      return . Texture . fromIntegral $ current
                  Solid color -> return $ Solid color
-          return $ ShapeGroup (SRep shapeId colorOrPicture compound)
-  ShapeTransform t child   -> ShapeTransform t <$> parseShapeTree child
-  ShapeOverlap overlap above below ->
+          return $ SLeaf (SRep shapeId colorOrPicture compound)
+  STransform t child   -> STransform t <$> parseShapeTree child
+  SOverlap overlap above below ->
       do  above' <- parseShapeTree above
           below' <- parseShapeTree below
-          return $ ShapeOverlap overlap above' below'
+          return $ SOverlap overlap above' below'
 
 instance Combinable () [(ShapeHeader, [(Primitive, [Outline DisplaySpace])])] where
   combine () over under = over ++ under
@@ -175,21 +175,21 @@ instance Combinable CombineType [(CombineType, [Outline DisplaySpace])] where
 transformShapeTree :: (Transformable a)
                    => STree o a -> STree o a
 transformShapeTree = \case
-  ShapeGroup rep -> ShapeGroup rep
-  ShapeTransform t child -> fmap (applyTransformType t) $ transformShapeTree child
-  ShapeOverlap overlap above below ->
+  SLeaf rep -> SLeaf rep
+  STransform t child -> fmap (applyTransformType t) $ transformShapeTree child
+  SOverlap overlap above below ->
      let above' = transformShapeTree above
          below' = transformShapeTree below
-     in  ShapeOverlap overlap above' below'
+     in  SOverlap overlap above' below'
 
 combineShapeTree :: Combinable o a => STree o a -> a
 combineShapeTree = \case
-  ShapeGroup rep -> rep
-  ShapeOverlap overlap above below ->
+  SLeaf rep -> rep
+  SOverlap overlap above below ->
      let above' = combineShapeTree above
          below' = combineShapeTree below
      in  combine overlap above' below'
-  ShapeTransform t child -> error "shapeTransforms should be removed before combining"
+  STransform t child -> error "shapeTransforms should be removed before combining"
 
 checkContinue :: Bool -> CombineType
 checkContinue isContinue = if isContinue then CombineContinue else CombineAdd
@@ -212,9 +212,6 @@ mkPrimitive token substance (combineType, rep) = (Primitive (substanceToSubstanc
 buildPrimitives :: SRep GroupId PictId [(CombineType, a)] -> (ShapeHeader, [(Primitive, a)])
 buildPrimitives (SRep token substance rep) = (ShapeHeader substance, map (mkPrimitive token substance) rep)
 
-overCompound f shapeRep  =
-  do compound' <- f (_shapeCompoundTree shapeRep)
-     return $ shapeRep {_shapeCompoundTree = compound'}
 
 defaultCombineType a = [(CombineAdd, a)]
 
@@ -234,8 +231,8 @@ traverseShapeTree :: (Monad m)
 traverseShapeTree pictureMems tileGrid (ShapeRoot backgroundColor shapeTree) =
     do  (curveTable, sectionSize) <- get
         let (parsedShapeTree, shapeTreeState) = evalShapeTreeMonad pictureMems (parseShapeTree shapeTree)
-        outlineTree <- lift $ traverse (overCompound (traverse rawShapeToCurve)) parsedShapeTree
-        let combinedCompounds = fmap (over shapeCompoundTree (combineShapeTree . fmap defaultCombineType . transformShapeTree)) outlineTree
+            outlineTree = fmap (over shapeCompoundTree (fmap rawShapeToCurve)) parsedShapeTree
+            combinedCompounds = fmap (over shapeCompoundTree (combineShapeTree . fmap defaultCombineType . transformShapeTree)) outlineTree
             curveShapes :: [(ShapeHeader, [(Primitive, [Outline DisplaySpace])])]
             curveShapes = combineShapeTree . fmap (pure . buildPrimitives) . transformShapeTree $ combinedCompounds
             blockPrimEnclosures = parMap rpar {- map -} (makeCurveEnclosures curveTable sectionSize tileGrid) $ map snd curveShapes

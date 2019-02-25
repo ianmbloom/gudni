@@ -33,7 +33,7 @@ import System.IO.Silently
 
 import System.Info
 
-getTest :: BenchmarkState -> (String, BenchmarkState -> ShapeTree)
+getTest :: BenchmarkState -> (String, BenchmarkState -> GlyphMonad IO ShapeTree)
 getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
@@ -57,19 +57,21 @@ instance Model BenchmarkState where
                             dt = realToFrac timeDelta * realToFrac speed
                         statePlayhead %= (`f` dt)
     constructFigure state status =
-        let test = snd $ getTest state
-            tree = transformFromState test state
-            cursor size thickness = tTranslate (convert $ _stateCursor state) .
-                                    solid (transparent 0.5 red) $
-                                    cAdd (tTranslateXY (-size/2) 0 $ rectangle $ Point2 size thickness)
-                                         (tTranslateXY 0 (-size/2) $ rectangle $ Point2 thickness size)
-            withCursor = if False then overlap [cursor 100 1, tree] else tree
-            statusTree = statusDisplay state status
-            withStatus = if True then overlap [statusTree, withCursor] else withCursor
-        in  return (ShapeRoot gray withStatus, "textForm")
+        do  test <- (snd $ getTest state) state
+            testName <- glyphString (fst $ getTest state)
+            statusGlyphs <- mapM glyphString $ lines status
+            let tree = transformFromState test state
+                cursor size thickness = tTranslate (convert $ _stateCursor state) .
+                                        solid (transparent 0.5 red) $
+                                        cAdd (tTranslateXY (-size/2) 0 $ rectangle $ Point2 size thickness)
+                                             (tTranslateXY 0 (-size/2) $ rectangle $ Point2 thickness size)
+                withCursor = if False then overlap [cursor 100 1, tree] else tree
+                statusTree = statusDisplay state testName statusGlyphs
+                withStatus = if True then overlap [statusTree, withCursor] else withCursor
+            return (ShapeRoot gray withStatus, "textForm")
     pictureData state = return $ state ^. statePictures
 
-statusDisplay state status =
+statusDisplay state testName status =
     tTranslateXY 1800 800 . --3200 2100 .
     tRotate (45 @@ deg) .
     tTranslate (state ^. stateDelta) .
@@ -77,16 +79,14 @@ statusDisplay state status =
     solid (dark red) .
     overlap .
     paraGrid 1 $
-    fst (getTest state) ++
-    "\n" ++
+    testName :
     status
 
-transformFromState :: (BenchmarkState -> ShapeTree) -> BenchmarkState -> ShapeTree
-transformFromState construction state =
+transformFromState :: ShapeTree -> BenchmarkState -> ShapeTree
+transformFromState constructed state =
   let sc    = view stateScale state
       delta = view stateDelta state
       angle = view stateAngle state
-      constructed = construction state
   in  tTranslate delta .
       tRotate angle .
       tScale sc $

@@ -2,8 +2,8 @@ module Graphics.Gudni.Figure
   ( module Graphics.Gudni.Figure.Angle
   , module Graphics.Gudni.Figure.Box
   , module Graphics.Gudni.Figure.Color
-  , module Graphics.Gudni.Figure.Curve
   , module Graphics.Gudni.Figure.Glyph
+  , module Graphics.Gudni.Figure.Outline
   , module Graphics.Gudni.Figure.Picture
   , module Graphics.Gudni.Figure.Plot
   , module Graphics.Gudni.Figure.Point
@@ -17,8 +17,8 @@ where
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Color
-import Graphics.Gudni.Figure.Curve
 import Graphics.Gudni.Figure.Glyph
+import Graphics.Gudni.Figure.Outline
 import Graphics.Gudni.Figure.Picture
 import Graphics.Gudni.Figure.Plot
 import Graphics.Gudni.Figure.Point

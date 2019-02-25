@@ -30,6 +30,7 @@ module Graphics.Gudni.Figure.Box
   , translateBox
   , scaleBox
   , makeBox
+  , Boxable
   ) where
 
 import Graphics.Gudni.Figure.Space

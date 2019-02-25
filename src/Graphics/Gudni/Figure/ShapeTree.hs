@@ -58,9 +58,9 @@ import Foreign.C.Types (CInt, CFloat, CUInt)
 import Foreign.Storable
 
 data STree overlap rep where
-  ShapeGroup     :: rep -> STree overlap rep
-  ShapeTransform :: TransformType -> STree overlap rep -> STree overlap rep
-  ShapeOverlap   :: overlap -> STree overlap rep -> STree overlap rep -> STree overlap rep
+  SLeaf     :: rep -> STree overlap rep
+  STransform :: TransformType -> STree overlap rep -> STree overlap rep
+  SOverlap   :: overlap -> STree overlap rep -> STree overlap rep -> STree overlap rep
   deriving (Show)
 
 data STreeRoot token substance rep = ShapeRoot
@@ -112,14 +112,14 @@ invertCombineType combineType =
         CombineSubtract -> CombineAdd
         CombineContinue -> CombineContinue
 
-cAdd      = ShapeOverlap CombineAdd
-cSubtract = ShapeOverlap CombineSubtract
-cContinue = ShapeOverlap CombineContinue
+cAdd      = SOverlap CombineAdd
+cSubtract = SOverlap CombineSubtract
+cContinue = SOverlap CombineContinue
 
 instance Transformable (STree o rep) where
-  tTranslate p = ShapeTransform (Translate p)
-  tRotate    r = ShapeTransform (Rotate r)
-  tScale     s = ShapeTransform (Scale s)
+  tTranslate p = STransform (Translate p)
+  tRotate    r = STransform (Rotate r)
+  tScale     s = STransform (Scale s)
 
 instance Transformable rep => Transformable (SRep token substance rep) where
   tTranslate p = mapShapeRep (tTranslate p)
@@ -128,22 +128,22 @@ instance Transformable rep => Transformable (SRep token substance rep) where
 ---------------------------- Instances -------------------------------------
 
 instance Functor (STree overlap) where
-  fmap f (ShapeGroup child)                 = ShapeGroup $ f child
-  fmap f (ShapeTransform t child)           = ShapeTransform t  $ fmap f child
-  fmap f (ShapeOverlap overlap above below) = ShapeOverlap overlap (fmap f above) (fmap f below)
+  fmap f (SLeaf child)                 = SLeaf $ f child
+  fmap f (STransform t child)           = STransform t  $ fmap f child
+  fmap f (SOverlap overlap above below) = SOverlap overlap (fmap f above) (fmap f below)
 
 instance Foldable (STree overlap) where
-  foldr f item (ShapeGroup child)  = f child item
-  foldr f item (ShapeTransform t child)   = foldr f item child
-  foldr f item (ShapeOverlap overlap above below) = foldr f (foldr f item above) below
-  foldMap f (ShapeGroup child)  = f child
-  foldMap f (ShapeTransform t child)   = foldMap f child
-  foldMap f (ShapeOverlap overlap above below) = foldMap f above `mappend` foldMap f below
+  foldr f item (SLeaf child)  = f child item
+  foldr f item (STransform t child)   = foldr f item child
+  foldr f item (SOverlap overlap above below) = foldr f (foldr f item above) below
+  foldMap f (SLeaf child)  = f child
+  foldMap f (STransform t child)   = foldMap f child
+  foldMap f (SOverlap overlap above below) = foldMap f above `mappend` foldMap f below
 
 instance Traversable (STree overlap) where
-  traverse f (ShapeGroup child)  = fmap ShapeGroup (f child)
-  traverse f (ShapeTransform t child)   = fmap (ShapeTransform t) (traverse f child)
-  traverse f (ShapeOverlap overlap above below) = liftA2 (ShapeOverlap overlap) (traverse f above) (traverse f below)
-  sequenceA (ShapeGroup child)  = fmap ShapeGroup child
-  sequenceA (ShapeTransform t child)   = fmap (ShapeTransform t ) (sequenceA child)
-  sequenceA (ShapeOverlap overlap above below) = liftA2 (ShapeOverlap overlap) (sequenceA above) (sequenceA below)
+  traverse f (SLeaf child)  = fmap SLeaf (f child)
+  traverse f (STransform t child)   = fmap (STransform t) (traverse f child)
+  traverse f (SOverlap overlap above below) = liftA2 (SOverlap overlap) (traverse f above) (traverse f below)
+  sequenceA (SLeaf child)  = fmap SLeaf child
+  sequenceA (STransform t child)   = fmap (STransform t ) (sequenceA child)
+  sequenceA (SOverlap overlap above below) = liftA2 (SOverlap overlap) (sequenceA above) (sequenceA below)

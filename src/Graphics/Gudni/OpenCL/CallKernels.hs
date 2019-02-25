@@ -294,11 +294,12 @@ rasterSection cursor frame params input section =
     liftIO $ putStrLn $ show (length internalJobs) ++ " jobs."
     mapM_ (raster cursor frame params) internalJobs
 
-buildAndQueueRasterJobs :: Point2 IntSpace
+buildAndQueueRasterJobs :: MonadIO m
+                        => Point2 IntSpace
                         -> CInt
                         -> RasterParams
                         -> RasterJobInput
-                        -> TileArrayMonad IO ()
+                        -> TileArrayMonad m ()
 buildAndQueueRasterJobs cursor frame params input =
   do  let state = clState (params ^. rpLibrary)
       tileIndexSections <- divideTiles (tr "clMaxGroupSize" $ clMaxGroupSize $ params ^. rpLibrary)

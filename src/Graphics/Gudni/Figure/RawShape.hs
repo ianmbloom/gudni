@@ -4,14 +4,12 @@ module Graphics.Gudni.Figure.RawShape
   ( RawShape (..)
   , addFont
   , rawShapeToCurve
-  , rawShapeToBox
   )
 where
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Box
-import Graphics.Gudni.Figure.Curve
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Color
@@ -41,7 +39,7 @@ import System.Random
 data RawShape where
      RawBox       :: DisplaySpace -> Point2 DisplaySpace -> RawShape
      RawRectangle :: Point2 DisplaySpace -> RawShape
-     RawGlyph     :: CodePoint -> RawShape
+     RawGlyph     :: Glyph DisplaySpace -> RawShape
      RawLine      :: Point2 DisplaySpace -> Point2 DisplaySpace -> DisplaySpace -> RawShape
      RawPlot      :: Plot DisplaySpace -> RawShape
      Raw          :: [Vertex DisplaySpace] -> RawShape
@@ -98,14 +96,14 @@ pairPoints (v0:v1:rest) = (CurvePair v0 v1):pairPoints rest
 pairPoints [] = []
 pairPoints [v0] = []
 
-rawShapeToCurve :: (MonadState GlyphCache m, Monad m) => RawShape -> m [Outline DisplaySpace]
-rawShapeToCurve = fmap (map (Outline . pairPoints)) . rawShapeToCurve'
+rawShapeToCurve :: RawShape -> [Outline DisplaySpace]
+rawShapeToCurve = (map (Outline . pairPoints)) . rawShapeToCurve'
 
-rawShapeToCurve' :: (MonadState GlyphCache m, Monad m) => RawShape -> m [[Point2 DisplaySpace]]
+rawShapeToCurve' :: RawShape -> [[Point2 DisplaySpace]]
 rawShapeToCurve' shape =
   case shape of
     RawBox stroke v ->
-      return $ map expandVerts
+      map expandVerts
         [ [ Vert True $ makePoint 0      0
           , Vert True $ makePoint (pX v) 0
           , Vert True $ makePoint (pX v) (pY v)
@@ -117,36 +115,24 @@ rawShapeToCurve' shape =
           , Vert True $ makePoint (pX v - toXOrtho stroke) (0    + toYOrtho stroke)
           ] ]
     RawRectangle v ->
-        return $ [expandVerts [ Vert True $ makePoint 0      0
+        [expandVerts [ Vert True $ makePoint 0      0
                               , Vert True $ makePoint (pX v) 0
                               , Vert True $ makePoint (pX v) (pY v)
                               , Vert True $ makePoint 0      (pY v)
                               ] ]
-    RawGlyph codepoint ->
-        glyphVertices <$> getGlyph codepoint
+    RawGlyph glyph -> glyphVertices glyph
     Raw vertices ->
-        return [expandVerts vertices]
+        [expandVerts vertices]
     RawLine p0 p1 stroke ->
       let vector = p0 ^-^ p1
           normal = vector ^/ norm vector
           leftNormal = rotate90 normal ^* stroke
           rightNormal = rotate270 normal ^* stroke
       in
-          return [
+        [
               expandVerts  [ Vert True (p0 ^+^ rightNormal)
                            , Vert True (p0 ^+^ leftNormal)
                            , Vert True (p1 ^+^ leftNormal)
                            , Vert True (p1 ^+^ rightNormal)
                            ]]
-    RawPlot p -> return [expandVerts $ expandPlot p]
-
-rawShapeToBox :: (MonadState GlyphCache m, Monad m) => RawShape -> m (Box DisplaySpace)
-rawShapeToBox shape =
-    case shape of
-      RawBox stroke v -> return $ pointToBox v
-      RawRectangle v  -> return $ pointToBox v
-      RawGlyph codepoint ->
-            do glyph <- getGlyph codepoint
-               return $ pointToBox (makePoint (glyphAdvanceWidth glyph) (glyphHeight glyph))
-      _ ->  do verts <- concat <$> rawShapeToCurve' shape
-               return $ makeBox (minimum verts) (maximum verts)
+    RawPlot p -> [expandVerts $ expandPlot p]

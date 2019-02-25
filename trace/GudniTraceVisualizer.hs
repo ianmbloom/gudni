@@ -226,10 +226,9 @@ buildThreshold colors colorModifier threshold =
       shapeIndex = thrShapeIndex threshold
       color      = if shapeIndex == 0 then colorModifier $ colors !! shapeIndex else transparent 0.01 $ black
   in  overlap [solid color .
-               ShapeGroup $
-               RawLine startPoint endPoint adjustedStroke
+               line adjustedStroke startPoint endPoint
               --,tTranslate (Point2 (DSpace . realToFrac . thrLeft  $ threshold) (DSpace . realToFrac . thrTop $ threshold)) .
-              -- ShapeGroup (Left $ transparent 0.25 $ light blue) 0 $
+              -- SLeaf (Left $ transparent 0.25 $ light blue) 0 $
               -- rectangle (Point2 ((DSpace . realToFrac . thrRight  $ threshold) - (DSpace . realToFrac . thrLeft $ threshold))
               --                   ((DSpace . realToFrac . thrBottom $ threshold) - (DSpace . realToFrac . thrTop  $ threshold))
               --           )
