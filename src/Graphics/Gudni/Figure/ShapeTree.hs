@@ -58,7 +58,7 @@ import Foreign.C.Types (CInt, CFloat, CUInt)
 import Foreign.Storable
 
 data STree overlap rep where
-  SLeaf     :: rep -> STree overlap rep
+  SLeaf      :: rep -> STree overlap rep
   STransform :: TransformType -> STree overlap rep -> STree overlap rep
   SOverlap   :: overlap -> STree overlap rep -> STree overlap rep -> STree overlap rep
   deriving (Show)

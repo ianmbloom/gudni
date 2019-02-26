@@ -7,3 +7,5 @@ package sdl2
 package gudni
 
 jobs: 4
+-- profiling: True
+-- profiling-detail: all-functions

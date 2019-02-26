@@ -110,15 +110,15 @@ newtype Scaffold a = Scaffold {unScaffold :: a}
 class Scaffoldable2 a where
   makeScaffold :: a -> Scaffold a
 
-class HasHeight sa where
-  heightOf :: sa -> DisplaySpace
+class HasHeight a where
+  heightOf :: a -> DisplaySpace
 
-class HasWidth sa where
-  widthOf :: sa -> DisplaySpace
+class HasWidth a where
+  widthOf :: a -> DisplaySpace
 
-class HasPort sa where
-  numPorts :: sa -> Int
-  getPort  :: sa -> Point2 DisplaySpace
+class HasPort a where
+  numPorts :: a -> Int
+  getPort  :: a -> Point2 DisplaySpace
 
 data MyTree = Branch MyTree MyTree | Leaf Int
 
@@ -128,6 +128,7 @@ instance HasHeight (Scaffold MyTree) where
 instance HasWidth (Scaffold MyTree) where
   widthOf (Scaffold myTree) = undefined
 
+--stack :: HasHeight a => [a] -> ShapeTree
 
 --class HasEnvelope a where
 --  envelope :: a -> Point2 DisplaySpace -> V2 DisplaySpace -> DisplaySpace

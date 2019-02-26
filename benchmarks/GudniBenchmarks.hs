@@ -58,8 +58,8 @@ instance Model BenchmarkState where
                         statePlayhead %= (`f` dt)
     constructFigure state status =
         do  test <- (snd $ getTest state) state
-            testName <- glyphString (fst $ getTest state)
-            statusGlyphs <- mapM glyphString $ lines status
+            testName <- glyphString [] --(fst $ getTest state)
+            statusGlyphs <- mapM glyphString $ [] -- lines status
             let tree = transformFromState test state
                 cursor size thickness = tTranslate (convert $ _stateCursor state) .
                                         solid (transparent 0.5 red) $
@@ -67,7 +67,7 @@ instance Model BenchmarkState where
                                              (tTranslateXY 0 (-size/2) $ rectangle $ Point2 thickness size)
                 withCursor = if False then overlap [cursor 100 1, tree] else tree
                 statusTree = statusDisplay state testName statusGlyphs
-                withStatus = if True then overlap [statusTree, withCursor] else withCursor
+                withStatus = if False then overlap [statusTree, withCursor] else withCursor
             return (ShapeRoot gray withStatus, "textForm")
     pictureData state = return $ state ^. statePictures
 

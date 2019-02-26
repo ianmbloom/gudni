@@ -222,7 +222,6 @@ buildRasterJobs memoryLimit input tileIndices =
         rest -> do otherThreads <- buildRasterJobs memoryLimit input rest
                    return $ job' : otherThreads
 
-
 divideTiles :: MonadIO m
             => CSize
             -> TileArrayMonad m [[Int]]

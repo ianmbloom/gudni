@@ -140,15 +140,16 @@ instance Model TraceState where
                             dt = realToFrac timeDelta * realToFrac speed
                         statePlayhead %= (`f` dt)
     constructFigure state status =
-        let tree = transformFromState state $ constructFromState state
-            cursor size thickness = tTranslate (convert $ _stateCursor state) .
-                                    solid (transparent 0.5 $ dark red) $
-                                    cAdd (tTranslateXY (-size/2) (-thickness/2) $ rectangle $ Point2 size thickness)
-                                         (tTranslateXY (-thickness/2) (-size/2) $ rectangle $ Point2 thickness size)
-            withCursor = if False then overlap [cursor 20 1, tree] else tree
-            statusTree = statusDisplay state status
-            withStatus = if True  then overlap [statusTree, withCursor] else withCursor
-        in  return (ShapeRoot (light gray) withStatus, "textForm")
+        do  statusGlyphs <- mapM glyphString $ lines status
+            let tree = transformFromState state $ constructFromState state
+                cursor size thickness = tTranslate (convert $ _stateCursor state) .
+                                        solid (transparent 0.5 $ dark red) $
+                                        cAdd (tTranslateXY (-size/2) (-thickness/2) $ rectangle $ Point2 size thickness)
+                                             (tTranslateXY (-thickness/2) (-size/2) $ rectangle $ Point2 thickness size)
+                withCursor = if False then overlap [cursor 20 1, tree] else tree
+                statusTree = statusDisplay state statusGlyphs
+                withStatus = if True  then overlap [statusTree, withCursor] else withCursor
+            return (ShapeRoot (light gray) withStatus, "textForm")
     pictureData state = return $ (Nothing,[])
 
 statusDisplay state status =
@@ -225,8 +226,7 @@ buildThreshold colors colorModifier threshold =
       endPoint   = Point2 (DSpace . realToFrac . thrRight $ threshold) (DSpace . realToFrac $ rightY)
       shapeIndex = thrShapeIndex threshold
       color      = if shapeIndex == 0 then colorModifier $ colors !! shapeIndex else transparent 0.01 $ black
-  in  overlap [solid color .
-               line adjustedStroke startPoint endPoint
+  in  overlap [solid color $ line adjustedStroke startPoint endPoint
               --,tTranslate (Point2 (DSpace . realToFrac . thrLeft  $ threshold) (DSpace . realToFrac . thrTop $ threshold)) .
               -- SLeaf (Left $ transparent 0.25 $ light blue) 0 $
               -- rectangle (Point2 ((DSpace . realToFrac . thrRight  $ threshold) - (DSpace . realToFrac . thrLeft $ threshold))
@@ -267,8 +267,8 @@ buildPixelGrid =
     take 512 .
     makeColumn 1 .
     map (\i ->
-    overlap [solid (transparent 0.5 $ dark gray) $ openRectangle 0.01 (Point2 1 1)
-            ,tScale 0.1 $ solid black $ overlap $ makeLine 1 (show i)
+    overlap [ solid (transparent 0.5 $ dark gray) $ openRectangle 0.01 (Point2 1 1)
+            --, tScale 0.1 $ solid black $ overlap $ makeLine 1 (show i)
             ])
     $ [0..]
 
