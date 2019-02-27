@@ -613,16 +613,16 @@ void slotThreshold ( PMEM ThresholdState *tS
                    ,           THRESHOLD  new
                    );
 
-inline void passHeader(           HEADER thresholdHeader
-                      , PMEM ShapeState *shS
+inline void passHeader( PMEM ShapeState *shS
+                      ,          HEADER  thresholdHeader
                       );
 
-inline void passHeaderTop(          HEADER  thresholdHeader
-                         , PMEM ShapeState *shS
+inline void passHeaderTop(PMEM ShapeState *shS
+                         ,         HEADER  thresholdHeader
                          );
 
-inline void passHeaderBottom(           HEADER  thresholdHeader
-                            , PMEM ShapeState *shS
+inline void passHeaderBottom( PMEM ShapeState *shS
+                            ,          HEADER  header
                             );
 
 inline void updateShapeStack(         SHAPEBIT  shapeBit
@@ -1687,29 +1687,29 @@ COLOR determineColor( PMEM    ShapeState *shS
     return baseColor;
 }
 
-inline void passHeader(          HEADER  header
-                      , PMEM ShapeState *shS
+inline void passHeader( PMEM ShapeState *shS
+                      ,          HEADER  header
                       ) {
     //DEBUG_IF(printf(":%i", headerShapeBit(header));)
     flipBit(headerShapeBit(header), shS->shapeStack);
 }
 
-inline void passHeaderTop( HEADER  header
-                         , PMEM ShapeState *shS
+inline void passHeaderTop( PMEM ShapeState *shS
+                         ,          HEADER  header
                          ) {
     if (headerPersistTop(header)) {
         //DEBUG_IF(printf("T");)
-        passHeader(header, shS);
+        passHeader(shS, header);
         //DEBUG_IF(printf("\n");)
     }
 }
 
-inline void passHeaderBottom(          HEADER  header
-                            , PMEM ShapeState *shS
+inline void passHeaderBottom( PMEM ShapeState *shS
+                            ,          HEADER  header
                             ) {
     if (headerPersistBottom(header)) {
         //DEBUG_IF(printf("B");)
-        passHeader(header, shS);
+        passHeader(shS, header);
         //DEBUG_IF(printf("\n");)
     }
 }
@@ -1819,7 +1819,7 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
         //barrier (CLK_LOCAL_MEM_FENCE); // in case rebuffer occurs
         if (enclosedByShape) {
             //DEBUG_IF(printf("enclosedByShape %i shapeBit %i \n", enclosedByShape, shapeBit);)
-            passHeader(shapeBit, shS);
+            passHeader(shS, shapeBit);
             //DEBUG_IF(printf("shS->shapeStack %lX \n", shS->shapeStack);)
         }
         if (tS->thresholdWasAdded || enclosedByShape) {
@@ -2070,7 +2070,7 @@ void verticalAdvance( PMEM ThresholdState *tS
         //DEBUG_IF(printf("rev->");)
         for (int i = 0; i < pS->numActive; i++) {
             //DEBUG_IF(printf("back %i %i\n",i,headerShapeBit(getHeader(tS, i)));)
-            passHeader(getHeader(tS, i), shS);
+            passHeader(shS, getHeader(tS, i));
         }
         //DEBUG_IF(printf("<-rev");)
         // Next break is the next natural break point (either the bottom of the pixel or the bottom of the render area.
@@ -2083,7 +2083,7 @@ void verticalAdvance( PMEM ThresholdState *tS
             //DEBUG_IF(printf("pS->numActive %i\n", pS->numActive);)
             while(pS->numActive > 0) {
                 //DEBUG_IF(if (headerPersistBottom(getHeader(tS, i))) {printf("bott %i %i\n",i,headerShapeBit(getHeader(tS, i)));})
-                passHeaderBottom(getHeader(tS, 0), shS);
+                passHeaderBottom(shS, getHeader(tS, 0));
                 popTop(tS);
                 pS->numActive -= 1;
             }
@@ -2111,14 +2111,14 @@ void verticalAdvance( PMEM ThresholdState *tS
                 // pass over any leading horizontal thresholds (non persistance horizontal are never added).
                 while (pS->numActive > 0 && tIsHorizontal(getThreshold(tS, 0))) {
                     //DEBUG_IF(if (headerPersistTop(getHeader(tS, pS->numActive))) {printf("topH %i %i\n",pS->numActive,headerShapeBit(getHeader(tS, pS->numActive)));})
-                    passHeaderTop(getHeader(tS, 0), shS);
+                    passHeaderTop(shS, getHeader(tS, 0));
                     popTop(tS);
                     pS->numActive -= 1;
                 }
                 for (int i = 0; i < pS->numActive; i++) {
                     if (tTop(getThreshold(tS, i)) > tS->renderStart.y) { // TODO: Can probably get rid of this check.
                         //DEBUG_IF(if (headerPersistTop(getHeader(tS, i))) {printf("top  %i %i\n", i, headerShapeBit(getHeader(tS, i)));})
-                        passHeaderTop(getHeader(tS, i), shS);
+                        passHeaderTop(shS, getHeader(tS, i));
                     }
                 }
             }
@@ -2286,7 +2286,7 @@ bool calculatePixel ( PMEM      TileState *tileS
             //DEBUG_SECTION
             if (pS->currentThreshold < pS->numActive) {
                 //DEBUG_IF(printf("pass %i %i\n",pS->currentThreshold,headerShapeBit(getHeader(tS, pS->currentThreshold)));)
-                passHeader(getHeader(tS, pS->currentThreshold), shS);
+                passHeader(shS, getHeader(tS, pS->currentThreshold));
             }
             pS->currentThreshold += 1;
             pS->sectionCount += 1;
