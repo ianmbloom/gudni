@@ -12,9 +12,8 @@
 #define DEBUGINDEX  0 // Determines the index for DEBUG_IF macro
 #define INDEX get_global_id(0)
 #define COLUMN get_global_id(1)
-#define DEBUG_IF(statement)   //if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // useful for tracing a specific tile and column
-#define DEBUG_HS(statement)   // if (pS->debugEnabled) {statement}
-#define DEBUG_HSP(statement)  // if (pS.debugEnabled) {statement}
+#define DEBUG_IF(statement)   // if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // on the fly debugging output
+#define DEBUG_HS(statement)   // if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // debugging output for parsing by TraceVisualizer
 
 #ifdef cl_amd_printf
 #pragma OPENCL EXTENSION cl_amd_printf : enable
@@ -337,11 +336,9 @@ typedef struct PictureRef
 #define COLORBUFFERMODULOMASK = 0x3 // must be adjusted if COLORBUFFERSIZE is changed
 #define COLORBUFFERMODULO(index) index & COLORBUFFERMODULOMASK
 #define COLORBUFFERINDEX(offset, index) COLORBUFFERMODULO(offset + index)
-#define COLORBUFFERELEMENT(cS, index) cS->csColors[COLORBUFFERMODULO(cS->csOffset, index)]
 */
 // The color state structure tracks the current color information during a scan through thresholds
 typedef struct ColorState {
-               COLOR   csColors[COLORBUFFERSIZE]; // private array should correspond to the first 4 active substances
                COLOR   csBackgroundColor;         // background color
      GMEM      uchar  *csPictureData;             // global image information
      CMEM PictureRef  *csPictureRefs;             // global list of image references
@@ -409,9 +406,12 @@ inline void popTop(ThresholdState *tS) {
 
 #define RANDOM_POS int
 
+typedef struct ShapeState {
+      LMEM   GROUPID  shapeIndices[MAXSHAPE];        // a mapping from shape bit positions in the shapeStacks to shapeIndices in the tile.
+      PMEM SHAPESHACK shapeStack[SHAPESHACKSECTIONS]; // the current shape Stack. (Each bit represents the presence of a shape in the stack.)
+} ShapeState;
+
 typedef struct ParseState {
-    LMEM   GROUPID  shapeIndices[MAXSHAPE];        // a mapping from shape bit positions in the shapeStacks to shapeIndices in the tile.
-    PMEM SHAPESHACK shapeStack[SHAPESHACKSECTIONS]; // the current shape Stack. (Each bit represents the presence of a shape in the stack.)
                int  currentThreshold;   // the current threshold bordering the section
                int  numActive;          // the next threshold that is not currently active.
             SPACE2  sectionStart;       // the top of the current vertical section being processed
@@ -420,10 +420,8 @@ typedef struct ParseState {
             float8  accColorArea;       // accumulated color and area.
 
                int  sectionCount;
-
                int  frameNumber;
                int  buildCount;
-              bool  debugEnabled;
                int  passCount;
         RANDOM_POS  randomFieldCursor;
     CMEM     float *randomField;
@@ -616,15 +614,15 @@ void slotThreshold ( PMEM ThresholdState *tS
                    );
 
 inline void passHeader(           HEADER thresholdHeader
-                      , PMEM ParseState *pS
+                      , PMEM ShapeState *shS
                       );
 
-inline void passHeaderTop(           HEADER  thresholdHeader
-                         , PMEM ParseState *pS
+inline void passHeaderTop(          HEADER  thresholdHeader
+                         , PMEM ShapeState *shS
                          );
 
 inline void passHeaderBottom(           HEADER  thresholdHeader
-                            , PMEM ParseState *pS
+                            , PMEM ShapeState *shS
                             );
 
 inline void updateShapeStack(         SHAPEBIT  shapeBit
@@ -637,7 +635,7 @@ COLOR readColor ( PMEM ColorState *cS
                 ,            bool  isSolidColor
                 );
 
-COLOR determineColor( PMEM   ParseState *pS
+COLOR determineColor( PMEM   ShapeState *shS
                     , PMEM   ColorState *cS
                     , SMEM        Group *groups
                     , SMEM        Shape *shapeHeap
@@ -646,6 +644,7 @@ COLOR determineColor( PMEM   ParseState *pS
 
 void verticalAdvance( PMEM ThresholdState *tS
                     , PMEM     ParseState *pS
+                    , PMEM     ShapeState *shS
                     );
 
 void horizontalAdvance ( PMEM ThresholdState *tS
@@ -667,13 +666,13 @@ inline void moveToTile (              int   tileIndex
                        );
 
  void removeLastShape( PMEM  ThresholdState *tS
-                     , PMEM      ParseState *pS
+                     , PMEM      ShapeState *shS
                      ,             SHAPEBIT  shapeBit
                      ,            GEO_ENTRY  shapeIndex
                      );
 
 void buildThresholdArray ( PMEM  ThresholdState *tS
-                         , PMEM      ParseState *pS
+                         , PMEM      ShapeState *shS
                          , SMEM          float4 *geometryHeap
                          , SMEM           Group *groups
                          , SMEM           Shape *shapeHeap
@@ -682,8 +681,8 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
                          ,               float2  point
                          );
 
-void resetParser (PMEM ParseState *pS
-                 );
+void resetShapeState (PMEM ShapeState *shS);
+void resetParser (PMEM ParseState *pS);
 
 void nextRenderArea ( PMEM ThresholdState *tS
                     , PMEM ParseState *pS
@@ -700,14 +699,16 @@ float getRandom(ParseState *pS);
 void initThresholdState(ThresholdState *tS, Continuation cont);
 void resetThresholdState(ThresholdState *tS);
 
-void initParseState ( PMEM  ParseState *pS
-                    , PMEM  ThresholdState *tS
-                    , PMEM  TileState  *tileS
-                    ,              int  frameNumber
-                    ,             bool  debugEnabled
-                    ,     Continuation  cont
-                    ,              int  passCount
-                    ,CMEM        float *randomField
+void initShapeState (PMEM    ShapeState *shS
+                    );
+
+void initParseState (PMEM     ParseState *pS
+                    ,PMEM ThresholdState *tS
+                    ,PMEM    TileState  *tileS
+                    ,               int  frameNumber
+                    ,      Continuation  cont
+                    ,               int  passCount
+                    ,    CMEM     float *randomField
                     );
 
 void initTileState ( PMEM TileState *tileS
@@ -723,12 +724,12 @@ void initTileState ( PMEM TileState *tileS
 
 inline Continuation newContinuation(void);
 
-inline Continuation getContinuationForTile(       TileState *tileS
-                                          ,  GMEM      char *continuations
+inline Continuation getContinuationForTile(           TileState *tileS
+                                          ,  GMEM  Continuation *continuations
                                           );
 
-inline Continuation getContinuation( GMEM  char *continuations
-                                   ,        int  columnIndex
+inline Continuation getContinuation( GMEM Continuation *continuations
+                                   ,               int  columnIndex
                                    );
 
 Continuation makeContinuation( PMEM ThresholdState *tS
@@ -737,13 +738,13 @@ Continuation makeContinuation( PMEM ThresholdState *tS
                              ,               bool  isContinued
                              );
 
-void setContinuation(        TileState *tileS
-                    , GMEM        char *continuations
-                    ,      Continuation c
+void setContinuation(          TileState *tileS
+                    , GMEM  Continuation *continuations
+                    ,       Continuation  c
                     );
 
-float8 sectionColor ( PMEM ThresholdState *tS
-                    , PMEM     ParseState *pS
+float8 sectionColor ( PMEM     ParseState *pS
+                    , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
                     , SMEM          Group *groups
                     , SMEM           Shape *shapeHeap
@@ -753,10 +754,11 @@ float8 sectionColor ( PMEM ThresholdState *tS
 bool calculatePixel ( PMEM      TileState *tileS
                     , PMEM ThresholdState *tS
                     , PMEM     ParseState *pS
+                    , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
                     , SMEM         float4 *geometryHeap
                     , SMEM          Group *groups
-                    , SMEM           Shape *shapeHeap
+                    , SMEM          Shape *shapeHeap
                     , SMEM      GEO_ENTRY *shapeRefs
                     ,           GEO_ENTRY  numShapes
                     ,               SPACE  height
@@ -776,7 +778,6 @@ Continuation renderPixelBuffer ( PMEM  TileState *tileS
                                ,             int  column
                                ,             int  frameNumber
                                , GMEM       uint *out
-                               ,            bool  debugEnabled
                                ,             int  passCount
                                ,    Continuation  cont
                                , CMEM      float *randomField
@@ -809,10 +810,10 @@ void showPixelBuffer(__local uint *pixelBuffer, int sectionWidth, int height);
 void showTileSliceAlignment (int tileIndex, SMEM Slice *tileHeap);
 void showShape (Shape shape);
 void showGroup(Group group);
-void showShapeIndices(ParseState *pS, int numShapes);
-void showShapeColors(      ParseState *pS
+void showShapeIndices(ShapeState *shS, int numShapes);
+void showShapeColors(     ShapeState *shS
                    , SMEM      Group *groups
-                   , SMEM       Shape *shapeHeap
+                   , SMEM      Shape *shapeHeap
                    ,             int  numShapes
                    );
 void showGroups(SMEM Group *groups, int numGroups);
@@ -836,6 +837,8 @@ void showThresholds (PMEM   ThresholdState *tS);
 void showActiveThresholds(PMEM ThresholdState *tS, int num);
 void showColorHs( COLOR color );
 
+void fillShapeStack(SHAPESHACK *stack, SHAPESHACK value);
+
 void testShapeStack(void);
 void testIgnoreBits(void);
 void testDeleteBit(void);
@@ -857,24 +860,24 @@ void showThresholdsHs ( PMEM ThresholdState *tS
                       , int num
                       );
 void showThresholdStateHs ( PMEM ThresholdState *tS
-                          , ParseState *pS
-                          , SMEM      Group *groups
-                          , SMEM       Shape *shapeHeap
-                          ,             int  numShapes
+                          , PMEM     ShapeState *shS
+                          , SMEM          Group *groups
+                          , SMEM          Shape *shapeHeap
+                          ,                 int  numShapes
                           );
 void showColorsHs ( PMEM ThresholdState *tS
-                  , ParseState *pS
-                  , SMEM      Group *groups
-                  , SMEM       Shape *shapeHeap
-                  ,             int  num
+                  , PMEM     ShapeState *shS
+                  , SMEM          Group *groups
+                  , SMEM          Shape *shapeHeap
+                  ,                int  num
                   );
+
 void showParseStateHs(  PMEM ThresholdState *tS
                      ,           ParseState *pS
                      , SMEM           Group *groups
                      , SMEM            Shape *shapeHeap
                      ,                COLOR  color
                      );
-
 
 // ------------------- Inline Function Bodies -----------------------------
 
@@ -1615,10 +1618,10 @@ COLOR readColor ( PMEM ColorState *cS
 #define NULLINDEX 0xFFFFFFFFFFFFFFFF
 
 // determine the current color based on the shape stack
-COLOR determineColor( PMEM    ParseState *pS
+COLOR determineColor( PMEM    ShapeState *shS
                     , PMEM    ColorState *cS
                     , SMEM         Group *groups
-                    , SMEM          Shape *shapeHeap
+                    , SMEM         Shape *shapeHeap
                     , SMEM     GEO_ENTRY *shapeRefs
                     ) {
     int topBit = MAXSHAPE;
@@ -1631,8 +1634,8 @@ COLOR determineColor( PMEM    ParseState *pS
     while (!done) {
            GROUPID shapeId = NULLINDEX;
         bool shouldComposite = true;
-        topBit = findTop(pS->shapeStack, topBit);
-        //DEBUG_IF(printf("topBit %i ", topBit);showShapeStack(pS->shapeStack);printf("\n");)
+        topBit = findTop(shS->shapeStack, topBit);
+        //DEBUG_IF(printf("topBit %i ", topBit);showShapeStack(shS->shapeStack);printf("\n");)
         if (topBit < 0) {
             nextColor = cS->csBackgroundColor;
             done = true;
@@ -1640,7 +1643,7 @@ COLOR determineColor( PMEM    ParseState *pS
             lastIsSet = true;
         }
         else {
-            int referenceFromBit = pS->shapeIndices[topBit];
+            int referenceFromBit = shS->shapeIndices[topBit];
             GEO_ENTRY shapeIndex = shapeRefs[referenceFromBit];
             SHAPETAG tag = shapeHeap[shapeIndex].shapeTag;
             shapeId = shapeTagGroupId(tag);
@@ -1685,28 +1688,28 @@ COLOR determineColor( PMEM    ParseState *pS
 }
 
 inline void passHeader(          HEADER  header
-                      , PMEM ParseState *pS
+                      , PMEM ShapeState *shS
                       ) {
     //DEBUG_IF(printf(":%i", headerShapeBit(header));)
-    flipBit(headerShapeBit(header), pS->shapeStack);
+    flipBit(headerShapeBit(header), shS->shapeStack);
 }
 
-inline void passHeaderTop(               HEADER  header
-                         , PMEM ParseState *pS
+inline void passHeaderTop( HEADER  header
+                         , PMEM ShapeState *shS
                          ) {
     if (headerPersistTop(header)) {
         //DEBUG_IF(printf("T");)
-        passHeader(header, pS);
+        passHeader(header, shS);
         //DEBUG_IF(printf("\n");)
     }
 }
 
-inline void passHeaderBottom(               HEADER  header
-                            , PMEM ParseState *pS
+inline void passHeaderBottom(          HEADER  header
+                            , PMEM ShapeState *shS
                             ) {
     if (headerPersistBottom(header)) {
         //DEBUG_IF(printf("B");)
-        passHeader(header, pS);
+        passHeader(header, shS);
         //DEBUG_IF(printf("\n");)
     }
 }
@@ -1724,12 +1727,12 @@ inline void moveToTile (              int   tileIndex
 }
 
 #define DEBUG_BUILDTHRESHOLDARRAY \
-            DEBUG_HS(printf(",\n");showThresholdStateHs(tS, pS, groups, shapeHeap, shapeBit);)
+            DEBUG_HS(printf(",\n");showThresholdStateHs(tS, shS, groups, shapeHeap, shapeBit);)
 
 #define LIMITSHAPE 0
 
 void removeLastShape( PMEM  ThresholdState *tS
-                    , PMEM      ParseState *pS
+                    , PMEM      ShapeState *shS
                     ,             SHAPEBIT  shapeBit
                     ,           GEO_ENTRY   shapeIndex
                     ) {
@@ -1757,14 +1760,14 @@ void removeLastShape( PMEM  ThresholdState *tS
     }
     tS->numThresholds = max(0, tS->numThresholds - shiftAmount);
     for (int i = removeBit; i < MAXSHAPE - 1; i++) {
-        pS->shapeIndices[i] = pS->shapeIndices[i+1];
+        shS->shapeIndices[i] = shS->shapeIndices[i+1];
     }
     //DEBUG_IF(printf("removeBit %i shapeBit %i\n", removeBit, shapeBit);)
-    //DEBUG_IF(printf("before deleteBit ");showShapeStack(pS->shapeStack);printf("\n");)
-    deleteBit(pS->shapeStack, removeBit);
-    //DEBUG_IF(printf("after  deleteBit ");showShapeStack(pS->shapeStack);printf("\n");)
+    //DEBUG_IF(printf("before deleteBit ");showShapeStack(shS->shapeStack);printf("\n");)
+    deleteBit(shS->shapeStack, removeBit);
+    //DEBUG_IF(printf("after  deleteBit ");showShapeStack(shS->shapeStack);printf("\n");)
     if (removeBit < MAXSHAPE) {
-        pS->shapeIndices[shapeBit] = shapeIndex;
+        shS->shapeIndices[shapeBit] = shapeIndex;
     }
 }
 
@@ -1772,7 +1775,7 @@ void removeLastShape( PMEM  ThresholdState *tS
 // Return the bottom of the rendering area which is the bottom of the tile if everything fits and the last
 // complete section if it doesn't.
 void buildThresholdArray ( PMEM  ThresholdState *tS
-                         , PMEM      ParseState *pS
+                         , PMEM      ShapeState *shS
                          , SMEM          float4 *geometryHeap
                          , SMEM           Group *groups
                          , SMEM           Shape *shapeHeap
@@ -1787,7 +1790,7 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
          // if you don't shift the shape to the tile size there will be accuracy errors with height floating point geometric values
         SMEM float2 *strandHeap = (SMEM float2 *)&geometryHeap[getGeometryStart(shape)];
         bool enclosedByShape = false;
-        for (uint currentStrand = 0; currentStrand < getNumStrands(shape); currentStrand++) {
+        for (int currentStrand = 0; currentStrand < getNumStrands(shape); currentStrand++) {
             uchar4 header = *((SMEM uchar4 *)strandHeap);
             ushort currentSize = as_ushort(header.xy);
             bool enclosedByStrand = false;
@@ -1816,35 +1819,36 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
         //barrier (CLK_LOCAL_MEM_FENCE); // in case rebuffer occurs
         if (enclosedByShape) {
             //DEBUG_IF(printf("enclosedByShape %i shapeBit %i \n", enclosedByShape, shapeBit);)
-            passHeader(shapeBit, pS);
-            //DEBUG_IF(printf("pS->shapeStack %lX \n", pS->shapeStack);)
+            passHeader(shapeBit, shS);
+            //DEBUG_IF(printf("shS->shapeStack %lX \n", shS->shapeStack);)
         }
-        //DEBUG_IF(printf("before remove pS->thresholdWasAdded %i enclosedByShape %i shapeBit %i\n", pS->thresholdWasAdded, enclosedByShape, shapeBit);showThresholds(tS);)
-        //DEBUG_IF(if(shapeIndex > LIMITSHAPE-2) {printf("before shapeBit %i\n",shapeBit);showShapeColors(pS, groups, shapeHeap, shapeBit);})
         if (tS->thresholdWasAdded || enclosedByShape) {
             if (shapeBit >= MAXSHAPE) {
                 shapeBit -= 1;
-                removeLastShape(tS,pS,shapeBit, shapeIndex);
+                removeLastShape(tS,shS,shapeBit, shapeIndex);
             }
             else {
                //DEBUG_IF(if(shapeIndex > LIMITSHAPE-2) {printf("replace shapeBit %i\n", shapeBit);})
-               pS->shapeIndices[shapeBit] = shapeIndex;
+               shS->shapeIndices[shapeBit] = shapeIndex;
             }
             shapeBit += 1;
             //DEBUG_IF(if(shapeIndex > LIMITSHAPE-2) {printf("after RemoveBit\n");
-            //                              showShapeColors(pS, groups, shapeHeap, shapeBit);
+            //                              showShapeColors(shS, groups, shapeHeap, shapeBit);
             //                              showThresholds(tS);
             //                             })
         }
     }
-    //DEBUG_IF(printf("shapeColors %i\n",shapeBit);showShapeColors(pS, groups, shapeHeap, shapeBit);)
+    //DEBUG_IF(printf("shapeColors %i\n",shapeBit);showShapeColors(shS, groups, shapeHeap, shapeBit);)
     DEBUG_BUILDTHRESHOLDARRAY
-    //DEBUG_IF(showShapeIndices(pS, shapeBit);)
+    //DEBUG_IF(showShapeIndices(shS, shapeBit);)
+}
+
+void resetShapeState (PMEM ShapeState *shS) {
+    clearShapeStack(shS->shapeStack);
 }
 
 void resetParser ( PMEM ParseState *pS
                  ) {
-    clearShapeStack(pS->shapeStack);
     pS->currentThreshold = 0;
     pS->numActive        = 0; // the next threshold that is not currently active.
 }
@@ -1884,14 +1888,14 @@ inline Continuation newContinuation() {
     return c;
 }
 
-inline Continuation getContinuationForTile( PMEM TileState *tileS
-                                          , GMEM      char *continuations
+inline Continuation getContinuationForTile( PMEM    TileState *tileS
+                                          , GMEM Continuation *continuations
                                           ) {
     return getContinuation(continuations, tileS->tileIndex * tileS->tileWidth + tileS->column);
 }
 
-inline Continuation getContinuation( GMEM char *continuations
-                                   ,       int  columnIndex
+inline Continuation getContinuation( GMEM Continuation *continuations
+                                   ,               int  columnIndex
                                    ) {
     return *((GMEM Continuation *)(continuations + columnIndex * CONTINUATION_ALIGN));
 }
@@ -1916,8 +1920,8 @@ Continuation makeContinuation( PMEM ThresholdState *tS
 
 
 void setContinuation(            TileState *tileS
-                    , GMEM            char *continuations
-                    ,          Continuation c
+                    , GMEM    Continuation *continuations
+                    ,         Continuation  c
                     ) {
     GMEM Continuation *p = ((GMEM Continuation *)(continuations + (tileS->tileIndex * tileS->tileWidth + tileS->column)*CONTINUATION_ALIGN));
     *p = c;
@@ -1957,15 +1961,18 @@ void resetThresholdState(ThresholdState *tS) {
     tS->addThresholdCount = INT_MAX; // 400; // /*INT_MAX; (passCount == 0) ? 400 : 400; //1024 + 512 + 256 + 64 + 32 + 8 + 4
 }
 
+void initShapeState (PMEM    ShapeState *shS
+                    ) {
+    resetShapeState(shS);
+}
 
-void initParseState (PMEM ParseState *pS
+void initParseState (PMEM     ParseState *pS
                     ,PMEM ThresholdState *tS
-                    ,PMEM TileState  *tileS
-                    ,            int  frameNumber
-                    ,           bool  debugEnabled
-                    ,   Continuation  cont
-                    ,            int  passCount
-                    , CMEM     float *randomField
+                    ,PMEM    TileState  *tileS
+                    ,               int  frameNumber
+                    ,      Continuation  cont
+                    ,               int  passCount
+                    ,    CMEM     float *randomField
                     ) {
     resetParser(pS);
     pS->accColorArea = cont.contAccColorArea;
@@ -1976,7 +1983,6 @@ void initParseState (PMEM ParseState *pS
 
     pS->frameNumber = frameNumber;
     pS->buildCount = 0;
-    pS->debugEnabled = debugEnabled;
 
     pS->passCount = passCount;
     initRandomField(pS,tileS,randomField);
@@ -2006,14 +2012,14 @@ void initTileState ( PMEM TileState *tileS
 
 #define DEBUG_NEXTSECTION DEBUG_HS(printf(",\n");showParseStateHs(tS, pS, groups, shapeHeap, color);)
 
-float8 sectionColor ( PMEM ThresholdState *tS
-                    , PMEM     ParseState *pS
+float8 sectionColor ( PMEM     ParseState *pS
+                    , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
-                    , SMEM               Group *groups
-                    , SMEM                Shape *shapeHeap
-                    , SMEM           GEO_ENTRY *shapeRefs
+                    , SMEM          Group *groups
+                    , SMEM          Shape *shapeHeap
+                    , SMEM      GEO_ENTRY *shapeRefs
                     ) {
-    COLOR color = determineColor( pS
+    COLOR color = determineColor( shS
                                 , cS
                                 , groups
                                 , shapeHeap
@@ -2046,12 +2052,13 @@ float8 sectionColor ( PMEM ThresholdState *tS
                                      , pS->sectionStart \
                                      , pS->sectionEnd \
                                      ); \
-                               showShapeStack(pS->shapeStack); \
+                               showShapeStack(shS->shapeStack); \
                                printf("\n"); \
                                )
 
 void verticalAdvance( PMEM ThresholdState *tS
                     , PMEM     ParseState *pS
+                    , PMEM     ShapeState *shS
                     ) {
     if (pS->sectionEnd.x == tS->renderEnd.x) {
         //DEBUG_VERTICAL
@@ -2063,7 +2070,7 @@ void verticalAdvance( PMEM ThresholdState *tS
         //DEBUG_IF(printf("rev->");)
         for (int i = 0; i < pS->numActive; i++) {
             //DEBUG_IF(printf("back %i %i\n",i,headerShapeBit(getHeader(tS, i)));)
-            passHeader(getHeader(tS, i), pS);
+            passHeader(getHeader(tS, i), shS);
         }
         //DEBUG_IF(printf("<-rev");)
         // Next break is the next natural break point (either the bottom of the pixel or the bottom of the render area.
@@ -2076,7 +2083,7 @@ void verticalAdvance( PMEM ThresholdState *tS
             //DEBUG_IF(printf("pS->numActive %i\n", pS->numActive);)
             while(pS->numActive > 0) {
                 //DEBUG_IF(if (headerPersistBottom(getHeader(tS, i))) {printf("bott %i %i\n",i,headerShapeBit(getHeader(tS, i)));})
-                passHeaderBottom(getHeader(tS, 0), pS);
+                passHeaderBottom(getHeader(tS, 0), shS);
                 popTop(tS);
                 pS->numActive -= 1;
             }
@@ -2104,14 +2111,14 @@ void verticalAdvance( PMEM ThresholdState *tS
                 // pass over any leading horizontal thresholds (non persistance horizontal are never added).
                 while (pS->numActive > 0 && tIsHorizontal(getThreshold(tS, 0))) {
                     //DEBUG_IF(if (headerPersistTop(getHeader(tS, pS->numActive))) {printf("topH %i %i\n",pS->numActive,headerShapeBit(getHeader(tS, pS->numActive)));})
-                    passHeaderTop(getHeader(tS, 0), pS);
+                    passHeaderTop(getHeader(tS, 0), shS);
                     popTop(tS);
                     pS->numActive -= 1;
                 }
                 for (int i = 0; i < pS->numActive; i++) {
                     if (tTop(getThreshold(tS, i)) > tS->renderStart.y) { // TODO: Can probably get rid of this check.
                         //DEBUG_IF(if (headerPersistTop(getHeader(tS, i))) {printf("top  %i %i\n", i, headerShapeBit(getHeader(tS, i)));})
-                        passHeaderTop(getHeader(tS, i), pS);
+                        passHeaderTop(getHeader(tS, i), shS);
                     }
                 }
             }
@@ -2125,7 +2132,7 @@ void verticalAdvance( PMEM ThresholdState *tS
         pS->sectionStart.x = pS->sectionEnd.x = LEFTBORDER;
         // reset the cursor
         pS->currentThreshold = 0;
-        //DEBUG_IF(showShapeStack(pS->shapeStack); printf("  ");
+        //DEBUG_IF(showShapeStack(shS->shapeStack); printf("  ");
         //         showActiveThresholds(tS,pS->numActive);)
 
     }
@@ -2188,7 +2195,7 @@ void writePixelGlobal ( PMEM TileState *tileS
                                      , pS->sectionStart \
                                      , pS->sectionEnd \
                                      , pS->accColorArea); \
-                               showShapeStack(pS->shapeStack); \
+                               showShapeStack(shS->shapeStack); \
                                printf("\n"); \
                                )
 
@@ -2198,18 +2205,17 @@ void writePixelGlobal ( PMEM TileState *tileS
 bool calculatePixel ( PMEM      TileState *tileS
                     , PMEM ThresholdState *tS
                     , PMEM     ParseState *pS
+                    , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
                     , SMEM         float4 *geometryHeap
                     , SMEM          Group *groups
-                    , SMEM           Shape *shapeHeap
+                    , SMEM          Shape *shapeHeap
                     , SMEM      GEO_ENTRY *shapeRefs
                     ,           GEO_ENTRY  numShapes
                     ,               SPACE  height
                     ,               float  x
                     ) {
     //DEBUG_IF(printf("                                              pixelY: %f \n", pS->pixelY);)
-    //DEBUG_IF(printf("           y: %f floatHeight: %f eEnd: %i sTop: %f sBot: %f sStack %i\n",\
-    //                            y, floatHeight, numActive, sectionStart, sectionEnd, shapeStack);)
     bool done = false;
     int count = 100;
     while (((pS->sectionEnd.x < RIGHTBORDER) || (pS->sectionEnd.y < pS->pixelY)) && !done /*&& count > 0*/) { // process all sections that do not reach the bottom of the pixel.
@@ -2231,7 +2237,7 @@ bool calculatePixel ( PMEM      TileState *tileS
                     //DEBUG_IF(printf("before      sectionStart %v2f sectionEnd %v2f \n", pS->sectionStart, pS->sectionEnd);)
                     //DEBUG_IF(printf("before      renderStart  %v2f renderEnd  %v2f \n", tS->renderStart,  tS->renderEnd );)
                     buildThresholdArray( tS
-                                       , pS
+                                       , shS
                                        , geometryHeap
                                        , groups
                                        , shapeHeap
@@ -2265,12 +2271,12 @@ bool calculatePixel ( PMEM      TileState *tileS
         //done = true; // this is for debugging only.
         if (!done) {
             //DEBUG_IF(printf("beforeV cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
-            verticalAdvance(tS, pS);
+            verticalAdvance(tS, pS, shS);
             //DEBUG_IF(printf("afterV  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
             horizontalAdvance(tS, pS);
             //DEBUG_IF(printf("afterH  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
-            float8 colorArea = sectionColor( tS
-                                           , pS
+            float8 colorArea = sectionColor( pS
+                                           , shS
                                            , cS
                                            , groups
                                            , shapeHeap
@@ -2280,7 +2286,7 @@ bool calculatePixel ( PMEM      TileState *tileS
             //DEBUG_SECTION
             if (pS->currentThreshold < pS->numActive) {
                 //DEBUG_IF(printf("pass %i %i\n",pS->currentThreshold,headerShapeBit(getHeader(tS, pS->currentThreshold)));)
-                passHeader(getHeader(tS, pS->currentThreshold), pS);
+                passHeader(getHeader(tS, pS->currentThreshold), shS);
             }
             pS->currentThreshold += 1;
             pS->sectionCount += 1;
@@ -2320,7 +2326,6 @@ Continuation renderPixelBuffer ( PMEM   TileState *tileS
                                ,              int  column
                                ,              int  frameNumber
                                , GMEM        uint *out
-                               ,             bool  debugEnabled
                                ,              int  passCount
                                ,     Continuation  cont
                                ,CMEM        float *randomField
@@ -2330,8 +2335,10 @@ Continuation renderPixelBuffer ( PMEM   TileState *tileS
     float x = ((float) column * COLUMNSPACING); // actual x position we are transecting
     ThresholdState tS;
     initThresholdState(&tS, cont);
+    ShapeState shS;
+    initShapeState(&shS);
     ParseState pS;
-    initParseState(&pS, &tS, tileS, frameNumber, debugEnabled, cont, passCount, randomField);
+    initParseState(&pS, &tS, tileS, frameNumber, cont, passCount, randomField);
     ColorState cS;
     initColorState( &cS
                   ,  backgroundColor
@@ -2354,6 +2361,7 @@ Continuation renderPixelBuffer ( PMEM   TileState *tileS
                 isContinued = calculatePixel (  tileS
                                              , &tS
                                              , &pS
+                                             , &shS
                                              , &cS
                                              ,  geometryHeap
                                              ,  groups
@@ -2385,7 +2393,7 @@ Continuation renderPixelBuffer ( PMEM   TileState *tileS
             cS.absolutePosition += (int2)(0,1);
         }
     } // for y
-    DEBUG_HSP(printf("]\n");)
+    DEBUG_HS(printf("]\n");)
     //DEBUG_IF(printf("slotThresholdCount = %i\n",pS.slotThresholdCount);)
     return cont;
 }
@@ -2406,8 +2414,7 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                               ,             int  tileWidth
                               ,             int  tileHeight
                               ,             int  frameNumber
-                              ,            int2  userCursor
-                              , GMEM       char *continuations
+                              , GMEM Continuation *continuations
                               ,             int  passCount
                               , SMEM       uint *tileIndices
                               ) {
@@ -2425,11 +2432,6 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                   ,  INDEX
                   ,  column
                   );
-    bool debugEnabled = COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX;
-    //(userCursor.y >= tileS.tileDeltaY) &&
-    //(userCursor.y < tileS.tileDeltaY + tileS.tileHeight) &&
-    //(userCursor.x == tileS.tileDeltaX + column);
-    //DEBUG_IF(printf("userCursor %v2i debugEnabled %i \n", userCursor, debugEnabled);)
     float floatHeight = convert_float( min( tileS.tileHeight
                                           , tileS.bitmapHeight-tileS.tileDeltaY
                                           )
@@ -2468,7 +2470,6 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                                        ,  column
                                        ,  frameNumber
                                        ,  out
-                                       ,  debugEnabled
                                        ,  passCount
                                        ,  c
                                        ,  randomField
@@ -2521,7 +2522,7 @@ __kernel void getIdsAtPoint ( SMEM     float4 *geometryHeap
     ParseState pS;
     initParseStatePoint(&pS, tileS, frameNumber, false, cont, passCount, randomField);
     buildThresholdArray( tS
-                       , pS
+                       , shS
                        , geometryHeap
                        , groups
                        , shapeHeap
@@ -2653,13 +2654,8 @@ void showColorStateHs (ColorState *cS
                       ,       int  numActive
                       ) {
   printf ("ColorState\n");
-  printf ("{ csColors = [ ");
-  for (int i = 0; i < COLORBUFFERSIZE && i < (numActive + 1); i ++) {
-     if (i>0) {printf (",");}
-     showColorHs(cS->csColors[i]);
-     printf ("\n");
-  }
-  printf ("] \n } \n");
+  printf ("{\n");
+  printf ("}\n");
 }
 
 void showColorHs( COLOR color) {
@@ -2768,17 +2764,17 @@ void showGroup(Group group) {
     printf ("     groupColor %2i  %2.2v4f \n", (long) &group.groupColor - (long)&group, group.groupColor);
 }
 
-void showShapeIndices( ParseState *pS
+void showShapeIndices( ShapeState *shS
                      ,        int  numShapes
                      ) {
     int num = min(numShapes, MAXSHAPE);
     printf("Group indices %i\n", num);
     for (int i = 0; i < num; i++) {
-        printf("        [%02i] -> %02i\n", i, pS->shapeIndices[i]);
+        printf("        [%02i] -> %02i\n", i, shS->shapeIndices[i]);
     }
 }
 
-void showShapeColors(      ParseState *pS
+void showShapeColors(     ShapeState *shS
                    , SMEM      Group *groups
                    , SMEM      Shape *shapeHeap
                    ,             int  numShapes
@@ -2786,12 +2782,12 @@ void showShapeColors(      ParseState *pS
     int num = min(numShapes, MAXSHAPE);
     printf("Group indices %i\n", num);
     for (int i = 0; i < num; i++) {
-        Shape shape = shapeHeap[pS->shapeIndices[i]];
+        Shape shape = shapeHeap[shS->shapeIndices[i]];
         SHAPETAG tag = shape.shapeTag;
         GROUPID shapeId = shapeTagGroupId(tag);
         Group group = groups[shapeId];
         COLOR color = group.groupColor;
-        printf("        [%02i] -> %02i (%2.2v4f)\n", i, pS->shapeIndices[i], color);
+        printf("        [%02i] -> %02i (%2.2v4f)\n", i, shS->shapeIndices[i], color);
     }
 }
 
@@ -2909,22 +2905,22 @@ void showThresholdsHs ( PMEM ThresholdState *tS
       printf ("\n");
   }
 }
-void showThresholdStateHs (PMEM ThresholdState *tS
-                          , ParseState *pS
-                          , SMEM      Group *groups
-                          , SMEM       Shape *shapeHeap
-                          ,             int  numShapes
+void showThresholdStateHs ( PMEM ThresholdState *tS
+                          , PMEM     ShapeState *shS
+                          , SMEM          Group *groups
+                          , SMEM          Shape *shapeHeap
+                          ,                 int  numShapes
                           ) {
   printf("ThresholdState\n");
-  printf("{ tsRenderStart      = (%v2f)\n", tS->renderStart      );
-  printf(", tsRenderEnd        = (%v2f)\n", tS->renderEnd        );
+  printf("{ tsRenderStart      = (%v2f)\n", tS->renderStart );
+  printf(", tsRenderEnd        = (%v2f)\n", tS->renderEnd   );
   printf(", tsThresholds = [\n");
   showThresholdsHs(tS, tS->numThresholds);
   printf("]\n");
   printf(", tsColors = [\n");
   int num = min(numShapes, MAXSHAPE);
   showColorsHs ( tS
-               , pS
+               , shS
                , groups
                , shapeHeap
                , num
@@ -2934,15 +2930,15 @@ void showThresholdStateHs (PMEM ThresholdState *tS
 }
 
 void showColorsHs ( PMEM ThresholdState *tS
-                  , ParseState *pS
-                  , SMEM      Group *groups
-                  , SMEM       Shape *shapeHeap
-                  ,             int  num
+                  , PMEM     ShapeState *shS
+                  , SMEM          Group *groups
+                  , SMEM          Shape *shapeHeap
+                  ,                int  num
                   ) {
   for (int i = 0; i < num; i++) {
       if (i>0) {printf(", ");}
-      Shape shape = shapeHeap[pS->shapeIndices[i]];
-      SHAPETAG tag = shape.shapeTag;
+      Shape shape     = shapeHeap[shS->shapeIndices[i]];
+      SHAPETAG tag    = shape.shapeTag;
       GROUPID shapeId = shapeTagGroupId(tag);
       Group group = groups[shapeId];
       COLOR color = group.groupColor;
@@ -2950,12 +2946,17 @@ void showColorsHs ( PMEM ThresholdState *tS
   }
 }
 
+void showShapeStateHs( PMEM ShapeState *shS) {
+    printf("ShapeState\n");
+    printf("{ shShapeStack = "); showShapeStackHs(shS->shapeStack); printf("\n");
+    printf("}\n");
+}
 void showParseStateHs( PMEM ThresholdState *tS
-                      , ParseState *pS
-                      , SMEM      Group *groups
-                      , SMEM       Shape *shapeHeap
-                      ,            COLOR color
-                      ) {
+                     , PMEM     ParseState *pS
+                     , SMEM          Group *groups
+                     , SMEM          Shape *shapeHeap
+                     ,               COLOR color
+                     ) {
   printf("ParseState\n");
   printf("{ psCurrentThreshold = %i\n"    , pS->currentThreshold );
   printf(", psNumActive        = %i\n"    , pS->numActive        );
@@ -2964,7 +2965,7 @@ void showParseStateHs( PMEM ThresholdState *tS
   printf(", psSectionEnd       = (%v2f)\n", pS->sectionEnd       );
   printf(", psPixelY           = %f\n", pS->pixelY);
   printf(", psSectionColor = "); showColorHs(color); printf("\n");
-  printf(", psShapeStack = "); showShapeStackHs(pS->shapeStack); printf("\n");
+
   printf(", psThresholds = ["); showThresholdsHs(tS, pS->numActive);printf("]\n");
   printf("}\n");
 }

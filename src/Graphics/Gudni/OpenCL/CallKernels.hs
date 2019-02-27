@@ -103,7 +103,6 @@ generateCall  :: (KernelArgs
                        -> CInt
                        -> CInt
                        -> CInt
-                       -> Point2 IntSpace
                        -> OutputPtr CChar
                        -> CInt
                        -> Pile CUInt
@@ -123,13 +122,12 @@ generateCall  :: (KernelArgs
               -> CInt
               -> CInt
               -> CInt
-              -> Point2 IntSpace
               -> RasterJob
               -> OutputPtr CChar
               -> CInt
               -> a
               -> CL ()
-generateCall state kernel pictData pictRefs randomField tileWidth tileHeight gridWidth bitmapWidth bitmapHeight frame cursor job continuations passCount target =
+generateCall state kernel pictData pictRefs randomField tileWidth tileHeight gridWidth bitmapWidth bitmapHeight frame job continuations passCount target =
     let geometryHeap    = job ^. rJGeometryPile
         shapeHeap       = job ^. rJShapePile
         shapeRefHeap    = job ^. rJShapeRefPile
@@ -156,7 +154,6 @@ generateCall state kernel pictData pictRefs randomField tileWidth tileHeight gri
                       tileWidth
                       tileHeight
                       frame
-                      cursor
                       continuations
                       passCount
     in
@@ -211,12 +208,11 @@ generateFillCall state kernel tileWidth tileHeight gridWidth bitmapWidth bitmapH
                (Work2D (tileIndexPile ^. pileSize) (fromIntegral tileWidth))
                (WorkGroup [1, fromIntegral tileWidth])
 
-raster :: Point2 IntSpace
-       -> CInt
+raster :: CInt
        -> RasterParams
        -> RasterJob
        -> CL ()
-raster cursor frame params job =
+raster frame params job =
     let tileW        = (fromIntegral . pX $ tILEsIZE) :: CInt
         tileH        = (fromIntegral . pY $ tILEsIZE) :: CInt
         (V2 w h)     = targetArea (params ^. rpTarget)
@@ -238,7 +234,6 @@ raster cursor frame params job =
                                        w
                                        h
                                        frame
-                                       cursor
                                        job
                                        continuations
                                        passCount
@@ -282,30 +277,28 @@ raster cursor frame params job =
             fillCall
 
 
-rasterSection :: Point2 IntSpace
-              -> CInt
+rasterSection :: CInt
               -> RasterParams
               -> RasterJobInput
               -> [Int]
               -> CL ()
-rasterSection cursor frame params input section =
+rasterSection frame params input section =
  do let memoryLimit  = geoMemoryLimit (params ^. rpLibrary)
     internalJobs <- liftIO $ buildRasterJobs memoryLimit input section
     liftIO $ putStrLn $ show (length internalJobs) ++ " jobs."
-    mapM_ (raster cursor frame params) internalJobs
+    mapM_ (raster frame params) internalJobs
 
 buildAndQueueRasterJobs :: MonadIO m
-                        => Point2 IntSpace
-                        -> CInt
+                        => CInt
                         -> RasterParams
                         -> RasterJobInput
                         -> TileArrayMonad m ()
-buildAndQueueRasterJobs cursor frame params input =
+buildAndQueueRasterJobs frame params input =
   do  let state = clState (params ^. rpLibrary)
       tileIndexSections <- divideTiles (tr "clMaxGroupSize" $ clMaxGroupSize $ params ^. rpLibrary)
       liftIO $
           do let threads :: IO ()
-                 threads = mapM_ (runCL state . rasterSection cursor frame params input) tileIndexSections
+                 threads = mapM_ (runCL state . rasterSection frame params input) tileIndexSections
              threads
              --syncEvents <- threads
              --runCL state $ waitAll_ (concat syncEvents)

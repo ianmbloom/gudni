@@ -200,7 +200,7 @@ drawFrame cursor frame shapeTree =
                                       primBag
                                       tileArray
         appMessage "===================== rasterStart ====================="
-        lift $ buildAndQueueRasterJobs cursor frame rasterParams jobInput
+        lift $ buildAndQueueRasterJobs frame rasterParams jobInput
         appMessage "===================== rasterDone ====================="
         markAppTime "Rasterize Threads"
         withIO appBackend $ presentTarget target
