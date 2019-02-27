@@ -88,15 +88,15 @@ newTile = do primPile  <- newPileSize dEFAULTNUMMASKS
 
 newTileGrid tileSize screenSize =
     let toInt = convert :: DisplaySpace -> IntSpace
-        gridSizeX  = (fmap toInt (pX screenSize) + pX tileSize - 1) `div` pX tileSize
-        gridSizeY  = (fmap toInt (pY screenSize) + pY tileSize - 1) `div` pY tileSize
+        gridSizeX  = (fmap toInt (screenSize ^. pX) + tileSize ^. pX - 1) `div` tileSize ^. pX
+        gridSizeY  = (fmap toInt (screenSize ^. pY) + tileSize ^. pY - 1) `div` tileSize ^. pY
     in  TileGrid { _tGScreenSize = screenSize
                  , _tGTileSize   = (convert :: Point2 IntSpace -> Point2 DisplaySpace) tileSize
                  , _tGGridSize   = makePoint gridSizeX gridSizeY
                  }
 
 getArraySize tileGrid = let gridSize = tileGrid ^. tGGridSize
-                        in  fromIntegral (pX gridSize * orthoganal (pY gridSize))
+                        in  fromIntegral (gridSize ^. pX * orthoganal (gridSize ^. pY))
 
 newTileArray :: Point2 IntSpace
              -> Point2 DisplaySpace
@@ -159,9 +159,9 @@ addPrimBlock :: MonadIO m => (Block, PrimId) -> TileArrayMonad m ()
 addPrimBlock (block, primId) =
   -- iterate over all of the tiles covered by the block
     do  tileArray <- get
-        let gridSizeX = pX $ tileArray ^. tAGrid . tGGridSize
-            iterateX y = numLoop (leftBox block) (rightBox block ) (addPrimToTileArray gridSizeX primId y)
-        numLoop (topBox block) (bottomBox block) iterateX
+        let gridSizeX = tileArray ^. tAGrid . tGGridSize . pX
+            iterateX y = numLoop (block ^. leftSide) (block ^. rightSide) (addPrimToTileArray gridSizeX primId y)
+        numLoop (block ^. topSide) (block ^. bottomSide) iterateX
         put tileArray
 
 readTile :: MonadIO m => TileArray -> Int ->m [PrimId]

@@ -67,11 +67,11 @@ constrainBox :: TileGrid
              -> Box DisplaySpace
              -> Maybe (Box DisplaySpace)
 constrainBox (TileGrid displaySize _ _) boundingBox =
-               let  left            = min (leftBox   boundingBox) (pX displaySize)
-                    right           = max (rightBox  boundingBox)  0
-                    top             = min (topBox    boundingBox) (pY displaySize)
-                    bottom          = max (bottomBox boundingBox)  0
-               in   if right <= 0 || bottom <= 0 || left >= pX displaySize || top >= pY displaySize
+               let  left            = min (boundingBox ^. leftSide  ) (displaySize ^. pX)
+                    right           = max (boundingBox ^. rightSide )  0
+                    top             = min (boundingBox ^. topSide    ) (displaySize ^. pY)
+                    bottom          = max (boundingBox ^. bottomSide)  0
+               in   if right <= 0 || bottom <= 0 || left >= displaySize ^. pX || top >= displaySize ^. pY
                     then Nothing
                     else Just $ makeBox (makePoint left top) (makePoint right bottom)
 
@@ -79,14 +79,14 @@ blockBox :: TileGrid
          -> Box DisplaySpace
          -> Box IntSpace
 blockBox (TileGrid _ tileSize gridSize) boundingBox =
-    let  gridSizeX       = (fromIntegral . pX $ gridSize) - 0.5
-         gridSizeY       = (fromIntegral . pY $ gridSize) - 0.5
-         convertClampX x = Ortho . ISpace . fromIntegral . fastTruncateSingle . clamp 0.5 gridSizeX . realToFrac $ x / pX tileSize
-         convertClampY y = Ortho . ISpace . fromIntegral . fastTruncateSingle . clamp 0.5 gridSizeY . realToFrac $ y / pY tileSize
-         leftG           = convertClampX (leftBox   boundingBox)
-         rightG          = convertClampX (rightBox  boundingBox)
-         topG            = convertClampY (topBox    boundingBox)
-         bottomG         = convertClampY (bottomBox boundingBox)
+    let  gridSizeX       = (fromIntegral $ gridSize ^. pX) - 0.5
+         gridSizeY       = (fromIntegral $ gridSize ^. pY) - 0.5
+         convertClampX x = Ortho . ISpace . fromIntegral . fastTruncateSingle . clamp 0.5 gridSizeX . realToFrac $ x / tileSize ^. pX
+         convertClampY y = Ortho . ISpace . fromIntegral . fastTruncateSingle . clamp 0.5 gridSizeY . realToFrac $ y / tileSize ^. pY
+         leftG           = convertClampX (boundingBox ^. leftSide  )
+         rightG          = convertClampX (boundingBox ^. rightSide  )
+         topG            = convertClampY (boundingBox ^. topSide    )
+         bottomG         = convertClampY (boundingBox ^. bottomSide)
     in   makeBox (makePoint leftG topG) (makePoint rightG bottomG)
 
 makeCurveEnclosures :: CurveTable

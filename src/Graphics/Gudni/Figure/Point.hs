@@ -57,17 +57,17 @@ instance (Functor f, Convertable a b) => Convertable (Point f a) (Point f b) whe
 type Point2 = Point V2
 pattern Point2 x y = P (V2 x y)
 
-pX :: Point2 s -> Ortho XDimension s
-pX (Point2 x _) = Ortho x
+pX :: Lens' (Point2 s) (Ortho XDimension s)
+pX elt_fn (Point2 x y) = (\x' -> Point2 (unOrtho x') y) <$> (elt_fn . Ortho $ x)
 
-pY :: Point2 s -> Ortho YDimension s
-pY (Point2 _ y) = Ortho y
+pY :: Lens' (Point2 s) (Ortho YDimension s)
+pY elt_fn (Point2 x y) = (\y' -> Point2 x (unOrtho y')) <$> (elt_fn . Ortho $ y)
 
 {-# INLINE makePoint #-}
 makePoint :: Ortho XDimension s -> Ortho YDimension s -> Point2 s
 makePoint (Ortho x) (Ortho y) = P (V2 x y)
 zeroPoint :: Num s => Point2 s
-zeroPoint = P (V2 0 0)
+zeroPoint = Point2 0 0
 unitPoint :: Num s => Point2 s
 unitPoint = P (V2 1 1)
 
@@ -89,10 +89,10 @@ type Vert2 s = Vertex s
 pattern Vert2 o x y = Vert o (Point2 x y)
 
 vX :: Vertex s -> Ortho XDimension s
-vX (Vert _ p) = pX p
+vX (Vert _ p) = p ^. pX
 
 vY :: Vertex s -> Ortho YDimension s
-vY (Vert _ p) = pY p
+vY (Vert _ p) = p ^. pY
 
 instance Convertable a b => Convertable (Vertex a) (Vertex b) where
   convert (Vert o p) = Vert o $ convert p

@@ -118,13 +118,13 @@ curvePoint t left control right =
   in  (leftMid, onCurve, rightMid)
 
 leftConvex  :: (Show s, Num s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Bool
-leftConvex control onCurve  = pX control < pX onCurve
+leftConvex control onCurve  = control ^. pX < onCurve ^. pX
                               --let diff = pX control - pX onCurve
                               --in  --tr ("leftConvex control: " ++ show (vX control) ++ "vX onCurve " ++ show (vX onCurve) ++ "diff: " ++ show diff) $
                               --    diff > iota
 
 rightConvex :: (Show s, Num s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Bool
-rightConvex control onCurve = pX onCurve < pX control
+rightConvex control onCurve = onCurve ^. pX < control ^. pX
                               --let diff = pX onCurve - pX control
                               --in --tr ("rightConvex control: " ++ show (vX control) ++ "vX onCurve " ++ show (vX onCurve) ++ "diff: " ++ show diff) $
                               --    diff > iota
@@ -181,7 +181,7 @@ smidge :: (Num s, Iota s) => s
 smidge = iota * 100
 
 compareHorizontal :: Ord s => Point2 s -> Point2 s -> Ordering
-compareHorizontal a b = compare (pX a) (pX b)
+compareHorizontal a b = compare (a ^. pX) (b ^. pX)
 
 direction :: Ord s => Triple (Point2 s) -> (Ordering, [Triple (Point2 s)])
 direction (a, control, b) = (compareHorizontal a b, [(a, control, b)])
@@ -214,7 +214,7 @@ attachEQ (         x:           xs) = (Nothing, x, Nothing):attachEQ   xs
 attachEQ []                         = []
 
 vertical :: (Num s, Ord s, Iota s) => Maybe (Triple (Point2 s)) -> Ortho YDimension s
-vertical (Just (a, _, b)) = pY b - pY a
+vertical (Just (a, _, b)) = b ^. pY - b ^. pY
 vertical _                = 0
 
 flipTriple :: (a, b, a) -> (a, b, a)

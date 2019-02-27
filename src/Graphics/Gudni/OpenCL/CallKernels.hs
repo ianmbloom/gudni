@@ -213,12 +213,12 @@ raster :: CInt
        -> RasterJob
        -> CL ()
 raster frame params job =
-    let tileW        = (fromIntegral . pX $ tILEsIZE) :: CInt
-        tileH        = (fromIntegral . pY $ tILEsIZE) :: CInt
+    let tileW        = (fromIntegral $ tILEsIZE ^. pX) :: CInt
+        tileH        = (fromIntegral $ tILEsIZE ^. pY) :: CInt
         (V2 w h)     = targetArea (params ^. rpTarget)
         outputSize   = fromIntegral $ w * h
         state        = clState (params ^. rpLibrary)
-        gridWidth = fromIntegral . pX $ params ^. rpTileGrid . tGGridSize
+        gridWidth = fromIntegral $ params ^. rpTileGrid . tGGridSize . pX
         numTiles     = (fromIntegral $ job ^. rJTilePile ^. pileSize) :: CInt
         rasterCall :: OutputPtr CChar -> CInt -> CL ()
         rasterCall continuations passCount =

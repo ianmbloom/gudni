@@ -33,13 +33,13 @@ rotate :: (Floating s) => Angle s -> Point2 s -> Point2 s
 rotate a (Point2 x y) = Point2 (x * cosA a - y * sinA a) (y * cosA a + x * sinA a)
 
 rotate90 :: (Num s) => Point2 s -> Point2 s
-rotate90 v = makePoint (orthoganal $ pY v) (orthoganal $ negate $ pX v)
+rotate90 v = makePoint (orthoganal $ v ^. pY) (orthoganal $ negate $ v ^. pX)
 
 rotate180 :: (Num s) => Point2 s -> Point2 s
-rotate180 v = makePoint (negate $ pX v) (negate $ pY v)
+rotate180 v = makePoint (negate $ v ^. pX) (negate $ v ^. pY )
 
 rotate270 :: (Num s) => Point2 s -> Point2 s
-rotate270 v = makePoint (orthoganal $ negate $ pY v) (orthoganal $ pX v)
+rotate270 v = makePoint (orthoganal $ negate $ v ^. pY) (orthoganal $ v ^. pX)
 
 instance Hashable s => Hashable (Angle s) where
   hashWithSalt s = hashWithSalt s . view rad

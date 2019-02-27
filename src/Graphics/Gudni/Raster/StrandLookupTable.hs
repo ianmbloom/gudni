@@ -14,6 +14,8 @@ import qualified Data.Vector.Storable as VS
 import qualified Data.Vector as V
 import Data.Vector ((!))
 
+import Control.Lens
+
 data ITree =
   IBranch
   { iTreeIndex :: Int
@@ -87,7 +89,7 @@ makeCurveStrand :: (Show s, Ord s, Num s, Iota s, VS.Storable s)
                 -> VS.Vector (Point2 s)
 makeCurveStrand table (right, left, control, rest) =
   let curveVector = V.fromList (right:left:control:concatMap (\(x,y) -> [x,y]) rest)
-      direction = compare (pX $ V.head curveVector) (pX $ V.last curveVector) -- determine the direction of the entire strand.
+      direction = compare (V.head curveVector ^. pX) (V.last curveVector ^. pX) -- determine the direction of the entire strand.
       size = V.length curveVector
       line = table ! {- tr ("size" ++ show size ++ "table index") -} (((size - 1) `div` 2) - 1)
   in

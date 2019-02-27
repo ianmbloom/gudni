@@ -29,6 +29,8 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Util.Util
 import Data.Char (ord)
 
+import Control.Lens
+
 lPath :: String -> CompoundTree
 lPath name =
   case plotLibrary name of
@@ -54,10 +56,10 @@ openRectangle s p = let strokeDelta = Point2 s s in
 
 diamond :: Point2 DisplaySpace -> CompoundTree
 diamond point = let box = makeBox zeroPoint point :: Box DisplaySpace
-                    t = lerp 0.5 (topLeftBox     box) (topRightBox    box)
-                    r = lerp 0.5 (topRightBox    box) (bottomRightBox box)
-                    b = lerp 0.5 (bottomRightBox box) (bottomLeftBox  box)
-                    l = lerp 0.5 (bottomLeftBox  box) (topLeftBox     box)
+                    t = lerp 0.5 (box ^. topLeftBox    ) (box ^. topRightBox   )
+                    r = lerp 0.5 (box ^. topRightBox   ) (box ^. bottomRightBox)
+                    b = lerp 0.5 (box ^. bottomRightBox) (box ^. bottomLeftBox )
+                    l = lerp 0.5 (box ^. bottomLeftBox ) (box ^. topLeftBox    )
                 in raw  [Vert True t, Vert True r, Vert True b, Vert True l]
 
 line :: DisplaySpace -> Point2 DisplaySpace -> Point2 DisplaySpace -> CompoundTree

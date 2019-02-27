@@ -105,20 +105,20 @@ rawShapeToCurve' shape =
     RawBox stroke v ->
       map expandVerts
         [ [ Vert True $ makePoint 0      0
-          , Vert True $ makePoint (pX v) 0
-          , Vert True $ makePoint (pX v) (pY v)
-          , Vert True $ makePoint 0      (pY v)
+          , Vert True $ makePoint (v ^. pX) 0
+          , Vert True $ makePoint (v ^. pX) (v ^. pY)
+          , Vert True $ makePoint 0      (v ^. pY)
           ],
           [ Vert True $ makePoint (0    + toXOrtho stroke) (0    + toYOrtho stroke)
-          , Vert True $ makePoint (0    + toXOrtho stroke) (pY v - toYOrtho stroke)
-          , Vert True $ makePoint (pX v - toXOrtho stroke) (pY v - toYOrtho stroke)
-          , Vert True $ makePoint (pX v - toXOrtho stroke) (0    + toYOrtho stroke)
+          , Vert True $ makePoint (0    + toXOrtho stroke) (v ^. pY - toYOrtho stroke)
+          , Vert True $ makePoint (v ^. pX - toXOrtho stroke) (v ^. pY - toYOrtho stroke)
+          , Vert True $ makePoint (v ^. pX - toXOrtho stroke) (0    + toYOrtho stroke)
           ] ]
     RawRectangle v ->
         [expandVerts [ Vert True $ makePoint 0      0
-                              , Vert True $ makePoint (pX v) 0
-                              , Vert True $ makePoint (pX v) (pY v)
-                              , Vert True $ makePoint 0      (pY v)
+                              , Vert True $ makePoint (v ^. pX) 0
+                              , Vert True $ makePoint (v ^. pX) (v ^. pY)
+                              , Vert True $ makePoint 0         (v ^. pY)
                               ] ]
     RawGlyph glyph -> glyphVertices glyph
     Raw vertices ->

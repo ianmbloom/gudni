@@ -101,8 +101,8 @@ expandPlot' (PlotSegment l)  = [Vert True $ makePoint 0 0, Vert True $ makePoint
 expandPlot' (PlotRotate a p)= map (over stripVertex (rotate a)) $ expandPlot p
 expandPlot' (PlotScale s p) = map (over stripVertex (^* s)) $ expandPlot p
 expandPlot' (PlotReverse p) = reverse $ expandPlot p
-expandPlot' (PlotFlipH p) = map (\ (Vert o p) -> Vert o (makePoint (negate $ pX p)  (pY p))) (expandPlot p)
-expandPlot' (PlotFlipV p) = map (\ (Vert o p) -> Vert o (makePoint (pX p) (negate $ pY p) )) (expandPlot p)
+expandPlot' (PlotFlipH p) = map (\ (Vert o p) -> Vert o (makePoint (negate $ p ^. pX)  (p ^. pY))) (expandPlot p)
+expandPlot' (PlotFlipV p) = map (\ (Vert o p) -> Vert o (makePoint (p ^. pX) (negate $ p ^. pY) )) (expandPlot p)
 
 makeArc :: (Show s, Floating s, Num s) => Angle s -> [Vertex s]
 makeArc angle = [Vert True (Point2 1 0), Vert False (Point2 1 (tanA $ fmap (/2) angle)), Vert True (Point2 (cosA angle) (sinA angle))]

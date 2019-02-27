@@ -52,7 +52,7 @@ data InterfaceState = InterfaceState
 makeLenses ''InterfaceState
 
 makeV2 :: Point2 IntSpace -> V2 CInt
-makeV2 p = V2 (fromIntegral . pX $ p) (fromIntegral . pY $ p)
+makeV2 p = V2 (fromIntegral . view pX $ p) (fromIntegral . view pY $ p)
 
 startInterface :: ScreenMode -> IO InterfaceState
 startInterface screenMode =
