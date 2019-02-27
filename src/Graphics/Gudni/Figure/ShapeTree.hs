@@ -116,15 +116,18 @@ cAdd      = SOverlap CombineAdd
 cSubtract = SOverlap CombineSubtract
 cContinue = SOverlap CombineContinue
 
-instance Transformable (STree o rep) where
+instance SimpleTransformable (STree o rep) where
   tTranslate p = STransform (Translate p)
-  tRotate    r = STransform (Rotate r)
   tScale     s = STransform (Scale s)
+instance Transformable (STree o rep) where
+  tRotate    r = STransform (Rotate r)
 
-instance Transformable rep => Transformable (SRep token substance rep) where
+instance SimpleTransformable rep => SimpleTransformable (SRep token substance rep) where
   tTranslate p = mapShapeRep (tTranslate p)
-  tRotate    r = mapShapeRep (tRotate    r)
   tScale     s = mapShapeRep (tScale     s)
+instance Transformable rep => Transformable (SRep token substance rep) where
+  tRotate    r = mapShapeRep (tRotate    r)
+
 ---------------------------- Instances -------------------------------------
 
 instance Functor (STree overlap) where

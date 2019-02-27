@@ -14,7 +14,6 @@ module Graphics.Gudni.Figure.Point
   , pY
   , makePoint
   , zeroPoint
-  , unitPoint
   , Vert2 (..)
   , pattern Vert2
   , Vertex (..)
@@ -51,9 +50,6 @@ import Control.Monad.Random
 import Control.DeepSeq
 import Control.Lens
 
-instance (Functor f, Convertable a b) => Convertable (Point f a) (Point f b) where
-  convert = fmap convert
-
 type Point2 = Point V2
 pattern Point2 x y = P (V2 x y)
 
@@ -68,8 +64,9 @@ makePoint :: Ortho XDimension s -> Ortho YDimension s -> Point2 s
 makePoint (Ortho x) (Ortho y) = P (V2 x y)
 zeroPoint :: Num s => Point2 s
 zeroPoint = Point2 0 0
-unitPoint :: Num s => Point2 s
-unitPoint = P (V2 1 1)
+
+instance (Functor f, Convertable a b) => Convertable (Point f a) (Point f b) where
+  convert = fmap convert
 
 instance Random s => Random (Point2 s) where
   random = runRand $ do x <- getRandom; y <- getRandom; return (Point2 x y)
@@ -83,19 +80,19 @@ data Vertex s = Vert
   deriving (Eq, Ord)
 makeLenses ''Vertex
 
-
-isControl = not . view isOnCurve
+isControl :: Lens' (Vertex s) Bool
+isControl elt_fn (Vert isOnCurve p) = (\isControl -> Vert (not isControl) p) <$> elt_fn (not isOnCurve)
 type Vert2 s = Vertex s
 pattern Vert2 o x y = Vert o (Point2 x y)
 
-vX :: Vertex s -> Ortho XDimension s
-vX (Vert _ p) = p ^. pX
+vX :: Lens' (Vertex s) (Ortho XDimension s)
+vX = stripVertex . pX
 
-vY :: Vertex s -> Ortho YDimension s
-vY (Vert _ p) = p ^. pY
+vY :: Lens' (Vertex s) (Ortho YDimension s)
+vY = stripVertex . pY
 
 instance Convertable a b => Convertable (Vertex a) (Vertex b) where
-  convert (Vert o p) = Vert o $ convert p
+  convert = over stripVertex convert
 
 instance Random s => Random (Vertex s) where
   random = runRand $ do o <- getRandom; v <- getRandom; return $ Vert o v

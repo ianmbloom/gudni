@@ -307,10 +307,10 @@ buildParseState colors thresholds action =
                 renderStart = Point2 (DSpace . realToFrac . fst . psRenderStart $ action) (DSpace . realToFrac . snd . psRenderStart $ action)
                 renderEnd   = Point2 (DSpace . realToFrac . fst . psRenderEnd   $ action) (DSpace . realToFrac . snd . psRenderEnd   $ action)
                 renderArea  = solid (transparent 0.4 gray) . overlap $
-                    [                                                          rectangle (makePoint  1                   (pY renderStart                ))
-                    , tTranslate (makePoint 0              (pY renderStart)) $ rectangle (makePoint (    pX renderStart) (pY renderEnd - pY renderStart ))
-                    , tTranslate (makePoint (pX renderEnd) (pY renderStart)) $ rectangle (makePoint (1 - pX renderEnd)   (pY renderEnd - pY renderStart ))
-                    , tTranslate (makePoint 0              (pY renderEnd)  ) $ rectangle (makePoint  1                   (32 - pY renderEnd             ))
+                    [                                                          rectangle (makePoint  1                   (renderStart ^. pY                ))
+                    , tTranslate (makePoint 0                 (renderStart ^. pY)) $ rectangle (makePoint (    renderStart ^. pX) (renderEnd ^. pY - renderStart ^. pY))
+                    , tTranslate (makePoint (renderEnd ^. pX) (renderStart ^. pY)) $ rectangle (makePoint (1 - renderEnd   ^. pX) (renderEnd ^. pY - renderStart ^. pY))
+                    , tTranslate (makePoint 0                 (renderEnd   ^. pY)) $ rectangle (makePoint  1                      (32              - renderEnd   ^. pY))
                     ]
                 color  = colorTupleToColor . psSectionColor $ action
                 sectionBox = tTranslateXY left top . solid color $ rectangle (Point2 width height)

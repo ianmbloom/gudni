@@ -7,17 +7,17 @@
 module Graphics.Gudni.Figure.Transformer
  ( TransformType (..)
  , applyTransformType
+ , SimpleTransformable(..)
  , Transformable(..)
  , tTranslateXY
- , transformBox
 )
 where
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Point
-import Graphics.Gudni.Figure.Box
-import Graphics.Gudni.Figure.Outline
+--import Graphics.Gudni.Figure.Box
+--import Graphics.Gudni.Figure.Outline
 
 import Graphics.Gudni.Util.Debug
 
@@ -60,44 +60,29 @@ instance Hashable TransformType where
     hashWithSalt s (Scale a)     = s `hashWithSalt` (1 :: Int) `hashWithSalt` a
     hashWithSalt s (Rotate a)    = s `hashWithSalt` (2 :: Int) `hashWithSalt` a
 
-transformBox :: TransformType -> Box DisplaySpace -> Box DisplaySpace
-transformBox (Translate delta) = translateBox delta
-transformBox (Scale scale)     = scaleBox scale
-transformBox (Rotate scale)    = undefined
-
 applyTransformType :: Transformable t => TransformType -> t -> t
 applyTransformType (Translate delta) = tTranslate delta
 applyTransformType (Scale scale)     = tScale scale
 applyTransformType (Rotate angle)    = tRotate angle
 
-pairMap f (a,b) = (f a, f b)
-
-applyTransformer :: TransformType -> [Outline DisplaySpace] -> [Outline DisplaySpace]
-applyTransformer t = map (mapOutline (applyTransformType t))
-
-class Transformable a where
+class SimpleTransformable a where
   tTranslate :: Point2 DisplaySpace -> a -> a
-  tRotate    :: Angle DisplaySpace -> a -> a
   tScale     :: DisplaySpace -> a -> a
 
+class SimpleTransformable a => Transformable a where
+  tRotate    :: Angle DisplaySpace -> a -> a
+
+tTranslateXY :: SimpleTransformable a => DisplaySpace -> DisplaySpace -> a -> a
 tTranslateXY x y = tTranslate $ Point2 x y
 
+instance SimpleTransformable (Point2 DisplaySpace) where
+    tTranslate = (^+^)
+    tScale     = flip (^*)
 instance Transformable (Point2 DisplaySpace) where
-  tTranslate = (^+^)
-  tRotate    = rotate
-  tScale     = flip (^*)
+    tRotate    = rotate
 
+instance SimpleTransformable f => SimpleTransformable [f] where
+    tTranslate p = map (tTranslate p)
+    tScale     s = map (tScale s)
 instance Transformable f => Transformable [f] where
-  tTranslate p = map (tTranslate p)
-  tRotate    a = map (tRotate a)
-  tScale     s = map (tScale s)
-
-instance Transformable (Outline DisplaySpace) where
-  tTranslate p = mapOutline (tTranslate p)
-  tRotate    a = mapOutline (tRotate a)
-  tScale     s = mapOutline (tScale s)
-
-instance Transformable (Box DisplaySpace) where
-  tTranslate p = translateBox p
-  tRotate    a = error "rotation for box not defined"
-  tScale     s = scaleBox s
+    tRotate    a = map (tRotate a)

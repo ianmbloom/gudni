@@ -4,6 +4,8 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE PatternSynonyms       #-}
+-- {-# LANGUAGE TemplateHaskell       #-}
 -- {-# LANGUAGE DatatypeContexts      #-}
 
 module Graphics.Gudni.Figure.Box
@@ -35,6 +37,7 @@ module Graphics.Gudni.Figure.Box
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
+import Graphics.Gudni.Figure.Transformer
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
@@ -48,14 +51,10 @@ import Control.Lens
 --import Data.Primitive.SIMD
 import Data.Traversable
 import qualified Data.Vector.Storable as VS
+import Linear.V2
 
-
-pointToBox :: Num s => Point2 s -> Box s
-pointToBox p = makeBox zeroPoint p
-
-
-
-data Box s = Box !(Point2 s) !(Point2 s) deriving (Eq, Show)
+newtype Box s = Bx {unBx :: V2 (Point2 s)} deriving (Eq, Show)
+pattern Box topLeft bottomRight = Bx (V2 topLeft bottomRight)
 
 
 topLeftBox     :: Lens' (Box s) (Point2 s)
@@ -78,17 +77,22 @@ bottomSide      :: Lens' (Box s) (Ortho YDimension s)
 bottomSide = bottomRightBox . pY
 makeBox        :: Point2 s -> Point2 s -> Box s
 makeBox  = Box
+pointToBox :: Num s => Point2 s -> Box s
+pointToBox p = makeBox zeroPoint p
 emptyBox       :: Num s => Box s
 emptyBox = Box zeroPoint zeroPoint
-scaleBox       :: Num s => s -> Box s -> Box s
-scaleBox  scale (Box topLeft bottomRight) = makeBox (topLeft ^* scale) (bottomRight ^* scale)
+mapBox :: (Point2 s -> Point2 s) -> Box s -> Box s
+mapBox f (Box tl br) = Box (f tl) (f br)
 translateBox   :: Num s => Point2 s -> Box s -> Box s
 translateBox delta = mapBox (^+^ delta)
-
+scaleBox       :: Num s => s -> Box s -> Box s
+scaleBox  scale box = mapBox (^* scale) box
 heightBox :: Num s => Box s -> Ortho YDimension s
 heightBox box = box ^. bottomSide - box ^. topSide
 widthBox :: Num s => Box s -> Ortho XDimension s
 widthBox  box = box ^. rightSide - box ^. leftSide
+isZeroBox :: (Num s, Eq s) => Box s -> Bool
+isZeroBox b = (widthBox b == 0) && (heightBox b == 0)
 sizeBox :: Num s => Box s -> Point2 s
 sizeBox   box = makePoint (widthBox box ) (heightBox box)
 areaBox :: Num s => Box s -> s
@@ -117,13 +121,6 @@ instance (Storable s) => Storable (Box s) where
 instance Convertable a b => Convertable (Box a) (Box b) where
   convert (Box a b) = Box (convert a) (convert b)
 
-isZeroBox :: (Num s, Eq s) => Box s -> Bool
-isZeroBox b = (widthBox b == 0) && (heightBox b == 0)
-
-mapBox :: (Point2 s -> Point2 s) -> Box s -> Box s
-mapBox f box = makeBox (f $ box ^. topLeftBox) (f $ box ^. bottomRightBox)
-
-
 boxBoxes :: (Num s, Ord s) => [Box s] -> Box s
 boxBoxes list =
   if null list
@@ -150,6 +147,11 @@ boxPointList vs =
 
 class Boxable t s where
   getBoundingBox :: t -> Box s
+
+instance SimpleTransformable (Box DisplaySpace) where
+  tTranslate p = translateBox p
+  tScale     s = scaleBox s
+
 {-
 intersectBox :: Ord a => Boxlike a -> Boxlike a -> Boxlike a
 intersectBox (Boxlike (Point x0 y0) (Point x1 y1)) (Boxlike (Point x0' y0') (Point x1' y1')) = Boxlike (Point (max x0 x0') (max y0 y0')) (Point (min x1 x1') (min y1 y1'))

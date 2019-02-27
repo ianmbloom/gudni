@@ -84,8 +84,8 @@ blockBox (TileGrid _ tileSize gridSize) boundingBox =
          convertClampX x = Ortho . ISpace . fromIntegral . fastTruncateSingle . clamp 0.5 gridSizeX . realToFrac $ x / tileSize ^. pX
          convertClampY y = Ortho . ISpace . fromIntegral . fastTruncateSingle . clamp 0.5 gridSizeY . realToFrac $ y / tileSize ^. pY
          leftG           = convertClampX (boundingBox ^. leftSide  )
-         rightG          = convertClampX (boundingBox ^. rightSide  )
-         topG            = convertClampY (boundingBox ^. topSide    )
+         rightG          = convertClampX (boundingBox ^. rightSide )
+         topG            = convertClampY (boundingBox ^. topSide   )
          bottomG         = convertClampY (boundingBox ^. bottomSide)
     in   makeBox (makePoint leftG topG) (makePoint rightG bottomG)
 
@@ -215,10 +215,12 @@ buildPrimitives (SRep token substance rep) = (ShapeHeader substance, map (mkPrim
 
 defaultCombineType a = [(CombineAdd, a)]
 
+instance SimpleTransformable (CombineType, [Outline DisplaySpace]) where
+    tTranslate p = fmapSnd (tTranslate p)
+    tScale     s = fmapSnd (tScale     s)
 instance Transformable (CombineType, [Outline DisplaySpace]) where
-  tTranslate p = fmapSnd (tTranslate p)
-  tRotate    r = fmapSnd (tRotate    r)
-  tScale     s = fmapSnd (tScale     s)
+    tRotate    r = fmapSnd (tRotate    r)
+
 
 traverseShapeTree :: (Monad m)
                  => [PictureMemory]

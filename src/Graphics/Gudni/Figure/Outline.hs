@@ -1,6 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Graphics.Gudni.Figure.Outline
   ( CurvePair
@@ -16,6 +18,7 @@ where
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Box
+import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Util.Util
 import Control.Lens
 import Linear.V2
@@ -40,3 +43,12 @@ expandPairs (CurvePair a b) = [a,b]
 
 outlineBox :: Outline DisplaySpace -> Box DisplaySpace
 outlineBox curve@(Outline vs) = boxPointList $ concatMap expandPairs $ vs
+
+applyTransformer :: TransformType -> [Outline DisplaySpace] -> [Outline DisplaySpace]
+applyTransformer t = map (mapOutline (applyTransformType t))
+
+instance SimpleTransformable (Point2 s) => SimpleTransformable (Outline s) where
+  tTranslate p = mapOutline (tTranslate p)
+  tScale     s = mapOutline (tScale s)
+instance Transformable (Point2 s) => Transformable (Outline s) where
+  tRotate    a = mapOutline (tRotate a)

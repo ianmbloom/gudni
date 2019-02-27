@@ -85,7 +85,7 @@ instance NFData Strand where
 type Triple p = (p, p, p)
 
 rotateIfFirstControl :: Show p => [Vertex p] -> [Vertex p]
-rotateIfFirstControl (v:vs) = if isControl v then vs ++ [v] else v:vs
+rotateIfFirstControl (v:vs) = if v ^. isControl then vs ++ [v] else v:vs
 rotateIfFirstControl []     = []
 
 -------------------- Clean Shape -----------------------
