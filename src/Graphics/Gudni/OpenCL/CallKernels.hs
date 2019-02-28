@@ -213,8 +213,8 @@ raster :: CInt
        -> RasterJob
        -> CL ()
 raster frame params job =
-    let tileW        = (fromIntegral $ tILEsIZE ^. pX) :: CInt
-        tileH        = (fromIntegral $ tILEsIZE ^. pY) :: CInt
+    let tileW        = (fromIntegral $ mAXtILEsIZE ^. pX) :: CInt
+        tileH        = (fromIntegral $ mAXtILEsIZE ^. pY) :: CInt
         (V2 w h)     = targetArea (params ^. rpTarget)
         outputSize   = fromIntegral $ w * h
         state        = clState (params ^. rpLibrary)

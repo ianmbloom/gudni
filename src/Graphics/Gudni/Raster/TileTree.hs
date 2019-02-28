@@ -42,25 +42,27 @@ data PrimEntry = PrimEntry
     , primBox :: Box DisplaySpace
     } deriving (Show)
 
+buildTree :: Point2 DisplaySpace -> Point2 DisplaySpace -> HTree
+buildTree tileSize canvasSize = goH maxDepth (pointToBox canvasSize)
+    where
+    gridW = canvasSize ^. pX / tileSize ^. pX
+    gridH = canvasSize ^. pY / tileSize ^. pY
+    logWidth  = if gridW < 1 then 0 else ceiling . logBase 2 $ gridW
+    logHeight = if gridH < 1 then 0 else ceiling . logBase 2 $ gridH
+    maxDepth  = max logWidth logHeight
+    goH depth box =
+      let hCut = max (canvasSize ^. pX) (box ^. leftSide + fromIntegral (2 ^ (depth - 1)))
+      in  if depth > 0
+          then HTree hCut (goV depth (set rightSide hCut box))
+                          (goV depth (set leftSide  hCut box))
+          else HLeaf $ emptyTile box
+    goV depth box =
+      let vCut = max (canvasSize ^. pY) (box ^. topSide + fromIntegral (2 ^ (depth - 1)))
+      in  VTree vCut (goH (depth - 1) (set bottomSide vCut box))
+                     (goH (depth - 1) (set topSide    vCut box))
+
 emptyTile :: Box DisplaySpace -> Tile
 emptyTile box = Tile [] 0 0 box
-
-buildTree :: Width -> Height -> Width -> Height -> HTree
-buildTree tileW tileH w h = goH maxDepth 0 0
-    where
-    logWidth  = if w < 1 then 0 else ceiling . logBase 2 $ w / tileW
-    logHeight = if h < 1 then 0 else ceiling . logBase 2 $ h / tileH
-    maxDepth  = max logWidth logHeight
-    goH depth xOffset yOffset =
-      let hCut = xOffset + 2 ^ (depth - 1)
-      in  if depth > 0
-          then HTree hCut (goV depth xOffset yOffset)
-                          (goV depth hCut    yOffset)
-          else HLeaf $ emptyTile (makeBox xOffset yOffset undefined undefined)
-    goV depth xOffset yOffset =
-      let vCut = yOffset + 2 ^ (depth - 1)
-      in  VTree vCut (goH (depth - 1) xOffset yOffset)
-                     (goH (depth - 1) xOffset vCut   )
 
 insertPrimH :: HTree -> PrimEntry -> HTree
 insertPrimH (HTree cut left right) primEntry =

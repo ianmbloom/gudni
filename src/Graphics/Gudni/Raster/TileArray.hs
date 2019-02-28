@@ -55,7 +55,7 @@ makeLenses ''TileArray
 type TileArrayMonad m = StateT TileArray m
 
 runTileArrayMonad :: MonadIO m => TileArrayMonad m () -> m ()
-runTileArrayMonad code = do tileArray <- liftIO $ newTileArray tILEsIZE zeroPoint
+runTileArrayMonad code = do tileArray <- liftIO $ newTileArray mAXtILEsIZE zeroPoint
                             runStateT code tileArray
                             liftIO $ freeTileArray tileArray
 
@@ -117,7 +117,7 @@ resizeTileArray displaySize =
       let oldDisplaySize = tileArray ^. tAGrid . tGScreenSize
       if displaySize /= oldDisplaySize
       then do liftIO $ freeTileArray tileArray
-              put =<< liftIO (newTileArray tILEsIZE displaySize :: IO TileArray)
+              put =<< liftIO (newTileArray mAXtILEsIZE displaySize :: IO TileArray)
       else return ()
 
 freeTile :: Tile -> IO ()

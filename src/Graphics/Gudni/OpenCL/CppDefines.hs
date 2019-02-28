@@ -7,9 +7,10 @@ where
 
 import Numeric
 import Data.Word
+import Data.Char
 
 data CppValueType
-  = CppHex64 Int
+  = CppHex64 Word64
   | CppHex32 Int
   | CppInt   Int
   | CppFloat Float
@@ -21,8 +22,8 @@ data CppDefinition = Cpp
 
 instance Show CppValueType where
   show val = case val of
-    CppHex64 i -> showHex (fromIntegral i :: Word64) []
-    CppHex32 i -> showHex (fromIntegral i :: Word32) []
+    CppHex64 i -> map toUpper $ "0x" ++ showHex (fromIntegral i :: Word64) []
+    CppHex32 i -> map toUpper $ "0x" ++ showHex (fromIntegral i :: Word32) []
     CppInt   i -> showInt i                          []
     CppFloat f -> showFFloat Nothing f               []
 
@@ -31,7 +32,7 @@ instance Show CppDefinition where
 
 padEnd :: Int -> [String] -> [String]
 padEnd len xs =
-  let padding = take (min 0 (length xs - len)) $ repeat "\\ Padding line "
+  let padding = take (max 0 (len - length xs)) $ repeat "// Padding line "
   in  xs ++ padding
 
 generateCppDefines :: [CppDefinition] -> [String]

@@ -1,6 +1,5 @@
-// --------------- Space for haskell defined macros
-// 1 MAXTHRESHOLDS // the size of the threshold header and threshold geometry buffers (must be a power of 2)
-// 2 MAXSHAPE 511  // total number of shapes per build. must be one less than the number of bits available.
+// 1 Space for haskell defined macros
+// 2 So the line numbers are correct
 // 3
 // 4
 // 5
@@ -8,10 +7,31 @@
 // 7
 // 8
 // 9
-
+// 10
+// 11
+// 12
+// 13
+// 14
+// 15
+// 16
+// 17
+// 18
+// 19
+// 20
+// 21
+// 22
+// 23
+// 24
+// 25
+// 26
+// 27
+// 28
+// 29
+// 30
+// 31
+// 32
 // ---------------- Macros, Type definitions and type accessors -----------------------------------
 
-#define STOCHASTIC_FACTOR 0.3f // relative amount of variability in an edge.
 #define MAXTHRESHOLDMASK (MAXTHRESHOLDS - 1)
 
 #define MAXBUILDS 1 // number of times to rebuild the list of thresholds in one kernel.
@@ -71,19 +91,19 @@
 // shapes.
 
 // Bits 31 - 30
-#define SHAPETAG_SUBSTANCETYPE_BITMASK    0xC000000000000000
-#define SHAPETAG_SUBSTANCETYPE_SOLIDCOLOR 0x8000000000000000
-#define SHAPETAG_SUBSTANCETYPE_PICTURE    0x4000000000000000
+//#define SHAPETAG_SUBSTANCETYPE_BITMASK    0xC000000000000000
+//#define SHAPETAG_SUBSTANCETYPE_SOLIDCOLOR 0x8000000000000000
+//#define SHAPETAG_SUBSTANCETYPE_PICTURE    0x4000000000000000
 #define SHAPETAG_SUBSTANCETYPE_SHIFT      30
 
 inline bool     shapeTagIsSolidColor(SHAPETAG tag)  {return (tag & SHAPETAG_SUBSTANCETYPE_BITMASK) == SHAPETAG_SUBSTANCETYPE_SOLIDCOLOR;}
 inline SHAPETAG shapeTagSubstanceType(SHAPETAG tag) {return (tag & SHAPETAG_SUBSTANCETYPE_BITMASK) >> SHAPETAG_SUBSTANCETYPE_SHIFT;}
 
 // Bits 29 - 28
-#define SHAPETAG_COMBINETYPE_BITMASK      0x3000000000000000
-#define SHAPETAG_COMBINETYPE_CONTINUE     0x1000000000000000
-#define SHAPETAG_COMBINETYPE_ADD          0x2000000000000000
-#define SHAPETAG_COMBINETYPE_SUBTRACT     0x3000000000000000
+//#define SHAPETAG_COMBINETYPE_BITMASK      0x3000000000000000
+//#define SHAPETAG_COMBINETYPE_CONTINUE     0x1000000000000000
+//#define SHAPETAG_COMBINETYPE_ADD          0x2000000000000000
+//#define SHAPETAG_COMBINETYPE_SUBTRACT     0x3000000000000000
 #define SHAPETAG_COMBINETYPE_SHIFT        28
 
 inline int  shapeTagCombineType(SHAPETAG tag) {return (tag & SHAPETAG_COMBINETYPE_BITMASK) >> SHAPETAG_COMBINETYPE_SHIFT;   }
@@ -411,8 +431,7 @@ inline void popTop(ThresholdState *tS) {
   //DEBUG_IF(printf("popTop\n");)
 }
 
-#define RANDOMFIELD_SIZE 4096
-#define RANDOMFIELD_MASK 0xFFF
+#define RANDOMFIELDMASK RANDOMFIELDSIZE - 1
 
 #define RANDOM_POS int
 
@@ -1941,15 +1960,15 @@ void initRandomField( ParseState *pS
                     , TileState *tileS
                     , CMEM float *randomField) {
   // find a random starting point in the field passed on the absolute start position of the column.
-  int start = (tileS->column + (tileS->tileIndex * tileS->tileWidth)) & RANDOMFIELD_MASK;
-  pS->randomFieldCursor = (as_uint(randomField[start]) & RANDOMFIELD_MASK);
+  int start = (tileS->column + (tileS->tileIndex * tileS->tileWidth)) & RANDOMFIELDMASK;
+  pS->randomFieldCursor = (as_uint(randomField[start]) & RANDOMFIELDMASK);
   DEBUG_IF(printf("start %i pS->randomFieldCursor %i tileS->column %i tileS->tileIndex %i tileS->tileWidth %i\n"
                   ,start   ,pS->randomFieldCursor,   tileS->column,   tileS->tileIndex,   tileS->tileWidth );)
   pS->randomField = randomField;
 }
 
 float getRandom(ParseState *pS) {
-    pS->randomFieldCursor = (pS->randomFieldCursor + 1) & RANDOMFIELD_MASK;
+    pS->randomFieldCursor = (pS->randomFieldCursor + 1) & RANDOMFIELDMASK;
     float random = pS->randomField[pS->randomFieldCursor];
     DEBUG_IF(printf("random %f\n", random);)
     return random;
