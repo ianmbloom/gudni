@@ -8,9 +8,10 @@ where
 import Numeric
 import Data.Word
 import Data.Char
+import Foreign.C.Types (CULong)
 
 data CppValueType
-  = CppHex64 Word64
+  = CppHex64 CULong
   | CppHex32 Int
   | CppInt   Int
   | CppFloat Float

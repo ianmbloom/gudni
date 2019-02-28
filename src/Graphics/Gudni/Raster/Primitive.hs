@@ -19,13 +19,14 @@ import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.StorableM
 
+import Graphics.Gudni.Raster.Constants
 import Data.Bits
 import Numeric
 
 import Control.Lens
 import Control.DeepSeq
 
-import Foreign.C.Types
+import Foreign.C.Types (CUInt, CULong)
 import Foreign.Storable
 
 ----------------- GroupId -------------------
@@ -43,6 +44,7 @@ instance NFData GroupId where
 
 -- A shape tag is the shape value combined with flags
 type ShapeTag = CULong
+
 -- The layout of the flags is currently as follows from the leftmost bit to right.
 -- Bit 31 - 30 - Determines the method used to color the interior of the shape. (Solid or bitmap)
 -- Bit 29 - 28 - Determines the combine method of the shape, continuation, add or subtract.
