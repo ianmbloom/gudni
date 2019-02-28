@@ -73,7 +73,7 @@ constrainBox (TileGrid displaySize _ _) boundingBox =
                     bottom          = max (boundingBox ^. bottomSide)  0
                in   if right <= 0 || bottom <= 0 || left >= displaySize ^. pX || top >= displaySize ^. pY
                     then Nothing
-                    else Just $ makeBox (makePoint left top) (makePoint right bottom)
+                    else Just $ makeBox left top right bottom
 
 blockBox :: TileGrid
          -> Box DisplaySpace
@@ -87,7 +87,7 @@ blockBox (TileGrid _ tileSize gridSize) boundingBox =
          rightG          = convertClampX (boundingBox ^. rightSide )
          topG            = convertClampY (boundingBox ^. topSide   )
          bottomG         = convertClampY (boundingBox ^. bottomSide)
-    in   makeBox (makePoint leftG topG) (makePoint rightG bottomG)
+    in   makeBox leftG topG rightG bottomG
 
 makeCurveEnclosures :: CurveTable
                     -> Int
@@ -220,7 +220,6 @@ instance SimpleTransformable (CombineType, [Outline DisplaySpace]) where
     tScale     s = fmapSnd (tScale     s)
 instance Transformable (CombineType, [Outline DisplaySpace]) where
     tRotate    r = fmapSnd (tRotate    r)
-
 
 traverseShapeTree :: (Monad m)
                  => [PictureMemory]

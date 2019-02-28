@@ -94,7 +94,7 @@ runApplicationMonad = flip evalStateT
 setupApplication :: Model s => s -> IO (ApplicationState s)
 setupApplication state  =
   do  ----------- Setup OpenCL Kernels ----------------
-      openCLLibrary <- setupOpenCL False False embeddedOpenCLSource
+      openCLLibrary <- setupOpenCL False False openCLSourceWithDefines
       ------------ Initialize Backend ---------------------
       backendState <- startInterface (screenSize state)
       ------------ Start TimeKeeper -------------------

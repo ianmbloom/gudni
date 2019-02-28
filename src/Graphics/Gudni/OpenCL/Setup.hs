@@ -17,7 +17,7 @@ import qualified Data.ByteString.Char8 as BS
 instance OpenCLSource BS.ByteString where
   prepSource = BS.unpack
 
-setupOpenCL :: Bool -> Bool -> BS.ByteString -> IO OpenCLKernelLibrary
+setupOpenCL :: Bool -> Bool -> String -> IO OpenCLKernelLibrary
 setupOpenCL enableProfiling useCLGLInterop src =
   do
       --queryOpenCL CL_DEVICE_TYPE_ALL -- list all available devices
@@ -36,12 +36,11 @@ setupOpenCL enableProfiling useCLGLInterop src =
                            --, CLWarningIntoError
                            ]
              putStrLn $ "Start compile"
-             --src2 <- readFile "src/Graphics/Gudni/OpenCL/Kernels.cl"
-             program <- loadProgramWOptions options state src --src2
+             program <- loadProgramWOptions options state src
              putStrLn $ "Program compiled"
              rasterKernel <- program "multiTileRaster"
              fillKernel   <- program "fillBackgroundTile"
-             checkKernel <- program "checkContinuations"
+             checkKernel  <- program "checkContinuations"
              putStrLn $ "OpenCL compile complete."
              let device = clDevice state
              computeUnits  <- clGetDeviceMaxComputeUnits       device

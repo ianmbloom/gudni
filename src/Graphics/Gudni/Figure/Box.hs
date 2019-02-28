@@ -10,6 +10,7 @@
 
 module Graphics.Gudni.Figure.Box
   ( Box (..)
+  , pattern Box
   , topRightBox
   , bottomLeftBox
   , topLeftBox
@@ -75,10 +76,10 @@ topSide         :: Lens' (Box s) (Ortho YDimension s)
 topSide  = topLeftBox . pY
 bottomSide      :: Lens' (Box s) (Ortho YDimension s)
 bottomSide = bottomRightBox . pY
-makeBox        :: Point2 s -> Point2 s -> Box s
-makeBox  = Box
+makeBox        :: Ortho XDimension s -> Ortho YDimension s -> Ortho XDimension s -> Ortho YDimension s -> Box s
+makeBox l t r b = Box (makePoint l t) (makePoint r b)
 pointToBox :: Num s => Point2 s -> Box s
-pointToBox p = makeBox zeroPoint p
+pointToBox p = Box zeroPoint p
 emptyBox       :: Num s => Box s
 emptyBox = Box zeroPoint zeroPoint
 mapBox :: (Point2 s -> Point2 s) -> Box s -> Box s
@@ -98,7 +99,8 @@ sizeBox   box = makePoint (widthBox box ) (heightBox box)
 areaBox :: Num s => Box s -> s
 areaBox   box = unOrtho (widthBox box) * unOrtho (heightBox box)
 unionBox :: (Num s, Ord s) => Box s -> Box s -> Box s
-unionBox a b = makeBox (makePoint (min (a ^. leftSide) (b ^. leftSide)) (min (b ^. topSide) (b ^. topSide))) (makePoint (max (b ^. rightSide) (b ^. rightSide)) (max (a ^. bottomSide) (b ^. bottomSide)))
+unionBox a b = makeBox (min (a ^. leftSide ) (b ^. leftSide )) (min (b ^. topSide   ) (b ^. topSide   ))
+                       (max (b ^. rightSide) (b ^. rightSide)) (max (a ^. bottomSide) (b ^. bottomSide))
 
 instance NFData s => NFData (Box s) where
   rnf (Box a b) = a `deepseq` b `deepseq` ()
@@ -133,7 +135,7 @@ boxPointVector vs =
       bottom = VS.maximum (VS.map (view pY) vs)
       left   = VS.minimum (VS.map (view pX) vs)
       right  = VS.maximum (VS.map (view pX) vs)
-  in makeBox (makePoint left top) (makePoint right bottom)
+  in makeBox left top right bottom
 
 boxPointList :: (Show s, Ord s, Num s) => [Point2 s] -> Box s
 boxPointList vs =
@@ -143,7 +145,7 @@ boxPointList vs =
       right  = maximum (map (view pX) vs)
   in if null vs
      then emptyBox -- TODO make this a maybe
-     else makeBox (makePoint left top) (makePoint right bottom)
+     else makeBox left top right bottom
 
 class Boxable t s where
   getBoundingBox :: t -> Box s

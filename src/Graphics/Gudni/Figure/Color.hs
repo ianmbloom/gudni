@@ -37,8 +37,8 @@ import Graphics.Gudni.Util.StorableM
 import Control.DeepSeq
 import Control.Monad.Random
 
-import Numeric
-import Numeric.Half
+--import Numeric
+--import Numeric.Half
 
 import Data.Word
 import Data.Bits

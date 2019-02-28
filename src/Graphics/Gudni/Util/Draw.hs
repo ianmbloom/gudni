@@ -55,7 +55,7 @@ openRectangle s p = let strokeDelta = Point2 s s in
                               (tTranslate strokeDelta $ rectangle (p ^-^ (strokeDelta ^* 2)))
 
 diamond :: Point2 DisplaySpace -> CompoundTree
-diamond point = let box = makeBox zeroPoint point :: Box DisplaySpace
+diamond point = let box = Box zeroPoint point :: Box DisplaySpace
                     t = lerp 0.5 (box ^. topLeftBox    ) (box ^. topRightBox   )
                     r = lerp 0.5 (box ^. topRightBox   ) (box ^. bottomRightBox)
                     b = lerp 0.5 (box ^. bottomRightBox) (box ^. bottomLeftBox )

@@ -88,6 +88,7 @@ library
                      , Graphics.Gudni.OpenCL.Setup
                      , Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
                      , Graphics.Gudni.OpenCL.CallKernels
+                     , Graphics.Gudni.OpenCL.CppDefines
                      , Graphics.Gudni.OpenCL.Instances
                      , Graphics.Gudni.OpenCL.KernelLibrary
                      , Graphics.Gudni.Raster.Primitive
@@ -95,6 +96,7 @@ library
                      , Graphics.Gudni.Raster.Strand
                      , Graphics.Gudni.Raster.Enclosure
                      , Graphics.Gudni.Raster.StrandLookupTable
+                     , Graphics.Gudni.Raster.TileTree
                      , Graphics.Gudni.Raster.TraverseShapeTree
                      , Graphics.Gudni.Raster.TileArray
                      , Graphics.Gudni.Raster.Types

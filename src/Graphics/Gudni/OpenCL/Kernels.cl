@@ -1,9 +1,19 @@
+// --------------- Space for haskell defined macros
+// 1 MAXTHRESHOLDS // the size of the threshold header and threshold geometry buffers (must be a power of 2)
+// 2 MAXSHAPE 511  // total number of shapes per build. must be one less than the number of bits available.
+// 3
+// 4
+// 5
+// 6
+// 7
+// 8
+// 9
+
 // ---------------- Macros, Type definitions and type accessors -----------------------------------
 
 #define STOCHASTIC_FACTOR 0.3f // relative amount of variability in an edge.
-#define MAXTHRESHOLDS 512 // the size of the threshold header and threshold geometry buffers (must be a power of 2)
-#define MAXTHRESHOLDMASK 511 // = MAXTHRESHOLDS - 1
-#define MAXSHAPE 511 // total number of shapes per build. must be one less than the number of bits available.
+#define MAXTHRESHOLDMASK (MAXTHRESHOLDS - 1)
+
 #define MAXBUILDS 1 // number of times to rebuild the list of thresholds in one kernel.
 #define COLORBUFFERSIZE 4
 #define MINCROP 0.2f
