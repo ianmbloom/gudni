@@ -127,7 +127,7 @@ instance Model TraceState where
     shouldLoop _ = True
     fontFile state = fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
     modelCursor state = state ^. stateCursor
-    updateModel frame elapsedTime inputs state =
+    updateModelState frame elapsedTime inputs state =
         flip execStateT state $
             do  mapM_ processInput inputs
                 lastTime <- use stateLastTime
@@ -150,7 +150,7 @@ instance Model TraceState where
                 statusTree = statusDisplay state statusGlyphs
                 withStatus = if True  then overlap [statusTree, withCursor] else withCursor
             return (ShapeRoot (light gray) withStatus, "textForm")
-    pictureData state = return $ (Nothing,[])
+    providePictureData state = return $ (Nothing,[])
 
 statusDisplay state status =
     tTranslateXY 3100 2000 .

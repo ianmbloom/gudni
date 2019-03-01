@@ -12,6 +12,7 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.StorableM
+import Graphics.Gudni.Util.Util (mapAccumM)
 
 import Codec.Picture
 
@@ -27,6 +28,7 @@ type PictId = CUInt
 type PictScale_ = CUInt
 type MemOffset_ = Reference Word8
 
+-- | The starting memory offset and size of a picture.
 data PictureMemory = PictureMemory
   { pictMemOffset :: MemOffset_
   , pictSize      :: Point2 IntSpace
@@ -35,21 +37,17 @@ data PictureMemory = PictureMemory
 instance NFData PictureMemory where
   rnf (PictureMemory a b) = a `deepseq` b `deepseq` ()
 
+-- | A reference to a picture and an offset.
 data PictureRef s = PictureRef
   { pictTranslate :: Point2 IntSpace
-  , pictScale     :: PictScale_
   , pictData      :: s
   } deriving (Show)
 
 instance NFData s => NFData (PictureRef s) where
-  rnf (PictureRef a b c) = a `deepseq` b `deepseq` c `deepseq` ()
+  rnf (PictureRef a b) = a `deepseq` b `deepseq` ()
 
-mapAccumM :: Monad m => (a -> b -> m (a, b')) -> a ->[b] -> m (a, [b'])
-mapAccumM f a (b:bs) = do (a', b') <- f a b
-                          (a'', bs') <- mapAccumM f a' bs
-                          return (a'', b':bs')
-mapAccumM f a [] = return (a, [])
-
+-- | Create a vector of raw bytes and list of picture memory offsets that the rasterizer
+-- can use to reference images. (Rickety)
 makePictures :: [DynamicImage] -> IO (Maybe (Pile Word8), [PictureMemory])
 makePictures images =
   do pile <- newPile :: IO (Pile Word8)
@@ -78,19 +76,15 @@ instance StorableM PictureMemory where
 instance StorableM (PictureRef PictureMemory) where
   sizeOfM _ =
     do sizeOfM (undefined :: Point2 IntSpace)
-       sizeOfM (undefined :: PictScale_     )
        sizeOfM (undefined :: PictureMemory  )
   alignmentM _ =
     do alignmentM (undefined :: Point2 IntSpace)
-       alignmentM (undefined :: PictScale_     )
        alignmentM (undefined :: PictureMemory  )
   peekM = do translate <- peekM
-             scale     <- peekM
              pMem      <- peekM
-             return (PictureRef translate scale pMem)
-  pokeM (PictureRef translate scale pMem) =
+             return (PictureRef translate pMem)
+  pokeM (PictureRef translate pMem) =
     do  pokeM translate
-        pokeM scale
         pokeM pMem
 
 instance Storable (PictureRef PictureMemory) where

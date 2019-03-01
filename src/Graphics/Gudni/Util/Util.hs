@@ -28,6 +28,7 @@ module Graphics.Gudni.Util.Util
   , with
   , withIO
   , lpad
+  , mapAccumM
   )
 where
 
@@ -155,6 +156,13 @@ withIO lens mf =
 lpad :: Int -> String -> String
 lpad i m = let l = i - length m
            in replicate l ' ' ++ m
+
+-- | Monadic mapAccumL
+mapAccumM :: Monad m => (a -> b -> m (a, b')) -> a ->[b] -> m (a, [b'])
+mapAccumM f a (b:bs) = do (a', b') <- f a b
+                          (a'', bs') <- mapAccumM f a' bs
+                          return (a'', b':bs')
+mapAccumM f a [] = return (a, [])
 
 {-
 

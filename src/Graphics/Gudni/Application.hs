@@ -49,7 +49,7 @@ import Graphics.Gudni.Raster.Types
 
 import Graphics.Gudni.Raster.Constants (rANDOMFIELDsIZE)
 import Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
-import Graphics.Gudni.Raster.TileArray
+import Graphics.Gudni.Raster.TileTree
 import Graphics.Gudni.Raster.Job
 import Graphics.Gudni.Raster.TraverseShapeTree
 
@@ -64,7 +64,7 @@ import System.Info
 
 frameTimeMs = 3000000 --(3300000`div`10)*10 -- miliseconds
 
-type SimpleTime = Float
+type SimpleTime = Double
 
 data ApplicationState s = AppState
     { _appBackend       :: InterfaceState
@@ -79,18 +79,26 @@ data ApplicationState s = AppState
 makeLenses ''ApplicationState
 
 class Model s where
-  screenSize      :: s -> ScreenMode
-  shouldLoop      :: s -> Bool
-  fontFile        :: s -> IO String
-  modelCursor     :: s -> Point2 IntSpace
-  constructFigure :: s -> String -> GlyphMonad IO (ShapeTreeRoot, String)
-  updateModel     :: Monad m => Int -> SimpleTime -> [Input (Point2 IntSpace)] -> s -> m s
-  pictureData     :: s -> IO (Maybe (Pile Word8), [PictureMemory])
+  -- | Construct a ShapeTreeRoot from the state of type `s`
+  constructFigure  :: s -> String -> GlyphMonad IO (ShapeTreeRoot, String)
+  -- | Update the state based on the elapsed time and a list of inputs
+  updateModelState :: Monad m => Int -> SimpleTime -> [Input (Point2 IntSpace)] -> s -> m s
+  -- | Set the initial display to FullScreen or a specific window size in pixels.
+  screenSize       :: s -> ScreenMode
+  -- | Determine if the application will enter the event loop.
+  -- for debugging purposes you can set this to False and render on frame and quit.
+  shouldLoop       :: s -> Bool
+   -- | Path to the Truetype font file that is initially loaded.
+  fontFile         :: s -> IO String
+  -- | Bitmap texture data provided from the state for the rendered scene.
+  providePictureData :: s -> IO (Maybe (Pile Word8), [PictureMemory])
 
-type ApplicationMonad s = StateT (ApplicationState s) (TileArrayMonad (EnclosureMonad (GlyphMonad IO)))
+-- | Monad Stack for the event loop.
+type ApplicationMonad s = StateT (ApplicationState s) (EnclosureMonad (GlyphMonad IO))
 
 runApplicationMonad = flip evalStateT
 
+-- | Initializes openCL, frontend interface, timekeeper, randomfield data and returns the initial `ApplicationState`
 setupApplication :: Model s => s -> IO (ApplicationState s)
 setupApplication state  =
   do  ----------- Setup OpenCL Kernels ----------------
@@ -103,9 +111,11 @@ setupApplication state  =
       randomField <- makeRandomField rANDOMFIELDsIZE
       return $ AppState backendState timeKeeper startTime openCLLibrary "No Status" 0 state randomField
 
+-- | Closes the interface.
 closeApplication :: ApplicationMonad s ()
 closeApplication = withIO appBackend closeInterface
 
+-- | Initialize the ApplicationMonad stack and enter the event loop.
 runApplication :: (Show s, Model s) => s -> IO ()
 runApplication state =
     do  appState <- setupApplication state
@@ -113,45 +123,45 @@ runApplication state =
             do  mFontFile <- liftIO $ fontFile state
                 addFont mFontFile
                 runEnclosureMonad $
-                    runTileArrayMonad $
-                        runApplicationMonad appState $
-                            do  loop
-                                closeApplication
+                    runApplicationMonad appState $
+                        do  loop
+                            closeApplication
 
+-- | Convert a `Timespec` to the `SimpleTime` (a double in seconds from application start)
 toSimpleTime :: TimeSpec -> SimpleTime
 toSimpleTime timeSpec = (fromIntegral . toNanoSecs $ timeSpec) / 1000000000
 
+-- | Get the time elapsed from starting the event loop.
 getElapsedTime :: ApplicationMonad s SimpleTime
 getElapsedTime =
   do  startTime   <- use appStartTime
       currentTime <- liftIO $ getTime Realtime
       return $ toSimpleTime $ currentTime `diffTimeSpec` startTime
 
+-- | Debug message from the ApplicationMonad
 appMessage :: String -> ApplicationMonad s ()
 appMessage = liftIO . putStrLn
 
-overJob :: MonadState s m1 => (m (a, s) -> m1 (b, s)) -> StateT s m a -> m1 b
-overJob lifter mf =
-    do  job <- get
-        (a, job') <- lifter $ runStateT mf job
-        put job'
-        return a
-
+-- | Call a function f in IO that uses the application state as it's first argument.
 overState f =
   do  state <- use appState
       state' <- liftIO $ f state
       appState .= state'
 
+-- | Initialize the timekeeper
+restartAppTimer :: ApplicationMonad s ()
+restartAppTimer = appTimeKeeper <~ liftIO startTimeKeeper
+
+-- | First phase of event loop.
 beginCycle :: ApplicationMonad s ()
 beginCycle =
-    do  --state <- use appState
-        --stateInfo <- lift stateInfoText
-        restartAppTimer
+    do  restartAppTimer
 
+-- | Update the model state and generate a shape tree, marking time along the way.
 processState :: (Show s, Model s) => SimpleTime -> [Input (Point2 IntSpace)] -> ApplicationMonad s (ShapeTreeRoot, String)
 processState elapsedTime inputs =
     do  frame <- fromIntegral <$> use appCycle
-        overState $ updateModel frame elapsedTime inputs
+        overState $ updateModelState frame elapsedTime inputs
         status <- use appStatus
         markAppTime "Advance State"
         state <- use appState
@@ -166,8 +176,7 @@ processState elapsedTime inputs =
         markAppTime "Build State"
         return (shapeTree, "textForm")
 
-fromJust (Just x) = x
-
+-- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
 drawFrame :: (Model s) => Point2 IntSpace -> CInt -> ShapeTreeRoot -> ApplicationMonad s ()
 drawFrame cursor frame shapeTree =
     do  --appMessage "ResetJob"
@@ -175,22 +184,18 @@ drawFrame cursor frame shapeTree =
         let openCLState = clState library
         target <- withIO appBackend (prepareTarget (clUseGLInterop library))
         let (V2 width height) = targetArea target
-        lift $ resizeTileArray $ Point2 (fromIntegral width) (fromIntegral height)
-
-        tileArray <- lift $ get
-        let tileGrid = tileArray ^. tAGrid
+        let canvasSize = fromIntegral <$> (Point2 width height)
         appS <- use appState
-        (mPictData, mems) <- liftIO $ pictureData appS
-        (shapes, primBag, blockShapes, shapeState) <- lift . lift  $ traverseShapeTree mems tileGrid shapeTree
-        liftIO $ evaluate $ rnf (shapes, primBag, blockShapes, shapeState)
+        (mPictData, mems) <- liftIO $ providePictureData appS
+        (shapes, primBag, blockShapes, shapeState) <- lift . lift  $ traverseShapeTree mems canvasSize shapeTree
+        --liftIO $ evaluate $ rnf (shapes, primBag, blockShapes, shapeState)
         markAppTime "Traverse Shape Tree"
-        lift $ mapM_ addPrimBlock blockShapes
+        let tileTree = buildTileTree canvasSize
+            tileTree' = foldl addPrimToTree tileTree blockShapes
         markAppTime "Build Tile Array"
         randomField <- use appRandomField
-        tileArray <- lift $ get
         let pictRefs = shapeState ^. stPictureRefs
             rasterParams = RasterParams library
-                                        tileGrid
                                         target
                                         mPictData
                                         (shapeState ^. stPictureRefs)
@@ -198,7 +203,7 @@ drawFrame cursor frame shapeTree =
             jobInput = RasterJobInput (backgroundColor shapeTree)
                                       shapes
                                       primBag
-                                      tileArray
+                                      tileTree'
         appMessage "===================== rasterStart ====================="
         lift $ buildAndQueueRasterJobs frame rasterParams jobInput
         appMessage "===================== rasterDone ====================="
@@ -208,6 +213,7 @@ drawFrame cursor frame shapeTree =
         --liftIO $ mapM freeJob jobs
         markAppTime "Raster Frame"
 
+-- Final phase of the event loop.
 endCycle :: SimpleTime -> ApplicationMonad s ()
 endCycle elapsedTime =
     do  tk     <- use appTimeKeeper
@@ -222,15 +228,14 @@ endCycle elapsedTime =
         when (os == "darwin") $ appMessage status
         appCycle += 1
 
-restartAppTimer :: ApplicationMonad s ()
-restartAppTimer = appTimeKeeper <~ liftIO startTimeKeeper
-
+-- Mark a time in the status.
 markAppTime :: String -> ApplicationMonad s ()
 markAppTime message =
     do  tk  <- use appTimeKeeper
         tk' <- liftIO $ markTime tk message ()
         appTimeKeeper .= tk'
 
+-- | Determine if a particular input should quit the application.
 isQuit :: Input a -> Bool
 isQuit input =
     case input of
@@ -239,6 +244,7 @@ isQuit input =
         InputKey Pressed _ (KeyCommand CommandQuit) -> True
         _ -> False
 
+-- | Cycle through the event loop.
 loop :: (Show s, Model s) => ApplicationMonad s ()
 loop  =
   do  --appMessage "checkInputs"

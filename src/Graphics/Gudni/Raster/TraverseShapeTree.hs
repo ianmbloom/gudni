@@ -8,11 +8,8 @@
 
 module Graphics.Gudni.Raster.TraverseShapeTree
   ( EnclosureMonad (..)
+  , PrimEntry(..)
   , runEnclosureMonad
-  , TileGrid (..)
-  , tGTileSize
-  , tGScreenSize
-  , tGGridSize
   , PrimId (..)
   , PrimEnclosure
   , makeCurveEnclosure
@@ -50,65 +47,17 @@ type EnclosureMonad m = StateT (CurveTable, Int) m
 
 runEnclosureMonad :: (Monad m) => EnclosureMonad m a -> m a
 runEnclosureMonad code =
-  do let curveTable = buildCurveTable sECTIONsIZE
-     (evalStateT code) (curveTable, sECTIONsIZE)
+  do let curveTable = buildCurveTable mAXsECTIONsIZE
+     (evalStateT code) (curveTable, mAXsECTIONsIZE)
 
 type PrimId = Reference PrimEnclosure
 type PrimEnclosure = (Primitive, Enclosure)
 
-data TileGrid = TileGrid
-    { _tGScreenSize :: !(Point2 DisplaySpace)
-    , _tGTileSize   :: !(Point2 DisplaySpace)
-    , _tGGridSize   :: !(Point2 IntSpace)
+data PrimEntry = PrimEntry
+    { primId :: PrimId
+    , primStrandCount :: NumStrands
+    , primBox :: BoundingBox
     } deriving (Show)
-makeLenses ''TileGrid
-
-constrainBox :: TileGrid
-             -> Box DisplaySpace
-             -> Maybe (Box DisplaySpace)
-constrainBox (TileGrid displaySize _ _) boundingBox =
-               let  left            = min (boundingBox ^. leftSide  ) (displaySize ^. pX)
-                    right           = max (boundingBox ^. rightSide )  0
-                    top             = min (boundingBox ^. topSide    ) (displaySize ^. pY)
-                    bottom          = max (boundingBox ^. bottomSide)  0
-               in   if right <= 0 || bottom <= 0 || left >= displaySize ^. pX || top >= displaySize ^. pY
-                    then Nothing
-                    else Just $ makeBox left top right bottom
-
-blockBox :: TileGrid
-         -> Box DisplaySpace
-         -> Box IntSpace
-blockBox (TileGrid _ tileSize gridSize) boundingBox =
-    let  gridSizeX       = (fromIntegral $ gridSize ^. pX) - 0.5
-         gridSizeY       = (fromIntegral $ gridSize ^. pY) - 0.5
-         convertClampX x = Ortho . ISpace . fromIntegral . fastTruncateSingle . clamp 0.5 gridSizeX . realToFrac $ x / tileSize ^. pX
-         convertClampY y = Ortho . ISpace . fromIntegral . fastTruncateSingle . clamp 0.5 gridSizeY . realToFrac $ y / tileSize ^. pY
-         leftG           = convertClampX (boundingBox ^. leftSide  )
-         rightG          = convertClampX (boundingBox ^. rightSide )
-         topG            = convertClampY (boundingBox ^. topSide   )
-         bottomG         = convertClampY (boundingBox ^. bottomSide)
-    in   makeBox leftG topG rightG bottomG
-
-makeCurveEnclosures :: CurveTable
-                    -> Int
-                    -> TileGrid
-                    -> [(Primitive, [Outline DisplaySpace])]
-                    -> [(Block, PrimEnclosure)]
-makeCurveEnclosures curveTable sectionSize tileGrid prims = catMaybes . map (makeCurveEnclosure curveTable sectionSize tileGrid) $ prims
-
-makeCurveEnclosure :: CurveTable
-                   -> Int
-                   -> TileGrid
-                   -> (Primitive, [Outline DisplaySpace])
-                   -> Maybe (Block, PrimEnclosure)
-makeCurveEnclosure curveTable sectionSize tileGrid (prim, curves) =
-     let boundingBox = boxBoxes (map outlineBox curves)
-         mConstrainedBox = constrainBox tileGrid boundingBox
-     in  case mConstrainedBox of
-            Just constrainedBox -> let block = blockBox tileGrid constrainedBox
-                                       enclosure = enclose curveTable sectionSize curves
-                                   in  Just (block, (prim, enclosure))
-            Nothing             -> Nothing
 
 data ShapeTreeState token = ShapeTreeState
   { _stGroupId           :: GroupId
@@ -118,6 +67,35 @@ data ShapeTreeState token = ShapeTreeState
   , _stPictureMems       :: [PictureMemory]
   }
 makeLenses ''ShapeTreeState
+
+excludeBox :: Point2 DisplaySpace
+           -> BoundingBox
+           -> Bool
+excludeBox canvasSize box =
+           box ^. leftSide   >= canvasSize ^. pX
+        || box ^. topSide    >= canvasSize ^. pY
+        || box ^. rightSide  <= 0
+        || box ^. bottomSide <= 0
+
+makeCurveEnclosures :: CurveTable
+                    -> Int
+                    -> Point2 DisplaySpace
+                    -> [(Primitive, [Outline DisplaySpace])]
+                    -> [(BoundingBox, PrimEnclosure)]
+makeCurveEnclosures curveTable sectionSize canvasSize  =
+    catMaybes . map (makeCurveEnclosure curveTable sectionSize canvasSize)
+
+makeCurveEnclosure :: CurveTable
+                   -> Int
+                   -> Point2 DisplaySpace
+                   -> (Primitive, [Outline DisplaySpace])
+                   -> Maybe (BoundingBox, PrimEnclosure)
+makeCurveEnclosure curveTable sectionSize canvasSize (prim, curves) =
+     let boundingBox = getBoundingBox (map getBoundingBox curves)
+     in  if excludeBox canvasSize boundingBox
+         then Nothing
+         else let enclosure = enclose curveTable sectionSize curves
+              in  Just (boundingBox, (prim, enclosure))
 
 instance NFData token => NFData (ShapeTreeState token) where
   rnf (ShapeTreeState i tokenMap pictRef refs mems) = i        `deepseq`
@@ -197,21 +175,20 @@ checkContinue isContinue = if isContinue then CombineContinue else CombineAdd
 fmapFst f (x,y) = (f x, y)
 fmapSnd f (x,y) = (x, f y)
 
-bagSnd :: Integral a => Bag a b -> (c, b) -> (Bag a b, (c, a))
-bagSnd bag (c, a) = let (bag', b) = addToBag bag a
-                    in  (bag', (c, b))
+bagSnd :: Bag PrimId PrimEnclosure -> (BoundingBox, PrimEnclosure) -> (Bag PrimId PrimEnclosure, PrimEntry)
+bagSnd bag (box, primEnclosure) = let (bag', newPrimId) = addToBag bag primEnclosure
+                    in  (bag', PrimEntry newPrimId (enclosureNumStrands $ snd primEnclosure) box)
 
 -- mapAccumL :: (acc -> x -> (acc, y)) -> acc -> [x] -> (acc, [y])
-bagShapes :: [(Block, PrimEnclosure)]
-          -> (Bag PrimId PrimEnclosure, [(Block, PrimId)])
-bagShapes blockPrimEnclosures = mapAccumL bagSnd emptyBag blockPrimEnclosures
+bagShapes :: [(BoundingBox, PrimEnclosure)]
+          -> (Bag PrimId PrimEnclosure, [PrimEntry])
+bagShapes boxPrimEnclosures = mapAccumL bagSnd emptyBag boxPrimEnclosures
 
 mkPrimitive :: GroupId -> Substance s -> (CombineType, rep) -> (Primitive, rep)
 mkPrimitive token substance (combineType, rep) = (Primitive (substanceToSubstanceType substance) combineType token, rep)
 
 buildPrimitives :: SRep GroupId PictId [(CombineType, a)] -> (ShapeHeader, [(Primitive, a)])
 buildPrimitives (SRep token substance rep) = (ShapeHeader substance, map (mkPrimitive token substance) rep)
-
 
 defaultCombineType a = [(CombineAdd, a)]
 
@@ -223,20 +200,20 @@ instance Transformable (CombineType, [Outline DisplaySpace]) where
 
 traverseShapeTree :: (Monad m)
                  => [PictureMemory]
-                 -> TileGrid
+                 -> Point2 DisplaySpace
                  -> ShapeTreeRoot
                  -> EnclosureMonad m ( [ShapeHeader]
                                      , Bag PrimId PrimEnclosure
-                                     , [(Block, PrimId)]
+                                     , [PrimEntry]
                                      , ShapeTreeState Int)
-traverseShapeTree pictureMems tileGrid (ShapeRoot backgroundColor shapeTree) =
+traverseShapeTree pictureMems canvasSize (ShapeRoot backgroundColor shapeTree) =
     do  (curveTable, sectionSize) <- get
         let (parsedShapeTree, shapeTreeState) = evalShapeTreeMonad pictureMems (parseShapeTree shapeTree)
-            outlineTree = fmap (over shapeCompoundTree (fmap rawShapeToCurve)) parsedShapeTree
+            outlineTree = fmap (over shapeCompoundTree (fmap rawShapeToOutlines)) parsedShapeTree
             combinedCompounds = fmap (over shapeCompoundTree (combineShapeTree . fmap defaultCombineType . transformShapeTree)) outlineTree
             curveShapes :: [(ShapeHeader, [(Primitive, [Outline DisplaySpace])])]
             curveShapes = combineShapeTree . fmap (pure . buildPrimitives) . transformShapeTree $ combinedCompounds
-            blockPrimEnclosures = parMap rpar {- map -} (makeCurveEnclosures curveTable sectionSize tileGrid) $ map snd curveShapes
-            (primBag, primBlocks) = bagShapes $ concat blockPrimEnclosures
+            boxPrimEnclosures = parMap rpar {- map -} (makeCurveEnclosures curveTable sectionSize canvasSize) $ map snd curveShapes
+            (primBag, primEntries) = bagShapes $ concat boxPrimEnclosures
             shapes = map fst curveShapes
-        return (shapes, primBag, primBlocks, shapeTreeState)
+        return (shapes, primBag, primEntries, shapeTreeState)

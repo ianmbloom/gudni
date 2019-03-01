@@ -70,11 +70,12 @@ library
   other-modules:       Graphics.Gudni.Figure.Box
                      , Graphics.Gudni.Figure.Color
                      , Graphics.Gudni.Figure.Glyph
+                     , Graphics.Gudni.Figure.OpenCurve
                      , Graphics.Gudni.Figure.Outline
-                     , Graphics.Gudni.Figure.Plot
                      , Graphics.Gudni.Figure.Point
                      , Graphics.Gudni.Figure.Angle
                      , Graphics.Gudni.Figure.RawShape
+                     , Graphics.Gudni.Figure.Segment
                      , Graphics.Gudni.Figure.ShapeTree
                      , Graphics.Gudni.Figure.Space
                      , Graphics.Gudni.Figure.Transformer
@@ -98,11 +99,11 @@ library
                      , Graphics.Gudni.Raster.StrandLookupTable
                      , Graphics.Gudni.Raster.TileTree
                      , Graphics.Gudni.Raster.TraverseShapeTree
-                     , Graphics.Gudni.Raster.TileArray
                      , Graphics.Gudni.Raster.Types
                      , Graphics.Gudni.Util.Bag
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util
+                     , Graphics.Gudni.Util.Plot
                      , Graphics.Gudni.Util.RandomField
 
   -- LANGUAGE extensions used by modules in this package.

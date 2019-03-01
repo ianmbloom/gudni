@@ -24,7 +24,7 @@ data Align = Align
   , alignVertical   :: Alignment
   }
 
-alignBoxes :: Align -> Box DisplaySpace -> Box DisplaySpace -> (Point2 DisplaySpace, Point2 DisplaySpace)
+alignBoxes :: Align -> BoundingBox -> BoundingBox -> (Point2 DisplaySpace, Point2 DisplaySpace)
 alignBoxes (Align aH aV) boxOver boxUnder =
         let (h0, h1) = case aH of
                   AlignOver -> (0,0)

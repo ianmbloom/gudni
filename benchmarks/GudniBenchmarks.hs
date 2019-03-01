@@ -43,7 +43,7 @@ instance Model BenchmarkState where
     shouldLoop _ = True
     fontFile state = fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
     modelCursor state = state ^. stateCursor
-    updateModel frame elapsedTime inputs state =
+    updateModelState frame elapsedTime inputs state =
         flip execStateT state $
             do  mapM_ processInput inputs
                 lastTime <- use stateLastTime
@@ -69,7 +69,7 @@ instance Model BenchmarkState where
                 statusTree = statusDisplay state testName statusGlyphs
                 withStatus = if False then overlap [statusTree, withCursor] else withCursor
             return (ShapeRoot gray withStatus, "textForm")
-    pictureData state = return $ state ^. statePictures
+    providePictureData state = return $ state ^. statePictures
 
 statusDisplay state testName status =
     tTranslateXY 1800 800 . --3200 2100 .

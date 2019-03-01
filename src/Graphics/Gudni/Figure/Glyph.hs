@@ -19,6 +19,7 @@ where
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
+import Graphics.Gudni.Figure.Outline
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
@@ -40,6 +41,7 @@ import qualified Data.Vector.Unboxed as VU
 import qualified Graphics.Text.TrueType as F
 import qualified Graphics.Text.TrueType.Internal as FI
 
+-- | Wrapper newtype for codepoint values.
 newtype CodePoint  = CodePoint  {unCodePoint  :: Int} deriving (Eq, Ord)
 
 instance NFData CodePoint where
@@ -51,14 +53,20 @@ instance Hashable CodePoint where
 instance Show CodePoint where
   show (CodePoint x) = "CodePoint "++show (chr x) ++ "->" ++ show x
 
+-- | Glyph data structure
 data Glyph a =
   Glyph
-  { glyphVertices        :: [[Point2 a]]
+  { -- | Series of outlines for the glyph.
+    glyphVertices        :: [Outline a]
+    -- | The advance width of the glyph according to the font file.
   , glyphAdvanceWidth    :: Ortho XDimension a
+    -- | The ascent height of the glyph according to the font file.
   , glyphAscent          :: Ortho YDimension a
+    -- | The descent height of the glyph according to the font file.
   , glyphDescent         :: Ortho YDimension a
   } deriving (Show, Eq, Ord)
 
+-- | The total height of the glyph according to the font file.
 glyphHeight glyph = glyphAscent glyph + glyphDescent glyph
 
 instance Hashable a => Hashable (Glyph a) where
@@ -67,6 +75,7 @@ instance Hashable a => Hashable (Glyph a) where
 instance NFData a => NFData (Glyph a) where
   rnf (Glyph a b c d ) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()
 
+-- | A cache of all glyphs that have been loaded from the font file so far and the font file itself.
 data GlyphCache =
   GlyphCache
   { _gCMap  :: M.Map CodePoint (Glyph DisplaySpace)
@@ -74,22 +83,28 @@ data GlyphCache =
   } deriving (Show)
 makeLenses ''GlyphCache
 
+-- | An initial 'GlyphCache'
 emptyGlyphCache = GlyphCache M.empty (Left "No Font Loaded")
 
+-- | Monad transformer for holding the glyphcache.
 type GlyphMonad m = StateT GlyphCache m
 
+-- | Evaluate a 'GlyphMonad'.
 runGlyphMonad :: (Monad m) => GlyphMonad m a -> m a
 runGlyphMonad mf = (evalStateT mf) emptyGlyphCache
+
 
 fromRight (Right x) = x
 fromRight (Left message) = error message
 
+-- | Add a fontfile to the GlyphMonad.
 addFont :: String -> GlyphMonad IO ()
 addFont file_name =
   do
     ttf_buffer <- liftIO $ LB.readFile file_name
     gCFont .= F.decodeFont ttf_buffer
 
+-- Helper function for translating fontfiles.
 pairToPoint (x,y) = Point2 x y
 
 flipY h (x,y) = (x, h + negate y)
@@ -98,6 +113,7 @@ makeLenses ''F.Font
 makeLenses ''FI.HorizontalHeader
 makeLenses ''F.RawGlyph
 
+-- | Retrieve a glyph from the glyphCache, read it from the font file if necessary.
 getGlyph :: (MonadState GlyphCache m, Monad m) => CodePoint -> m (Glyph DisplaySpace)
 getGlyph codepoint =
   do  dict <- use gCMap
@@ -118,8 +134,8 @@ getGlyph codepoint =
                 height = ascent + descent
                 vertices :: [[(Int16,Int16)]]
                 vertices = map (map (flipY (fromIntegral $ height)) . VU.toList) contours
-                shape :: [[Point2 DisplaySpace]]
-                shape = map (map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) vertices
+                shape :: [Outline DisplaySpace]
+                shape =  map (Outline . pairPoints . map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) vertices
                 glyph :: Glyph DisplaySpace
                 glyph = Glyph { glyphVertices        = shape
                               , glyphAdvanceWidth    = Ortho $ realToFrac advance * fontScaleFactor
@@ -129,5 +145,6 @@ getGlyph codepoint =
             in  do  gCMap .= M.insert codepoint glyph dict
                     return glyph
 
+-- | Convert a string of characters to a list of glyphs in the GlyphMonad.
 glyphString :: (MonadState GlyphCache m, Monad m) => String -> m [Glyph DisplaySpace]
 glyphString = mapM (getGlyph . CodePoint . ord)

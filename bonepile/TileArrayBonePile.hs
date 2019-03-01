@@ -1,3 +1,108 @@
+-- TileArray BonePile
+
+
+data TileGrid = TileGrid
+    { _tGScreenSize :: !(Point2 DisplaySpace)
+    , _tGTileSize   :: !(Point2 DisplaySpace)
+    , _tGGridSize   :: !(Point2 IntSpace)
+    } deriving (Show)
+makeLenses ''TileGrid
+
+
+-- Job Creation
+
+newRasterJob :: MonadIO m => m RasterJob
+newRasterJob = liftIO $
+    do
+        initGeometryPile <- newPileSize 65536 :: IO BytePile
+        initShapePile     <- newPile :: IO (Pile Shape)
+        initShapeRefPile  <- newPile :: IO (Pile (Reference Shape))
+        initTilePile     <- newPile :: IO (Pile (Slice ShapeId))
+        initGroupPile    <- newPile :: IO (Pile ShapeHeader)
+        return RasterJob
+            { _rJGeometryPile    = initGeometryPile
+            , _rJShapePile        = initShapePile
+            , _rJShapeRefPile     = initShapeRefPile
+            , _rJGroupPile       = initGroupPile
+            , _rJTilePile        = initTilePile
+            , _rJTileIndexList   = []
+            , _rJBackgroundColor = clear black
+            , _rJShapeMap         = M.empty
+            }
+
+freeRasterJob :: RasterJob -> IO ()
+freeRasterJob job =
+    do  freePile $ job ^. rJGeometryPile
+        freePile $ job ^. rJShapePile
+        freePile $ job ^. rJGroupPile
+        freePile $ job ^. rJShapeRefPile
+        freePile $ job ^. rJTilePile
+
+resetRasterJob :: RasterJobMonad s IO ()
+resetRasterJob =
+    do  rJGeometryPile %= resetPile
+        rJShapePile     %= resetPile
+        rJShapeRefPile  %= resetPile
+        rJTilePile     %= resetPile
+        rJShapeMap      .= M.empty
+
+
+addTileToRasterJob :: MonadIO m => Int
+               -> Bag PrimId PrimEnclosure
+               -> TileArray
+               -> Int
+               -> RasterJobMonad DisplaySpace m Bool
+addTileToRasterJob memoryLimit primBag tileArray index =
+  do  primIds <- lift $ readTile tileArray index
+      let primCurves = map (getFromBag primBag) primIds
+      mShapeRefs <- mapM (curveToGeoRef memoryLimit) $ zip primIds primCurves
+      if any isNothing mShapeRefs
+      then return False
+      else do slice <- addListToPileState liftIO rJShapeRefPile (catMaybes mShapeRefs)
+              addToPileState liftIO rJTilePile slice
+              return True
+
+attemptAddTilesToThread :: MonadIO m
+                        => Int
+                        -> Bag PrimId PrimEnclosure
+                        -> TileArray
+                        -> [Int]
+                        -> RasterJobMonad DisplaySpace m [Int]
+attemptAddTilesToThread memoryLimit primBag tileArray (t:ts) =
+  do tileAdded <- addTileToRasterJob memoryLimit primBag tileArray t
+     if tileAdded
+     then do rJTileIndexList %= (fromIntegral t:) -- append t to the tile index list
+             attemptAddTilesToThread memoryLimit primBag tileArray ts
+     else return (t:ts)
+attemptAddTilesToThread memoryLimit primBag tileArray [] =
+  return []
+
+buildRasterJobs :: MonadIO m
+                => Int
+                -> RasterJobInput
+                -> [Int]
+                -> m [RasterJob]
+buildRasterJobs memoryLimit input tileIndices =
+  do  job <- liftIO newRasterJob
+      (rest, job') <- runRasterJobMonad job $
+                           do groupPile <- liftIO $ listToPile $ input ^. rjiShapes
+                              rJBackgroundColor .= input ^. rjiBackgroundColor
+                              rJGroupPile .= groupPile
+                              attemptAddTilesToThread memoryLimit (input ^. rjiPrimBag) (input ^. rjiTileArray) tileIndices
+      case rest of
+        [] -> return [job']
+        rest -> do otherThreads <- buildRasterJobs memoryLimit input rest
+                   return $ job' : otherThreads
+
+divideTiles :: MonadIO m
+            => CSize
+            -> TileArrayMonad m [[Int]]
+divideTiles maxGroupSize =
+  do  array <- get
+      indices <- liftIO $ tileArrayIndices array
+      return $ breakList (fromIntegral maxGroupSize) indices
+
+--- Original TileArray Stuff
 {-# LANGUAGE TemplateHaskell, ScopedTypeVariables, FlexibleContexts #-}
 
 module Graphics.Gudni.Raster.TileArray
@@ -55,7 +160,7 @@ makeLenses ''TileArray
 type TileArrayMonad m = StateT TileArray m
 
 runTileArrayMonad :: MonadIO m => TileArrayMonad m () -> m ()
-runTileArrayMonad code = do tileArray <- liftIO $ newTileArray mAXtILEsIZE zeroPoint
+runTileArrayMonad code = do tileArray <- liftIO $ newTileArray mAXtILEsIZE origin
                             runStateT code tileArray
                             liftIO $ freeTileArray tileArray
 
@@ -164,7 +269,7 @@ addPrimBlock (block, primId) =
         numLoop (block ^. topSide) (block ^. bottomSide) iterateX
         put tileArray
 
-readTile :: MonadIO m => TileArray -> Int ->m [PrimId]
+readTile :: MonadIO m => TileArray -> Int -> m [PrimId]
 readTile array index =
     do liftIO $ do tile <- readArray (array ^. tArr) index
                    pileToList (tilePrims tile)

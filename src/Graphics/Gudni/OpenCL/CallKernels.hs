@@ -27,7 +27,7 @@ import Graphics.Gudni.Raster.TraverseShapeTree
 import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Raster.Primitive
 import Graphics.Gudni.Raster.Types
-import Graphics.Gudni.Raster.TileArray
+import Graphics.Gudni.Raster.TileTree
 import Graphics.Gudni.Raster.Job
 
 import Graphics.Gudni.Util.Util
@@ -66,7 +66,6 @@ import Data.Word
 
 data RasterParams = RasterParams
   { _rpLibrary         :: OpenCLKernelLibrary
-  , _rpTileGrid        :: TileGrid
   , _rpTarget          :: DrawTarget
   , _rpPictData        :: Maybe (Pile Word8)
   , _rpPictRefs        :: [PictureRef PictureMemory]
@@ -89,7 +88,7 @@ emptyPictureData = do pile <- newPile
                       return pile'
 
 emptyPictureRefs :: [PictureRef PictureMemory]
-emptyPictureRefs = [PictureRef zeroPoint 1 (PictureMemory 0 zeroPoint)]
+emptyPictureRefs = [PictureRef origin 1 (PictureMemory 0 origin)]
 
 generateCall  :: (KernelArgs
                       'KernelSync
@@ -218,7 +217,6 @@ raster frame params job =
         (V2 w h)     = targetArea (params ^. rpTarget)
         outputSize   = fromIntegral $ w * h
         state        = clState (params ^. rpLibrary)
-        gridWidth = fromIntegral $ params ^. rpTileGrid . tGGridSize . pX
         numTiles     = (fromIntegral $ job ^. rJTilePile ^. pileSize) :: CInt
         rasterCall :: OutputPtr CChar -> CInt -> CL ()
         rasterCall continuations passCount =
@@ -230,7 +228,6 @@ raster frame params job =
                                        (params ^. rpRandomField)
                                        tileW
                                        tileH
-                                       gridWidth
                                        w
                                        h
                                        frame
@@ -292,10 +289,13 @@ buildAndQueueRasterJobs :: MonadIO m
                         => CInt
                         -> RasterParams
                         -> RasterJobInput
-                        -> TileArrayMonad m ()
-buildAndQueueRasterJobs frame params input =
-  do  let state = clState (params ^. rpLibrary)
+                        -> TileTree
+                        -> IO ()
+buildAndQueueRasterJobs frame params input tileTree =
+  do  tileGroups = tileTreeToGroups mAXtILESpERcALL tileTree
+
       tileIndexSections <- divideTiles (tr "clMaxGroupSize" $ clMaxGroupSize $ params ^. rpLibrary)
+      let state = clState (params ^. rpLibrary)
       liftIO $
           do let threads :: IO ()
                  threads = mapM_ (runCL state . rasterSection frame params input) tileIndexSections

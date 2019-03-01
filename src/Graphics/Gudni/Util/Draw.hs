@@ -55,7 +55,7 @@ openRectangle s p = let strokeDelta = Point2 s s in
                               (tTranslate strokeDelta $ rectangle (p ^-^ (strokeDelta ^* 2)))
 
 diamond :: Point2 DisplaySpace -> CompoundTree
-diamond point = let box = Box zeroPoint point :: Box DisplaySpace
+diamond point = let box = Box origin point :: BoundingBox
                     t = lerp 0.5 (box ^. topLeftBox    ) (box ^. topRightBox   )
                     r = lerp 0.5 (box ^. topRightBox   ) (box ^. bottomRightBox)
                     b = lerp 0.5 (box ^. bottomRightBox) (box ^. bottomLeftBox )
@@ -66,10 +66,10 @@ line :: DisplaySpace -> Point2 DisplaySpace -> Point2 DisplaySpace -> CompoundTr
 line s a b = SLeaf $ RawLine a b s
 
 makeRow :: Transformable f => DisplaySpace -> [f] -> [f]
-makeRow s = zipWith ($) (map tTranslate $ iterate (^+^ Point2 s 0) zeroPoint)
+makeRow s = zipWith ($) (map tTranslate $ iterate (^+^ Point2 s 0) origin)
 
 makeColumn :: Transformable f => DisplaySpace -> [f] -> [f]
-makeColumn s = zipWith ($) (map tTranslate $ iterate (^+^ Point2 0 s) zeroPoint)
+makeColumn s = zipWith ($) (map tTranslate $ iterate (^+^ Point2 0 s) origin)
 
 makeGrid :: Transformable f => DisplaySpace -> Int -> Int -> [f] -> [f]
 makeGrid s width height = take (width * height) . concat . makeColumn s . map (makeRow s) . breakList width
@@ -101,7 +101,7 @@ solid color = SLeaf . SRep 0 (Solid color)
 textureWith :: PictureRef PictId -> CompoundTree -> ShapeTree
 textureWith pict = SLeaf . SRep 0 (Texture pict)
 
-raw :: [Vertex DisplaySpace] -> CompoundTree
+raw :: [Segment DisplaySpace] -> CompoundTree
 raw = SLeaf . Raw
 
 rawPlot :: Plot DisplaySpace -> CompoundTree

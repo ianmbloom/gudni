@@ -356,7 +356,6 @@ typedef struct Group
 // A picture reference is a reference to bitmap data that can be the substance of a shape.
 typedef struct PictureRef
   { int2 pictTranslate; // translation vector in pixel units
-    int  pictScale;     // scaling amount.
     int  pictMemOffset; // starting point of the pixel data in the memory buffer
     int2 pictSize;      // size of the bitmap
   } PictureRef;
@@ -2439,7 +2438,6 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                               , GMEM        uint *out
                               ,             int  bitmapWidth
                               ,             int  bitmapHeight
-                              ,             int  gridWidth
                               ,             int  tileWidth
                               ,             int  tileHeight
                               ,             int  frameNumber
@@ -2457,7 +2455,7 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                   ,  tileHeight
                   ,  bitmapWidth
                   ,  bitmapHeight
-                  ,  gridWidth
+                  //,  gridWidth
                   ,  INDEX
                   ,  column
                   );

@@ -82,13 +82,9 @@ instance NFData Strand where
   rnf = rnf . unStrand
 ------------------ Converion from shapes to strands ---------------------------
 
-type Triple p = (p, p, p)
-
-rotateIfFirstControl :: Show p => [Vertex p] -> [Vertex p]
-rotateIfFirstControl (v:vs) = if v ^. isControl then vs ++ [v] else v:vs
-rotateIfFirstControl []     = []
-
 -------------------- Clean Shape -----------------------
+
+type Triple p = (p, p, p)
 
 triples vs = triples' (view onCurve . head $ vs) vs
 
@@ -119,15 +115,9 @@ curvePoint t left control right =
 
 leftConvex  :: (Show s, Num s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Bool
 leftConvex control onCurve  = control ^. pX < onCurve ^. pX
-                              --let diff = pX control - pX onCurve
-                              --in  --tr ("leftConvex control: " ++ show (vX control) ++ "vX onCurve " ++ show (vX onCurve) ++ "diff: " ++ show diff) $
-                              --    diff > iota
 
 rightConvex :: (Show s, Num s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Bool
 rightConvex control onCurve = onCurve ^. pX < control ^. pX
-                              --let diff = pX onCurve - pX control
-                              --in --tr ("rightConvex control: " ++ show (vX control) ++ "vX onCurve " ++ show (vX onCurve) ++ "diff: " ++ show diff) $
-                              --    diff > iota
 
 -- find an onCurve point and new control points to horizonally divide a curve that
 -- if convex to the right like a right bracket ")"
@@ -236,8 +226,6 @@ concatSimples ((left, control, _):xs) = let (right, rest) = concatSimples' xs
                                         in  (right, left, control, rest)
 concatSimples [] = error "concatSimples encountered empty list"
 
-
-
 buildStrand' :: (Num s, Ord s, Iota s) => Maybe (Triple (Point2 s)) -> [Triple (Point2 s)] -> Maybe (Triple (Point2 s)) -> [Triple (Point2 s)]
 buildStrand' start xs end =
   let s =  if vertical start < 0
@@ -340,7 +328,7 @@ makeVertexTree table sectionSize vs =
   then []
   else splitShape table sectionSize vs
 
--------------------- Shape To Curve Strands ------------------------
+-------------------- Shape To OpenCurve Strands ------------------------
 
 shapeToStrands :: CurveTable
                -> Int

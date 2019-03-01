@@ -37,9 +37,6 @@ import Graphics.Gudni.Util.StorableM
 import Control.DeepSeq
 import Control.Monad.Random
 
---import Numeric
---import Numeric.Half
-
 import Data.Word
 import Data.Bits
 import Data.List
@@ -57,6 +54,7 @@ import qualified Data.Colour.RGBSpace as C
 import qualified Data.Colour.SRGB as C
 import qualified Data.Colour.Names as N
 
+-- | Wrapper for 'Data.Colour.Colour' that adds simple alpha.
 data Color = Color
     { unColor :: C.Colour Float
     , unAlpha :: Float
@@ -65,8 +63,11 @@ data Color = Color
 instance Show Color where
   show (Color s a) = show s ++ " " ++ show a
 
+-- | Red based on simple rgb values.
 pureRed   = rgbaColor 1 0 0 1
+-- | Green based on simple rgb values.
 pureGreen = rgbaColor 0 1 0 1
+-- | Blue based on simple rgb values.
 pureBlue  = rgbaColor 0 0 1 1
 
 red    = Color N.red    1.0
@@ -79,39 +80,49 @@ white  = Color N.white  1.0
 gray   = Color N.gray   1.0
 black  = Color C.black  1.0
 
+-- | Generate a 'Color' from hue saturation and lightness values.
 hslColor :: Float -> Float -> Float -> Color
 hslColor hue saturation lightness = Color (C.uncurryRGB C.sRGB $ C.hsl hue saturation lightness) 1.0
 
+-- | Generate a 'Color' from simple RGB and alpha values.
 rgbaColor :: Float -> Float -> Float -> Float -> Color
 rgbaColor r g b a = Color (C.sRGB r g b) a
 
+-- | Generate a 'Color' based on the input color by multiplying the saturation by a factor.
 saturate :: Float -> Color -> Color
 saturate sat (Color colour a) =
     let (h, s, l) = C.hslView . C.toSRGB $ colour
         c = C.uncurryRGB C.sRGB $ C.hsl h (clamp 0 1.0 $ sat * s) l
     in  Color c a
 
+-- | Generate a 'Color' based on the input color by multiplying the lightness by a factor.
 lighten :: Float -> Color ->  Color
 lighten light (Color colour a) =
   let (h, s, l) = C.hslView . C.toSRGB $ colour
       c = C.uncurryRGB C.sRGB $ C.hsl h s (clamp 0 1.0 $ light * l)
   in  Color c a
 
+-- | Make a slightly lighter version of the color.
 light :: Color -> Color
 light = saturate 0.8  . lighten 1.25
 
+-- | Make a slightly darker version of the color.
 dark :: Color -> Color
 dark  = saturate 1.25 . lighten 0.75
 
+-- | Make a much darker version of the color.
 veryDark :: Color -> Color
 veryDark  = saturate 1.25 . lighten 0.5
 
+-- | Return the same color with zero alpha value.
 clear :: Color -> Color
 clear (Color colour a) = Color colour 0
 
+-- | Mix two colors and return the alpha value of the first color.
 mixColor :: Color -> Color -> Color
 mixColor (Color cA aA) (Color cB aB) = Color (C.blend 0.5 cA cB) aA
 
+-- | Blend two colors by pushing the hue value toward the second color.
 influenceHue :: Float -> Color -> Color -> Color
 influenceHue amount (Color blender bA) (Color color cA) =
   let blended = C.blend amount blender color
@@ -121,11 +132,17 @@ influenceHue amount (Color blender bA) (Color color cA) =
 
 ishAmount = 0.05
 
+-- | Make a slightly redder version of the color.
 redish    :: Color -> Color
+-- | Make a slightly oranger version of the color.
 orangeish :: Color -> Color
+-- | Make a slightly yellower version of the color.
 yellowish :: Color -> Color
+-- | Make a slightly greener version of the color.
 greenish  :: Color -> Color
+-- | Make a slightly bluer version of the color.
 blueish   :: Color -> Color
+-- | Make a slightly purpler version of the color.
 purpleish :: Color -> Color
 redish    = influenceHue ishAmount red
 orangeish = influenceHue ishAmount orange
@@ -134,6 +151,7 @@ greenish  = influenceHue ishAmount green
 blueish   = influenceHue ishAmount blue
 purpleish = influenceHue ishAmount purple
 
+-- | Replace the alpha value of a color.
 transparent :: Float -> Color -> Color
 transparent a (Color colour _) = Color colour a
 
