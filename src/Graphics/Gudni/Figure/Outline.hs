@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 
 module Graphics.Gudni.Figure.Outline
   ( CurvePair
@@ -58,11 +59,13 @@ instance Boxable (CurvePair (Point2 DisplaySpace)) where
 instance Boxable (Outline DisplaySpace) where
   getBoundingBox (Outline vs) = getBoundingBox $ map getBoundingBox $ vs
 
-instance SimpleTransformable (Point2 s) => SimpleTransformable (Outline s) where
+instance (Num s) => SimpleTransformable Outline s where
   tTranslate p = mapOutline (tTranslate p)
   tScale     s = mapOutline (tScale s)
-instance Transformable (Point2 s) => Transformable (Outline s) where
+instance (Floating s, Num s) => Transformable Outline s where
   tRotate    a = mapOutline (tRotate a)
+
+-- * Instances
 
 instance NFData p => NFData (CurvePair p) where
   rnf (Cp v2) = v2 `deepseq` ()

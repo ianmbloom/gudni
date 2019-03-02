@@ -60,18 +60,20 @@ class Leafable t a => Scaffoldable t a where
 class Leafable t a where
   makeLeaf :: t -> a
 
+{-
 putGlyph :: (Transformable a, Leafable (Glyph DisplaySpace) a) => Glyph DisplaySpace -> Point2 DisplaySpace -> a
 putGlyph glyph p = tTranslate p . makeLeaf $ glyph
 
 instance Leafable (Glyph DisplaySpace) CompoundTree where
   makeLeaf glyph = SLeaf . RawGlyph $ glyph
 
-instance (Transformable a, Leafable (Glyph DisplaySpace) a) => Scaffoldable (Glyph DisplaySpace) a where
+instance (Transformable a, Leafable (Glyph DisplaySpace) a) => Scaffoldable Glyph a where
   buildScaffolding glyph = Transom (Transom1 ["base"] (putGlyph glyph))
                                    (Joint [("base"  ,                                            Coupler)
                                           ,("width" , Brace (makePoint (glyphAdvanceWidth glyph) 0) Coupler)
                                           ,("height", Brace (makePoint 0 (glyphHeight glyph))       Coupler)]
                                    )
+-}
 
 findPoint :: Scaffolding t -> [Label] -> Point2 DisplaySpace
 findPoint scaffold [] =

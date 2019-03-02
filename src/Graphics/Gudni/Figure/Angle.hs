@@ -18,6 +18,8 @@ module Graphics.Gudni.Figure.Angle
   , rotate90
   , rotate180
   , rotate270
+  , flipH
+  , flipV
   )
 where
 
@@ -44,6 +46,12 @@ rotate180 v = makePoint (negate $ v ^. pX) (negate $ v ^. pY )
 -- | Fast 270 degree rotation around the origin.
 rotate270 :: (Num s) => Point2 s -> Point2 s
 rotate270 v = makePoint (orthoganal $ negate $ v ^. pY) (orthoganal $ v ^. pX)
+
+flipH :: (Num s) => Point2 s -> Point2 s
+flipH = over pX negate
+
+flipV :: (Num s) => Point2 s -> Point2 s
+flipV = over pY negate
 
 instance Hashable s => Hashable (Angle s) where
   hashWithSalt s = hashWithSalt s . view rad

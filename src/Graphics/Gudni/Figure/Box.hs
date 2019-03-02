@@ -45,7 +45,7 @@ import Foreign.C.Types
 
 import Control.Lens
 
---import Data.Primitive.SIMD
+--import Data.ShapeInfo.SIMD
 import Data.Traversable
 import qualified Data.Vector.Storable as VS
 import Linear.V2
@@ -166,6 +166,6 @@ instance Boxable [Point2 DisplaySpace] where
          then emptyBox -- TODO make this a maybe
          else makeBox left top right bottom
 
-instance SimpleTransformable (BoundingBox) where
+instance Num s => SimpleTransformable Box s where
   tTranslate p = mapBox (^+^ p)
   tScale     s = mapBox (^* s)

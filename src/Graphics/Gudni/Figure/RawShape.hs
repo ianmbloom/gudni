@@ -2,6 +2,7 @@
 
 module Graphics.Gudni.Figure.RawShape
   ( RawShape (..)
+  , RawShape_(..)
   , addFont
   , rawShapeToOutlines
   )
@@ -37,13 +38,15 @@ import qualified Data.ByteString.Char8 as B
 
 import System.Random
 
-data RawShape where
-     RawBox       :: DisplaySpace -> Point2 DisplaySpace -> RawShape
-     RawRectangle :: Point2 DisplaySpace -> RawShape
-     RawGlyph     :: Glyph DisplaySpace -> RawShape
-     RawLine      :: Point2 DisplaySpace -> Point2 DisplaySpace -> DisplaySpace -> RawShape
-     RawCurve     :: OpenCurve DisplaySpace -> RawShape
-     Raw          :: [Segment DisplaySpace] -> RawShape
+type RawShape = RawShape_ DisplaySpace
+
+data RawShape_ s where
+     RawBox       :: s -> Point2 s -> RawShape_ s
+     RawRectangle :: Point2 s -> RawShape_ s
+     RawGlyph     :: Glyph s -> RawShape_ s
+     RawLine      :: Point2 s -> Point2 s -> s -> RawShape_ s
+     RawCurve     :: OpenCurve s -> RawShape_ s
+     Raw          :: [Segment s] -> RawShape_ s
      deriving (Show, Eq, Ord)
 
 
@@ -65,7 +68,7 @@ mid v0 v1 = lerp 0.5 v0 v1
 
 segmentsToCurvePairs segments = segmentsToCurvePairs' (head segments ^. anchor) segments
 
-segmentsToCurvePairs' :: (Fractional s, Num s) => (Point2 s) -> [Segment s] -> [CurvePair (Point2 s)]
+segmentsToCurvePairs' :: (Fractional s) => (Point2 s) -> [Segment s] -> [CurvePair (Point2 s)]
 segmentsToCurvePairs' first segs = case segs of
       (Seg v0 Nothing:[])             -> CurvePair v0 (mid v0 first):[]
       (Seg v0 Nothing:Seg v1 mC:rest) -> CurvePair v0 (mid v0 v1):segmentsToCurvePairs' first (Seg v1 mC:rest)
@@ -73,10 +76,10 @@ segmentsToCurvePairs' first segs = case segs of
       []                              -> []
 
 
-segmentsToOutline :: [[Segment DisplaySpace]] -> [Outline DisplaySpace]
+segmentsToOutline :: (Fractional s) => [[Segment s]] -> [Outline s]
 segmentsToOutline = map (Outline . segmentsToCurvePairs)
 
-rawShapeToOutlines :: RawShape -> [Outline DisplaySpace]
+rawShapeToOutlines :: (Num s, Floating s) => RawShape_ s -> [Outline s]
 rawShapeToOutlines shape =
   case shape of
     RawBox stroke v ->
@@ -115,7 +118,7 @@ rawShapeToOutlines shape =
 
 curveToOutline = undefined
 
-instance Hashable RawShape where
+instance Hashable s => Hashable (RawShape_ s) where
     hashWithSalt s (RawBox a b     ) = s `hashWithSalt` (0::Int) `hashWithSalt` a `hashWithSalt` b
     hashWithSalt s (RawRectangle a ) = s `hashWithSalt` (1::Int) `hashWithSalt` a
     hashWithSalt s (RawGlyph  a    ) = s `hashWithSalt` (3::Int) `hashWithSalt` a
@@ -123,7 +126,7 @@ instance Hashable RawShape where
     hashWithSalt s (RawCurve  a    ) = s `hashWithSalt` (6::Int) `hashWithSalt` a
     hashWithSalt s (Raw       a    ) = s `hashWithSalt` (7::Int) `hashWithSalt` a
 
-instance NFData RawShape where
+instance NFData s => NFData (RawShape_ s) where
   rnf = \case
      RawBox a b      -> a `deepseq` b `deepseq`             ()
      RawRectangle a  -> a `deepseq`                         ()

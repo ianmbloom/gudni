@@ -1,8 +1,9 @@
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE GADTs                #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Graphics.Gudni.Figure.Transformer
  ( TransformType (..)
@@ -32,57 +33,52 @@ import Data.Either
 
 import System.Random
 
-data TransformType where
-  Translate :: Point2 DisplaySpace -> TransformType
-  Scale     :: DisplaySpace        -> TransformType
-  Rotate    :: Angle DisplaySpace  -> TransformType
-  deriving (Show)
+class (Num s) => SimpleTransformable t s where
+  tTranslate :: Point2 s -> t s -> t s
+  tScale     :: s -> t s -> t s
 
-instance NFData TransformType where
-  rnf (Translate a) = a `deepseq` ()
-  rnf (Scale a) = a `deepseq` ()
-  rnf (Rotate a) = a `deepseq` ()
+class SimpleTransformable t s => Transformable t s where
+  tRotate    :: Angle s -> t s -> t s
 
-instance Random TransformType where
-  random = runRand $
-    do r :: Int <- getRandomR (0,1)
-       case r of
-         0 -> do delta :: Point2 DisplaySpace <- getRandom
-                 return $ Translate delta
-         1 -> do scale :: DisplaySpace <- getRandomR(0,100)
-                 return $ Scale scale
-         2 -> do angle :: DisplaySpace <- getRandomR(0,1)
-                 return $ Rotate (angle @@ turn)
-  randomR _ = random
+tTranslateXY :: SimpleTransformable t s => s -> s -> t s -> t s
+tTranslateXY x y = tTranslate $ Point2 x y
 
-instance Hashable TransformType where
-    hashWithSalt s (Translate a) = s `hashWithSalt` (0 :: Int) `hashWithSalt` a
-    hashWithSalt s (Scale a)     = s `hashWithSalt` (1 :: Int) `hashWithSalt` a
-    hashWithSalt s (Rotate a)    = s `hashWithSalt` (2 :: Int) `hashWithSalt` a
+instance Num s => SimpleTransformable Point2 s where
+    tTranslate = (^+^)
+    tScale     = flip (^*)
+instance (Floating s, Num s) => Transformable Point2 s where
+    tRotate    = rotate
 
-applyTransformType :: Transformable t => TransformType -> t -> t
+data TransformType s where
+  Translate :: Point2 s -> TransformType s
+  Scale     :: s        -> TransformType s
+  Rotate    :: Angle s  -> TransformType s
+
+applyTransformType :: Transformable t s => TransformType s -> t s -> t s
 applyTransformType (Translate delta) = tTranslate delta
 applyTransformType (Scale scale)     = tScale scale
 applyTransformType (Rotate angle)    = tRotate angle
 
-class SimpleTransformable a where
-  tTranslate :: Point2 DisplaySpace -> a -> a
-  tScale     :: DisplaySpace -> a -> a
+-- * Instances
 
-class SimpleTransformable a => Transformable a where
-  tRotate    :: Angle DisplaySpace -> a -> a
+instance NFData s => NFData (TransformType s) where
+  rnf (Translate a) = a `deepseq` ()
+  rnf (Scale     a) = a `deepseq` ()
+  rnf (Rotate    a) = a `deepseq` ()
 
-tTranslateXY :: SimpleTransformable a => DisplaySpace -> DisplaySpace -> a -> a
-tTranslateXY x y = tTranslate $ Point2 x y
+instance (Floating s, Num s, Random s) => Random (TransformType s) where
+  random = runRand $
+    do r :: Int <- getRandomR (0,1)
+       case r of
+         0 -> do delta :: Point2 s <- getRandom
+                 return $ Translate delta
+         1 -> do scale :: s <- getRandomR(0,100)
+                 return $ Scale scale
+         2 -> do angle :: s <- getRandomR(0,1)
+                 return $ Rotate (angle @@ turn)
+  randomR _ = random
 
-instance SimpleTransformable (Point2 DisplaySpace) where
-    tTranslate = (^+^)
-    tScale     = flip (^*)
-instance Transformable (Point2 DisplaySpace) where
-    tRotate    = rotate
-
-instance SimpleTransformable f => SimpleTransformable [f] where
-    tTranslate p = map (tTranslate p)
-    tScale     s = map (tScale s)
-instance Transformable f => Transformable [f] where
-    tRotate    a = map (tRotate a)
+instance Hashable s => Hashable (TransformType s) where
+    hashWithSalt s (Translate a) = s `hashWithSalt` (0 :: Int) `hashWithSalt` a
+    hashWithSalt s (Scale a)     = s `hashWithSalt` (1 :: Int) `hashWithSalt` a
+    hashWithSalt s (Rotate a)    = s `hashWithSalt` (2 :: Int) `hashWithSalt` a

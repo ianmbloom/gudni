@@ -1,12 +1,12 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Graphics.Gudni.Util.Plot
-  ( plotLibrary
+  ( curveLibrary
   , allTurtles
   , turtleNames
-  , turtleToPlot
+  , plotTurtle
   , roundedPolygon
-  , plotArc
+  , makeArc
   , star
   )
 where
@@ -30,26 +30,25 @@ import Control.DeepSeq
 import Control.Applicative
 import Control.Lens
 
-makeArc :: (Show s, Floating s, Num s) => Angle s -> OpenCurve s
-makeArc angle = OpenCurve [curved 1 0 1 (Ortho $ tanA $ angle ^/ 2)] (Point2 (cosA angle) (sinA angle))
+makeArcSegment :: (Floating s, Num s) => Angle s -> OpenCurve s
+makeArcSegment angle = OpenCurve [curved 1 0 1 (Ortho $ tanA $ angle ^/ 2)] (Point2 (cosA angle) (sinA angle))
 
-makeArcPlot :: Angle DisplaySpace -> OpenCurve DisplaySpace
-makeArcPlot angle
-    | abs (angle ^. deg) < 45 = makeArc angle
+makeArc :: (Ord s, Floating s) => Angle s -> OpenCurve s
+makeArc angle
+    | abs (angle ^. deg) < 45 = makeArcSegment angle
     | abs (angle ^. deg) == 0 = OpenCurve [] zeroPoint
-    | otherwise =
-      makeArcPlot (angle ^/ 2) <^> overCurve (tRotate (angle ^/ 2)) (makeArcPlot (angle ^/ 2))
+    | otherwise = makeArc (angle ^/ 2) <^> overCurve (tRotate (angle ^/ 2)) (makeArc (angle ^/ 2))
 
 data Turn = Hard | Smooth deriving (Ord, Eq, Show)
 data LR s = L | R | UTurn | Arb (Angle s) deriving (Ord, Eq, Show)
 
 -- | Simple data structure for creating shapes by moving a turtle.
-data Turtle where
-  TGo :: DisplaySpace -> Turtle
-  TRadius :: DisplaySpace -> Turtle
-  TTurn :: Turn -> LR DisplaySpace -> Turtle
-  TReverse :: [Turtle] -> Turtle
-  TMirror :: [Turtle] -> Turtle
+data Turtle s where
+  TGo :: s -> Turtle s
+  TRadius :: s -> Turtle s
+  TTurn :: Turn -> LR s -> Turtle s
+  TReverse :: [Turtle s] -> Turtle s
+  TMirror :: [Turtle s] -> Turtle s
   deriving (Ord, Eq, Show)
 
 data TurtleState s = TurtleState
@@ -64,25 +63,25 @@ initialTurtleState = TurtleState 1 (0 @@ deg)
 (+<+) :: (Real s, Floating s) => Angle s -> Angle s -> Angle s
 (+<+) a b = normalizeAngle (a ^+^ b)
 
-turtleToPlot :: {-(Real s, Ord s, Floating s) => -} TurtleState DisplaySpace -> [Turtle] -> OpenCurve DisplaySpace
-turtleToPlot state ss = let (m_plots, s) = runState (mapM turtleToPlot' ss) initialTurtleState
-                            plots = catMaybes m_plots
-                        in foldl1 (<^>) plots
+plotTurtle :: (Real s, Ord s, Floating s) => TurtleState s -> [Turtle s] -> OpenCurve s
+plotTurtle state ss = let (m_plots, s) = runState (mapM plotTurtle' ss) initialTurtleState
+                          plots = catMaybes m_plots
+                      in foldl1 (<^>) plots
 
-turtleToPlot' :: {- forall s . (Real s, Ord s, Floating s) => -} Turtle -> State (TurtleState DisplaySpace) (Maybe (OpenCurve DisplaySpace))
-turtleToPlot' simp =
+plotTurtle' :: (Real s, Ord s, Floating s) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve s))
+plotTurtle' simp =
   do
     a  <- use turtleAngle
-    m_plot <- turtleToPlot'' simp
+    m_plot <- plotTurtle'' simp
     case m_plot of
       Nothing -> return Nothing
       Just plot -> return $ Just $ overCurve (tRotate a) plot
 
 
-turtleToPlot'' :: {- (Real s, Ord s, Floating s) => -} Turtle -> State (TurtleState DisplaySpace) (Maybe (OpenCurve DisplaySpace))
-turtleToPlot'' (TGo distance) = do r <- use turtleRadius ; return $ Just $ OpenCurve [straight 0 0] (makePoint (toXOrtho distance) 0)
-turtleToPlot'' (TRadius r) = do turtleRadius .= r; return Nothing
-turtleToPlot'' (TTurn t lr) =
+plotTurtle'' :: (Real s, Ord s, Floating s) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve s))
+plotTurtle'' (TGo distance) = do r <- use turtleRadius ; return $ Just $ OpenCurve [straight 0 0] (makePoint (toXOrtho distance) 0)
+plotTurtle'' (TRadius r) = do turtleRadius .= r; return Nothing
+plotTurtle'' (TTurn t lr) =
   do
     let a = lrToAngle lr
     turtleAngle %= (a +<+)
@@ -93,19 +92,16 @@ turtleToPlot'' (TTurn t lr) =
         do
           r <- use turtleRadius
           let f = if a > (0 @@ deg) then overCurve (tRotate (-90 @@ deg)) else overCurve (tRotate (90 @@ deg))
-          return $ Just $ f $ let arc = overCurve (tScale r) $ makeArcPlot a
+          return $ Just $ f $ let arc = overCurve (tScale r) $ makeArc a
                                   start = head (arc ^. curveSegments) ^. anchor
                               in  overCurve (^-^ start) arc
-turtleToPlot'' (TReverse pl) =
+plotTurtle'' (TReverse pl) =
   do state <- get
-     return $ Just $ reverseCurve $ turtleToPlot state pl
-turtleToPlot'' (TMirror pl) =
+     return $ Just $ reverseCurve $ plotTurtle state pl
+plotTurtle'' (TMirror pl) =
   do state <- get
-     let pl' = turtleToPlot state pl
+     let pl' = plotTurtle state pl
      return $ Just $ pl' <^> (reverseCurve $ overCurve flipH pl')
-
-flipH = over pX negate
-flipV = over pY negate
 
 lrToAngle :: (Floating s, Num s) => LR s -> Angle s
 lrToAngle L       = fmap negate quarterTurn
@@ -113,7 +109,7 @@ lrToAngle R       = quarterTurn
 lrToAngle UTurn   = halfTurn
 lrToAngle (Arb a) = a
 
-allTurtles :: [(String, [Turtle])]
+allTurtles :: (Num s) => [(String, [Turtle s])]
 allTurtles =
   [ ("CurlyBracket2",[TTurn Smooth R, TGo 1, TTurn Smooth L, TTurn Hard UTurn, TTurn Smooth L, TGo 1, TTurn Smooth R, TTurn Smooth R, TGo 4, TTurn Smooth R])
   , ("CurlyBracket",[TMirror [TTurn Smooth R, TGo 1, TTurn Smooth L, TTurn Smooth L, TGo 2]])
@@ -125,28 +121,29 @@ allTurtles =
   , ("Circle", [TTurn Smooth L, TTurn Smooth L, TTurn Smooth L, TTurn Smooth L])
   ]
 
-turtleLibrary' :: M.Map String [Turtle]
+turtleLibrary' :: (Num s) => M.Map String [Turtle s]
 turtleLibrary' = foldl (\m (n,s) -> M.insert n s m) M.empty allTurtles
 
 turtleNames :: [String]
 turtleNames = map fst allTurtles
 
-runTurtle :: {-(Real s, Ord s, Floating s) =>-} [Turtle] -> OpenCurve DisplaySpace
-runTurtle = turtleToPlot initialTurtleState
+runTurtle :: (Real s, Ord s, Floating s) => [Turtle s] -> OpenCurve s
+runTurtle = plotTurtle initialTurtleState
 
-turtleLibrary :: String -> Maybe [Turtle]
+turtleLibrary :: Num s => String -> Maybe [Turtle s]
 turtleLibrary n = M.lookup n turtleLibrary'
 
-plotLibrary :: {-(Real s, Ord s, Floating s) =>-} String -> Maybe (OpenCurve DisplaySpace)
-plotLibrary n = fmap runTurtle  (turtleLibrary n)
+curveLibrary :: (Real s, Ord s, Floating s) => String -> Maybe (OpenCurve s)
+curveLibrary n = fmap runTurtle  (turtleLibrary n)
 
-cyclic pat reps = take (reps * length pat) . cycle $ pat
+cyclic :: [Turtle s] -> Int -> [Turtle s]
+cyclic pat reps = concat . take reps . repeat $ pat
 
-roundedPolygon :: {-(Show s, Real s, Fractional s, Num s, Floating s) =>-} Int -> OpenCurve DisplaySpace
+roundedPolygon :: (Show s, Real s, Fractional s, Num s, Floating s) => Int -> OpenCurve s
 roundedPolygon sides = runTurtle . cyclic [TRadius 0.1, TGo 1, TTurn Smooth (Arb (fullTurn ^/fromIntegral sides))] $ sides
 
-star :: {-(Show s, Real s, Fractional s, Num s, Floating s) =>-} Int -> Angle DisplaySpace -> DisplaySpace -> OpenCurve DisplaySpace
+star :: (Show s, Real s, Fractional s, Num s, Floating s) => Int -> Angle s -> s -> OpenCurve s
 star sides a r = runTurtle $ cyclic [TRadius r, TGo 1, TTurn Smooth (Arb ((fullTurn ^/ fromIntegral sides) ^+^ a)), TGo 1, TTurn Smooth (Arb (negated a))] sides
 
-plotArc :: {-(Real s, Floating s) =>-} Angle DisplaySpace -> OpenCurve DisplaySpace
-plotArc angle = turtleToPlot initialTurtleState [TTurn Smooth (Arb angle)]
+plotArc :: (Real s, Floating s) => Angle s -> OpenCurve s
+plotArc angle = plotTurtle initialTurtleState [TTurn Smooth (Arb angle)]

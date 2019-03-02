@@ -30,6 +30,7 @@ module Graphics.Gudni.Util.Pile
   , addListToPile
   , addPileToPile
   , addToPileState
+  , addToBytePileState
   , addListToPileState
   , addVectorToPile
   , newPile
@@ -59,6 +60,7 @@ import qualified Data.Vector.Storable as VS
 import Control.DeepSeq
 import Control.Monad
 import Control.Monad.State.Class
+import Control.Monad.IO.Class
 import Control.Lens
 
 import Foreign.C.Types
@@ -195,17 +197,33 @@ addPileToPile destination source =
        do copyBytes destStart (_pileData source) sourceSize
           return destination {_pileCursor = destCursor + sourceCursor}
 
-addToPileState :: (Storable t, Show t, MonadState s m, Monad m) => (IO (Pile t, Reference t) -> m (Pile t, Reference t)) -> Lens' s (Pile t) -> t -> m (Reference t)
-addToPileState lifter lens object =
+addToPileState :: (Storable t, Show t, MonadState s m, Monad m, MonadIO m)
+               => Lens' s (Pile t)
+               -> t
+               -> m (Reference t)
+addToPileState lens object =
   do pile <- use lens
-     (pile', ref) <- lifter $ addToPile "addToPileState" pile object
+     (pile', ref) <- liftIO $ addToPile "addToPileState" pile object
      lens .= pile'
      return ref
 
-addListToPileState :: (Storable t, Show t, MonadState s m, Monad m) => (IO (Pile t, Slice t) -> m (Pile t, Slice t)) -> Lens' s (Pile t) -> [t] -> m (Slice t)
-addListToPileState lifter lens list =
+addToBytePileState :: (Storable t, Show t, MonadState s m, Monad m, MonadIO m)
+                   => Lens' s BytePile
+                   -> t
+                   -> m Int
+addToBytePileState lens object =
   do pile <- use lens
-     (pile', slice) <- lifter $ addListToPile pile list
+     (pile', ref) <- liftIO $ addToBytePile "addToPileState" pile object
+     lens .= pile'
+     return ref
+
+addListToPileState :: (Storable t, Show t, MonadState s m, Monad m, MonadIO m)
+                   => Lens' s (Pile t)
+                   -> [t]
+                   -> m (Slice t)
+addListToPileState lens list =
+  do pile <- use lens
+     (pile', slice) <- liftIO $ addListToPile pile list
      lens .= pile'
      return slice
 

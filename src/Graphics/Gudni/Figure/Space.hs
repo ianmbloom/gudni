@@ -1,4 +1,12 @@
-{-# LANGUAGE ScopedTypeVariables, ConstraintKinds, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances, StandaloneDeriving  #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE TypeFamilies               #-}
+
 module Graphics.Gudni.Figure.Space
   ( Ortho (..)
   , XDimension

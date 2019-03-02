@@ -5,13 +5,17 @@ module Graphics.Gudni.Figure.Segment
   ( Segment (..)
   , anchor
   , control
+  , pattern Straight
   , straight
+  , pattern Curved
   , curved
   , hasControl
   , overSegment
+  , randomSegmentFromPoints
   )
 where
 
+import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 
 import Control.Lens
@@ -30,8 +34,16 @@ data Segment s = Seg
 makeLenses ''Segment
 
 -- | Pattern synonym for a segment with no control point.
+pattern Straight p = Seg p Nothing
+-- | Make a straight segment from the component dimensions
+straight :: Ortho XDimension s -> Ortho YDimension s -> Segment s
 straight x y = Seg (makePoint x y) Nothing
+
 -- | Pattern synonym for a segment with a control point.
+pattern Curved p c = Seg p (Just c)
+
+-- | Make a curved segment from the component dimensions.
+curved :: Ortho XDimension s -> Ortho YDimension s -> Ortho XDimension s -> Ortho YDimension s -> Segment s
 curved x y cx cy = Seg (makePoint x y) (Just (makePoint cx cy))
 
 overSegment :: (Point2 s -> Point2 z) -> Segment s -> Segment z
@@ -55,8 +67,8 @@ instance Random s => Random (Segment s) where
                                                       return $ Seg v (Just c)
                                               else    return $ Seg v Nothing
 
-randomSegFromPoints :: (RandomGen g, Random s) => (Point2 s, Point2 s) -> g -> (Segment s, g)
-randomSegFromPoints (p0, p1) = randomR (Seg p0 Nothing, Seg p1 Nothing)
+randomSegmentFromPoints :: (RandomGen g, Random s) => (Point2 s, Point2 s) -> g -> (Segment s, g)
+randomSegmentFromPoints (p0, p1) = randomR (Seg p0 Nothing, Seg p1 Nothing)
 
 instance NFData s => NFData (Segment s) where
   rnf (Seg o c) = o `deepseq` c `deepseq` ()
