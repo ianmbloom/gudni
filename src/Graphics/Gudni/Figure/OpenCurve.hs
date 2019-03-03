@@ -9,6 +9,7 @@ module Graphics.Gudni.Figure.OpenCurve
   ( OpenCurve(..)
   , curveSegments
   , terminator
+  , outset
   , (<^>)
   , reverseCurve
   , overCurve
@@ -40,6 +41,11 @@ data OpenCurve s = OpenCurve
     } deriving (Show, Eq, Ord)
 makeLenses ''OpenCurve
 
+outset :: Lens' (OpenCurve s) (Point2 s)
+outset elt_fn (OpenCurve segments terminator) =
+  let (Seg p mc) = head segments
+  in  (\p' -> OpenCurve (Seg p' mc:tail segments) terminator) <$> elt_fn p
+
 overCurve :: (Point2 s -> Point2 z) -> OpenCurve s -> OpenCurve z
 overCurve f (OpenCurve segs term) = OpenCurve (map (overSegment f) segs) (f term)
 
@@ -59,8 +65,9 @@ reverseCurve (OpenCurve segments terminator) =
 
 -- | Connect to curves end to end by translating c1 so that the starting point of 'c1' is equal to the terminator of 'c2'
 (<^>) :: Num s => OpenCurve s -> OpenCurve s -> OpenCurve s
-(<^>) c0 c1 = let transC1 = overCurve (tTranslate (c0 ^. terminator ^-^ (head (c1 ^. curveSegments) ^. anchor))) c1
-              in over curveSegments (c0 ^. curveSegments ++) transC1
+(<^>) c0 c1 = let delta = c0 ^. terminator ^-^ c1 ^. outset
+                  transC1 = overCurve (tTranslate delta) c1
+              in  over curveSegments (c0 ^. curveSegments ++) transC1
 
 instance Hashable s => Hashable (OpenCurve s) where
     hashWithSalt s (OpenCurve segs term) = s `hashWithSalt` segs `hashWithSalt` term

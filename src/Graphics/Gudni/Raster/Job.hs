@@ -64,10 +64,10 @@ import qualified Data.Map as M
 type ShapeId = Reference Shape
 
 data TileInfo = TileInfo
-  -- | Range of shapeIds in the geometry heap.
-  { _tiShapes :: !(Slice ShapeId)
   -- | Pixel boundaries of tile.
-  , _tiBox    :: !(Box IntSpace)
+  { _tiBox    :: !(Box IntSpace)
+  -- | Range of shapeIds in the geometry heap.
+  , _tiShapes :: !(Slice ShapeId)
   -- | Logarithmic horizontal depth.
   , _tiHDepth :: !(CInt)
   -- | Logarithmic vertical depth.
@@ -181,7 +181,7 @@ tileToRasterJob primBag tile =
           primCurves = map (getFromBag primBag) primIds
       shapeRefs <- mapM curveToGeoRef $ zip primIds primCurves
       slice <- addListToPileState rJShapeRefPile shapeRefs
-      let tileInfo = TileInfo slice (tileBox tile) 0 0
+      let tileInfo = TileInfo (tileBox tile) slice 0 0
       addToPileState rJTilePile tileInfo
       return ()
 
@@ -195,8 +195,8 @@ buildRasterJob input tiles =
                   do groupPile <- liftIO $ listToPile $ input ^. rjiShapes
                      rJBackgroundColor .= input ^. rjiBackgroundColor
                      rJGroupPile .= groupPile
-                     mapM (tileToRasterJob (input ^. rjiPrimBag)) (tr "tiles" tiles)
-      liftIO $ outputRasterJob job'
+                     mapM (tileToRasterJob (input ^. rjiPrimBag)) tiles
+      --liftIO $ outputRasterJob job'
       return job'
 
 putStrList :: (Show a) => [a] -> IO ()
@@ -224,21 +224,21 @@ outputRasterJob job =
     putStrList =<< (pileToList . view rJTilePile $ job)
 
 instance StorableM TileInfo where
-  sizeOfM _ = do sizeOfM (undefined :: Slice ShapeId)
-                 sizeOfM (undefined :: Box IntSpace)
+  sizeOfM _ = do sizeOfM (undefined :: Box IntSpace)
+                 sizeOfM (undefined :: Slice ShapeId)
                  sizeOfM (undefined :: CInt)
                  sizeOfM (undefined :: CInt)
-  alignmentM _ = do alignmentM (undefined :: Slice ShapeId)
-                    alignmentM (undefined :: Box IntSpace)
+  alignmentM _ = do alignmentM (undefined :: Box IntSpace)
+                    alignmentM (undefined :: Slice ShapeId)
                     alignmentM (undefined :: CInt)
                     alignmentM (undefined :: CInt)
-  peekM = do slice  <- peekM
-             box    <- peekM
+  peekM = do box    <- peekM
+             slice  <- peekM
              hDepth <- peekM
              vDepth <- peekM
-             return (TileInfo slice box hDepth vDepth)
-  pokeM (TileInfo slice box hDepth vDepth) = do pokeM slice
-                                                pokeM box
+             return (TileInfo box slice hDepth vDepth)
+  pokeM (TileInfo box slice hDepth vDepth) = do pokeM box
+                                                pokeM slice
                                                 pokeM hDepth
                                                 pokeM vDepth
 

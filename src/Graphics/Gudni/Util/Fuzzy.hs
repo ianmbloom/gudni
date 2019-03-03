@@ -57,7 +57,7 @@ instance Fuzzy RawShape where
                             stroke <- getRandom
                             return $ RawLine start end stroke
                     3 -> do codePoint <- getRandomR(CodePoint 0, CodePoint 200)
-                            return $ undefined -- RawGlyph codePoint
+                            return $ RawBox 1.0 (Point2 10 10) -- undefined -- RawGlyph codePoint
                     4 -> do len <- getRandomR(3,100)
                             segmentList <- take len <$> getRandomRs(straight 0 0, straight 10 10)
                             return $ Raw $ segmentList

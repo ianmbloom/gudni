@@ -42,7 +42,7 @@
 #define DEBUGINDEX  0 // Determines the index for DEBUG_IF macro
 #define INDEX get_global_id(0)
 #define COLUMN get_global_id(1)
-#define DEBUG_IF(statement)   // if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // on the fly debugging output
+#define DEBUG_IF(statement)    if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // on the fly debugging output
 #define DEBUG_HS(statement)   // if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // debugging output for parsing by TraceVisualizer
 
 #ifdef cl_amd_printf
@@ -355,15 +355,15 @@ inline int boxBottom(int4 box) {return box.w;}
 
 // Initial information about a tile.
 typedef struct TileInfo
-  { Slice tileShapeSlice
-  ; int4  tileBox
+  { int4  tileBox
+  ; Slice tileShapeSlice
   ; int   tileHDepth
   ; int   tileVDepth
   ;} TileInfo;
 
 // A group contains information about the substance of a group of combined shapes.
 typedef struct Group
-  { COLOR     groupColor; // this is either the solid color of the shape or a reference to a picture ref.
+  { COLOR  groupColor; // this is either the solid color of the shape or a reference to a picture ref.
   } Group;
 
 // A picture reference is a reference to bitmap data that can be the substance of a shape.
@@ -1948,15 +1948,15 @@ void initRandomField( ParseState *pS
   // find a random starting point in the field passed on the absolute start position of the column.
   int start = (tileS->column + (tileS->tileIndex * tileS->tileWidth)) & RANDOMFIELDMASK;
   pS->randomFieldCursor = (as_uint(randomField[start]) & RANDOMFIELDMASK);
-  DEBUG_IF(printf("start %i pS->randomFieldCursor %i tileS->column %i tileS->tileIndex %i tileS->tileWidth %i\n"
-                  ,start   ,pS->randomFieldCursor,   tileS->column,   tileS->tileIndex,   tileS->tileWidth );)
+  //DEBUG_IF(printf("start %i pS->randomFieldCursor %i tileS->column %i tileS->tileIndex %i tileS->tileWidth %i\n"
+  //                ,start   ,pS->randomFieldCursor,   tileS->column,   tileS->tileIndex,   tileS->tileWidth );)
   pS->randomField = randomField;
 }
 
 float getRandom(ParseState *pS) {
     pS->randomFieldCursor = (pS->randomFieldCursor + 1) & RANDOMFIELDMASK;
     float random = pS->randomField[pS->randomFieldCursor];
-    DEBUG_IF(printf("random %f\n", random);)
+    //DEBUG_IF(printf("random %f\n", random);)
     return random;
 }
 
@@ -2419,8 +2419,6 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                               , GMEM        uint *out
                               ,             int  bitmapWidth
                               ,             int  bitmapHeight
-                              ,             int  tileWidth
-                              ,             int  tileHeight
                               ,             int  frameNumber
                               , GMEM Continuation *continuations
                               ,             int  passCount
@@ -2440,9 +2438,9 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
     //testShapeStack();
     //testDeleteBit();
     Continuation c = passCount == 0 ? newContinuation() : getContinuationForTile(&tileS, continuations);
+    //DEBUG_IF(printf("tileIndex %i column %i tileDeltaX %i tileDeltaY %i\n", tileIndex, column, tileS.tileDeltaX, tileS.tileDeltaY);)
+    //DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeRefs, groupHeap, tileS.tileNumShapes);)
     if (tileS.tileDeltaX + column < tileS.bitmapWidth) {
-        //printf("tileId %i column %i tileDeltaX %i tileDeltaY %i absolutePosition %v2i \n", tileId, column, tileDeltaX, tileDeltaY, absolutePosition);
-        //DEBUG_IF(showShapes(shapeHeap, tileS->tileShapeRefs, shapeHeap, tileS->numShapes);)
         if (tileS.tileNumShapes == 0) {
             fillOutBuffer (&tileS
                           , out

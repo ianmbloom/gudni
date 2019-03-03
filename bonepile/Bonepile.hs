@@ -34,3 +34,16 @@ tileTreeToGroupsV groupSize (VLeaf tile) = [([tile],1)]
                                         cAdd (tTranslateXY (-size/2) 0 $ rectangle $ Point2 size thickness)
                                              (tTranslateXY 0 (-size/2) $ rectangle $ Point2 thickness size)
                 withCursor = if False then overlap [cursor 100 1, tree] else tree
+
+-- remove duplicates
+removeDuplicateVertices :: (Eq s) => [Segment s] -> [Segment s]
+removeDuplicateVertices (a:b:vs) =
+  let rest = removeDuplicateVertices (b:vs) in
+  if a ^. anchor == b ^. anchor then rest else a:rest
+removeDuplicateVertices v = v
+
+expandVerts :: (Ord s, Show s, Fractional s, Num s) => [Segment s] -> [CurvePair s]
+expandVerts vs = let removed = removeDuplicateVertices vs
+                 in  if length removed <= 1
+                     then []
+                     else segmentsToCurvePairs removed

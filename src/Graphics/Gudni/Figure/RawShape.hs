@@ -49,37 +49,7 @@ data RawShape_ s where
      Raw          :: [Segment s] -> RawShape_ s
      deriving (Show, Eq, Ord)
 
-
--- remove duplicates
-removeDuplicateVertices :: (Eq s) => [Segment s] -> [Segment s]
-removeDuplicateVertices (a:b:vs) =
-  let rest = removeDuplicateVertices (b:vs) in
-  if a ^. anchor == b ^. anchor then rest else a:rest
-removeDuplicateVertices v = v
-
-expandVerts :: (Ord s, Show s, Fractional s, Num s) => [Segment s] -> [CurvePair s]
-expandVerts vs = let removed = removeDuplicateVertices vs
-                 in  if length removed <= 1
-                     then []
-                     else segmentsToCurvePairs removed
-
-mid :: (Fractional s, Num s) => Point2 s -> Point2 s -> Point2 s
-mid v0 v1 = lerp 0.5 v0 v1
-
-segmentsToCurvePairs segments = segmentsToCurvePairs' (head segments ^. anchor) segments
-
-segmentsToCurvePairs' :: (Fractional s) => (Point2 s) -> [Segment s] -> [CurvePair s]
-segmentsToCurvePairs' first segs = case segs of
-      (Seg v0 Nothing:[])             -> CurvePair v0 (mid v0 first):[]
-      (Seg v0 Nothing:Seg v1 mC:rest) -> CurvePair v0 (mid v0 v1):segmentsToCurvePairs' first (Seg v1 mC:rest)
-      (Seg v0 (Just c):rest)          -> CurvePair v0 c:segmentsToCurvePairs' first rest
-      []                              -> []
-
-
-segmentsToOutline :: (Fractional s) => [[Segment s]] -> [Outline s]
-segmentsToOutline = map (Outline . segmentsToCurvePairs)
-
-rawShapeToOutlines :: (Num s, Floating s) => RawShape_ s -> [Outline s]
+rawShapeToOutlines :: (Eq s, Num s, Floating s) => RawShape_ s -> [Outline s]
 rawShapeToOutlines shape =
   case shape of
     RawBox stroke v ->
@@ -114,9 +84,7 @@ rawShapeToOutlines shape =
           , Seg (p1 ^+^ leftNormal ) Nothing
           , Seg (p1 ^+^ rightNormal) Nothing
           ]]
-    RawCurve p -> segmentsToOutline [curveToOutline p]
-
-curveToOutline = undefined
+    RawCurve p -> openCurveToOutline p
 
 instance Hashable s => Hashable (RawShape_ s) where
     hashWithSalt s (RawBox a b     ) = s `hashWithSalt` (0::Int) `hashWithSalt` a `hashWithSalt` b

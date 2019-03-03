@@ -14,11 +14,15 @@ module Graphics.Gudni.Figure.Outline
   , pairPoints
   , Outline(..)
   , mapOutline
+  , segmentsToOutline
+  , openCurveToOutline
   )
 where
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
+import Graphics.Gudni.Figure.Segment
+import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Util.Util
@@ -51,13 +55,37 @@ data Outline s = Outline [CurvePair s]
 mapOutline :: (Point2 s -> Point2 z) -> Outline s -> Outline z
 mapOutline f (Outline ps) = Outline (map (mapCurvePair f) ps)
 
+mid :: (Fractional s, Num s) => Point2 s -> Point2 s -> Point2 s
+mid v0 v1 = lerp 0.5 v0 v1
+
+segmentsToCurvePairs segments = segmentsToCurvePairs' (head segments ^. anchor) segments
+
+segmentsToCurvePairs' :: (Fractional s) => (Point2 s) -> [Segment s] -> [CurvePair s]
+segmentsToCurvePairs' first segs = case segs of
+      (Seg v0 Nothing:[])             -> CurvePair v0 (mid v0 first):[]
+      (Seg v0 Nothing:Seg v1 mC:rest) -> CurvePair v0 (mid v0 v1):segmentsToCurvePairs' first (Seg v1 mC:rest)
+      (Seg v0 (Just c):rest)          -> CurvePair v0 c:segmentsToCurvePairs' first rest
+      []                              -> []
+
+
+segmentsToOutline :: (Fractional s) => [[Segment s]] -> [Outline s]
+segmentsToOutline = map (Outline . segmentsToCurvePairs)
+
+openCurveToOutline :: (Fractional s, Eq s) => OpenCurve s -> [Outline s]
+openCurveToOutline curve =
+  let segments = if curve ^. terminator == curve ^. outset
+                 then curve ^. curveSegments -- if the beggining of the curve is the same as the end, ignore the end
+                 else Straight (curve ^. terminator) : curve ^. curveSegments -- else insert a straight segment from the end to the beggining.
+  in segmentsToOutline [segments]
+
+
 instance Boxable (CurvePair DisplaySpace) where
   getBoundingBox (CurvePair a b) =
-      let top    = min (a ^. pY) (b ^. pY)
-          bottom = max (a ^. pY) (b ^. pY)
-          left   = min (a ^. pX) (b ^. pX)
+      let left   = min (a ^. pX) (b ^. pX)
+          top    = min (a ^. pY) (b ^. pY)
           right  = max (a ^. pX) (b ^. pX)
-      in makeBox left top right bottom
+          bottom = max (a ^. pY) (b ^. pY)
+      in  makeBox left top right bottom
 
 instance Boxable (Outline DisplaySpace) where
   getBoundingBox (Outline vs) = getBoundingBox . map getBoundingBox $ vs

@@ -71,7 +71,7 @@ buildTileTree' tileSize canvasSize = goH maxDepth (pointToBox canvasSize)
                      (goH (depth - 1) (set topSide    vIntCut box))
 
 addPrimToTree :: HTree -> PrimEntry -> HTree
-addPrimToTree tree = insertPrimH tree . tr "addPrimToTree"
+addPrimToTree = insertPrimH
 
 emptyTile :: Box IntSpace -> Tile
 emptyTile box = Tile [] 0 0 box
@@ -88,7 +88,9 @@ insertPrimH (HTree cut left right) primEntry =
 insertPrimH (HLeaf tile) primEntry =
   if checkTileSpace tile primEntry
   then HLeaf $ insertPrimTile tile primEntry
-  else insertPrimH (hSplit tile) primEntry
+  else if widthBox (tileBox tile) > mINtILEsIZE ^. pX
+       then insertPrimH (hSplit tile) primEntry
+       else (HLeaf tile) -- once the tile is too small to split, start ignoring shapes.
 
 insertPrimV :: VTree -> PrimEntry -> VTree
 insertPrimV (VTree cut top bottom) primEntry =
@@ -102,7 +104,9 @@ insertPrimV (VTree cut top bottom) primEntry =
 insertPrimV (VLeaf tile) primEntry =
     if checkTileSpace tile primEntry
     then VLeaf $ insertPrimTile tile primEntry
-    else insertPrimV (vSplit tile) primEntry
+    else if heightBox (tileBox tile) > mINtILEsIZE ^. pY
+         then insertPrimV (vSplit tile) primEntry
+         else (VLeaf tile) -- once the tile is too small to split, start ignoring shapes.
 
 insertPrimTile :: Tile -> PrimEntry -> Tile
 insertPrimTile tile primEntry =

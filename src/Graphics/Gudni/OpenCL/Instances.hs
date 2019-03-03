@@ -25,7 +25,8 @@ import Control.Monad (void)
 pileToBuffer :: forall t . (Storable t) => CLContext -> Pile t -> IO CLMem
 pileToBuffer context (Pile cursor _ startPtr) =
     let vecSize = cursor * sizeOf (undefined :: t)
-    in  clCreateBuffer context [CL_MEM_READ_ONLY, CL_MEM_USE_HOST_PTR] (vecSize, castPtr startPtr)
+        adjustedVecSize = max 1 vecSize -- OpenCL will reject a memory buffer with size 0 so the minimum size is 1.
+    in  clCreateBuffer context [CL_MEM_READ_ONLY, CL_MEM_USE_HOST_PTR] (adjustedVecSize, castPtr startPtr)
 
 instance KernelArgs s g w o r => KernelArgs s g w o (Color -> r) where
   prepArg = stoPrepArg

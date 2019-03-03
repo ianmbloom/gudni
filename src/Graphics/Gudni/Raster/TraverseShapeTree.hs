@@ -97,7 +97,7 @@ makeCurveEnclosure :: CurveTable
                    -> Shaper Outlines
                    -> Maybe (BoundingBox, Shaper Enclosure)
 makeCurveEnclosure curveTable sectionSize canvasSize (Shaper shapeInfo outlines) =
-     let boundingBox = tr "boundingBox" $ getBoundingBox $ tr "outlines" outlines
+     let boundingBox = getBoundingBox outlines
      in  if excludeBox canvasSize boundingBox
          then Nothing
          else let enclosure = enclose curveTable sectionSize (unGroup outlines)

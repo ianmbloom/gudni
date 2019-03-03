@@ -192,7 +192,7 @@ drawFrame frame shapeTree =
         markAppTime "Traverse Shape Tree"
         let tileTree = buildTileTree (fromIntegral <$> canvasSize)
             tileTree' = foldl addPrimToTree tileTree boxShapes
-        liftIO $ putStrLn $ show tileTree'
+        --liftIO $ putStrLn $ show tileTree'
         markAppTime "Build Tile Array"
         randomField <- use appRandomField
         let pictRefs = shapeState ^. stPictureRefs

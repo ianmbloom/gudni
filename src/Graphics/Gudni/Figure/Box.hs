@@ -38,6 +38,7 @@ import Graphics.Gudni.Figure.Transformer
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Util.StorableM
 
 import Control.DeepSeq
 import Foreign.Storable
@@ -117,24 +118,6 @@ unionBox :: (Num s, Ord s) => Box s -> Box s -> Box s
 unionBox a b = makeBox (min (a ^. leftSide ) (b ^. leftSide )) (min (a ^. topSide   ) (b ^. topSide   ))
                        (max (a ^. rightSide) (b ^. rightSide)) (max (a ^. bottomSide) (b ^. bottomSide))
 
-instance NFData s => NFData (Box s) where
-  rnf (Box a b) = a `deepseq` b `deepseq` ()
-
-instance (Storable s) => Storable (Box s) where
-  sizeOf _ = 2 * sizeOf (undefined :: Point2 s)
-  alignment _ = alignment (undefined :: Point2 s)
-  peek ptr =
-    do
-      let sz = sizeOf (undefined :: Point2 s)
-      topLeft     <- peekByteOff ptr 0
-      bottomRight <- peekByteOff ptr sz
-      return (Box topLeft bottomRight)
-  poke ptr (Box topLeft bottomRight) =
-    do
-      let sz = sizeOf (undefined :: Point2 s)
-      pokeByteOff ptr 0  topLeft
-      pokeByteOff ptr sz bottomRight
-
 instance Convertable a b => Convertable (Box a) (Box b) where
   convert (Box a b) = Box (convert a) (convert b)
 
@@ -169,3 +152,25 @@ instance Boxable [Point2 DisplaySpace] where
 instance Num s => SimpleTransformable Box s where
   tTranslate p = mapBox (^+^ p)
   tScale     s = mapBox (^* s)
+
+instance NFData s => NFData (Box s) where
+  rnf (Box a b) = a `deepseq` b `deepseq` ()
+
+instance (Storable s) => StorableM (Box s) where
+  sizeOfM _ = do sizeOfM (undefined :: Point2 s)
+                 sizeOfM (undefined :: Point2 s)
+  alignmentM _ = do alignmentM (undefined :: Point2 s)
+                    alignmentM (undefined :: Point2 s)
+  peekM =
+    do topLeft     <- peekM
+       bottomRight <- peekM
+       return (Box topLeft bottomRight)
+  pokeM (Box topLeft bottomRight) =
+    do pokeM topLeft
+       pokeM bottomRight
+
+instance (Storable s) => Storable (Box s) where
+  sizeOf = sizeOfV
+  alignment = alignmentV
+  peek = peekV
+  poke = pokeV

@@ -80,7 +80,6 @@ newtype NumShapes = NumShapes {unNumShapes :: NumShapes_} deriving (Eq, Ord, Num
 instance Show NumShapes where
   show = show . unNumShapes
 
-
 ------------------ GeoReference -------------------------
 -- a GeoReference is not a slice, it points to the first piece of data in memory and gives the number of strands
 -- the header of the strand gives the actual size of geometric data in memory.
