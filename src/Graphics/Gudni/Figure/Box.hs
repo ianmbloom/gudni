@@ -114,8 +114,8 @@ areaBox :: Num s => Box s -> s
 areaBox   box = unOrtho (widthBox box) * unOrtho (heightBox box)
 -- | Calculate the smallest box that contains two boxes.
 unionBox :: (Num s, Ord s) => Box s -> Box s -> Box s
-unionBox a b = makeBox (min (a ^. leftSide ) (b ^. leftSide )) (min (b ^. topSide   ) (b ^. topSide   ))
-                       (max (b ^. rightSide) (b ^. rightSide)) (max (a ^. bottomSide) (b ^. bottomSide))
+unionBox a b = makeBox (min (a ^. leftSide ) (b ^. leftSide )) (min (a ^. topSide   ) (b ^. topSide   ))
+                       (max (a ^. rightSide) (b ^. rightSide)) (max (a ^. bottomSide) (b ^. bottomSide))
 
 instance NFData s => NFData (Box s) where
   rnf (Box a b) = a `deepseq` b `deepseq` ()
@@ -150,18 +150,18 @@ instance Boxable [BoundingBox] where
 
 instance Boxable (VS.Vector (Point2 DisplaySpace)) where
   getBoundingBox vs =
-      let top    = VS.minimum (VS.map (view pY) vs)
-          bottom = VS.maximum (VS.map (view pY) vs)
-          left   = VS.minimum (VS.map (view pX) vs)
+      let left   = VS.minimum (VS.map (view pX) vs)
+          top    = VS.minimum (VS.map (view pY) vs)
           right  = VS.maximum (VS.map (view pX) vs)
+          bottom = VS.maximum (VS.map (view pY) vs)
       in makeBox left top right bottom
 
 instance Boxable [Point2 DisplaySpace] where
   getBoundingBox vs =
-      let top    = minimum (map (view pY) vs)
-          bottom = maximum (map (view pY) vs)
-          left   = minimum (map (view pX) vs)
+      let left   = minimum (map (view pX) vs)
+          top    = minimum (map (view pY) vs)
           right  = maximum (map (view pX) vs)
+          bottom = maximum (map (view pY) vs)
       in if null vs
          then emptyBox -- TODO make this a maybe
          else makeBox left top right bottom

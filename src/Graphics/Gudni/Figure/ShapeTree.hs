@@ -130,6 +130,9 @@ invertCombineType combineType =
         CombineSubtract -> CombineAdd
         CombineContinue -> CombineContinue
 
+cAdd      :: STree CombineType o t -> STree CombineType o t -> STree CombineType o t
+cSubtract :: STree CombineType o t -> STree CombineType o t -> STree CombineType o t
+cContinue :: STree CombineType o t -> STree CombineType o t -> STree CombineType o t
 cAdd      = SOverlap CombineAdd
 cSubtract = SOverlap CombineSubtract
 cContinue = SOverlap CombineContinue

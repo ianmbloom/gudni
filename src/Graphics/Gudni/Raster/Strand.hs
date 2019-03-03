@@ -32,6 +32,7 @@ import Data.List (sortBy)
 
 import Control.DeepSeq
 import Control.Lens
+import Linear.V3
 
 ----------------- Point Vector -----------------
 -- Just a wrapper around vectors to override instances
@@ -84,13 +85,13 @@ instance NFData Strand where
 
 -------------------- Clean Shape -----------------------
 
-type Triple p = (p, p, p)
+type Triple p = V3 p
 
 triples vs = triples' (view onCurve . head $ vs) vs
 
-triples' :: Point2 s -> [CurvePair (Point2 s)] -> [Triple (Point2 s)]
-triples' h (v0:v1:vs) = (v0 ^. onCurve, v0 ^. offCurve, v1 ^. onCurve):triples' h (v1:vs)
-triples' h (v0:[]) = [(v0 ^. onCurve, v0 ^. offCurve, h)]
+triples' :: Point2 s -> [CurvePair s] -> [Triple (Point2 s)]
+triples' h (v0:v1:vs) = V3 (v0 ^. onCurve) (v0 ^. offCurve) (v1 ^. onCurve):triples' h (v1:vs)
+triples' h (v0:[]) = [V3 (v0 ^. onCurve) (v0 ^. offCurve) h]
 triples' h [] = error "triples encountered end of list"
 
 -------------------- Remove Knobs ---------------------------
@@ -106,12 +107,12 @@ sPLIT = 1 / 2
 midPoint :: Num s => s -> Point2 s -> Point2 s -> Point2 s
 midPoint t v0 v1 = (v0 ^* (1-t)) ^+^ (v1 ^* t)
 
-curvePoint :: Num s => s -> Point2 s -> Point2 s -> Point2 s -> (Point2 s, Point2 s, Point2 s)
+curvePoint :: Num s => s -> Point2 s -> Point2 s -> Point2 s -> Triple (Point2 s)
 curvePoint t left control right =
   let leftMid  = midPoint t left    control
       rightMid = midPoint t control right
       onCurve  = midPoint t leftMid rightMid
-  in  (leftMid, onCurve, rightMid)
+  in  (V3 leftMid onCurve rightMid)
 
 leftConvex  :: (Show s, Num s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Bool
 leftConvex control onCurve  = control ^. pX < onCurve ^. pX
@@ -121,51 +122,49 @@ rightConvex control onCurve = onCurve ^. pX < control ^. pX
 
 -- find an onCurve point and new control points to horizonally divide a curve that
 -- if convex to the right like a right bracket ")"
-splitRightKnob ::(Show s, Fractional s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Point2 s -> (Point2 s, Point2 s, Point2 s)
+splitRightKnob ::(Show s, Fractional s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Point2 s -> Triple (Point2 s)
 splitRightKnob = splitKnob rightConvex sPLIT -- start halfway
 
 -- find an onCurve point and new control points to horizonally divide a curve that
 -- is convex to the left of right.
-splitLeftKnob :: (Show s, Fractional s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Point2 s -> (Point2 s, Point2 s, Point2 s)
+splitLeftKnob :: (Show s, Fractional s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Point2 s -> Triple (Point2 s)
 splitLeftKnob = splitKnob leftConvex sPLIT -- start halfway
 
-splitKnob :: (Show s, Fractional s, Ord s, Num s, Iota s) => (Point2 s -> Point2 s -> Bool) -> s -> Point2 s -> Point2 s -> Point2 s -> (Point2 s, Point2 s, Point2 s)
+splitKnob :: (Show s, Fractional s, Ord s, Num s, Iota s) => (Point2 s -> Point2 s -> Bool) -> s -> Point2 s -> Point2 s -> Point2 s -> Triple (Point2 s)
 splitKnob = splitKnob' 0.0 1.0
 
 
-splitKnob' :: (Show s, Fractional s, Ord s, Num s, Iota s) => s -> s -> (Point2 s -> Point2 s -> Bool) -> s -> Point2 s -> Point2 s -> Point2 s -> (Point2 s, Point2 s, Point2 s)
+splitKnob' :: (Show s, Fractional s, Ord s, Num s, Iota s) => s -> s -> (Point2 s -> Point2 s -> Bool) -> s -> Point2 s -> Point2 s -> Point2 s -> Triple (Point2 s)
 splitKnob' bottom top convex t v0 control v1
-  | top - bottom <= iota = (leftMid, onCurve, rightMid)
+  | top - bottom <= iota = V3 leftMid onCurve rightMid
   | convex rightMid onCurve = -- if the leftMid control point is still convex.
         --tr ("if the leftMid  control point is still convex. " ++ show (top - bottom) ++ "bottom: " ++ show bottom ++ " top: " ++ show top ++ " t:" ++ show t ++ " leftMid: " ++ show leftMid ++ " onCurve: " ++ show onCurve ++ " rightMid: " ++ show rightMid) $
         splitKnob' t top convex (t + ((top - t) / 2)) v0 control v1 -- search closer to v0
   | convex leftMid  onCurve = -- if the rightMid control point is still convex.
         --tr ("if the rightMid control point is still convex. " ++ show (top - bottom) ++ "bottom:" ++ show bottom ++ " top: " ++ show top ++ " t:" ++ show t ++ " leftMid: " ++ show leftMid ++ " onCurve: "  ++ show onCurve ++ " rightMid: " ++ show rightMid) $
         splitKnob' bottom t convex (bottom + ((t - bottom) / 2)) v0 control v1 -- search closer to v1
-  | otherwise =
-        --tr "otherwise" $
-        (leftMid, onCurve, rightMid)
-  where (leftMid, onCurve, rightMid) = curvePoint t v0 control v1
+  | otherwise = V3 leftMid onCurve rightMid
+  where (V3 leftMid onCurve rightMid) = curvePoint t v0 control v1
 
 checkKnob :: (Show s, Fractional s, Ord s, Num s, Iota s) => Triple (Point2 s) -> [Triple (Point2 s)]
-checkKnob (a, b, c) =
+checkKnob (V3 a b c) =
   --tc ("checkKnob " ++ show (pX a) ++ " " ++ show (pX b) ++ " " ++ show (pX c)) $
     if leftConvex b a && leftConvex b c
     then
       --tr "left convex " $
-      let (leftMid, onCurve, rightMid) = --tc ("splitLeftKnob a:" ++ show a ++ " b: " ++ show b ++ " c: " ++ show c) $
-                                         splitLeftKnob a b c
-      in [(a,leftMid,onCurve), (onCurve,rightMid,c)]
+      let (V3 leftMid onCurve rightMid) = --tc ("splitLeftKnob a:" ++ show a ++ " b: " ++ show b ++ " c: " ++ show c) $
+                                          splitLeftKnob a b c
+      in [V3 a leftMid onCurve, V3 onCurve rightMid c]
     else
       if rightConvex b a && rightConvex b c
       then
         --tr "right convex " $
-        let (leftMid, onCurve, rightMid) = --tc ("splitRightKnob a:" ++ show a ++ " b: " ++ show b ++ " c: " ++ show c) $
-                                           splitRightKnob a b c
-        in [(a,leftMid,onCurve), (onCurve,rightMid,c)]
+        let (V3 leftMid  onCurve  rightMid) = --tc ("splitRightKnob a:" ++ show a ++ " b: " ++ show b ++ " c: " ++ show c) $
+                                              splitRightKnob a b c
+        in [V3 a leftMid onCurve, V3 onCurve rightMid c]
       else
         --tr "not convex " $
-        [(a,b, c)]
+        [V3 a b c]
 
 smidge :: (Num s, Iota s) => s
 smidge = iota * 100
@@ -174,7 +173,7 @@ compareHorizontal :: Ord s => Point2 s -> Point2 s -> Ordering
 compareHorizontal a b = compare (a ^. pX) (b ^. pX)
 
 direction :: Ord s => Triple (Point2 s) -> (Ordering, [Triple (Point2 s)])
-direction (a, control, b) = (compareHorizontal a b, [(a, control, b)])
+direction (V3 a control b) = (compareHorizontal a b, [V3 a control b])
 
 groupDirections :: [(Ordering , [a])] -> [(Ordering, [a])]
 groupDirections ((ac, as):(bc, bs):ss)= if ac == bc
@@ -190,8 +189,8 @@ connectLoop ss = let ((ac, as), mid, (bc, bs)) = takeFirstLast ss
 
 trimEQ :: Show p => (Ordering, [Triple p]) -> (Ordering, [Triple p])
 trimEQ (EQ, [a]) = (EQ, [a])
-trimEQ (EQ, ss ) = let ((a,b,_),_,(_,_,c)) = takeFirstLast ss
-                   in (EQ,[(a,b,c)])
+trimEQ (EQ, ss ) = let (V3 a b _ ,_, V3 _ _ c) = takeFirstLast ss
+                   in (EQ,[V3 a b c])
 trimEQ x         = x
 
 
@@ -204,26 +203,26 @@ attachEQ (         x:           xs) = (Nothing, x, Nothing):attachEQ   xs
 attachEQ []                         = []
 
 vertical :: (Num s, Ord s, Iota s) => Maybe (Triple (Point2 s)) -> Ortho YDimension s
-vertical (Just (a, _, b)) = b ^. pY - b ^. pY
-vertical _                = 0
+vertical (Just (V3 a _ b)) = b ^. pY - b ^. pY
+vertical _                 = 0
 
-flipTriple :: (a, b, a) -> (a, b, a)
-flipTriple (a, x, b) = (b, x, a)
+flipTriple :: Triple a -> Triple a
+flipTriple (V3 a x b) = V3 b x a
 
 simpleTriple :: (p, Maybe p, p) -> (p, p, p)
 simpleTriple (a, Just control, b) = (a, control, b)
 simpleTriple (a, Nothing, b) = (a, a, b)
 
-concatSimples' :: [(p, p, p)] -> (p, [(p, p)])
-concatSimples' ((a, b, c):[]) = (c, [(a, b)])
-concatSimples' ((a, b, c):xs) = let (right, rest) = concatSimples' xs
+concatSimples' :: [V3 p] -> (p, [(p, p)])
+concatSimples' (V3 a b c:[]) = (c, [(a, b)])
+concatSimples' (V3 a b c:xs) = let (right, rest) = concatSimples' xs
                                 in  (right, (a,b):rest)
 concatSimples' [] = error "concatSimples' encountered empty list"
 
-concatSimples :: [(p, p, p)] -> (p, p, p, [(p, p)])
-concatSimples ((left, control, right):[]) = (right, left, control, [])
-concatSimples ((left, control, _):xs) = let (right, rest) = concatSimples' xs
-                                        in  (right, left, control, rest)
+concatSimples :: [V3 p] -> (V3 p, [(p, p)])
+concatSimples (V3 left control right:[]) = (V3 right left control, [])
+concatSimples (V3 left control _    :xs) = let (right, rest) = concatSimples' xs
+                                            in  (V3 right left control, rest)
 concatSimples [] = error "concatSimples encountered empty list"
 
 buildStrand' :: (Num s, Ord s, Iota s) => Maybe (Triple (Point2 s)) -> [Triple (Point2 s)] -> Maybe (Triple (Point2 s)) -> [Triple (Point2 s)]
@@ -302,7 +301,7 @@ buildFromDirections table sectionSize ss =
 
 splitShape :: CurveTable
            -> Int
-           -> [CurvePair (Point2 DisplaySpace)]
+           -> [CurvePair DisplaySpace]
            -> [Strand]
 splitShape table sectionSize =
     buildFromDirections table sectionSize .
@@ -320,7 +319,7 @@ splitShape table sectionSize =
 
 makeVertexTree :: CurveTable
                -> Int
-               -> [CurvePair (Point2 DisplaySpace)]
+               -> [CurvePair DisplaySpace]
                -> [Strand]
 makeVertexTree table sectionSize vs =
 

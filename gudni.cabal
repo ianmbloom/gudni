@@ -62,6 +62,7 @@ library
                      , Graphics.Gudni.Util.Fuzzy
                      , Graphics.Gudni.Util.Pile
                      , Graphics.Gudni.Util.Draw
+                     , Graphics.Gudni.Util.Plot
                      , Graphics.Gudni.Util.Scaffolding
                      , Graphics.Gudni.OpenCL.GLInterop
                      , Graphics.Gudni.OpenCL.DeviceQuery
@@ -92,7 +93,7 @@ library
                      , Graphics.Gudni.OpenCL.CppDefines
                      , Graphics.Gudni.OpenCL.Instances
                      , Graphics.Gudni.OpenCL.KernelLibrary
-                     , Graphics.Gudni.Raster.Primitive
+                     , Graphics.Gudni.Raster.ShapeInfo
                      , Graphics.Gudni.Raster.Job
                      , Graphics.Gudni.Raster.Strand
                      , Graphics.Gudni.Raster.Enclosure
@@ -103,7 +104,6 @@ library
                      , Graphics.Gudni.Util.Bag
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util
-                     , Graphics.Gudni.Util.Plot
                      , Graphics.Gudni.Util.RandomField
 
   -- LANGUAGE extensions used by modules in this package.

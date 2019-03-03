@@ -170,28 +170,29 @@ processState elapsedTime inputs =
         else appMessage $ show state ++ show inputs
 
         --shapeTree <- lift . evalRandIO $ fuzz 5000
-        (shapeTree, textForm) <- lift . lift . lift $ constructFigure state status
+        (shapeTree, textForm) <- lift . lift $ constructFigure state status
         --appMessage $ "ShapeTree " ++ show shapeTree
         --lift . putStrLn $ textForm
         markAppTime "Build State"
         return (shapeTree, "textForm")
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
-drawFrame :: (Model s) => Point2 IntSpace -> CInt -> ShapeTreeRoot -> ApplicationMonad s ()
-drawFrame cursor frame shapeTree =
+drawFrame :: (Model s) => CInt -> ShapeTreeRoot -> ApplicationMonad s ()
+drawFrame frame shapeTree =
     do  --appMessage "ResetJob"
         library <- use appOpenCLLibrary
         let openCLState = clState library
         target <- withIO appBackend (prepareTarget (clUseGLInterop library))
         let (V2 width height) = targetArea target
-        let canvasSize = fromIntegral <$> (Point2 width height)
+        let canvasSize = Point2 width height
         appS <- use appState
         (mPictData, mems) <- liftIO $ providePictureData appS
-        (shapes, primBag, blockShapes, shapeState) <- lift . lift  $ traverseShapeTree mems canvasSize shapeTree
+        (shapes, primBag, boxShapes, shapeState) <- lift  $ traverseShapeTree mems (fromIntegral <$> canvasSize) shapeTree
         --liftIO $ evaluate $ rnf (shapes, primBag, blockShapes, shapeState)
         markAppTime "Traverse Shape Tree"
-        let tileTree = buildTileTree canvasSize
-            tileTree' = foldl addPrimToTree tileTree blockShapes
+        let tileTree = buildTileTree (fromIntegral <$> canvasSize)
+            tileTree' = foldl addPrimToTree tileTree boxShapes
+        liftIO $ putStrLn $ show tileTree'
         markAppTime "Build Tile Array"
         randomField <- use appRandomField
         let pictRefs = shapeState ^. stPictureRefs
@@ -205,12 +206,10 @@ drawFrame cursor frame shapeTree =
                                       primBag
                                       tileTree'
         appMessage "===================== rasterStart ====================="
-        lift $ buildAndQueueRasterJobs frame rasterParams jobInput
+        liftIO $ buildAndQueueRasterJobs frame rasterParams jobInput tileTree'
         appMessage "===================== rasterDone ====================="
         markAppTime "Rasterize Threads"
         withIO appBackend $ presentTarget target
-        lift $ resetTileArray
-        --liftIO $ mapM freeJob jobs
         markAppTime "Raster Frame"
 
 -- Final phase of the event loop.
@@ -256,9 +255,8 @@ loop  =
               --appMessage "processState"
               (shapeTree, textForm) <- processState elapsedTime inputs
               frame <- fromIntegral <$> use appCycle
-              cursor <- modelCursor <$> use appState
               appMessage ("drawFrame " ++ show frame)
-              drawFrame cursor frame shapeTree
+              drawFrame frame shapeTree
               --appMessage "endCycle"
               endCycle elapsedTime
               liftIO performMinorGC

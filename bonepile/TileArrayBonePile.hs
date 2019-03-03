@@ -1,5 +1,9 @@
 -- TileArray BonePile
 
+------------------ Block -------------------
+-- a block of tiles overlapped by a boundingBox
+type Block = Box IntSpace
+
 
 data TileGrid = TileGrid
     { _tGScreenSize :: !(Point2 DisplaySpace)
@@ -8,43 +12,6 @@ data TileGrid = TileGrid
     } deriving (Show)
 makeLenses ''TileGrid
 
-
--- Job Creation
-
-newRasterJob :: MonadIO m => m RasterJob
-newRasterJob = liftIO $
-    do
-        initGeometryPile <- newPileSize 65536 :: IO BytePile
-        initShapePile     <- newPile :: IO (Pile Shape)
-        initShapeRefPile  <- newPile :: IO (Pile (Reference Shape))
-        initTilePile     <- newPile :: IO (Pile (Slice ShapeId))
-        initGroupPile    <- newPile :: IO (Pile ShapeHeader)
-        return RasterJob
-            { _rJGeometryPile    = initGeometryPile
-            , _rJShapePile        = initShapePile
-            , _rJShapeRefPile     = initShapeRefPile
-            , _rJGroupPile       = initGroupPile
-            , _rJTilePile        = initTilePile
-            , _rJTileIndexList   = []
-            , _rJBackgroundColor = clear black
-            , _rJShapeMap         = M.empty
-            }
-
-freeRasterJob :: RasterJob -> IO ()
-freeRasterJob job =
-    do  freePile $ job ^. rJGeometryPile
-        freePile $ job ^. rJShapePile
-        freePile $ job ^. rJGroupPile
-        freePile $ job ^. rJShapeRefPile
-        freePile $ job ^. rJTilePile
-
-resetRasterJob :: RasterJobMonad s IO ()
-resetRasterJob =
-    do  rJGeometryPile %= resetPile
-        rJShapePile     %= resetPile
-        rJShapeRefPile  %= resetPile
-        rJTilePile     %= resetPile
-        rJShapeMap      .= M.empty
 
 
 addTileToRasterJob :: MonadIO m => Int

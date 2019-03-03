@@ -6,17 +6,21 @@
 {-# LANGUAGE UndecidableInstances       #-}
 
 module Graphics.Gudni.Raster.Types
-  ( Block (..)
-  , NumShapes      (..)
-  , GeoReference  (..)
+  ( Group         (..)
+  , Shaper        (..)
   , Shape         (..)
+  , shShapeInfo, shRep
+  , Combiner      (..)
+  , coCombineType, coRep
+  , NumShapes     (..)
+  , GeoReference  (..)
   )
 where
 
 import Graphics.Gudni.Figure
 
 import Graphics.Gudni.Raster.Enclosure
-import Graphics.Gudni.Raster.Primitive
+import Graphics.Gudni.Raster.ShapeInfo
 
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Debug
@@ -33,9 +37,42 @@ import Graphics.Gudni.Util.StorableM
 import System.Random
 import Control.Monad.Random
 
------------------- Block -------------------
--- a block of tiles overlapped by a boundingBox
-type Block = Box IntSpace
+-- | Group is just a newtype for "list of"
+newtype Group t = Group
+    { unGroup :: [t]
+    } deriving (Show)
+
+instance Boxable t => Boxable (Group t) where
+  getBoundingBox (Group ts) = getBoundingBox $ map getBoundingBox ts
+
+instance Functor Group where
+  fmap f (Group vs) = Group (fmap f vs)
+
+-- | Shaper is just a pairing of ShapeInfo with some representation of reference to a shape.
+data Shaper t = Shaper
+    { _shShapeInfo :: ShapeInfo
+    , _shRep      :: t
+    } deriving (Show)
+makeLenses ''Shaper
+
+instance Functor Shaper where
+  fmap f (Shaper s t) = Shaper s (f t)
+
+instance NFData t => NFData (Shaper t) where
+  rnf (Shaper a b) = a `deepseq` b `deepseq` ()
+
+-- | Combiner is just a pairing of CombineType with some representation of reference to a shape.
+data Combiner t = Combiner
+    { _coCombineType :: CombineType
+    , _coRep         :: t
+    } deriving (Show)
+makeLenses ''Combiner
+
+instance Functor Combiner where
+  fmap f (Combiner c t) = Combiner c (f t)
+
+instance NFData t => NFData (Combiner t) where
+  rnf (Combiner a b) = a `deepseq` b `deepseq` ()
 
 type NumShapes_ = CInt
 newtype NumShapes = NumShapes {unNumShapes :: NumShapes_} deriving (Eq, Ord, Num)
@@ -72,18 +109,18 @@ instance StorableM GeoReference where
 
 -------------------------- Shape ------------------------------
 
-type Shape = (Primitive, GeoReference)
+type Shape = Shaper GeoReference
 
 instance StorableM Shape where
-  sizeOfM _ = do sizeOfM (undefined :: Primitive)
+  sizeOfM _ = do sizeOfM (undefined :: ShapeInfo)
                  sizeOfM (undefined :: GeoReference   )
-  alignmentM _ = do alignmentM (undefined :: Primitive)
+  alignmentM _ = do alignmentM (undefined :: ShapeInfo)
                     alignmentM (undefined :: GeoReference   )
-  peekM = do prim <- peekM
+  peekM = do shapeInfo <- peekM
              geoRef <- peekM
-             return (prim, geoRef)
-  pokeM (prim, geoRef) = do pokeM prim
-                            pokeM geoRef
+             return (Shaper shapeInfo geoRef)
+  pokeM (Shaper shapeInfo geoRef) = do pokeM shapeInfo
+                                       pokeM geoRef
 
 instance Storable Shape where
   sizeOf = sizeOfV

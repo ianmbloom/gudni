@@ -25,7 +25,7 @@ import Control.Concurrent
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.TraverseShapeTree
 import Graphics.Gudni.Raster.Enclosure
-import Graphics.Gudni.Raster.Primitive
+import Graphics.Gudni.Raster.ShapeInfo
 import Graphics.Gudni.Raster.Types
 import Graphics.Gudni.Raster.TileTree
 import Graphics.Gudni.Raster.Job
@@ -88,7 +88,7 @@ emptyPictureData = do pile <- newPile
                       return pile'
 
 emptyPictureRefs :: [PictureRef PictureMemory]
-emptyPictureRefs = [PictureRef origin 1 (PictureMemory 0 origin)]
+emptyPictureRefs = [PictureRef zeroPoint (PictureMemory 0 zeroPoint)]
 
 generateCall  :: (KernelArgs
                       'KernelSync
@@ -101,10 +101,8 @@ generateCall  :: (KernelArgs
                        -> CInt
                        -> CInt
                        -> CInt
-                       -> CInt
                        -> OutputPtr CChar
                        -> CInt
-                       -> Pile CUInt
                        -> NumWorkItems
                        -> WorkGroup
                        -> CL ())
@@ -120,13 +118,12 @@ generateCall  :: (KernelArgs
               -> CInt
               -> CInt
               -> CInt
-              -> CInt
               -> RasterJob
               -> OutputPtr CChar
               -> CInt
               -> a
               -> CL ()
-generateCall state kernel pictData pictRefs randomField tileWidth tileHeight gridWidth bitmapWidth bitmapHeight frame job continuations passCount target =
+generateCall state kernel pictData pictRefs randomField tileWidth tileHeight bitmapWidth bitmapHeight frame job continuations passCount target =
     let geometryHeap    = job ^. rJGeometryPile
         shapeHeap       = job ^. rJShapePile
         shapeRefHeap    = job ^. rJShapeRefPile
@@ -149,7 +146,6 @@ generateCall state kernel pictData pictRefs randomField tileWidth tileHeight gri
                       target
                       bitmapWidth
                       bitmapHeight
-                      gridWidth
                       tileWidth
                       tileHeight
                       frame
@@ -159,9 +155,8 @@ generateCall state kernel pictData pictRefs randomField tileWidth tileHeight gri
     do  pictPile <- case pictData of Nothing -> liftIO $ emptyPictureData
                                      Just p  -> liftIO $ return p
         pictRefPile <- liftIO $ listToPile pictRefs'
-        tileIndexPile <- liftIO $ listToPile (reverse $ job ^. rJTileIndexList)
-        commonKernel pictPile pictRefPile continuations tileIndexPile
-                         (Work2D (tileIndexPile ^. pileSize) (fromIntegral tileWidth))
+        commonKernel pictPile pictRefPile continuations
+                         (Work2D (job ^. rJTilePile . pileSize) (fromIntegral tileWidth))
                          (WorkGroup [1, fromIntegral tileWidth])
 
 generateFillCall  :: ( KernelArgs
@@ -174,8 +169,6 @@ generateFillCall  :: ( KernelArgs
                         -> CInt
                         -> CInt
                         -> CInt
-                        -> CInt
-                        -> Pile CUInt
                         -> NumWorkItems
                         -> WorkGroup
                         -> CL ())
@@ -187,25 +180,21 @@ generateFillCall  :: ( KernelArgs
                   -> CInt
                   -> CInt
                   -> CInt
-                  -> CInt
                   -> RasterJob
                   -> a
                   -> CL ()
-generateFillCall state kernel tileWidth tileHeight gridWidth bitmapWidth bitmapHeight job target =
+generateFillCall state kernel tileWidth tileHeight bitmapWidth bitmapHeight job target =
     let backgroundColor = job ^. rJBackgroundColor
         commonKernel = runKernel kernel
                                  backgroundColor
                                  target
                                  bitmapWidth
                                  bitmapHeight
-                                 gridWidth
                                  tileWidth
                                  tileHeight
     in
-    do  tileIndexPile <- liftIO $ listToPile (reverse $ job ^. rJTileIndexList)
-        commonKernel tileIndexPile
-               (Work2D (tileIndexPile ^. pileSize) (fromIntegral tileWidth))
-               (WorkGroup [1, fromIntegral tileWidth])
+    do  commonKernel (Work2D (job ^. rJTilePile . pileSize) (fromIntegral tileWidth))
+                     (WorkGroup [1, fromIntegral tileWidth])
 
 raster :: CInt
        -> RasterParams
@@ -242,7 +231,6 @@ raster frame params job =
                     generateFillCall state (fillBackgroundCL (params ^. rpLibrary))
                                            tileW
                                            tileH
-                                           gridWidth
                                            w
                                            h
                                            job
@@ -254,7 +242,7 @@ raster frame params job =
     in
     if checkJob job
     then do --liftIO $ outputRasterJob job
-            let continuationSize = fromIntegral $ numTiles * tileW * cONTINUATIONaLIGN
+            let continuationSize = fromIntegral $ numTiles * tileW * 40
             contPtr <- liftIO (mallocBytes continuationSize :: IO (Ptr CChar))
             let continuations = OutPtr contPtr continuationSize
                 loop passCount passLimit = do liftIO $ putStrLn $ ">>> rasterCall pass:" ++ show passCount ++ " frame: " ++ show frame
@@ -277,28 +265,19 @@ raster frame params job =
 rasterSection :: CInt
               -> RasterParams
               -> RasterJobInput
-              -> [Int]
+              -> [Tile]
               -> CL ()
 rasterSection frame params input section =
- do let memoryLimit  = geoMemoryLimit (params ^. rpLibrary)
-    internalJobs <- liftIO $ buildRasterJobs memoryLimit input section
-    liftIO $ putStrLn $ show (length internalJobs) ++ " jobs."
-    mapM_ (raster frame params) internalJobs
+ do job <- liftIO $ buildRasterJob input section
+    raster frame params job
 
-buildAndQueueRasterJobs :: MonadIO m
-                        => CInt
+buildAndQueueRasterJobs :: CInt
                         -> RasterParams
                         -> RasterJobInput
                         -> TileTree
                         -> IO ()
 buildAndQueueRasterJobs frame params input tileTree =
-  do  tileGroups = tileTreeToGroups mAXtILESpERcALL tileTree
-
-      tileIndexSections <- divideTiles (tr "clMaxGroupSize" $ clMaxGroupSize $ params ^. rpLibrary)
-      let state = clState (params ^. rpLibrary)
-      liftIO $
-          do let threads :: IO ()
-                 threads = mapM_ (runCL state . rasterSection frame params input) tileIndexSections
-             threads
-             --syncEvents <- threads
-             --runCL state $ waitAll_ (concat syncEvents)
+  do  let tilesPerCall = fromIntegral . clMaxGroupSize $ params ^. rpLibrary
+          tileGroups = breakList tilesPerCall . tileTreeToList $ tileTree
+          state = clState (params ^. rpLibrary)
+      liftIO $ mapM_ (runCL state . rasterSection frame params input) tileGroups

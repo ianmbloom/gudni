@@ -28,27 +28,30 @@ import Linear.V2
 import Data.Hashable
 import Control.DeepSeq
 
-newtype CurvePair p = Cp {_unCp :: V2 p} deriving (Eq, Ord, Show, Num, Functor, Applicative, Foldable)
+newtype CurvePair s = Cp {_unCp :: V2 (Point2 s)} deriving (Eq, Ord, Show, Num)
 makeLenses ''CurvePair
 pattern CurvePair a b = Cp (V2 a b)
 
-onCurve :: Lens' (CurvePair a) a
+onCurve :: Lens' (CurvePair s) (Point2 s)
 onCurve = unCp . _x
-offCurve :: Lens' (CurvePair a) a
+offCurve :: Lens' (CurvePair s) (Point2 s)
 offCurve = unCp . _y
 
-pairPoints :: [Point2 s] -> [CurvePair (Point2 s)]
+mapCurvePair :: (Point2 s -> Point2 z) -> CurvePair s -> CurvePair z
+mapCurvePair f (Cp v2) = Cp (fmap f v2)
+
+pairPoints :: [Point2 s] -> [CurvePair s]
 pairPoints (v0:v1:rest) = (CurvePair v0 v1):pairPoints rest
 pairPoints [] = []
 pairPoints [v0] = []
 
-data Outline s = Outline [CurvePair (Point2 s)]
+data Outline s = Outline [CurvePair s]
                deriving (Eq, Ord, Show)
 
-mapOutline :: (Point2 a -> Point2 b) -> Outline a -> Outline b
-mapOutline f (Outline ps) = Outline (map (fmap f) ps)
+mapOutline :: (Point2 s -> Point2 z) -> Outline s -> Outline z
+mapOutline f (Outline ps) = Outline (map (mapCurvePair f) ps)
 
-instance Boxable (CurvePair (Point2 DisplaySpace)) where
+instance Boxable (CurvePair DisplaySpace) where
   getBoundingBox (CurvePair a b) =
       let top    = min (a ^. pY) (b ^. pY)
           bottom = max (a ^. pY) (b ^. pY)
@@ -57,7 +60,7 @@ instance Boxable (CurvePair (Point2 DisplaySpace)) where
       in makeBox left top right bottom
 
 instance Boxable (Outline DisplaySpace) where
-  getBoundingBox (Outline vs) = getBoundingBox $ map getBoundingBox $ vs
+  getBoundingBox (Outline vs) = getBoundingBox . map getBoundingBox $ vs
 
 instance (Num s) => SimpleTransformable Outline s where
   tTranslate p = mapOutline (tTranslate p)
@@ -67,7 +70,7 @@ instance (Floating s, Num s) => Transformable Outline s where
 
 -- * Instances
 
-instance NFData p => NFData (CurvePair p) where
+instance NFData s => NFData (CurvePair s) where
   rnf (Cp v2) = v2 `deepseq` ()
 
 instance NFData s => NFData (Outline s) where

@@ -10,7 +10,7 @@ import Data.FileEmbed
 import Graphics.Gudni.OpenCL.CppDefines
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Util.Debug
-   
+
 cppDefines =
   [Cpp "STOCHASTIC_FACTOR"                 (CppFloat sTOCHASTICfACTOR                )
   ,Cpp "MAXTHRESHOLDS"                     (CppInt   mAXtHRESHOLDS                   )
@@ -23,10 +23,11 @@ cppDefines =
   ,Cpp "SHAPETAG_COMBINETYPE_CONTINUE"     (CppHex64 sHAPETAGcOMBINEtYPEcONTINUE     )
   ,Cpp "SHAPETAG_COMBINETYPE_ADD"          (CppHex64 sHAPETAGcOMBINEtYPEaDD          )
   ,Cpp "SHAPETAG_COMBINETYPE_SUBTRACT"     (CppHex64 sHAPETAGcOMBINEtYPEsUBTRACT     )
-  ,Cpp "SHAPEIDBITMASK"                    (CppHex64 sHAPEIDBITMASK                  )
+  ,Cpp "SHAPEIDBITMASK"                    (CppHex64 sHAPEiDbITMASK                  )
   ]
 
 embeddedOpenCLSource :: BS.ByteString
 embeddedOpenCLSource = $(embedFile "src/Graphics/Gudni/OpenCL/Kernels.cl")
 
-openCLSourceWithDefines = trWith id "openCLSourceWithDefines" $ appendCppDefines 10 cppDefines (BS.unpack embeddedOpenCLSource)
+openCLSourceWithDefines :: String
+openCLSourceWithDefines = appendCppDefines 32 cppDefines (BS.unpack embeddedOpenCLSource)

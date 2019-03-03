@@ -38,11 +38,10 @@ getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
     screenSize state = --FullScreen
-                       Window $ Point2 600
-                                       400
+                       Window $ Point2 16
+                                       16
     shouldLoop _ = True
     fontFile state = fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
-    modelCursor state = state ^. stateCursor
     updateModelState frame elapsedTime inputs state =
         flip execStateT state $
             do  mapM_ processInput inputs
@@ -57,27 +56,21 @@ instance Model BenchmarkState where
                             dt = realToFrac timeDelta * realToFrac speed
                         statePlayhead %= (`f` dt)
     constructFigure state status =
-        do  test <- (snd $ getTest state) state
+        do  testScene <- (snd $ getTest state) state
             testName <- glyphString [] --(fst $ getTest state)
             statusGlyphs <- mapM glyphString $ [] -- lines status
-            let tree = transformFromState test state
-                cursor size thickness = tTranslate (convert $ _stateCursor state) .
-                                        solid (transparent 0.5 red) $
-                                        cAdd (tTranslateXY (-size/2) 0 $ rectangle $ Point2 size thickness)
-                                             (tTranslateXY 0 (-size/2) $ rectangle $ Point2 thickness size)
-                withCursor = if False then overlap [cursor 100 1, tree] else tree
+            let tree = transformFromState testScene state
                 statusTree = statusDisplay state testName statusGlyphs
-                withStatus = if False then overlap [statusTree, withCursor] else withCursor
+                withStatus = if False then overlap [statusTree, tree] else tree
             return (ShapeRoot gray withStatus, "textForm")
     providePictureData state = return $ state ^. statePictures
 
 statusDisplay state testName status =
-    tTranslateXY 1800 800 . --3200 2100 .
-    tRotate (45 @@ deg) .
-    tTranslate (state ^. stateDelta) .
-    tScale 30 .
+    sTranslateXY 1800 800 . --3200 2100 .
+    sRotate (45 @@ deg) .
+    sTranslate (state ^. stateDelta) .
+    sScale 30 .
     solid (dark red) .
-    overlap .
     paraGrid 1 $
     testName :
     status
@@ -87,9 +80,9 @@ transformFromState constructed state =
   let sc    = view stateScale state
       delta = view stateDelta state
       angle = view stateAngle state
-  in  tTranslate delta .
-      tRotate angle .
-      tScale sc $
+  in  sTranslate delta .
+      sRotate angle .
+      sScale sc $
       constructed
 
 processInput :: Monad m => Input (Point2 IntSpace) -> StateT BenchmarkState m ()

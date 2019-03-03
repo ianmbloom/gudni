@@ -8,10 +8,12 @@
 
 module Graphics.Gudni.Raster.TraverseShapeTree
   ( EnclosureMonad (..)
-  , PrimEntry(..)
   , runEnclosureMonad
   , PrimId (..)
-  , PrimEnclosure
+  , PrimEntry(..)
+  , primId
+  , primStrandCount
+  , primBox
   , makeCurveEnclosure
   , ShapeTreeState (..)
   , stTokenMap
@@ -26,7 +28,7 @@ import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.Types
 import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Raster.StrandLookupTable
-import Graphics.Gudni.Raster.Primitive
+import Graphics.Gudni.Raster.ShapeInfo
 
 import Graphics.Gudni.Util.Bag
 import Graphics.Gudni.Util.Util
@@ -50,22 +52,26 @@ runEnclosureMonad code =
   do let curveTable = buildCurveTable mAXsECTIONsIZE
      (evalStateT code) (curveTable, mAXsECTIONsIZE)
 
-type PrimId = Reference PrimEnclosure
-type PrimEnclosure = (Primitive, Enclosure)
+type Combiners t = Group (Combiner t)
+type Shapers   t = Group (Shaper t)
+type Outlines    = Group (Outline DisplaySpace)
+
+type PrimId = Reference (Shaper Enclosure)
 
 data PrimEntry = PrimEntry
-    { primId :: PrimId
-    , primStrandCount :: NumStrands
-    , primBox :: BoundingBox
+    { _primId :: PrimId
+    , _primStrandCount :: NumStrands
+    , _primBox :: BoundingBox
     } deriving (Show)
+makeLenses ''PrimEntry
 
 data ShapeTreeState token = ShapeTreeState
-  { _stGroupId           :: GroupId
-  , _stTokenMap          :: M.Map token GroupId
-  , _stCurrentPictureRef :: Int
-  , _stPictureRefs       :: [PictureRef PictureMemory]
-  , _stPictureMems       :: [PictureMemory]
-  }
+    { _stGroupId           :: GroupId
+    , _stTokenMap          :: M.Map token GroupId
+    , _stCurrentPictureRef :: Int
+    , _stPictureRefs       :: [PictureRef PictureMemory]
+    , _stPictureMems       :: [PictureMemory]
+    }
 makeLenses ''ShapeTreeState
 
 excludeBox :: Point2 DisplaySpace
@@ -80,29 +86,22 @@ excludeBox canvasSize box =
 makeCurveEnclosures :: CurveTable
                     -> Int
                     -> Point2 DisplaySpace
-                    -> [(Primitive, [Outline DisplaySpace])]
-                    -> [(BoundingBox, PrimEnclosure)]
+                    -> Group (Shaper Outlines)
+                    -> [(BoundingBox, Shaper Enclosure)]
 makeCurveEnclosures curveTable sectionSize canvasSize  =
-    catMaybes . map (makeCurveEnclosure curveTable sectionSize canvasSize)
+    catMaybes . unGroup . fmap (makeCurveEnclosure curveTable sectionSize canvasSize)
 
 makeCurveEnclosure :: CurveTable
                    -> Int
                    -> Point2 DisplaySpace
-                   -> (Primitive, [Outline DisplaySpace])
-                   -> Maybe (BoundingBox, PrimEnclosure)
-makeCurveEnclosure curveTable sectionSize canvasSize (prim, curves) =
-     let boundingBox = getBoundingBox (map getBoundingBox curves)
+                   -> Shaper Outlines
+                   -> Maybe (BoundingBox, Shaper Enclosure)
+makeCurveEnclosure curveTable sectionSize canvasSize (Shaper shapeInfo outlines) =
+     let boundingBox = tr "boundingBox" $ getBoundingBox $ tr "outlines" outlines
      in  if excludeBox canvasSize boundingBox
          then Nothing
-         else let enclosure = enclose curveTable sectionSize curves
-              in  Just (boundingBox, (prim, enclosure))
-
-instance NFData token => NFData (ShapeTreeState token) where
-  rnf (ShapeTreeState i tokenMap pictRef refs mems) = i        `deepseq`
-                                                      tokenMap `deepseq`
-                                                      pictRef  `deepseq`
-                                                      refs     `deepseq`
-                                                      mems     `deepseq` ()
+         else let enclosure = enclose curveTable sectionSize (unGroup outlines)
+              in  Just (boundingBox, Shaper shapeInfo enclosure)
 
 type ShapeTreeMonad token = State (ShapeTreeState token)
 
@@ -111,9 +110,11 @@ evalShapeTreeMonad :: [PictureMemory]
                    -> (a, ShapeTreeState token)
 evalShapeTreeMonad pictureMems mf = runState mf (ShapeTreeState (GroupId 0) M.empty 0 [] pictureMems)
 
+-- | Traverse the ShapeTree while assigning ids to every shapeGroup, recording every tokens relationship to
+-- and assigning a picture reference to each referenced picture.
 parseShapeTree :: (Ord token)
-               =>                       STree overlap (SRep token (PictureRef PictId) a)
-               -> ShapeTreeMonad token (STree overlap (SRep GroupId PictId            a))
+               =>                       STree overlap trans (SRep token (PictureRef PictId) a)
+               -> ShapeTreeMonad token (STree overlap trans (SRep GroupId PictId            a))
 parseShapeTree = \case
   SLeaf (SRep token substance compound) ->
       do  shapeId  <- use stGroupId
@@ -139,28 +140,35 @@ parseShapeTree = \case
           below' <- parseShapeTree below
           return $ SOverlap overlap above' below'
 
-instance Combinable () [(ShapeHeader, [(Primitive, [Outline DisplaySpace])])] where
+class Combinable o t where
+  combine :: o -> t -> t -> t
+
+instance Combinable () [(ShapeHeader, Group (Shaper (Group (Outline DisplaySpace))))] where
   combine () over under = over ++ under
 
-instance Combinable CombineType [(CombineType, [Outline DisplaySpace])] where
-  combine combineType over under =
+instance Combinable CombineType (Group (Combiner (Group (Outline DisplaySpace)))) where
+  combine combineType (Group above) (Group below) =
       let inverter =
               case combineType of
-                  CombineSubtract -> map (fmapFst invertCombineType)
+                  CombineSubtract -> map (over coCombineType invertCombineType)
                   _ -> id
-      in  over ++ inverter under
+      in  Group $ above ++ inverter below
 
-transformShapeTree :: (Transformable a)
-                   => STree o a -> STree o a
-transformShapeTree = \case
-  SLeaf rep -> SLeaf rep
-  STransform t child -> fmap (applyTransformType t) $ transformShapeTree child
-  SOverlap overlap above below ->
-     let above' = transformShapeTree above
-         below' = transformShapeTree below
-     in  SOverlap overlap above' below'
+transformShapeTree :: forall t s o leaf . (Transformable t s)
+                   => ((t s -> t s) -> leaf -> leaf)
+                   -> STree o (TransformType s) leaf
+                   -> STree o (TransformType s) leaf
+transformShapeTree f tree =
+  case tree of
+      SLeaf rep -> SLeaf rep
+      STransform t child ->
+          fmap (f (applyTransformType t)) $ transformShapeTree f child
+      SOverlap overlap above below ->
+          let above' = transformShapeTree f above
+              below' = transformShapeTree f below
+          in  SOverlap overlap above' below'
 
-combineShapeTree :: Combinable o a => STree o a -> a
+combineShapeTree :: Combinable o a => STree o trans a -> a
 combineShapeTree = \case
   SLeaf rep -> rep
   SOverlap overlap above below ->
@@ -169,51 +177,53 @@ combineShapeTree = \case
      in  combine overlap above' below'
   STransform t child -> error "shapeTransforms should be removed before combining"
 
-checkContinue :: Bool -> CombineType
-checkContinue isContinue = if isContinue then CombineContinue else CombineAdd
+bagSnd :: Bag PrimId (Shaper Enclosure) -> (BoundingBox, Shaper Enclosure) -> (Bag PrimId (Shaper Enclosure), PrimEntry)
+bagSnd bag (box, shapeEnclosure) =
+    let (bag', newPrimId) = addToBag bag shapeEnclosure
+    in  (bag', PrimEntry newPrimId (enclosureNumStrands $ shapeEnclosure ^. shRep) box)
 
-fmapFst f (x,y) = (f x, y)
-fmapSnd f (x,y) = (x, f y)
-
-bagSnd :: Bag PrimId PrimEnclosure -> (BoundingBox, PrimEnclosure) -> (Bag PrimId PrimEnclosure, PrimEntry)
-bagSnd bag (box, primEnclosure) = let (bag', newPrimId) = addToBag bag primEnclosure
-                    in  (bag', PrimEntry newPrimId (enclosureNumStrands $ snd primEnclosure) box)
-
--- mapAccumL :: (acc -> x -> (acc, y)) -> acc -> [x] -> (acc, [y])
-bagShapes :: [(BoundingBox, PrimEnclosure)]
-          -> (Bag PrimId PrimEnclosure, [PrimEntry])
+bagShapes :: [(BoundingBox, Shaper Enclosure)]
+          -> (Bag PrimId (Shaper Enclosure), [PrimEntry])
 bagShapes boxPrimEnclosures = mapAccumL bagSnd emptyBag boxPrimEnclosures
 
-mkPrimitive :: GroupId -> Substance s -> (CombineType, rep) -> (Primitive, rep)
-mkPrimitive token substance (combineType, rep) = (Primitive (substanceToSubstanceType substance) combineType token, rep)
+mkPrimitive :: GroupId -> Substance a -> Combiner rep -> Shaper rep
+mkPrimitive token substance (Combiner combineType rep) = Shaper (ShapeInfo (substanceToSubstanceType substance) combineType token) rep
 
-buildPrimitives :: SRep GroupId PictId [(CombineType, a)] -> (ShapeHeader, [(Primitive, a)])
-buildPrimitives (SRep token substance rep) = (ShapeHeader substance, map (mkPrimitive token substance) rep)
+buildPrimitives :: SRep GroupId PictId (Group (Combiner t)) -> (ShapeHeader, Group (Shaper t))
+buildPrimitives (SRep token substance rep) = (ShapeHeader substance, fmap (mkPrimitive token substance) rep)
 
-defaultCombineType a = [(CombineAdd, a)]
-
-instance SimpleTransformable (CombineType, [Outline DisplaySpace]) where
-    tTranslate p = fmapSnd (tTranslate p)
-    tScale     s = fmapSnd (tScale     s)
-instance Transformable (CombineType, [Outline DisplaySpace]) where
-    tRotate    r = fmapSnd (tRotate    r)
+defaultCombineType :: t -> Group (Combiner t)
+defaultCombineType a = Group [Combiner CombineAdd a]
 
 traverseShapeTree :: (Monad m)
                  => [PictureMemory]
                  -> Point2 DisplaySpace
                  -> ShapeTreeRoot
                  -> EnclosureMonad m ( [ShapeHeader]
-                                     , Bag PrimId PrimEnclosure
+                                     , Bag PrimId (Shaper Enclosure)
                                      , [PrimEntry]
                                      , ShapeTreeState Int)
 traverseShapeTree pictureMems canvasSize (ShapeRoot backgroundColor shapeTree) =
     do  (curveTable, sectionSize) <- get
         let (parsedShapeTree, shapeTreeState) = evalShapeTreeMonad pictureMems (parseShapeTree shapeTree)
-            outlineTree = fmap (over shapeCompoundTree (fmap rawShapeToOutlines)) parsedShapeTree
-            combinedCompounds = fmap (over shapeCompoundTree (combineShapeTree . fmap defaultCombineType . transformShapeTree)) outlineTree
-            curveShapes :: [(ShapeHeader, [(Primitive, [Outline DisplaySpace])])]
-            curveShapes = combineShapeTree . fmap (pure . buildPrimitives) . transformShapeTree $ combinedCompounds
+            outlineTree :: STree () (TransformType DisplaySpace) (SRep GroupId PictId (STree CombineType (TransformType DisplaySpace) Outlines))
+            outlineTree = fmap (over shapeCompoundTree (fmap (Group . rawShapeToOutlines))) parsedShapeTree
+            transformedTree :: STree () (TransformType DisplaySpace) (SRep GroupId PictId (STree CombineType (TransformType DisplaySpace) Outlines))
+            transformedTree = transformShapeTree (fmap . fmap . fmap) . (fmap . fmap $ transformShapeTree fmap) $ outlineTree
+            combinedCompounds :: STree () (TransformType DisplaySpace) (SRep GroupId PictId (Combiners Outlines))
+            combinedCompounds = fmap (over shapeCompoundTree (combineShapeTree . fmap defaultCombineType)) transformedTree
+            curveShapes :: [(ShapeHeader, Shapers Outlines)]
+            curveShapes = combineShapeTree . fmap (pure . buildPrimitives) $ combinedCompounds
             boxPrimEnclosures = parMap rpar {- map -} (makeCurveEnclosures curveTable sectionSize canvasSize) $ map snd curveShapes
             (primBag, primEntries) = bagShapes $ concat boxPrimEnclosures
             shapes = map fst curveShapes
         return (shapes, primBag, primEntries, shapeTreeState)
+
+-- * Instances
+
+instance NFData token => NFData (ShapeTreeState token) where
+  rnf (ShapeTreeState i tokenMap pictRef refs mems) = i        `deepseq`
+                                                      tokenMap `deepseq`
+                                                      pictRef  `deepseq`
+                                                      refs     `deepseq`
+                                                      mems     `deepseq` ()

@@ -31,6 +31,7 @@ import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Fuzzy
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Draw
+import Graphics.Gudni.Util.Plot
 
 import Data.Word
 import Data.Maybe
@@ -76,28 +77,10 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 0
+    , _stateCurrentTest = 21
     , _stateStep        = 3
     , _stateFrameNumber = 0
     }
-
-instance Show BenchmarkState where
-  show state =
-     "BenchmarkState { " ++
-     show (state ^. stateScale      ) ++ ", " ++
-     show (state ^. stateDelta      ) ++ ", " ++
-     show (state ^. stateCircleDelta) ++ ", " ++
-     show (state ^. stateAngle      ) ++ ", " ++
-     show (state ^. statePaused     ) ++ ", " ++
-     show (state ^. stateSpeed      ) ++ ", " ++
-     show (state ^. statePace       ) ++ ", " ++
-     show (state ^. stateLastTime   ) ++ ", " ++
-     show (state ^. stateDirection  ) ++ ", " ++
-     show (state ^. statePlayhead   ) ++ ", " ++
-     show (state ^. stateCursor     ) ++ ", " ++
-     show (state ^. stateCurrentTest) ++ ", " ++
-     show (state ^. stateStep       ) ++ ", " ++
-     show (state ^. statePictures   ) ++ " }"
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("benchmark1"        , benchmark1          ) --  1 -
@@ -133,17 +116,15 @@ maxThresholdTest state =
     return $
     let frame = view stateFrameNumber state
     in
-    tTranslateXY (-1) 1 .
-    tRotate (0.2 @@ rad) .
-    tScale 0.1 .
+    sTranslateXY (-1) 1 .
+    sRotate (0.2 @@ rad) .
+    sScale 0.1 .
     solid (transparent 1.0 . light $ purple) .
-    overlap $
     makeGrid 2 1 2 $ repeat (rectangle (Point2 1000 1))
 
 maxShapeTest :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 maxShapeTest state =
      return .
-     overlap . reverse .
      makeGrid 1 1 (state ^. stateStep + 2000 + 1) .
      concat .
      repeat $
@@ -156,25 +137,25 @@ maxShapeTest state =
 fromJust (Just x) = x
 plots :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 plots state = return $
-              tTranslateXY 100 100 . tScale 30 . overlap . makeGrid 10 16 1 . catMaybes . map (fmap (solid purple . rawPlot) . plotLibrary) $ turtleNames
+              sTranslateXY 100 100 . sScale 30 . makeGrid 10 16 1 . catMaybes . map (fmap (solid purple . rawCurve) . curveLibrary) $ turtleNames
 
 fuzzy2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 fuzzy2 state = return $
                let time = view stateLastTime state
-               in  tTranslateXY 500 500 .
+               in  sTranslateXY 500 500 .
                    overlap $ evalRand (sequence . replicate 16 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 fuzzy3 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 fuzzy3 state = return $
                let time = view stateLastTime state
-               in  tTranslateXY (-100) (-100) .
+               in  sTranslateXY (-100) (-100) .
                    overlap $
                    evalRand (sequence . replicate 4 $ fuzzyCurve (makePoint 1440 900) 200) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 fuzzy4 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 fuzzy4 state = return $
                let time = view stateLastTime state
-               in  tTranslateXY (-100) (-100) .
+               in  sTranslateXY (-100) (-100) .
                    overlap $
                    evalRand (sequence . replicate 5000 $ fuzzyCircle (makePoint 1440 900) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
@@ -199,67 +180,66 @@ benchmark1 state =
            defaultString = cycle $ defaultGlyphs
            angles        = {-repeat (0 @@ deg) -} map (normalizeAngle . (angle ^+^) . (^*0.5) . (@@ deg) ) [0..]
            textGrid  :: CompoundTree
-           textGrid   = tScale dSize . foldl1 cAdd . makeGrid 0.5 50 50 . zipWith tRotate angles . map glyph $ defaultString
+           textGrid   = sScale dSize . makeGrid 0.5 50 50 . zipWith sRotate angles . map glyph $ defaultString
            subtractor:: CompoundTree
-           subtractor = tScale (dSize * 15) . foldl1 cAdd . makeGrid 0.5 4 4 . map glyph . cycle $ subtractorGlyphs -- "*" -- take 50 $ cycle $ "+@$" -- message
-       return $ tTranslateXY 0 0 .
-                tScale 50 .
+           subtractor = sScale (dSize * 15) . makeGrid 0.5 4 4 . map glyph . cycle $ subtractorGlyphs -- "*" -- take 50 $ cycle $ "+@$" -- message
+       return $ sTranslateXY 0 0 .
+                sScale 50 .
                 solid (transparent 1.0 black) $
                 cSubtract textGrid subtractor
 
 rectGrid :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 rectGrid state = return $
     let grid  :: CompoundTree
-        grid   = foldl1 cContinue . makeGrid 1 100 100 . repeat . rectangle $ Point2 0.5 0.5
+        grid   = makeGrid 1 100 100 . repeat . rectangle $ Point2 0.5 0.5
     in
-        --tTranslate (Point2 0.3 0.3) .
-        --tRotate (5 @@ deg) .
+        --sTranslate (Point2 0.3 0.3) .
+        --sRotate (5 @@ deg) .
         solid (transparent 1.0 white) $
         grid
 
 simpleKnob :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 simpleKnob state = return $
-        tScale 100 .
+        sScale 100 .
         solid (transparent 1.0 (dark $ dark gray)) .
         raw $
-        [ Vert True  $ makePoint 0 0
-        , Vert False $ makePoint 1 1
-        , Vert True  $ makePoint 0 2
+        [ curved 0 0 1 1
+        , straight 0 2
         ]
 
 hourGlass :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 hourGlass state = return $
   let step = fromIntegral $ state ^. stateStep
-  in    tTranslateXY 0 0 .
-        tTranslateXY 0.5 0.52 .
-        tScale 8 .
+  in    sTranslateXY 0 0 .
+        sTranslateXY 0.5 0.52 .
+        sScale 8 .
         solid (transparent 1.0 (dark $ dark gray)) .
         raw $
-        [ Vert True  $ makePoint 0 0
-        , Vert True  $ makePoint 1 1
-        , Vert True  $ makePoint 1 0
-        , Vert True  $ makePoint 0 1
+        [ straight 0 0
+        , straight 1 1
+        , straight 1 0
+        , straight 0 1
         ]
 
 -- Very simple box
 simpleRectangle :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 simpleRectangle state = return $
-  tTranslateXY (0.35 + 0.1) 0 .
-  tRotate (45 @@ deg) .
-  tScale 1 .
+  sTranslateXY (0.35 + 0.1) 0 .
+  sRotate (45 @@ deg) .
+  sScale 1 .
   solid (transparent 1.0 white) $
   rectangle (Point2 2 2)
 
 testPict :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 testPict state = return $
-        overlap [ textureWith (PictureRef (Point2 0 0) 0 0) $ tTranslateXY 100 100 (cSubtract (tScale 200 circle) (tScale 100 circle))
-                , tTranslateXY 50 50 $ solid (transparent 0.2 blue) $ rectangle (Point2 40  2000)]
+        overlap [ textureWith (PictureRef (Point2 0 0) 0) $ sTranslateXY 100 100 (cSubtract (sScale 200 circle) (sScale 100 circle))
+                , sTranslateXY 50 50 $ solid (transparent 0.2 blue) $ rectangle (Point2 40  2000)]
 
 -- this caused a precision error
 tallRectangle :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 tallRectangle state = return $
-        tTranslateXY 0 1 .
-        --tRotate (3 @@ deg) .
+        sTranslateXY 0 1 .
+        --sRotate (3 @@ deg) .
         solid (transparent 1.0 white) $
         rectangle (Point2 0.5 10)
 
@@ -267,69 +247,69 @@ tallRectangle state = return $
 openSquareOverlap3 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 openSquareOverlap3 state = return $
     let angle = view statePlayhead state @@ turn
-    in  tTranslateXY 400 400 .
-        tScale 50 $
-        overlap [ (tTranslateXY 0 0 . tRotate angle        $ solid (transparent 0.5 blue   ) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
-                , (tTranslateXY 4 4 . tRotate (angle ^/ 2) $ solid (transparent 0.5 orange ) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
-                , (tTranslateXY 8 8 . tRotate (angle ^/ 3) $ solid (transparent 0.5 green  ) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
+    in  sTranslateXY 400 400 .
+        sScale 50 $
+        overlap [ (sTranslateXY 0 0 . sRotate angle        $ solid (transparent 0.5 blue   ) $ cSubtract (rectangle (Point2 16 16)) (sTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
+                , (sTranslateXY 4 4 . sRotate (angle ^/ 2) $ solid (transparent 0.5 orange ) $ cSubtract (rectangle (Point2 16 16)) (sTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
+                , (sTranslateXY 8 8 . sRotate (angle ^/ 3) $ solid (transparent 0.5 green  ) $ cSubtract (rectangle (Point2 16 16)) (sTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
                 ]
 
 stackOfSquares :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 stackOfSquares state = return $
         overlap
-          [ (tTranslateXY 0 0  . solid (transparent 1.0 red    ) $ rectangle (Point2 4 4) )
-          , (tTranslateXY 0 4  . solid (transparent 1.0 green  ) $ rectangle (Point2 4 4) )
-          --, (tTranslateXY 0 8  . solid (transparent 1.0 blue   ) $ rectangle (Point2 4 4) )
-          --, (tTranslateXY 0 12 . solid (transparent 1.0 purple ) $ rectangle (Point2 4 4) )
+          [ (sTranslateXY 0 0  . solid (transparent 1.0 red    ) $ rectangle (Point2 4 4) )
+          , (sTranslateXY 0 4  . solid (transparent 1.0 green  ) $ rectangle (Point2 4 4) )
+          --, (sTranslateXY 0 8  . solid (transparent 1.0 blue   ) $ rectangle (Point2 4 4) )
+          --, (sTranslateXY 0 12 . solid (transparent 1.0 purple ) $ rectangle (Point2 4 4) )
           ]
 
 openSquareOverlap2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 openSquareOverlap2 state = return $
-        tScale 0.25 $
-        overlap [ (tTranslateXY 0 0 . solid (transparent 0.25 blue  ) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
-                , (tTranslateXY 8 8 . solid (transparent 1.0  orange) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
+        sScale 0.25 $
+        overlap [ (sTranslateXY 0 0 . solid (transparent 0.25 blue  ) $ cSubtract (rectangle (Point2 16 16)) (sTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
+                , (sTranslateXY 8 8 . solid (transparent 1.0  orange) $ cSubtract (rectangle (Point2 16 16)) (sTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
                 ]
 
 openSquare :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 openSquare state = return $
     solid (transparent 0.5 white) $
           cSubtract (rectangle (Point2 5 5))
-                    (tTranslate (Point2 1 1) $ rectangle (Point2 3 3))
+                    (sTranslate (Point2 1 1) $ rectangle (Point2 3 3))
 
 concentricSquares2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 concentricSquares2 state = return $
-        overlap [ (tTranslateXY 0 0 . solid (transparent 1.0 red ) $ cSubtract (rectangle (Point2 5 5)) (tTranslate (Point2 1 1) $ rectangle (Point2 3 3) ) )
-                , (tTranslateXY 1 1 . solid (transparent 1.0 blue) $ cSubtract (rectangle (Point2 3 3)) (tTranslate (Point2 1 1) $ rectangle (Point2 1 1) ) )
+        overlap [ (sTranslateXY 0 0 . solid (transparent 1.0 red ) $ cSubtract (rectangle (Point2 5 5)) (sTranslate (Point2 1 1) $ rectangle (Point2 3 3) ) )
+                , (sTranslateXY 1 1 . solid (transparent 1.0 blue) $ cSubtract (rectangle (Point2 3 3)) (sTranslate (Point2 1 1) $ rectangle (Point2 1 1) ) )
                 ]
 
 concentricSquares3 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 concentricSquares3 state = return $
-        overlap [ (tTranslateXY 0 0 . solid (transparent 1.0 red   ) $ cSubtract (rectangle (Point2 10 10)) (tTranslate (Point2 2 2) $ rectangle (Point2 6 6) ) )
-                , (tTranslateXY 2 2 . solid (transparent 1.0 green ) $ cSubtract (rectangle (Point2  6  6)) (tTranslate (Point2 2 2) $ rectangle (Point2 2 2) ) )
-                , (tTranslateXY 4 4 . solid (transparent 1.0 blue  ) $            rectangle (Point2  2  2))
+        overlap [ (sTranslateXY 0 0 . solid (transparent 1.0 red   ) $ cSubtract (rectangle (Point2 10 10)) (sTranslate (Point2 2 2) $ rectangle (Point2 6 6) ) )
+                , (sTranslateXY 2 2 . solid (transparent 1.0 green ) $ cSubtract (rectangle (Point2  6  6)) (sTranslate (Point2 2 2) $ rectangle (Point2 2 2) ) )
+                , (sTranslateXY 4 4 . solid (transparent 1.0 blue  ) $            rectangle (Point2  2  2))
                 ]
 
 simpleGlyph :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 simpleGlyph state =
   do let character = chr $ state ^. stateStep
      characterGlyph <- getGlyph . CodePoint . ord $ character
-     return .   tTranslateXY 0 0 .
-                tRotate (6.28248 @@ rad) .
-                tScale 20 .
+     return .   sTranslateXY 0 0 .
+                sRotate (6.28248 @@ rad) .
+                sScale 20 .
                 solid (transparent 1.0 white) $
                 glyph characterGlyph
 
 simpleArc :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 simpleArc state = return $
-        tScale 100 .
+        sScale 100 .
         solid (transparent 1.0 $ dark gray) $
         arc (0.3 @@ turn)
 
 sixPointRectangle :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 sixPointRectangle state = return $
         solid (transparent 1.0 (dark gray)) $
-        raw [Vert2 True 0 0, Vert2 True 1 0, Vert2 True 2 0
-            ,Vert2 True 2 1, Vert2 True 1 1, Vert2 True 0 1
+        raw [straight 0 0, straight 1 0, straight 2 0
+            ,straight 2 1, straight 1 1, straight 0 1
             ]
 
 tinySquare :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
@@ -340,18 +320,36 @@ tinySquare state = return $
 anotherThreshold :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 anotherThreshold state = return $
     solid white $
-    overlap [ raw  [Vert2 True (-0.2) 0.0, Vert2 True   1.2  1.4
-                   ,Vert2 True   1.2  1.6, Vert2 True (-0.2) 0.2
+    overlap [ raw  [straight (-0.2) 0.0, straight   1.2  1.4
+                   ,straight   1.2  1.6, straight (-0.2) 0.2
                    ]
-            , raw  [Vert2 True (-0.2) 0.4, Vert2 True   1.2  1.8
-                   ,Vert2 True   1.2  2.0, Vert2 True (-0.2) 0.6
+            , raw  [straight (-0.2) 0.4, straight   1.2  1.8
+                   ,straight   1.2  2.0, straight (-0.2) 0.6
                    ]
             ]
 
 subtractDiamond :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 subtractDiamond state = return $
     solid white $
-    cSubtract (diamond $ makePoint 8 8) (tTranslateXY 2 0 $ diamond $ makePoint 8 8)
+    cSubtract (diamond $ makePoint 8 8) (sTranslateXY 2 0 $ diamond $ makePoint 8 8)
+
+instance Show BenchmarkState where
+  show state =
+     "BenchmarkState { " ++
+     show (state ^. stateScale      ) ++ ", " ++
+     show (state ^. stateDelta      ) ++ ", " ++
+     show (state ^. stateCircleDelta) ++ ", " ++
+     show (state ^. stateAngle      ) ++ ", " ++
+     show (state ^. statePaused     ) ++ ", " ++
+     show (state ^. stateSpeed      ) ++ ", " ++
+     show (state ^. statePace       ) ++ ", " ++
+     show (state ^. stateLastTime   ) ++ ", " ++
+     show (state ^. stateDirection  ) ++ ", " ++
+     show (state ^. statePlayhead   ) ++ ", " ++
+     show (state ^. stateCursor     ) ++ ", " ++
+     show (state ^. stateCurrentTest) ++ ", " ++
+     show (state ^. stateStep       ) ++ ", " ++
+     show (state ^. statePictures   ) ++ " }"
 
 mobyDick :: String
 mobyDick = "Call me Ishmael. Some years ago--never mind how long precisely--having little or no money in my purse, and nothing particular to interest me on shore, I thought I would sail about a little and see the watery part of the world. It is a way I have of driving off the spleen and regulating the circulation. Whenever I find myself growing grim about the mouth; whenever it is a damp, drizzly November in my soul; whenever I find myself involuntarily pausing before coffin warehouses, and bringing up the rear of every funeral I meet; and especially whenever my hypos get such an upper hand of me, that it requires a strong moral principle to prevent me from deliberately stepping into the street, and methodically knocking people's hats off--then, I account it high time to get to sea as soon as I can. This is my substitute for pistol and ball. With a philosophical flourish Cato throws himself upon his sword; I quietly take to the ship. There is nothing surprising in this. If they but knew it, almost all men in their degree, some time or other, cherish very nearly the same feelings towards the ocean with me. There now is your insular city of the Manhattoes, belted round by wharves as Indian isles by coral reefs--commerce surrounds it with her surf. Right and left, the streets take you waterward. Its extreme downtown is the battery, where that noble mole is washed by waves, and cooled by breezes, which a few hours previous were out of sight of land. Look at the crowds of water-gazers there. Circumambulate the city of a dreamy Sabbath afternoon. Go from Corlears Hook to Coenties Slip, and from thence, by Whitehall, northward. What do you see?--Posted like silent sentinels all around the town, stand thousands upon thousands of mortal men fixed in ocean reveries. Some leaning against the spiles; some seated upon the pier-heads; some looking over the bulwarks of ships from China; some high aloft in the rigging, as if striving to get a still better seaward peep. But these are all landsmen; of week days pent up in lath and plaster--tied to counters, nailed to benches, clinched to desks. How then is this? Are the green fields gone? What do they here? But look! here come more crowds, pacing straight for the water, and seemingly bound for a dive. Strange! Nothing will content them but the extremest limit of the land; loitering under the shady lee of yonder warehouses will not suffice. No. They must get just as nigh the water as they possibly can without falling in. And there they stand--miles of them--leagues. Inlanders all, they come from lanes and alleys, streets and avenues--north, east, south, and west. Yet here they all unite. Tell me, does the magnetic virtue of the needles of the compasses of all those ships attract them thither?"

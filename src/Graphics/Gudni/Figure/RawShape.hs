@@ -57,7 +57,7 @@ removeDuplicateVertices (a:b:vs) =
   if a ^. anchor == b ^. anchor then rest else a:rest
 removeDuplicateVertices v = v
 
-expandVerts :: (Ord s, Show s, Fractional s, Num s) => [Segment s] -> [CurvePair (Point2 s)]
+expandVerts :: (Ord s, Show s, Fractional s, Num s) => [Segment s] -> [CurvePair s]
 expandVerts vs = let removed = removeDuplicateVertices vs
                  in  if length removed <= 1
                      then []
@@ -68,7 +68,7 @@ mid v0 v1 = lerp 0.5 v0 v1
 
 segmentsToCurvePairs segments = segmentsToCurvePairs' (head segments ^. anchor) segments
 
-segmentsToCurvePairs' :: (Fractional s) => (Point2 s) -> [Segment s] -> [CurvePair (Point2 s)]
+segmentsToCurvePairs' :: (Fractional s) => (Point2 s) -> [Segment s] -> [CurvePair s]
 segmentsToCurvePairs' first segs = case segs of
       (Seg v0 Nothing:[])             -> CurvePair v0 (mid v0 first):[]
       (Seg v0 Nothing:Seg v1 mC:rest) -> CurvePair v0 (mid v0 v1):segmentsToCurvePairs' first (Seg v1 mC:rest)

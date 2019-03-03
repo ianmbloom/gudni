@@ -3,7 +3,7 @@ module Graphics.Gudni.Raster.TileTree
   , Tile(..)
   , buildTileTree
   , addPrimToTree
-  , tileTreeToGroups
+  , tileTreeToList
   )
 where
 
@@ -11,6 +11,7 @@ import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.TraverseShapeTree
 import Graphics.Gudni.Raster.Enclosure
+import Graphics.Gudni.Util.Debug
 
 import Control.Lens
 
@@ -18,7 +19,15 @@ type Width  = Ortho XDimension DisplaySpace
 type Height = Ortho YDimension DisplaySpace
 type Size   = Int
 
+data Tile = Tile
+    { tilePrims       :: [PrimEntry]
+    , tileStrandCount :: NumStrands
+    , tilePrimCount   :: Size
+    , tileBox         :: Box IntSpace
+    } deriving (Show)
+
 type TileTree = HTree
+
 data HTree = HTree
     { hCut        :: Width
     , leftBranch  :: VTree
@@ -35,47 +44,44 @@ data VTree = VTree
     | VLeaf Tile
     deriving (Show)
 
-data Tile = Tile
-    { tilePrims       :: [PrimEntry]
-    , tileStrandCount :: NumStrands
-    , tilePrimCount   :: Size
-    , tileBox         :: BoundingBox
-    } deriving (Show)
-
-buildTileTree :: Point2 DisplaySpace -> HTree
+buildTileTree :: Point2 IntSpace -> HTree
 buildTileTree = buildTileTree' (fromIntegral <$> mAXtILEsIZE)
 
-buildTileTree' :: Point2 DisplaySpace -> Point2 DisplaySpace -> HTree
+adjustedLog x = if x < 1 then 0 else ceiling . logBase 2 . fromIntegral $ x
+
+buildTileTree' :: Point2 IntSpace -> Point2 IntSpace -> HTree
 buildTileTree' tileSize canvasSize = goH maxDepth (pointToBox canvasSize)
     where
-    gridW = canvasSize ^. pX / tileSize ^. pX
-    gridH = canvasSize ^. pY / tileSize ^. pY
-    logWidth  = if gridW < 1 then 0 else ceiling . logBase 2 $ gridW
-    logHeight = if gridH < 1 then 0 else ceiling . logBase 2 $ gridH
+    gridW = canvasSize ^. pX `div` tileSize ^. pX
+    gridH = canvasSize ^. pY `div` tileSize ^. pY
+    logWidth  = adjustedLog gridW
+    logHeight = adjustedLog gridH
     maxDepth  = max logWidth logHeight
     goH depth box =
-      let hCut = max (canvasSize ^. pX) (box ^. leftSide + fromIntegral (2 ^ (depth - 1)))
+      let hIntCut = max (canvasSize ^. pX) (box ^. leftSide + fromIntegral (2 ^ (depth - 1)))
+          hCut = fromIntegral hIntCut
       in  if depth > 0
-          then HTree hCut (goV depth (set rightSide hCut box))
-                          (goV depth (set leftSide  hCut box))
+          then HTree hCut (goV depth (set rightSide hIntCut box))
+                          (goV depth (set leftSide  hIntCut box))
           else HLeaf $ emptyTile box
     goV depth box =
-      let vCut = max (canvasSize ^. pY) (box ^. topSide + fromIntegral (2 ^ (depth - 1)))
-      in  VTree vCut (goH (depth - 1) (set bottomSide vCut box))
-                     (goH (depth - 1) (set topSide    vCut box))
+      let vIntCut = max (canvasSize ^. pY) (box ^. topSide + fromIntegral (2 ^ (depth - 1)))
+          vCut = fromIntegral vIntCut
+      in  VTree vCut (goH (depth - 1) (set bottomSide vIntCut box))
+                     (goH (depth - 1) (set topSide    vIntCut box))
 
 addPrimToTree :: HTree -> PrimEntry -> HTree
-addPrimToTree = insertPrimH
+addPrimToTree tree = insertPrimH tree . tr "addPrimToTree"
 
-emptyTile :: BoundingBox -> Tile
+emptyTile :: Box IntSpace -> Tile
 emptyTile box = Tile [] 0 0 box
 
 insertPrimH :: HTree -> PrimEntry -> HTree
 insertPrimH (HTree cut left right) primEntry =
-    let left'  = if (primBox primEntry) ^. leftSide < cut
+    let left'  = if primEntry ^. primBox . leftSide < cut
                  then insertPrimV left primEntry
                  else left
-        right' = if (primBox primEntry) ^. rightSide > cut
+        right' = if primEntry ^. primBox .rightSide > cut
                  then insertPrimV right primEntry
                  else right
     in  HTree cut left' right'
@@ -86,10 +92,10 @@ insertPrimH (HLeaf tile) primEntry =
 
 insertPrimV :: VTree -> PrimEntry -> VTree
 insertPrimV (VTree cut top bottom) primEntry =
-    let top'    = if (primBox primEntry)^. topSide < cut
+    let top'    = if primEntry ^. primBox . topSide < cut
                   then insertPrimH top primEntry
                   else top
-        bottom' = if (primBox primEntry) ^. bottomSide > cut
+        bottom' = if primEntry ^. primBox . bottomSide > cut
                   then insertPrimH bottom primEntry
                   else bottom
     in  VTree cut top' bottom'
@@ -101,63 +107,43 @@ insertPrimV (VLeaf tile) primEntry =
 insertPrimTile :: Tile -> PrimEntry -> Tile
 insertPrimTile tile primEntry =
   Tile { tilePrims = primEntry:tilePrims tile
-       , tileStrandCount = tileStrandCount tile + primStrandCount primEntry
+       , tileStrandCount = tileStrandCount tile + primEntry ^. primStrandCount
        , tilePrimCount = tilePrimCount tile + 1
        , tileBox = tileBox tile
        }
 
 checkTileSpace :: Tile -> PrimEntry -> Bool
-checkTileSpace tile primEntry = tilePrimCount tile < mAXsHAPE && (tileStrandCount tile + (primStrandCount primEntry)) < (NumStrands . fromIntegral $ mAXtHRESHOLDS)
+checkTileSpace tile primEntry = tilePrimCount tile < mAXsHAPE && (tileStrandCount tile + (primEntry ^. primStrandCount)) < (NumStrands . fromIntegral $ mAXtHRESHOLDS)
 
 hSplit :: Tile -> HTree
 hSplit tile =
   let box = tileBox tile
-      cut = box ^. leftSide + (widthBox box / 2)
+      cut = box ^. leftSide + (widthBox box `div` 2)
       lBox = set rightSide cut box
       rBox = set leftSide  cut box
       lTile = emptyTile lBox
       rTile = emptyTile rBox
-      hTree = HTree cut (VLeaf lTile) (VLeaf rTile)
+      hTree = HTree (fromIntegral cut) (VLeaf lTile) (VLeaf rTile)
   in  foldl insertPrimH hTree (tilePrims tile)
 
 vSplit :: Tile -> VTree
 vSplit tile =
   let box = tileBox tile
-      cut = box ^. topSide + (heightBox box / 2)
+      cut = box ^. topSide + (heightBox box `div` 2)
       tBox = set bottomSide cut box
       bBox = set topSide    cut box
       tTile = emptyTile tBox
       bTile = emptyTile bBox
-      vTree = VTree cut (HLeaf tTile) (HLeaf bTile)
+      vTree = VTree (fromIntegral cut) (HLeaf tTile) (HLeaf bTile)
   in  foldl insertPrimV vTree (tilePrims tile)
 
-tileTreeToGroups :: Int -> TileTree -> [[Tile]]
-tileTreeToGroups groupSize = map fst . tileTreeToGroupsH groupSize
+tileTreeToList :: TileTree -> [Tile]
+tileTreeToList = tileTreeToListH
 
-tileTreeToGroupsH :: Int -> HTree -> [([Tile],Int)]
-tileTreeToGroupsH groupSize (HTree _ left right) =
-  let leftJobs  = tileTreeToGroupsV groupSize left
-      rightJobs = tileTreeToGroupsV groupSize right
-      (leftTiles,  leftSize)  = head leftJobs
-      (rightTiles, rightSize) = head rightJobs
-      totalSize = leftSize + rightSize
-  in  if totalSize > groupSize
-      then if leftSize > rightSize
-           then rightJobs ++ leftJobs
-           else leftJobs ++ rightJobs
-      else (leftTiles++rightTiles, totalSize):tail leftJobs ++ tail rightJobs
-tileTreeToGroupsH groupSize (HLeaf tile) = [([tile],1)]
+tileTreeToListH :: HTree -> [Tile]
+tileTreeToListH (HTree _ left right) = tileTreeToListV left ++ tileTreeToListV right
+tileTreeToListH (HLeaf tile) = pure tile
 
-tileTreeToGroupsV :: Int -> VTree -> [([Tile],Int)]
-tileTreeToGroupsV groupSize (VTree _ top bottom) =
-  let topJobs    = tileTreeToGroupsH groupSize top
-      bottomJobs = tileTreeToGroupsH groupSize bottom
-      (topTiles,    topSize)  = head topJobs
-      (bottomTiles, bottomSize) = head bottomJobs
-      totalSize = topSize + bottomSize
-  in  if totalSize > groupSize
-      then if topSize > bottomSize
-           then bottomJobs ++ topJobs
-           else topJobs ++ bottomJobs
-      else (topTiles++bottomTiles, totalSize):tail topJobs ++ tail bottomJobs
-tileTreeToGroupsV groupSize (VLeaf tile) = [([tile],1)]
+tileTreeToListV :: VTree -> [Tile]
+tileTreeToListV (VTree _ top bottom) = tileTreeToListH top ++ tileTreeToListH bottom
+tileTreeToListV (VLeaf tile) = pure tile

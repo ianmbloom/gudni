@@ -13,6 +13,7 @@ import Graphics.Gudni.Util.Debug
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector as V
 import Data.Vector ((!))
+import Linear.V3
 
 import Control.Lens
 
@@ -82,12 +83,9 @@ buildCurveTable maxSize = V.fromList $ map (curveLine maxSize . (+3) . (*2)) [0.
 
 makeCurveStrand :: (Show s, Ord s, Num s, Iota s, VS.Storable s)
                 => CurveTable
-                -> ( Point2 s
-                   , Point2 s
-                   , Point2 s
-                   , [(Point2 s, Point2 s)] )
+                -> (V3 (Point2 s), [(Point2 s, Point2 s)] )
                 -> VS.Vector (Point2 s)
-makeCurveStrand table (right, left, control, rest) =
+makeCurveStrand table (V3 right left control, rest) =
   let curveVector = V.fromList (right:left:control:concatMap (\(x,y) -> [x,y]) rest)
       direction = compare (V.head curveVector ^. pX) (V.last curveVector ^. pX) -- determine the direction of the entire strand.
       size = V.length curveVector

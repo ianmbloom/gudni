@@ -16,7 +16,7 @@ module Graphics.Gudni.Raster.Constants
     , sHAPETAGcOMBINEtYPEcONTINUE
     , sHAPETAGcOMBINEtYPEaDD
     , sHAPETAGcOMBINEtYPEsUBTRACT
-    , sHAPEIDBITMASK
+    , sHAPEiDbITMASK
     )
 where
 
@@ -31,7 +31,7 @@ sTOCHASTICfACTOR = 0.3 :: Float -- relative amount of variability in an edge.
 mAXtHRESHOLDS    = 512 :: Int   -- the size of the threshold header and threshold geometry buffers (must be a power of 2)
 mAXsHAPE         = 511 :: Int   -- total number of shapes per build. must be one less than the number of bits available.
 mAXtILEsIZE      = Point2 512 512 :: Point2 IntSpace
-mINtILEsIZE      = Point2 1 1 :: Point2 IntSpace
+mINtILEsIZE      = Point2 1   1   :: Point2 IntSpace
 mAXsECTIONsIZE   = 16   :: Int
 rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
 
@@ -48,4 +48,4 @@ sHAPETAGcOMBINEtYPEaDD          = 0x2000000000000000 :: CULong
 sHAPETAGcOMBINEtYPEsUBTRACT     = 0x3000000000000000 :: CULong
 
 -- Bits 27 - 0
-sHAPEIDBITMASK                  = 0x0FFFFFFFFFFFFFFF :: CULong
+sHAPEiDbITMASK                  = 0x0FFFFFFFFFFFFFFF :: CULong
