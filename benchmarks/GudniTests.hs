@@ -77,7 +77,7 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 26
+    , _stateCurrentTest = 27
     , _stateStep        = 3
     , _stateFrameNumber = 0
     }
@@ -109,6 +109,7 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("fuzzySquares2"     , fuzzySquares2       ) -- 24 -
            , ("maxThresholdTest"  , maxThresholdTest    ) -- 25 -
            , ("maxShapeTest"      , maxShapeTest        ) -- 26 -
+           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 27 -
            ]
 
 maxThresholdTest :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
@@ -158,23 +159,31 @@ fuzzyBasic state = return $
 fuzzyCircles :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 fuzzyCircles state = return $
                let time = view stateLastTime state
-               in  sTranslateXY (-100) (-100) .
+               in  sTranslateXY (100) (100) .
                    overlap $
                    evalRand (sequence . replicate 5000 $ fuzzyCircle (makePoint 1440 900) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+
+-- | Smaller random field of transparent circles.
+fuzzyCircles2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+fuzzyCircles2 state = return $
+               let time = view stateLastTime state
+               in  sTranslateXY (-20) (-20) .
+                   overlap $
+                   evalRand (sequence . replicate 20 $ fuzzyCircle (makePoint 100 100) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 -- | A random field of transparent squares.
 fuzzySquares :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 fuzzySquares state = return $
                let time = view stateLastTime state
                in  overlap $
-                   evalRand (sequence . replicate 100 $ fuzzySquare (makePoint 100 100) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   evalRand (sequence . replicate 5000 $ fuzzySquare (makePoint 100 100) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 -- | Smaller random field of transparent squares.
 fuzzySquares2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 fuzzySquares2 state = return $
                let time = view stateLastTime state
                in  overlap $
-                   evalRand (sequence . replicate 5000 $ fuzzySquare (makePoint 1440 900) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   evalRand (sequence . replicate 20 $ fuzzySquare (makePoint 1440 900) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 -- | A grid of rotating glyphs with overlapping subtracted glyphs
 benchmark1 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
@@ -313,13 +322,13 @@ sixPointRectangle state = return $
             ,straight 2 1, straight 1 1, straight 0 1
             ]
 
---
+-- | Very tiny square with not rotation. Usually the first thing tested for a new build.
 tinySquare :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 tinySquare state = return $
         solid red $
         rectangle (Point2 2 2)
 
--- | Very simple box, usually the first thing tested for a new build.
+-- | Very simple rotated box.
 simpleRectangle :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 simpleRectangle state = return $
   sTranslateXY (0.35 + 0.1) 0 .
@@ -328,13 +337,13 @@ simpleRectangle state = return $
   solid (transparent 1.0 white) $
   rectangle (Point2 2 2)
 
--- | Simple rectangle test.
+-- | Simple rectangle test across multiple tiles.
 tallRectangle :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 tallRectangle state = return $
         sTranslateXY 0 1 .
-        --sRotate (3 @@ deg) .
+        sRotate (3 @@ deg) .
         solid (transparent 1.0 white) $
-        rectangle (Point2 0.5 10)
+        rectangle (Point2 0.5 2000)
 
 -- | Simple multishape test useful for subpixel geometry.
 twoBrackets :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree

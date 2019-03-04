@@ -96,11 +96,6 @@ generateCall  :: (KernelArgs
                       'UnknownWorkItems
                       'Z
                       (a
-                       -> CInt
-                       -> CInt
-                       -> CInt
-                       -> OutputPtr CChar
-                       -> CInt
                        -> NumWorkItems
                        -> WorkGroup
                        -> CL ())
@@ -115,11 +110,9 @@ generateCall  :: (KernelArgs
               -> CInt
               -> CInt
               -> RasterJob
-              -> OutputPtr CChar
-              -> CInt
               -> a
               -> CL ()
-generateCall state kernel pictData pictRefs randomField bitmapWidth bitmapHeight frame job continuations passCount target =
+generateCall state kernel pictData pictRefs randomField bitmapWidth bitmapHeight frame job target =
     let geometryHeap    = job ^. rJGeometryPile
         shapeHeap       = job ^. rJShapePile
         shapeRefHeap    = job ^. rJShapeRefPile
@@ -127,8 +120,7 @@ generateCall state kernel pictData pictRefs randomField bitmapWidth bitmapHeight
         tileHeap        = job ^. rJTilePile
         numTiles        = tileHeap ^. pileSize
         backgroundColor = job ^. rJBackgroundColor
-        pictRefs' = if null pictRefs then emptyPictureRefs else pictRefs
-        commonKernel pictPile pictRefPile continuations =
+        commonKernel pictPile pictRefPile =
             runKernel kernel
                       geometryHeap
                       shapeHeap
@@ -139,49 +131,16 @@ generateCall state kernel pictData pictRefs randomField bitmapWidth bitmapHeight
                       pictRefPile
                       randomField
                       backgroundColor
-                      target
                       bitmapWidth
                       bitmapHeight
                       frame
-                      continuations
-                      passCount
+                      target
     in
     do  pictPile <- case pictData of Nothing -> liftIO $ emptyPictureData
                                      Just p  -> liftIO $ return p
-        pictRefPile <- liftIO $ listToPile pictRefs'
-        commonKernel pictPile pictRefPile continuations
-                         (Work2D (job ^. rJTilePile . pileSize) (fromIntegral cOMPUTEsIZE))
-                         (WorkGroup [1, fromIntegral cOMPUTEsIZE])
-
-generateFillCall  :: ( KernelArgs
-                      'KernelSync
-                      'NoWorkGroups
-                      'UnknownWorkItems
-                      'Z
-                        ( a
-                        -> CInt
-                        -> CInt
-                        -> NumWorkItems
-                        -> WorkGroup
-                        -> CL ())
-                     , Show a
-                     )
-                  => OpenCLState
-                  -> CLKernel
-                  -> CInt
-                  -> CInt
-                  -> RasterJob
-                  -> a
-                  -> CL ()
-generateFillCall state kernel bitmapWidth bitmapHeight job target =
-    let backgroundColor = job ^. rJBackgroundColor
-        commonKernel = runKernel kernel
-                                 backgroundColor
-                                 target
-                                 bitmapWidth
-                                 bitmapHeight
-    in
-    do  commonKernel (Work2D (job ^. rJTilePile . pileSize) (fromIntegral cOMPUTEsIZE))
+        pictRefPile <- liftIO $ listToPile pictRefs
+        commonKernel pictPile pictRefPile
+                     (Work2D (job ^. rJTilePile . pileSize) (fromIntegral cOMPUTEsIZE))
                      (WorkGroup [1, fromIntegral cOMPUTEsIZE])
 
 raster :: CInt
@@ -195,8 +154,8 @@ raster frame params job =
         outputSize   = fromIntegral $ w * h
         state        = clState (params ^. rpLibrary)
         numTiles     = (fromIntegral $ job ^. rJTilePile ^. pileSize) :: CInt
-        rasterCall :: OutputPtr CChar -> CInt -> CL ()
-        rasterCall continuations passCount =
+        rasterCall :: CL ()
+        rasterCall =
             case targetBuffer (params ^. rpTarget) of
                 HostBitmapTarget outputPtr ->
                     generateCall state (multiTileRasterCL (params ^. rpLibrary))
@@ -207,43 +166,12 @@ raster frame params job =
                                        h
                                        frame
                                        job
-                                       continuations
-                                       passCount
                                        (OutPtr outputPtr outputSize)
                 GLTextureTarget textureName -> error "GLTextureTarget not implemented"
-        fillCall =
-            case targetBuffer (params ^. rpTarget) of
-                HostBitmapTarget outputPtr ->
-                    generateFillCall state (fillBackgroundCL (params ^. rpLibrary))
-                                           w
-                                           h
-                                           job
-                                           (OutPtr outputPtr outputSize)
-                GLTextureTarget textureName -> error "GLTextureTarget not implemented"
-        numColumns = tr "numColumns" $ fromIntegral $ numTiles * tileW
-        checkContinuations :: OutputPtr CChar -> CL (Vector Bool, Vector CInt)
-        checkContinuations continuations = runKernel (checkContinuationCL (params ^. rpLibrary)) continuations (fromIntegral numColumns::CInt) (Out numColumns) (Out 1) (Work1D numColumns)
-    in
-    --if checkJob job then
-       do --liftIO $ outputRasterJob job
-            let continuationSize = fromIntegral $ numTiles * tileW * 40
-            contPtr <- liftIO (mallocBytes continuationSize :: IO (Ptr CChar))
-            let continuations = OutPtr contPtr continuationSize
-                loop passCount passLimit = do liftIO $ putStrLn $ ">>> rasterCall pass:" ++ show passCount ++ " frame: " ++ show frame
-                                              rasterCall continuations passCount
-                                              --liftIO $ threadDelay 1000000
-                                              liftIO $ putStr ">>> checkContinuation "
-                                              isContinued <- VS.head . fst <$> checkContinuations continuations
-                                              liftIO $ putStrLn $ show isContinued
-                                              --liftIO $ threadDelay 1000000
-                                              --when (isContinued && passCount < passLimit) (loop (passCount + 1) passLimit)
-            --fillCall
-            loop 0 1
-            liftIO $ free contPtr
-            liftIO $ putStrLn ">>> rasterCall done"
+    in do liftIO $ putStrLn $ ">>> rasterCall frame: " ++ show frame
+          rasterCall
+          liftIO $ putStrLn ">>> rasterCall done"
 
-    --else do --liftIO $ putStrLn "fillCall"
-    --        fillCall
 
 
 rasterSection :: CInt
@@ -252,8 +180,8 @@ rasterSection :: CInt
               -> [Tile]
               -> CL ()
 rasterSection frame params input section =
- do job <- liftIO $ buildRasterJob input section
-    raster frame params job
+  do  job <- liftIO $ buildRasterJob input section
+      raster frame params job
 
 buildAndQueueRasterJobs :: CInt
                         -> RasterParams
@@ -261,7 +189,7 @@ buildAndQueueRasterJobs :: CInt
                         -> TileTree
                         -> IO ()
 buildAndQueueRasterJobs frame params input tileTree =
-  do  let tilesPerCall = fromIntegral . clMaxGroupSize $ params ^. rpLibrary
-          tileGroups = breakList tilesPerCall . tileTreeToList $ tileTree
+  do  let tilesPerCall = tr "tilesPerCall" $ fromIntegral . clMaxGroupSize $ params ^. rpLibrary
+          tileGroups = trWith (show .  length) "tileGroups" $ breakList tilesPerCall . tileTreeToList $ tileTree
           state = clState (params ^. rpLibrary)
       liftIO $ mapM_ (runCL state . rasterSection frame params input) tileGroups

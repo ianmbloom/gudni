@@ -117,7 +117,7 @@ insertPrimTile tile primEntry =
        }
 
 checkTileSpace :: Tile -> PrimEntry -> Bool
-checkTileSpace tile primEntry = tilePrimCount tile < mAXsHAPE && (tileStrandCount tile + (primEntry ^. primStrandCount)) < (NumStrands . fromIntegral $ mAXtHRESHOLDS)
+checkTileSpace tile primEntry = tilePrimCount tile < mAXsHAPE && (tileStrandCount tile + (primEntry ^. primStrandCount)) < (NumStrands . fromIntegral $ (mAXtHRESHOLDS `div` 4))
 
 hSplit :: Tile -> HTree
 hSplit tile =
