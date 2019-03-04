@@ -77,7 +77,7 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 27
+    , _stateCurrentTest = 1
     , _stateStep        = 3
     , _stateFrameNumber = 0
     }

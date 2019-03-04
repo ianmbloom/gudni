@@ -1,9 +1,12 @@
+{-# LANGUAGE TypeSynonymInstances #-}
+
 module Graphics.Gudni.Raster.TileTree
   ( TileTree(..)
   , Tile(..)
   , buildTileTree
   , addPrimToTree
   , tileTreeToList
+  , adjustedLog
   )
 where
 
@@ -14,6 +17,8 @@ import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Util.Debug
 
 import Control.Lens
+
+import Data.Tree
 
 type Width  = Ortho XDimension DisplaySpace
 type Height = Ortho YDimension DisplaySpace
@@ -34,7 +39,6 @@ data HTree = HTree
     , rightBranch :: VTree
     }
     | HLeaf Tile
-    deriving (Show)
 
 data VTree = VTree
     { vCut         :: Height
@@ -42,30 +46,29 @@ data VTree = VTree
     , bottomBranch :: HTree
     }
     | VLeaf Tile
-    deriving (Show)
 
 buildTileTree :: Point2 IntSpace -> HTree
-buildTileTree = buildTileTree' (fromIntegral <$> mAXtILEsIZE)
+buildTileTree = buildTileTree' (fromIntegral $ mAXtILEsIZE ^. pX)
 
 adjustedLog x = if x < 1 then 0 else ceiling . logBase 2 . fromIntegral $ x
 
-buildTileTree' :: Point2 IntSpace -> Point2 IntSpace -> HTree
-buildTileTree' tileSize canvasSize = goH maxDepth (pointToBox canvasSize)
+a `highDiv` b = ceiling $ fromIntegral a / fromIntegral b
+buildTileTree' :: IntSpace -> Point2 IntSpace -> HTree
+buildTileTree' tileSize canvasSize = goH canvasDepth $ tr "box" box
     where
-    gridW = canvasSize ^. pX `div` tileSize ^. pX
-    gridH = canvasSize ^. pY `div` tileSize ^. pY
-    logWidth  = adjustedLog gridW
-    logHeight = adjustedLog gridH
-    maxDepth  = max logWidth logHeight
+    maxCanvasDimension = max (unOrtho $ canvasSize ^. pX) (unOrtho $ canvasSize ^. pY)
+    canvasDepth = tr "logWidth"  $ adjustedLog maxCanvasDimension
+    tileDepth = tr "logWidth"  $ adjustedLog tileSize
+    box = pointToBox $ makePoint (2 ^ canvasDepth) (2 ^ canvasDepth)
     goH depth box =
-      let hIntCut = max (canvasSize ^. pX) (box ^. leftSide + fromIntegral (2 ^ (depth - 1)))
+      let hIntCut = box ^. leftSide + (2 ^ (depth - 1))
           hCut = fromIntegral hIntCut
-      in  if depth > 0
+      in  if depth > tileDepth
           then HTree hCut (goV depth (set rightSide hIntCut box))
                           (goV depth (set leftSide  hIntCut box))
           else HLeaf $ emptyTile box
     goV depth box =
-      let vIntCut = max (canvasSize ^. pY) (box ^. topSide + fromIntegral (2 ^ (depth - 1)))
+      let vIntCut = box ^. topSide + (2 ^ (depth - 1))
           vCut = fromIntegral vIntCut
       in  VTree vCut (goH (depth - 1) (set bottomSide vIntCut box))
                      (goH (depth - 1) (set topSide    vIntCut box))
@@ -151,3 +154,12 @@ tileTreeToListH (HLeaf tile) = pure tile
 tileTreeToListV :: VTree -> [Tile]
 tileTreeToListV (VTree _ top bottom) = tileTreeToListH top ++ tileTreeToListH bottom
 tileTreeToListV (VLeaf tile) = pure tile
+
+toDataTreeH (HLeaf tile) = Node (show (tileBox tile)) []
+toDataTreeH (HTree hCut left right) = Node ("H" ++ show hCut) [toDataTreeV left, toDataTreeV right]
+
+toDataTreeV (VLeaf tile) = Node (show (tileBox tile)) []
+toDataTreeV (VTree vCut top bottom) = Node ("V" ++ show vCut) [toDataTreeH top, toDataTreeH bottom]
+
+instance Show TileTree where
+  show = drawTree . toDataTreeH
