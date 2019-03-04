@@ -47,3 +47,39 @@ expandVerts vs = let removed = removeDuplicateVertices vs
                  in  if length removed <= 1
                      then []
                      else segmentsToCurvePairs removed
+
+
+bagSnd :: Bag PrimId (Shaper Enclosure) -> (BoundingBox, Shaper Enclosure) -> (Bag PrimId (Shaper Enclosure), PrimEntry)
+bagSnd bag (box, shapeEnclosure) =
+    let (bag', newPrimId) = addToBag bag shapeEnclosure
+    in  (bag', PrimEntry newPrimId (enclosureNumStrands $ shapeEnclosure ^. shRep) box)
+
+bagShapes :: [(BoundingBox, Shaper Enclosure)]
+          -> (Bag PrimId (Shaper Enclosure), [PrimEntry])
+bagShapes boxPrimEnclosures = mapAccumL bagSnd emptyBag boxPrimEnclosures
+
+
+newShape :: MonadIO m
+         => PrimId
+         -> Shaper Enclosure
+         -> RasterJobMonad DisplaySpace m ShapeId
+newShape primId (Shaper shapeInfo enclosure) =
+    do
+
+curveToGeoRef :: MonadIO m
+              => (PrimId, Shaper Enclosure)
+              -> RasterJobMonad DisplaySpace m ShapeId
+curveToGeoRef (primId, primEnclosure) =
+    do  geoMap <- use rJShapeMap
+        case M.lookup primId geoMap of
+            Just shapeRef -> return $ shapeRef
+            Nothing       -> newShape primId primEnclosure
+
+offsetShape :: Reference b -> (ShapeHeader, Slice PrimId) -> (ShapeHeader, Slice b)
+offsetShape offset (header, Slice ref breadth) = (header, Slice (Ref $ unRef ref+ unRef offset) (Breadth $ unBreadth breadth))
+
+checkJob :: RasterJob -> Bool
+checkJob job = not $ (isEmptyPile . view rJGeometryPile $ job) ||
+                     (isEmptyPile . view rJGroupPile    $ job) ||
+                     (isEmptyPile . view rJShapeRefPile  $ job) ||
+                     (isEmptyPile . view rJTilePile     $ job)

@@ -50,6 +50,7 @@ import Graphics.Gudni.Raster.Types
 import Graphics.Gudni.Raster.Constants (rANDOMFIELDsIZE)
 import Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
 import Graphics.Gudni.Raster.TileTree
+import Graphics.Gudni.Raster.Geometry
 import Graphics.Gudni.Raster.Job
 import Graphics.Gudni.Raster.TraverseShapeTree
 
@@ -187,23 +188,24 @@ drawFrame frame shapeTree =
         let canvasSize = Point2 width height
         appS <- use appState
         (mPictData, mems) <- liftIO $ providePictureData appS
-        (shapes, primBag, boxShapes, shapeState) <- lift  $ traverseShapeTree mems (fromIntegral <$> canvasSize) shapeTree
+        (shapes, boundedShapedEnclosures, shapeState) <- lift  $ traverseShapeTree mems (fromIntegral <$> canvasSize) shapeTree
+        (primEntries, geometryPile) <- liftIO $ buildGeometryPile $ concat boundedShapedEnclosures
         --liftIO $ evaluate $ rnf (shapes, primBag, blockShapes, shapeState)
         markAppTime "Traverse Shape Tree"
         let tileTree = buildTileTree (fromIntegral <$> canvasSize)
-            tileTree' = foldl addPrimToTree tileTree boxShapes
+            tileTree' = {-tr "tree" $-} foldl addPrimToTree tileTree {-$ tr "boxShapes"-} primEntries
         --liftIO $ putStrLn $ show tileTree'
         markAppTime "Build Tile Array"
         randomField <- use appRandomField
         let pictRefs = shapeState ^. stPictureRefs
             rasterParams = RasterParams library
                                         target
+                                        geometryPile
                                         mPictData
                                         (shapeState ^. stPictureRefs)
                                         randomField
             jobInput = RasterJobInput (backgroundColor shapeTree)
                                       shapes
-                                      primBag
                                       tileTree'
         appMessage "===================== rasterStart ====================="
         liftIO $ buildAndQueueRasterJobs frame rasterParams jobInput tileTree'
@@ -211,6 +213,9 @@ drawFrame frame shapeTree =
         markAppTime "Rasterize Threads"
         withIO appBackend $ presentTarget target
         markAppTime "Raster Frame"
+        --geometryPile %= resetPile
+        liftIO $ freePile geometryPile
+        --liftIO $ threadDelay 3000000
 
 -- Final phase of the event loop.
 endCycle :: SimpleTime -> ApplicationMonad s ()

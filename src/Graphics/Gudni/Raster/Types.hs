@@ -14,6 +14,10 @@ module Graphics.Gudni.Raster.Types
   , coCombineType, coRep
   , NumShapes     (..)
   , GeoReference  (..)
+  , PrimEntry(..)
+  , primGeoRef
+  , primStrandCount
+  , primBox
   )
 where
 
@@ -105,6 +109,13 @@ instance StorableM GeoReference where
              return (GeoRef s n)
   pokeM (GeoRef s n) = do pokeM s
                           pokeM n
+
+data PrimEntry = PrimEntry
+    { _primGeoRef :: GeoReference
+    , _primStrandCount :: NumStrands
+    , _primBox :: BoundingBox
+    } deriving (Show)
+makeLenses ''PrimEntry
 
 -------------------------- Shape ------------------------------
 

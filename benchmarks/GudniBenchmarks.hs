@@ -38,8 +38,8 @@ getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
     screenSize state = --FullScreen
-                       Window $ Point2 800
-                                       800
+                       Window $ Point2 16
+                                       16
     shouldLoop _ = True
     fontFile state = fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
     updateModelState frame elapsedTime inputs state =
@@ -57,11 +57,11 @@ instance Model BenchmarkState where
                         statePlayhead %= (`f` dt)
     constructFigure state status =
         do  testScene <- (snd $ getTest state) state
-            testName <- glyphString [] --(fst $ getTest state)
-            statusGlyphs <- mapM glyphString $ [] -- lines status
+            testName <- glyphString (fst $ getTest state)
+            statusGlyphs <- mapM glyphString $ lines status
             let tree = transformFromState testScene state
                 statusTree = statusDisplay state testName statusGlyphs
-                withStatus = if False then overlap [statusTree, tree] else tree
+                withStatus = if True then overlap [statusTree, tree] else tree
             return (ShapeRoot gray withStatus, "textForm")
     providePictureData state = return $ state ^. statePictures
 

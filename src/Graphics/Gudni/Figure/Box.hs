@@ -52,7 +52,7 @@ import qualified Data.Vector.Storable as VS
 import Linear.V2
 
 -- | Newtype wrapper for box types.
-newtype Box s = Bx {unBx :: V2 (Point2 s)} deriving (Eq, Show)
+newtype Box s = Bx {unBx :: V2 (Point2 s)} deriving (Eq)
 -- | Pattern for taking apart boxes
 pattern Box topLeft bottomRight = Bx (V2 topLeft bottomRight)
 
@@ -174,3 +174,10 @@ instance (Storable s) => Storable (Box s) where
   alignment = alignmentV
   peek = peekV
   poke = pokeV
+
+sd = showFl . realToFrac
+instance Show BoundingBox where
+  show (Box (Point2 left top) (Point2 right bottom)) = "Bx " ++ sd left ++ ", " ++ sd top ++ ", " ++ sd right ++ ", " ++ sd bottom
+
+instance Show (Box IntSpace) where
+  show (Box (Point2 left top) (Point2 right bottom)) = "Bx " ++ show left ++ ", " ++ show top ++ ", " ++ show right ++ ", " ++ show bottom

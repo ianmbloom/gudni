@@ -94,6 +94,7 @@ library
                      , Graphics.Gudni.OpenCL.Instances
                      , Graphics.Gudni.OpenCL.KernelLibrary
                      , Graphics.Gudni.Raster.ShapeInfo
+                     , Graphics.Gudni.Raster.Geometry
                      , Graphics.Gudni.Raster.Job
                      , Graphics.Gudni.Raster.Strand
                      , Graphics.Gudni.Raster.Enclosure

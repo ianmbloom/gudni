@@ -11,6 +11,7 @@ module Graphics.Gudni.Raster.TileTree
 where
 
 import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.Types
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.TraverseShapeTree
 import Graphics.Gudni.Raster.Enclosure
@@ -25,7 +26,7 @@ type Height = Ortho YDimension DisplaySpace
 type Size   = Int
 
 data Tile = Tile
-    { tilePrims       :: [PrimEntry]
+    { tilePrims       :: [Shaper PrimEntry]
     , tileStrandCount :: NumStrands
     , tilePrimCount   :: Size
     , tileBox         :: Box IntSpace
@@ -50,9 +51,9 @@ data VTree = VTree
 buildTileTree :: Point2 IntSpace -> HTree
 buildTileTree = buildTileTree' (fromIntegral $ mAXtILEsIZE ^. pX)
 
+adjustedLog :: IntSpace -> Int
 adjustedLog x = if x < 1 then 0 else ceiling . logBase 2 . fromIntegral $ x
 
-a `highDiv` b = ceiling $ fromIntegral a / fromIntegral b
 buildTileTree' :: IntSpace -> Point2 IntSpace -> HTree
 buildTileTree' tileSize canvasSize = goH canvasDepth $ tr "box" box
     where
@@ -73,54 +74,50 @@ buildTileTree' tileSize canvasSize = goH canvasDepth $ tr "box" box
       in  VTree vCut (goH (depth - 1) (set bottomSide vIntCut box))
                      (goH (depth - 1) (set topSide    vIntCut box))
 
-addPrimToTree :: HTree -> PrimEntry -> HTree
+addPrimToTree :: HTree -> Shaper PrimEntry -> HTree
 addPrimToTree = insertPrimH
 
 emptyTile :: Box IntSpace -> Tile
 emptyTile box = Tile [] 0 0 box
 
-insertPrimH :: HTree -> PrimEntry -> HTree
+insertPrimH :: HTree -> Shaper PrimEntry -> HTree
 insertPrimH (HTree cut left right) primEntry =
-    let left'  = if primEntry ^. primBox . leftSide < cut
+    let left'  = if primEntry ^. shRep . primBox . leftSide < cut
                  then insertPrimV left primEntry
                  else left
-        right' = if primEntry ^. primBox .rightSide > cut
+        right' = if primEntry ^. shRep .primBox . rightSide > cut
                  then insertPrimV right primEntry
                  else right
     in  HTree cut left' right'
 insertPrimH (HLeaf tile) primEntry =
-  if checkTileSpace tile primEntry
+  if checkTileSpace tile primEntry || widthBox (tileBox tile) <= mINtILEsIZE ^. pX
   then HLeaf $ insertPrimTile tile primEntry
-  else if widthBox (tileBox tile) > mINtILEsIZE ^. pX
-       then insertPrimH (hSplit tile) primEntry
-       else (HLeaf tile) -- once the tile is too small to split, start ignoring shapes.
+  else insertPrimH (hSplit tile) primEntry
 
-insertPrimV :: VTree -> PrimEntry -> VTree
+insertPrimV :: VTree -> Shaper PrimEntry -> VTree
 insertPrimV (VTree cut top bottom) primEntry =
-    let top'    = if primEntry ^. primBox . topSide < cut
+    let top'    = if primEntry ^. shRep . primBox . topSide < cut
                   then insertPrimH top primEntry
                   else top
-        bottom' = if primEntry ^. primBox . bottomSide > cut
+        bottom' = if primEntry ^. shRep . primBox . bottomSide > cut
                   then insertPrimH bottom primEntry
                   else bottom
     in  VTree cut top' bottom'
 insertPrimV (VLeaf tile) primEntry =
-    if checkTileSpace tile primEntry
+    if checkTileSpace tile primEntry || heightBox (tileBox tile) <= mINtILEsIZE ^. pY
     then VLeaf $ insertPrimTile tile primEntry
-    else if heightBox (tileBox tile) > mINtILEsIZE ^. pY
-         then insertPrimV (vSplit tile) primEntry
-         else (VLeaf tile) -- once the tile is too small to split, start ignoring shapes.
+    else insertPrimV (vSplit tile) primEntry
 
-insertPrimTile :: Tile -> PrimEntry -> Tile
+insertPrimTile :: Tile -> Shaper PrimEntry -> Tile
 insertPrimTile tile primEntry =
   Tile { tilePrims = primEntry:tilePrims tile
-       , tileStrandCount = tileStrandCount tile + primEntry ^. primStrandCount
+       , tileStrandCount = tileStrandCount tile + primEntry ^. shRep . primStrandCount
        , tilePrimCount = tilePrimCount tile + 1
        , tileBox = tileBox tile
        }
 
-checkTileSpace :: Tile -> PrimEntry -> Bool
-checkTileSpace tile primEntry = tilePrimCount tile < mAXsHAPE && (tileStrandCount tile + (primEntry ^. primStrandCount)) < (NumStrands . fromIntegral $ (mAXtHRESHOLDS `div` 4))
+checkTileSpace :: Tile -> Shaper PrimEntry -> Bool
+checkTileSpace tile primEntry = tilePrimCount tile < mAXsHAPE && (tileStrandCount tile + (primEntry ^. shRep . primStrandCount)) < (NumStrands . fromIntegral $ mAXsTRANDpERtILE)
 
 hSplit :: Tile -> HTree
 hSplit tile =
@@ -131,7 +128,7 @@ hSplit tile =
       lTile = emptyTile lBox
       rTile = emptyTile rBox
       hTree = HTree (fromIntegral cut) (VLeaf lTile) (VLeaf rTile)
-  in  foldl insertPrimH hTree (tilePrims tile)
+  in  {-tr "hSplit" $-} foldl insertPrimH hTree (tilePrims tile)
 
 vSplit :: Tile -> VTree
 vSplit tile =
@@ -142,7 +139,7 @@ vSplit tile =
       tTile = emptyTile tBox
       bTile = emptyTile bBox
       vTree = VTree (fromIntegral cut) (HLeaf tTile) (HLeaf bTile)
-  in  foldl insertPrimV vTree (tilePrims tile)
+  in  {-tr "vSplit" $-} foldl insertPrimV vTree (tilePrims tile)
 
 tileTreeToList :: TileTree -> [Tile]
 tileTreeToList = tileTreeToListH
@@ -155,11 +152,15 @@ tileTreeToListV :: VTree -> [Tile]
 tileTreeToListV (VTree _ top bottom) = tileTreeToListH top ++ tileTreeToListH bottom
 tileTreeToListV (VLeaf tile) = pure tile
 
-toDataTreeH (HLeaf tile) = Node (show (tileBox tile)) []
+showTile tile = "Shapes " ++ show (tilePrimCount tile) ++ " Strands " ++ show (tileStrandCount tile)
+toDataTreeH (HLeaf tile) = Node (showTile tile) []
 toDataTreeH (HTree hCut left right) = Node ("H" ++ show hCut) [toDataTreeV left, toDataTreeV right]
 
-toDataTreeV (VLeaf tile) = Node (show (tileBox tile)) []
+toDataTreeV (VLeaf tile) = Node (showTile tile) []
 toDataTreeV (VTree vCut top bottom) = Node ("V" ++ show vCut) [toDataTreeH top, toDataTreeH bottom]
 
 instance Show TileTree where
   show = drawTree . toDataTreeH
+
+instance Show VTree where
+  show = drawTree . toDataTreeV

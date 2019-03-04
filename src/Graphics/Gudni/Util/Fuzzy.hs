@@ -114,7 +114,7 @@ fuzzyCurve :: (RandomGen g) => Point2 DisplaySpace -> Int -> Rand g ShapeTree
 fuzzyCurve range len = do
   color <- Solid <$> getRandom
   token <- getRandomR(0,32768)
-  segmentList <- take len <$> getRandomRs(straight 0 0, straight 10 10)
+  segmentList <- take len <$> getRandomRs(straight 0 0, Straight range)
   return $ SLeaf $ SRep token color $ SLeaf $ Raw segmentList
 
 makePairs :: [a] -> [(a,a)]
@@ -133,7 +133,6 @@ fuzzyRadial minRad maxRad len = do
       makeSegment isCurved (onCurve, offCurve) = if isCurved then Straight onCurve else Curved onCurve offCurve
       segmentList = take len $ zipWith makeSegment boolList pointPairList
   return $ SLeaf $ SRep token color $ SLeaf $ Raw segmentList
-
 
 fuzzyGray :: (RandomGen g) => Point2 DisplaySpace -> Int -> Rand g ShapeTree
 fuzzyGray range len = do

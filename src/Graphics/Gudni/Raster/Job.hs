@@ -9,10 +9,8 @@ module Graphics.Gudni.Raster.Job
   , runRasterJobMonad
   , RasterJobInput(..)
   , rjiBackgroundColor
-  , rjiPrimBag
   , rjiTileTree
   , RasterJob(..)
-  , rJGeometryPile
   , rJShapePile
   , rJShapeRefPile
   , rJGroupPile
@@ -77,14 +75,12 @@ data TileInfo = TileInfo
 data RasterJobInput = RasterJobInput
   { _rjiBackgroundColor :: Color
   , _rjiShapes          :: [ShapeHeader]
-  , _rjiPrimBag         :: Bag PrimId (Shaper Enclosure)
   , _rjiTileTree        :: TileTree
   }
 makeLenses ''RasterJobInput
 
 data RasterJob = RasterJob
-  { _rJGeometryPile    :: !BytePile
-  , _rJShapePile       :: !(Pile Shape)
+  { _rJShapePile       :: !(Pile Shape)
   , _rJShapeRefPile    :: !(Pile ShapeId)
   , _rJTilePile        :: !(Pile TileInfo)
   , _rJGroupPile       :: !(Pile ShapeHeader)
@@ -95,6 +91,7 @@ makeLenses ''RasterJob
 
 type RasterJobMonad s m = StateT (RasterJob) m
 
+
 -- | Run a RasterJobMonad and return the state.
 runRasterJobMonad :: MonadIO m => RasterJob -> RasterJobMonad s m a -> m RasterJob
 runRasterJobMonad job code = execStateT code job
@@ -102,15 +99,12 @@ runRasterJobMonad job code = execStateT code job
 -- | Create a new rasterJob with default allocation sizes.
 newRasterJob :: MonadIO m => m RasterJob
 newRasterJob = liftIO $
-    do
-        initGeometryPile <- newPileSize 65536 :: IO BytePile
-        initShapePile     <- newPile :: IO (Pile Shape)
+    do  initShapePile     <- newPile :: IO (Pile Shape)
         initShapeRefPile  <- newPile :: IO (Pile (Reference Shape))
         initTilePile     <- newPile :: IO (Pile TileInfo)
         initGroupPile    <- newPile :: IO (Pile ShapeHeader)
         return RasterJob
-            { _rJGeometryPile    = initGeometryPile
-            , _rJShapePile       = initShapePile
+            { _rJShapePile       = initShapePile
             , _rJShapeRefPile    = initShapeRefPile
             , _rJGroupPile       = initGroupPile
             , _rJTilePile        = initTilePile
@@ -121,65 +115,33 @@ newRasterJob = liftIO $
 -- | Free all memory allocated by the 'RasterJob'
 freeRasterJob :: RasterJob -> IO ()
 freeRasterJob job =
-    do  freePile $ job ^. rJGeometryPile
-        freePile $ job ^. rJShapePile
+    do  freePile $ job ^. rJShapePile
         freePile $ job ^. rJGroupPile
         freePile $ job ^. rJShapeRefPile
         freePile $ job ^. rJTilePile
 
 -- | Reset pile cursors for the entire job and erase the shape map
-resetRasterJob :: RasterJobMonad s IO ()
+resetRasterJob :: MonadIO m => RasterJobMonad s m ()
 resetRasterJob =
-    do  rJGeometryPile %= resetPile
-        rJShapePile    %= resetPile
+    do  rJShapePile    %= resetPile
         rJShapeRefPile %= resetPile
         rJTilePile     %= resetPile
         rJShapeMap     .= M.empty
 
-
--- add the enclosure data to the geometry pile
-appendGeoRef :: MonadIO m
-             => Enclosure
-             -> RasterJobMonad s m GeoReference
-appendGeoRef enclosure =
-    do  offsetShapeStartBytes <- addToBytePileState rJGeometryPile enclosure
-        -- the size of the shape data is measured in 64 bit chunks so that a short int can address more data.
-        let offsetShapeStart = Ref $ fromIntegral offsetShapeStartBytes `div` fromIntegral (sizeOf (undefined :: Point2 DisplaySpace) * 2)
-        return $ GeoRef offsetShapeStart (enclosureNumStrands enclosure)
-
-newShape :: MonadIO m
-         => PrimId
-         -> Shaper Enclosure
-         -> RasterJobMonad DisplaySpace m ShapeId
-newShape primId (Shaper shapeInfo enclosure) =
-    do -- append the geometric enclosure data to the heap and return a reference
-       geoRef <- appendGeoRef enclosure
-       -- add the shape to the pile of shapes and return a reference to it.
-       shapeRef <- addToPileState rJShapePile (Shaper shapeInfo geoRef)
-       -- add the shapeId to the map between primitive ids and shapeIds
-       rJShapeMap %= M.insert primId shapeRef
+appendShape :: MonadIO m
+            => Shaper PrimEntry
+            -> RasterJobMonad DisplaySpace m ShapeId
+appendShape (Shaper shapeInfo primEntry) =
+    do -- add the shape to the pile of shapes and return a reference to it.
+       shapeRef <- addToPileState rJShapePile (Shaper shapeInfo (primEntry ^. primGeoRef))
        return shapeRef
 
-curveToGeoRef :: MonadIO m
-              => (PrimId, Shaper Enclosure)
-              -> RasterJobMonad DisplaySpace m ShapeId
-curveToGeoRef (primId, primEnclosure) =
-    do  geoMap <- use rJShapeMap
-        case M.lookup primId geoMap of
-            Just shapeRef -> return $ shapeRef
-            Nothing       -> newShape primId primEnclosure
-
-offsetShape :: Reference b -> (ShapeHeader, Slice PrimId) -> (ShapeHeader, Slice b)
-offsetShape offset (header, Slice ref breadth) = (header, Slice (Ref $ unRef ref+ unRef offset) (Breadth $ unBreadth breadth))
-
 tileToRasterJob :: MonadIO m
-                => Bag PrimId (Shaper Enclosure)
-                -> Tile
+                => Tile
                 -> RasterJobMonad DisplaySpace m ()
-tileToRasterJob primBag tile =
-  do  let primIds = map (view primId) $ tilePrims tile
-          primCurves = map (getFromBag primBag) primIds
-      shapeRefs <- mapM curveToGeoRef $ zip primIds primCurves
+tileToRasterJob tile =
+  do  let primEntries = tilePrims tile
+      shapeRefs <- mapM appendShape primEntries
       slice <- addListToPileState rJShapeRefPile shapeRefs
       let tileInfo = TileInfo (tileBox tile) slice 0 0
       addToPileState rJTilePile tileInfo
@@ -195,7 +157,7 @@ buildRasterJob input tiles =
                   do groupPile <- liftIO $ listToPile $ input ^. rjiShapes
                      rJBackgroundColor .= input ^. rjiBackgroundColor
                      rJGroupPile .= groupPile
-                     mapM (tileToRasterJob (input ^. rjiPrimBag)) tiles
+                     mapM tileToRasterJob tiles
       --liftIO $ outputRasterJob job'
       return job'
 
@@ -210,9 +172,6 @@ putStrList ls =
 outputRasterJob :: RasterJob -> IO ()
 outputRasterJob job =
   do
-    putStrLn "---------------- rJGeometryPile ------------------- "
-    print . view rJGeometryPile $ job
-    putStr =<< fmap unlines (bytePileToGeometry . view rJGeometryPile $ job)
     putStrLn "---------------- rJShapePile  ---------------------- "
     print . view rJShapePile $ job
     putStrList =<< (pileToList . view rJShapePile $ job)
@@ -252,4 +211,4 @@ instance NFData TileInfo where
   rnf (TileInfo a b c d) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()
 
 instance NFData RasterJob where
-  rnf (RasterJob a b c d e f g) = {-a `deepseq`-} b `deepseq` c `deepseq` d `deepseq` e `deepseq` f `deepseq` g `deepseq` ()
+  rnf (RasterJob a b c d e f) = {-a `deepseq`-} b `deepseq` c `deepseq` d `deepseq` e `deepseq` f `deepseq` ()

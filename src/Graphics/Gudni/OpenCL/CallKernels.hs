@@ -27,6 +27,7 @@ import Graphics.Gudni.Raster.TraverseShapeTree
 import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Raster.ShapeInfo
 import Graphics.Gudni.Raster.Types
+import Graphics.Gudni.Raster.Geometry
 import Graphics.Gudni.Raster.TileTree
 import Graphics.Gudni.Raster.Job
 
@@ -67,6 +68,7 @@ import Data.Word
 data RasterParams = RasterParams
   { _rpLibrary         :: OpenCLKernelLibrary
   , _rpTarget          :: DrawTarget
+  , _rpGeometryPile    :: GeometryPile
   , _rpPictData        :: Maybe (Pile Word8)
   , _rpPictRefs        :: [PictureRef PictureMemory]
   , _rpRandomField     :: RandomField
@@ -75,12 +77,6 @@ makeLenses ''RasterParams
 
 pixelBufferSize :: CInt -> CInt -> CInt
 pixelBufferSize width height = width * height
-
-checkJob :: RasterJob -> Bool
-checkJob job = not $ (isEmptyPile . view rJGeometryPile $ job) ||
-                     (isEmptyPile . view rJGroupPile    $ job) ||
-                     (isEmptyPile . view rJShapeRefPile  $ job) ||
-                     (isEmptyPile . view rJTilePile     $ job)
 
 emptyPictureData :: IO (Pile Word8)
 emptyPictureData = do pile <- newPile
@@ -103,6 +99,7 @@ generateCall  :: (KernelArgs
                  )
               => OpenCLState
               -> CLKernel
+              -> GeometryPile
               -> Maybe (Pile Word8)
               -> [PictureRef PictureMemory]
               -> VS.Vector CFloat
@@ -112,9 +109,8 @@ generateCall  :: (KernelArgs
               -> RasterJob
               -> a
               -> CL ()
-generateCall state kernel pictData pictRefs randomField bitmapWidth bitmapHeight frame job target =
-    let geometryHeap    = job ^. rJGeometryPile
-        shapeHeap       = job ^. rJShapePile
+generateCall state kernel geometryHeap pictData pictRefs randomField bitmapWidth bitmapHeight frame job target =
+    let shapeHeap       = job ^. rJShapePile
         shapeRefHeap    = job ^. rJShapeRefPile
         groupPile       = job ^. rJGroupPile
         tileHeap        = job ^. rJTilePile
@@ -159,6 +155,7 @@ raster frame params job =
             case targetBuffer (params ^. rpTarget) of
                 HostBitmapTarget outputPtr ->
                     generateCall state (multiTileRasterCL (params ^. rpLibrary))
+                                       (params ^. rpGeometryPile)
                                        (params ^. rpPictData)
                                        (params ^. rpPictRefs)
                                        (params ^. rpRandomField)
@@ -171,8 +168,6 @@ raster frame params job =
     in do liftIO $ putStrLn $ ">>> rasterCall frame: " ++ show frame
           rasterCall
           liftIO $ putStrLn ">>> rasterCall done"
-
-
 
 rasterSection :: CInt
               -> RasterParams

@@ -24,8 +24,11 @@ import Foreign.Storable
 import Control.DeepSeq
 
 type NumStrands_ = CUInt
-newtype NumStrands = NumStrands {unNumStrands :: NumStrands_} deriving (Eq, Ord, Show, Num)
+newtype NumStrands = NumStrands {unNumStrands :: NumStrands_} deriving (Eq, Ord, Num)
 
+instance Show NumStrands where
+  show = show . unNumStrands
+  
 data Enclosure = Enclosure
  { enclosureNumStrands   :: !NumStrands
  , enclosureTrees        :: [Strand]

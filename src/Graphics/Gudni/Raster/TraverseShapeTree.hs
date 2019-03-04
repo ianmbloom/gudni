@@ -10,10 +10,6 @@ module Graphics.Gudni.Raster.TraverseShapeTree
   ( EnclosureMonad (..)
   , runEnclosureMonad
   , PrimId (..)
-  , PrimEntry(..)
-  , primId
-  , primStrandCount
-  , primBox
   , makeCurveEnclosure
   , ShapeTreeState (..)
   , stTokenMap
@@ -58,13 +54,6 @@ type Outlines    = Group (Outline DisplaySpace)
 
 type PrimId = Reference (Shaper Enclosure)
 
-data PrimEntry = PrimEntry
-    { _primId :: PrimId
-    , _primStrandCount :: NumStrands
-    , _primBox :: BoundingBox
-    } deriving (Show)
-makeLenses ''PrimEntry
-
 data ShapeTreeState token = ShapeTreeState
     { _stGroupId           :: GroupId
     , _stTokenMap          :: M.Map token GroupId
@@ -87,7 +76,7 @@ makeCurveEnclosures :: CurveTable
                     -> Int
                     -> Point2 DisplaySpace
                     -> Group (Shaper Outlines)
-                    -> [(BoundingBox, Shaper Enclosure)]
+                    -> [Shaper (BoundingBox, Enclosure)]
 makeCurveEnclosures curveTable sectionSize canvasSize  =
     catMaybes . unGroup . fmap (makeCurveEnclosure curveTable sectionSize canvasSize)
 
@@ -95,13 +84,13 @@ makeCurveEnclosure :: CurveTable
                    -> Int
                    -> Point2 DisplaySpace
                    -> Shaper Outlines
-                   -> Maybe (BoundingBox, Shaper Enclosure)
+                   -> Maybe (Shaper (BoundingBox, Enclosure))
 makeCurveEnclosure curveTable sectionSize canvasSize (Shaper shapeInfo outlines) =
      let boundingBox = getBoundingBox outlines
      in  if excludeBox canvasSize boundingBox
          then Nothing
          else let enclosure = enclose curveTable sectionSize (unGroup outlines)
-              in  Just (boundingBox, Shaper shapeInfo enclosure)
+              in  Just (Shaper shapeInfo (boundingBox, enclosure))
 
 type ShapeTreeMonad token = State (ShapeTreeState token)
 
@@ -177,15 +166,6 @@ combineShapeTree = \case
      in  combine overlap above' below'
   STransform t child -> error "shapeTransforms should be removed before combining"
 
-bagSnd :: Bag PrimId (Shaper Enclosure) -> (BoundingBox, Shaper Enclosure) -> (Bag PrimId (Shaper Enclosure), PrimEntry)
-bagSnd bag (box, shapeEnclosure) =
-    let (bag', newPrimId) = addToBag bag shapeEnclosure
-    in  (bag', PrimEntry newPrimId (enclosureNumStrands $ shapeEnclosure ^. shRep) box)
-
-bagShapes :: [(BoundingBox, Shaper Enclosure)]
-          -> (Bag PrimId (Shaper Enclosure), [PrimEntry])
-bagShapes boxPrimEnclosures = mapAccumL bagSnd emptyBag boxPrimEnclosures
-
 mkPrimitive :: GroupId -> Substance a -> Combiner rep -> Shaper rep
 mkPrimitive token substance (Combiner combineType rep) = Shaper (ShapeInfo (substanceToSubstanceType substance) combineType token) rep
 
@@ -200,8 +180,7 @@ traverseShapeTree :: (Monad m)
                  -> Point2 DisplaySpace
                  -> ShapeTreeRoot
                  -> EnclosureMonad m ( [ShapeHeader]
-                                     , Bag PrimId (Shaper Enclosure)
-                                     , [PrimEntry]
+                                     , [[Shaper (BoundingBox, Enclosure)]]
                                      , ShapeTreeState Int)
 traverseShapeTree pictureMems canvasSize (ShapeRoot backgroundColor shapeTree) =
     do  (curveTable, sectionSize) <- get
@@ -214,10 +193,9 @@ traverseShapeTree pictureMems canvasSize (ShapeRoot backgroundColor shapeTree) =
             combinedCompounds = fmap (over shapeCompoundTree (combineShapeTree . fmap defaultCombineType)) transformedTree
             curveShapes :: [(ShapeHeader, Shapers Outlines)]
             curveShapes = combineShapeTree . fmap (pure . buildPrimitives) $ combinedCompounds
-            boxPrimEnclosures = parMap rpar {- map -} (makeCurveEnclosures curveTable sectionSize canvasSize) $ map snd curveShapes
-            (primBag, primEntries) = bagShapes $ concat boxPrimEnclosures
+            boundedShapedEnclosures = parMap rpar {- map -} (makeCurveEnclosures curveTable sectionSize canvasSize) $ map snd curveShapes
             shapes = map fst curveShapes
-        return (shapes, primBag, primEntries, shapeTreeState)
+        return (shapes, boundedShapedEnclosures, shapeTreeState)
 
 -- * Instances
 
