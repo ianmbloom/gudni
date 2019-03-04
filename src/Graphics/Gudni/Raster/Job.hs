@@ -12,7 +12,6 @@ module Graphics.Gudni.Raster.Job
   , rjiTileTree
   , RasterJob(..)
   , rJShapePile
-  , rJShapeRefPile
   , rJGroupPile
   , rJTilePile
   , rJBackgroundColor
@@ -64,7 +63,7 @@ data TileInfo = TileInfo
   -- | Pixel boundaries of tile.
   { _tiBox    :: !(Box IntSpace)
   -- | Range of shapeIds in the geometry heap.
-  , _tiShapes :: !(Slice ShapeId)
+  , _tiShapes :: !(Slice (Shaper GeoReference))
   -- | Logarithmic horizontal depth.
   , _tiHDepth :: !(CInt)
   -- | Logarithmic vertical depth.
@@ -80,7 +79,6 @@ makeLenses ''RasterJobInput
 
 data RasterJob = RasterJob
   { _rJShapePile       :: !(Pile Shape)
-  , _rJShapeRefPile    :: !(Pile ShapeId)
   , _rJTilePile        :: !(Pile TileInfo)
   , _rJGroupPile       :: !(Pile ShapeHeader)
   , _rJBackgroundColor :: !Color
@@ -99,12 +97,10 @@ runRasterJobMonad job code = execStateT code job
 newRasterJob :: MonadIO m => m RasterJob
 newRasterJob = liftIO $
     do  initShapePile     <- newPile :: IO (Pile Shape)
-        initShapeRefPile  <- newPile :: IO (Pile (Reference Shape))
         initTilePile     <- newPile :: IO (Pile TileInfo)
         initGroupPile    <- newPile :: IO (Pile ShapeHeader)
         return RasterJob
             { _rJShapePile       = initShapePile
-            , _rJShapeRefPile    = initShapeRefPile
             , _rJGroupPile       = initGroupPile
             , _rJTilePile        = initTilePile
             , _rJBackgroundColor = clear black
@@ -116,32 +112,32 @@ freeRasterJob :: RasterJob -> IO ()
 freeRasterJob job =
     do  freePile $ job ^. rJShapePile
         freePile $ job ^. rJGroupPile
-        freePile $ job ^. rJShapeRefPile
         freePile $ job ^. rJTilePile
 
 -- | Reset pile cursors for the entire job and erase the shape map
 resetRasterJob :: MonadIO m => RasterJobMonad s m ()
 resetRasterJob =
     do  rJShapePile    %= resetPile
-        rJShapeRefPile %= resetPile
         rJTilePile     %= resetPile
         rJShapeMap     .= M.empty
 
-appendShape :: MonadIO m
-            => Shaper PrimEntry
-            -> RasterJobMonad DisplaySpace m ShapeId
-appendShape (Shaper shapeInfo primEntry) =
-    do -- add the shape to the pile of shapes and return a reference to it.
-       shapeRef <- addToPileState rJShapePile (Shaper shapeInfo (primEntry ^. primGeoRef))
-       return shapeRef
+referenceShape :: Shaper PrimEntry -> Shaper GeoReference
+referenceShape (Shaper info primEntry) = Shaper info (primEntry ^. primGeoRef)
+
+appendShapes :: MonadIO m
+            => [Shaper GeoReference]
+            -> RasterJobMonad DisplaySpace m (Slice (Shaper GeoReference))
+appendShapes shapes =
+       -- add the shape to the pile of shapes and return a reference to it.
+       addListToPileState rJShapePile shapes
+
 
 tileToRasterJob :: MonadIO m
                 => Tile
                 -> RasterJobMonad DisplaySpace m ()
 tileToRasterJob tile =
   do  let primEntries = tilePrims tile
-      shapeRefs <- mapM appendShape primEntries
-      slice <- addListToPileState rJShapeRefPile shapeRefs
+      slice <- appendShapes $ map referenceShape primEntries
       let tileInfo = TileInfo (tileBox tile) slice 0 0
       addToPileState rJTilePile tileInfo
       return ()
@@ -174,8 +170,6 @@ outputRasterJob job =
     putStrLn "---------------- rJShapePile  ---------------------- "
     print . view rJShapePile $ job
     putStrList =<< (pileToList . view rJShapePile $ job)
-    putStrLn "---------------- rJShapeRefPile  ------------------- "
-    putStrList =<< (pileToList . view rJShapeRefPile $ job)
     putStrLn "---------------- rJGroupPile ------------------- "
     putStrList =<< (pileToList . view rJGroupPile $ job)
     putStrLn "---------------- rJTilePile ----------------------- "
@@ -210,4 +204,4 @@ instance NFData TileInfo where
   rnf (TileInfo a b c d) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()
 
 instance NFData RasterJob where
-  rnf (RasterJob a b c d e f) = {-a `deepseq`-} b `deepseq` c `deepseq` d `deepseq` e `deepseq` f `deepseq` ()
+  rnf (RasterJob a b c d e) = {-a `deepseq`-} b `deepseq` c `deepseq` d `deepseq` e `deepseq` ()

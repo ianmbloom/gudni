@@ -482,7 +482,7 @@ typedef struct Continuation {
 } Continuation;
 
 typedef struct TileState {
-   SMEM  GEO_ENTRY *tileShapeRefs;
+         GEO_ENTRY  tileShapeStart;
                int  tileNumShapes;
                int  tileWidth;
                int  tileHeight;
@@ -680,7 +680,7 @@ COLOR determineColor( PMEM   ShapeState *shS
                     , PMEM   ColorState *cS
                     , SMEM        Group *groups
                     , SMEM        Shape *shapeHeap
-                    , SMEM    GEO_ENTRY *shapeRefs
+                    ,         GEO_ENTRY  shapeStart
                     );
 
 void verticalAdvance( PMEM ThresholdState *tS
@@ -710,7 +710,7 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
                          , SMEM          float4 *geometryHeap
                          , SMEM           Group *groups
                          , SMEM           Shape *shapeHeap
-                         , SMEM       GEO_ENTRY *shapeRefs
+                         ,            GEO_ENTRY  shapeStart
                          ,            GEO_ENTRY  numShapes
                          ,               float2  point
                          );
@@ -746,7 +746,6 @@ void initParseState (PMEM     ParseState *pS
 void initTileState ( PMEM  TileState *tileS
                    ,             int  tileIndex
                    , SMEM   TileInfo *tileHeap
-                   , SMEM        REF *shapeRefHeap
                    ,             int  bitmapWidth
                    ,             int  bitmapHeight
                    ,             int  column
@@ -777,8 +776,8 @@ float8 sectionColor ( PMEM     ParseState *pS
                     , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
                     , SMEM          Group *groups
-                    , SMEM           Shape *shapeHeap
-                    , SMEM      GEO_ENTRY *shapeRefs
+                    , SMEM          Shape *shapeHeap
+                    ,           GEO_ENTRY  shapeStart
                     );
 
 void calculatePixel ( PMEM      TileState *tileS
@@ -841,10 +840,10 @@ void showShapeColors(     ShapeState *shS
 void showGroups(SMEM Group *groups, int numGroups);
 void showContinuation(Continuation c);
 void showShapeRefs(SMEM REF *shapeRefs, int numShapes);
-void showShapes (SMEM Shape *shapeHeap, SMEM GEO_ENTRY *shapeRefs, SMEM Group *groups, int numShapes);
+void showShapes (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Group *groups, int numShapes);
 void showShapeStack(SHAPESHACK *shapeStack);
 void showShapeStackHs(SHAPESHACK *shapeStack);
-void showShapeAlignment (SMEM Shape *shapeHeap, SMEM GEO_ENTRY *shapeRefs, SMEM Group *groups, int numShapes);
+void showShapeAlignment (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Group *groups, int numShapes);
 void showData (GMEM uchar *pictData, int width, int height);
 void showThresholdHeader( HEADER header);
 void showThresholdGeo (THRESHOLD threshold);
@@ -1644,7 +1643,7 @@ COLOR determineColor( PMEM    ShapeState *shS
                     , PMEM    ColorState *cS
                     , SMEM         Group *groups
                     , SMEM         Shape *shapeHeap
-                    , SMEM     GEO_ENTRY *shapeRefs
+                    ,          GEO_ENTRY  shapeStart
                     ) {
     int topBit = MAXSHAPE;
     COLOR baseColor = TRANSPARENT_COLOR;
@@ -1666,8 +1665,7 @@ COLOR determineColor( PMEM    ShapeState *shS
         }
         else {
             int referenceFromBit = shS->shapeIndices[topBit];
-            GEO_ENTRY shapeIndex = shapeRefs[referenceFromBit];
-            SHAPETAG tag = shapeHeap[shapeIndex].shapeTag;
+            SHAPETAG tag = shapeHeap[referenceFromBit].shapeTag;
             shapeId = shapeTagGroupId(tag);
             //DEBUG_IF(printf("topBit %i shapeId %i lastId %i ",
             //                 topBit,   shapeId,   lastId   );)
@@ -1789,14 +1787,15 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
                          , SMEM          float4 *geometryHeap
                          , SMEM           Group *groups
                          , SMEM           Shape *shapeHeap
-                         , SMEM       GEO_ENTRY *shapeRefs
+                         ,            GEO_ENTRY  shapeStart
                          ,            GEO_ENTRY  numShapes
                          ,               float2  point
                          ) {
     SHAPEBIT shapeBit = 0;
-    for (GEO_ENTRY shapeIndex = 0; shapeIndex < numShapes; shapeIndex++) { // iterate over every shape in the current shape.
+    for (GEO_ENTRY n = 0; n < numShapes; n++) { // iterate over every shape in the current shape.
+        GEO_ENTRY shapeIndex = shapeStart + n;
         tS->thresholdWasAdded = false;
-        Shape shape = shapeHeap[shapeRefs[shapeIndex]]; // get the current shape.
+        Shape shape = shapeHeap[shapeIndex]; // get the current shape.
          // if you don't shift the shape to the tile size there will be accuracy errors with height floating point geometric values
         SMEM float2 *strandHeap = (SMEM float2 *)&geometryHeap[getGeometryStart(shape)];
         bool enclosedByShape = false;
@@ -1998,13 +1997,12 @@ void initParseState (PMEM     ParseState *pS
 void initTileState ( PMEM  TileState *tileS
                    ,             int  tileIndex
                    , SMEM   TileInfo *tileHeap
-                   , SMEM        REF *shapeRefHeap
                    ,             int  bitmapWidth
                    ,             int  bitmapHeight
                    ,             int  column
                    ) {
     TileInfo tileInfo    = tileHeap[tileIndex];
-    tileS->tileShapeRefs = &shapeRefHeap[tileInfo.tileShapeSlice.sStart];
+    tileS->tileShapeStart = tileInfo.tileShapeSlice.sStart;
     tileS->tileNumShapes = tileInfo.tileShapeSlice.sLength;
     tileS->tileWidth     = boxRight(tileInfo.tileBox)  - boxLeft(tileInfo.tileBox);
     tileS->tileHeight    = boxBottom(tileInfo.tileBox) - boxTop(tileInfo.tileBox);
@@ -2027,13 +2025,13 @@ float8 sectionColor ( PMEM     ParseState *pS
                     , PMEM     ColorState *cS
                     , SMEM          Group *groups
                     , SMEM          Shape *shapeHeap
-                    , SMEM      GEO_ENTRY *shapeRefs
+                    ,           GEO_ENTRY  shapeStart
                     ) {
     COLOR color = determineColor( shS
                                 , cS
                                 , groups
                                 , shapeHeap
-                                , shapeRefs
+                                , shapeStart
                                 );
     DEBUG_NEXTSECTION
     float random = getRandom(pS);
@@ -2248,7 +2246,7 @@ void calculatePixel ( PMEM      TileState *tileS
                                        , geometryHeap
                                        , groups
                                        , shapeHeap
-                                       , tileS->tileShapeRefs
+                                       , tileS->tileShapeStart
                                        , tileS->tileNumShapes
                                        , (float2)(tileS->tileDeltaX + x, tileS->tileDeltaY)
                                        );
@@ -2287,7 +2285,7 @@ void calculatePixel ( PMEM      TileState *tileS
                                            , cS
                                            , groups
                                            , shapeHeap
-                                           , tileS->tileShapeRefs
+                                           , tileS->tileShapeStart
                                            );
             pS->accColorArea += colorArea;
             //DEBUG_SECTION
@@ -2381,7 +2379,6 @@ void renderPixelBuffer ( PMEM   TileState *tileS
 
 __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                               , SMEM      Shape *shapeHeap
-                              , SMEM        REF *shapeRefHeap
                               , SMEM      Group *groupHeap
                               , SMEM   TileInfo *tileHeap
                               , GMEM      uchar *pictureData
@@ -2399,7 +2396,6 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
     initTileState ( &tileS
                   ,  tileIndex
                   ,  tileHeap
-                  ,  shapeRefHeap
                   ,  bitmapWidth
                   ,  bitmapHeight
                   ,  column
@@ -2407,7 +2403,7 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
     //testShapeStack();
     //testDeleteBit();
     //DEBUG_IF(printf("tileIndex %i column %i tileDeltaX %i tileDeltaY %i\n", tileIndex, column, tileS.tileDeltaX, tileS.tileDeltaY);)
-    //DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeRefs, groupHeap, tileS.tileNumShapes);)
+    //DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeStart, groupHeap, tileS.tileNumShapes);)
     if (tileS.tileDeltaX + column < tileS.bitmapWidth) {
         if (tileS.tileNumShapes == 0) {
             fillOutBuffer (&tileS
@@ -2464,7 +2460,6 @@ __kernel void fillBackgroundTile (      COLOR  backgroundColor
     TileState tileS;
     initTileState ( &tileS
                   ,  tileIndex
-                  ,  0x0
                   ,  0x0
                   ,  bitmapWidth
                   ,  bitmapHeight
@@ -2717,9 +2712,9 @@ void showShapeRefs(SMEM REF *shapeRefs, int numShapes) {
     }
 }
 
-void showShapes(SMEM Shape *shapeHeap, SMEM GEO_ENTRY *shapeRefs, SMEM Group *groups, int numShapes) {
+void showShapes(SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Group *groups, int numShapes) {
     for (int n = 0; n < numShapes; n ++ ) {
-        Shape shape = shapeHeap[shapeRefs[n]];
+        Shape shape = shapeHeap[shapeStart + n];
         printf("%i: ", n);
         if (shapeTagIsAdd(shape.shapeTag)) {
             printf("add ");
@@ -2749,13 +2744,13 @@ void showShape(Shape shape) {
     printf ("  shapeSlice.l %2i %i \n"     , (long) &shape.shapeSlice.sLength - (long)&shape, shape.shapeSlice.sLength );
 }
 
-void showShapeAlignment (SMEM Shape *shapeHeap, SMEM GEO_ENTRY *shapeRefs, SMEM Group *groups, int numShapes) {
+void showShapeAlignment (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Group *groups, int numShapes) {
     printf("Shape Alignment: numShapes = %i\n", numShapes);
     for (int n = 0; n < numShapes; n ++ ) {
         printf ("%2i ----------------------------------------------------------------\n",n );
-        Shape shape = shapeHeap[shapeRefs[n]];
+        Shape shape = shapeHeap[shapeStart + n];
         showShape(shape);
-        printf ("       alignment %2i \n"        , (long) &shapeHeap[n+1]                 - (long)&shapeHeap[n] );
+        printf ("       alignment %2i \n"        , (long) &shapeHeap[shapeStart + n + 1]                 - (long)&shapeHeap[shapeStart + n] );
         showGroup(groups[shapeTagGroupId(shape.shapeTag)]);
     }
 }

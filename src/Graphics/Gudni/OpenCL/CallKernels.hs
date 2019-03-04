@@ -110,7 +110,6 @@ generateCall  :: (KernelArgs
               -> CL ()
 generateCall state kernel geometryHeap pictData pictRefs randomField bitmapWidth bitmapHeight frame job target =
     let shapeHeap       = job ^. rJShapePile
-        shapeRefHeap    = job ^. rJShapeRefPile
         groupPile       = job ^. rJGroupPile
         tileHeap        = job ^. rJTilePile
         numTiles        = tileHeap ^. pileSize
@@ -119,7 +118,6 @@ generateCall state kernel geometryHeap pictData pictRefs randomField bitmapWidth
             runKernel kernel
                       geometryHeap
                       shapeHeap
-                      shapeRefHeap
                       groupPile
                       tileHeap
                       pictPile
