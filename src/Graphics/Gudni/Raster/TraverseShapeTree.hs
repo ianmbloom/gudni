@@ -26,7 +26,6 @@ import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Raster.StrandLookupTable
 import Graphics.Gudni.Raster.ShapeInfo
 
-import Graphics.Gudni.Util.Bag
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Debug

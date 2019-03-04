@@ -33,7 +33,6 @@ import Graphics.Gudni.Raster.Job
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Pile
-import Graphics.Gudni.Util.Bag
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.RandomField
 

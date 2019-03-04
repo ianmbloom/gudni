@@ -31,7 +31,6 @@ import Graphics.Gudni.Figure
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Pile
-import Graphics.Gudni.Util.Bag
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.StorableM
 
