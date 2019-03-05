@@ -77,7 +77,7 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 4
+    , _stateCurrentTest = 2
     , _stateStep        = 5000
     , _stateFrameNumber = 0
     }
@@ -136,9 +136,10 @@ maxShapeTest state =
         , (solid (transparent 1.0 (pureBlue   )) $ rectangle (Point2 10000 1))
         ]
 
+-- | All the turtle plots from the plot module.
 plots :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 plots state = return $
-              sTranslateXY 100 100 . sScale 30 . makeGrid 10 16 1 . catMaybes . map (fmap (solid purple . rawCurve) . curveLibrary) $ turtleNames
+              sTranslateXY 100 100 . sScale 30 . makeGrid 10 16 1 . catMaybes . map (fmap (solid yellow . rawCurve) . curveLibrary) $ turtleNames
 
 -- | A fuzz test of random curves where the random points are all within a donut shape.
 fuzzyDonut :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree

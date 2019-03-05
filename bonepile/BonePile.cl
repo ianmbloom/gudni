@@ -1518,3 +1518,101 @@ __kernel void checkContinuations (GMEM Continuation *continuations
         *returnVal = localSums[0];
     }
 }
+
+// Since the continuation array must be allocated by the host and the size of a continuation depends on the size of half2 and bool
+// We just use an alignment as large as the largest possible size_of(Continuation) rather than force the host code to try and
+// determine the right size for this array we can just waste a little space and get on with our lives.
+#define CONTINUATION_ALIGN 40
+
+typedef struct Continuation {
+    SPACE2 contRenderStart;         // 4
+    SPACE2 contRenderEnd;           // 4
+    float8 contAccColorArea;       // 32
+    int  contYInt;                 // 4
+    bool contIsContinued;          // 2
+    bool contInHorizontalPass;     // 2
+    bool contNeedHorizontalPass;   // 2
+} Continuation;
+
+inline Continuation newContinuation(void);
+
+inline Continuation getContinuationForTile(           TileState *tileS
+                                          ,  GMEM  Continuation *continuations
+                                          );
+
+inline Continuation getContinuation( GMEM Continuation *continuations
+                                   ,               int  columnIndex
+                                   );
+
+Continuation makeContinuation( PMEM ThresholdState *tS
+                             , PMEM     ParseState *pS
+                             ,                int  yInt
+                             ,               bool  isContinued
+                             );
+
+void setContinuation(          TileState *tileS
+                    , GMEM  Continuation *continuations
+                    ,       Continuation  c
+                    );
+
+inline Continuation newContinuation() {
+    Continuation c;
+    c.contRenderStart = (SPACE2)(LEFTBORDER,0);
+    c.contRenderEnd  = (SPACE2)(RIGHTBORDER,0); // the lowest vertical position that can be properly rendered with the current list of thresholds.
+    c.contAccColorArea = (float8)(TRANSPARENT_COLOR,(float4)(0,0,0,0));
+    c.contYInt = 0;
+    c.contIsContinued = false;
+    c.contInHorizontalPass = false;
+    c.contNeedHorizontalPass = false;
+    return c;
+}
+
+inline Continuation getContinuationForTile( PMEM    TileState *tileS
+                                          , GMEM Continuation *continuations
+                                          ) {
+    return getContinuation(continuations, tileS->tileIndex * tileS->tileSize.x + tileS->column);
+}
+
+inline Continuation getContinuation( GMEM Continuation *continuations
+                                   ,               int  columnIndex
+                                   ) {
+    return *((GMEM Continuation *)(continuations + columnIndex * CONTINUATION_ALIGN));
+}
+
+
+Continuation makeContinuation( PMEM ThresholdState *tS
+                             , PMEM     ParseState *pS
+                             ,                int  yInt
+                             ,               bool  isContinued
+                             ) {
+    Continuation c;
+    c.contRenderStart  = tS->renderStart;
+    c.contRenderEnd    = tS->renderEnd;
+    c.contInHorizontalPass   = tS->inHorizontalPass;
+    c.contNeedHorizontalPass = tS->needHorizontalPass;
+
+    c.contAccColorArea = pS->accColorArea;
+    c.contYInt         = yInt;
+    c.contIsContinued = isContinued;
+    return c;
+}
+
+
+void setContinuation(            TileState *tileS
+                    , GMEM    Continuation *continuations
+                    ,         Continuation  c
+                    ) {
+    GMEM Continuation *p = ((GMEM Continuation *)(continuations + (tileS->tileIndex * tileS->tileSize.x + tileS->column)*CONTINUATION_ALIGN));
+    *p = c;
+}
+
+
+void showContinuation(Continuation c) {
+    printf ("        contRenderStart %2i %v2f \n" , (long) &c.contRenderStart        - (long)&c, c.contRenderStart        );
+    printf ("          contRenderEnd %2i %v2f \n" , (long) &c.contRenderEnd          - (long)&c, c.contRenderEnd          );
+    printf ("           contAccColor %2i %v8f \n" , (long) &c.contAccColorArea       - (long)&c, c.contAccColorArea       );
+    printf ("               contYInt %2i %i   \n" , (long) &c.contYInt               - (long)&c, c.contYInt               );
+    printf ("        contIsContinued %2i %i   \n" , (long) &c.contIsContinued        - (long)&c, c.contIsContinued        );
+    printf ("   contInHorizontalPass %2i %i   \n" , (long) &c.contInHorizontalPass   - (long)&c, c.contInHorizontalPass   );
+    printf (" contNeedHorizontalPass %2i %i   \n" , (long) &c.contNeedHorizontalPass - (long)&c, c.contNeedHorizontalPass );
+}

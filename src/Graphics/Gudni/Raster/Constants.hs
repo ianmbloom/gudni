@@ -11,6 +11,7 @@ module Graphics.Gudni.Raster.Constants
     , mAXsHAPE
     , mAXtHRESHOLDS
     , rANDOMFIELDsIZE
+    , sOURCEfILEpADDING
     , sHAPETAGsUBSTANCEtYPEbITmASK
     , sHAPETAGsUBSTANCEtYPEsOLIDcOLOR
     , sHAPETAGsUBSTANCEtYPEpICTURE
@@ -38,6 +39,8 @@ mAXtILEsIZE      = Point2 512 512 :: Point2 IntSpace
 mINtILEsIZE      = Point2 16  16  :: Point2 IntSpace
 mAXsECTIONsIZE   = 16   :: Int
 rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
+
+sOURCEfILEpADDING = 32 :: Int -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
 
 -- ShapeTag layout
 -- Bits 31 - 30
