@@ -39,8 +39,6 @@ setupOpenCL enableProfiling useCLGLInterop src =
              program <- loadProgramWOptions options state src
              putStrLn $ "Program compiled"
              rasterKernel <- program "multiTileRaster"
-             fillKernel   <- program "fillBackgroundTile"
-             checkKernel  <- program "checkContinuations"
              putStrLn $ "OpenCL compile complete."
              let device = clDevice state
              computeUnits  <- clGetDeviceMaxComputeUnits       device
@@ -50,8 +48,6 @@ setupOpenCL enableProfiling useCLGLInterop src =
              globalMemSize <- clGetDeviceGlobalMemSize         device
              return CLLibrary { clState = state
                               , multiTileRasterCL = rasterKernel
-                              , fillBackgroundCL  = fillKernel
-                              , checkContinuationCL = checkKernel
                               , clComputeUnits = computeUnits
                               , clMaxGroupSize = maxGroupSize
                               , clLocalMemSize = localMemSize

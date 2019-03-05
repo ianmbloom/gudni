@@ -7,8 +7,6 @@ import CLUtil
 data OpenCLKernelLibrary = CLLibrary
   { clState :: OpenCLState
   , multiTileRasterCL :: CLKernel
-  , fillBackgroundCL :: CLKernel
-  , checkContinuationCL :: CLKernel
   , clComputeUnits  :: CUInt
   , clMaxGroupSize  :: CSize
   , clLocalMemSize  :: CLulong

@@ -1460,3 +1460,61 @@ inline float4 processPixel( __local   THRESHOLDHEADER *thresholdHeaders
             pixPos += tileWidth;                                       \
             barrier (CLK_LOCAL_MEM_FENCE);                             \
         }                                                              \
+
+__kernel void fillBackgroundTile (      COLOR  backgroundColor
+                                 , GMEM  uint *out
+                                 ,        int  bitmapWidth
+                                 ,        int  bitmapHeight
+                                 ,        int  gridWidth
+                                 ,        int  tileWidth
+                                 ,        int  tileHeight
+                                 ,        int  computeDepth
+                                 ) {
+    int   tileIndex = INDEX;
+    int   column = COLUMN;
+    TileState tileS;
+    initTileState ( &tileS
+                  ,  tileIndex
+                  ,  0x0
+                  ,  bitmapWidth
+                  ,  bitmapHeight
+                  ,  column
+                  ,  computeDepth
+                  );
+    COLOR color = backgroundColor;
+    if (tileS.tileDeltaX + column < tileS.bitmapWidth) {
+        fillOutBuffer ( &tileS
+                      ,  out
+                      ,  color
+                      );
+    }
+}
+
+__kernel void checkContinuations (GMEM Continuation *continuations
+                                 ,              int  numColumns
+                                 , GMEM        bool *localSums
+                                 , GMEM         int *returnVal
+                                 ) {
+    uint local_id = get_global_id(0);
+    uint group_size = get_global_size(0);
+    Continuation c = getContinuation(continuations, local_id);
+    // Copy from global to local memory
+    localSums[local_id] = c.contIsContinued;;
+    //if (local_id == 0) {
+    //  printf("group_size %i", group_size);
+    //}
+    // Loop for computing localSums : divide WorkGroup into 2 parts
+    for (uint stride = group_size/2; stride>0; stride /= 2) {
+        // Waiting for each 2x2 addition into given workgroup
+        barrier(CLK_LOCAL_MEM_FENCE);
+
+        // Add elements 2 by 2 between local_id and local_id + stride
+        if (local_id < stride)
+          localSums[local_id] = localSums[local_id] || localSums[local_id + stride];
+    }
+
+    // Write result into partialSums[nWorkGroups]
+    if (local_id == 0) {
+        *returnVal = localSums[0];
+    }
+}
