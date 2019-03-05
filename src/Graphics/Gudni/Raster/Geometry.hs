@@ -27,21 +27,21 @@ appendGeoRef enclosure =
         let offsetShapeStart = Ref $ fromIntegral offsetShapeStartBytes `div` fromIntegral (sizeOf (undefined :: Point2 DisplaySpace) * 2)
         return $ GeoRef offsetShapeStart (enclosureNumStrands enclosure)
 
-makePrimEntry :: (BoundingBox, Enclosure)
-              -> StateT GeometryPile IO PrimEntry
-makePrimEntry (box, enclosure) =
+makeShapeEntry :: (BoundingBox, Enclosure)
+               -> StateT GeometryPile IO ShapeEntry
+makeShapeEntry (box, enclosure) =
     do  -- append the geometric enclosure data to the heap and return a reference
         geoRef <- appendGeoRef enclosure
-        return $ PrimEntry geoRef (enclosureNumStrands enclosure) box
+        return $ ShapeEntry geoRef (enclosureNumStrands enclosure) box
 
-overShaper :: (t -> StateT s IO u) -> (Shaper t) -> StateT s IO (Shaper u)
-overShaper f (Shaper i t) = do u <- f t
-                               return $ Shaper i u
+overShape :: (t -> StateT s IO u) -> (Shape t) -> StateT s IO (Shape u)
+overShape f (Shape i t) = do u <- f t
+                             return $ Shape i u
 
-buildGeometryPile :: [Shaper (BoundingBox, Enclosure)] -> IO ([Shaper PrimEntry], GeometryPile)
+buildGeometryPile :: [Shape (BoundingBox, Enclosure)] -> IO ([Shape ShapeEntry], GeometryPile)
 buildGeometryPile boundedShapedEnclosures =
   do geometryPile <- newPileSize 65536 :: IO BytePile
-     runStateT (mapM (overShaper makePrimEntry) boundedShapedEnclosures) geometryPile
+     runStateT (mapM (overShape makeShapeEntry) boundedShapedEnclosures) geometryPile
 
 outputGeometryPile :: GeometryPile -> IO ()
 outputGeometryPile pile =

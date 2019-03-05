@@ -7,17 +7,21 @@
 
 module Graphics.Gudni.Raster.Types
   ( Group         (..)
-  , Shaper        (..)
-  , Shape         (..)
+  , Tile (..)
+  , tileBox
+  , tileHDepth
+  , tileVDepth
+  , tileRep
+  , Shape        (..)
   , shShapeInfo, shRep
   , Combiner      (..)
   , coCombineType, coRep
   , NumShapes     (..)
   , GeoReference  (..)
-  , PrimEntry(..)
-  , primGeoRef
-  , primStrandCount
-  , primBox
+  , ShapeEntry(..)
+  , shapeGeoRef
+  , shapeStrandCount
+  , shapeBox
   )
 where
 
@@ -52,18 +56,31 @@ instance Boxable t => Boxable (Group t) where
 instance Functor Group where
   fmap f (Group vs) = Group (fmap f vs)
 
--- | Shaper is just a pairing of ShapeInfo with some representation of reference to a shape.
-data Shaper t = Shaper
+-- | Tile is just a pairing of the Tile Info Header and some representation of its contents.
+data Tile rep = Tile
+  -- | Pixel boundaries of tile.
+  { _tileBox    :: !(Box IntSpace)
+  -- | Logarithmic horizontal depth.
+  , _tileHDepth :: !Int
+  -- | Logarithmic vertical depth.
+  , _tileVDepth :: !Int
+  -- | Representation of the contents of the tile.
+  , _tileRep :: rep
+  } deriving (Show)
+makeLenses ''Tile
+
+-- | Shape is just a pairing of ShapeInfo with some representation of reference to a shape.
+data Shape t = Shape
     { _shShapeInfo :: ShapeInfo
     , _shRep      :: t
     } deriving (Show)
-makeLenses ''Shaper
+makeLenses ''Shape
 
-instance Functor Shaper where
-  fmap f (Shaper s t) = Shaper s (f t)
+instance Functor Shape where
+  fmap f (Shape s t) = Shape s (f t)
 
-instance NFData t => NFData (Shaper t) where
-  rnf (Shaper a b) = a `deepseq` b `deepseq` ()
+instance NFData t => NFData (Shape t) where
+  rnf (Shape a b) = a `deepseq` b `deepseq` ()
 
 -- | Combiner is just a pairing of CombineType with some representation of reference to a shape.
 data Combiner t = Combiner
@@ -110,30 +127,56 @@ instance StorableM GeoReference where
   pokeM (GeoRef s n) = do pokeM s
                           pokeM n
 
-data PrimEntry = PrimEntry
-    { _primGeoRef :: GeoReference
-    , _primStrandCount :: NumStrands
-    , _primBox :: BoundingBox
+data ShapeEntry = ShapeEntry
+    { _shapeGeoRef      :: GeoReference
+    , _shapeStrandCount :: NumStrands
+    , _shapeBox         :: BoundingBox
     } deriving (Show)
-makeLenses ''PrimEntry
+makeLenses ''ShapeEntry
 
 -------------------------- Shape ------------------------------
 
-type Shape = Shaper GeoReference
-
-instance StorableM Shape where
+instance StorableM (Shape GeoReference) where
   sizeOfM _ = do sizeOfM (undefined :: ShapeInfo)
                  sizeOfM (undefined :: GeoReference   )
   alignmentM _ = do alignmentM (undefined :: ShapeInfo)
                     alignmentM (undefined :: GeoReference   )
   peekM = do shapeInfo <- peekM
              geoRef <- peekM
-             return (Shaper shapeInfo geoRef)
-  pokeM (Shaper shapeInfo geoRef) = do pokeM shapeInfo
-                                       pokeM geoRef
+             return (Shape shapeInfo geoRef)
+  pokeM (Shape shapeInfo geoRef) = do pokeM shapeInfo
+                                      pokeM geoRef
 
-instance Storable Shape where
+instance Storable (Shape GeoReference) where
   sizeOf = sizeOfV
   alignment = alignmentV
   peek = peekV
   poke = pokeV
+
+instance StorableM (Tile (Slice (Shape GeoReference))) where
+  sizeOfM _ = do sizeOfM (undefined :: Box IntSpace)
+                 sizeOfM (undefined :: CInt)
+                 sizeOfM (undefined :: CInt)
+                 sizeOfM (undefined :: Slice (Shape GeoReference))
+  alignmentM _ = do alignmentM (undefined :: Box IntSpace)
+                    alignmentM (undefined :: CInt)
+                    alignmentM (undefined :: CInt)
+                    alignmentM (undefined :: Slice (Shape GeoReference))
+  peekM = do box    <- peekM
+             hDepth :: CInt <- peekM
+             vDepth :: CInt <- peekM
+             slice  <- peekM
+             return (Tile box (fromIntegral hDepth) (fromIntegral vDepth) slice)
+  pokeM (Tile box hDepth vDepth slice ) = do pokeM box
+                                             pokeM (fromIntegral hDepth :: CInt)
+                                             pokeM (fromIntegral vDepth :: CInt)
+                                             pokeM slice
+
+instance Storable (Tile (Slice (Shape GeoReference))) where
+  sizeOf = sizeOfV
+  alignment = alignmentV
+  peek = peekV
+  poke = pokeV
+
+instance NFData rep => NFData (Tile rep) where
+  rnf (Tile a b c d) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()

@@ -143,8 +143,8 @@ raster :: CInt
 raster frame params job =
     let tileW        = (fromIntegral $ mAXtILEsIZE ^. pX) :: CInt
         tileH        = (fromIntegral $ mAXtILEsIZE ^. pY) :: CInt
-        (V2 w h)     = targetArea (params ^. rpTarget)
-        outputSize   = fromIntegral $ w * h
+        (V2 bitmapWidth bitmapHeight)     = targetArea (params ^. rpTarget)
+        outputSize   = fromIntegral $ bitmapWidth * bitmapHeight
         state        = clState (params ^. rpLibrary)
         numTiles     = (fromIntegral $ job ^. rJTilePile ^. pileSize) :: CInt
         rasterCall :: CL ()
@@ -156,8 +156,8 @@ raster frame params job =
                                        (params ^. rpPictData)
                                        (params ^. rpPictRefs)
                                        (params ^. rpRandomField)
-                                       w
-                                       h
+                                       bitmapWidth
+                                       bitmapHeight
                                        frame
                                        job
                                        (OutPtr outputPtr outputSize)
@@ -169,7 +169,7 @@ raster frame params job =
 rasterSection :: CInt
               -> RasterParams
               -> RasterJobInput
-              -> [Tile]
+              -> [Tile TileEntry]
               -> CL ()
 rasterSection frame params input section =
   do  job <- liftIO $ buildRasterJob input section

@@ -79,10 +79,10 @@
 
 // A geo entry refers to an entry in the global table of shape geometry. A single geometry entry can be referenced by multiple tiles
 #define GEO_ENTRY  uint
-// The shape tag includes 4 bit combination style value, the 4 bit texture type and the 28 bit group identifier.
+// The shape tag includes 4 bit combination style value, the 4 bit texture type and the 28 bit substance identifier.
 #define SHAPETAG ulong
-// A group id is the reference to a group of shapes that share color/texture information.
-#define GROUPID ulong
+// A substance id is the reference to a group of shapes that share color/texture information.
+#define SUBSTANCEID ulong
 // A shape bit is the number of each shape assigned as it is added to a column, each shape number corresponds to a bit in the shape stack
 // so the number of possible shape bits is limited to the size (in bits) of the shape stack.
 #define SHAPEBIT    uint
@@ -112,9 +112,9 @@ inline bool shapeTagIsSubtract(SHAPETAG tag)  {return (tag & SHAPETAG_COMBINETYP
 inline bool shapeTagIsContinue(SHAPETAG tag)  {return (tag & SHAPETAG_COMBINETYPE_BITMASK) == SHAPETAG_COMBINETYPE_CONTINUE;}
 
 // Bits 27 - 0
-#define SHAPETAG_GROUPID_BITMASK          0x0FFFFFFFFFFFFFFF
+#define SHAPETAG_SUBSTANCEID_BITMASK          0x0FFFFFFFFFFFFFFF
 
-inline  GROUPID shapeTagGroupId(SHAPETAG tag) {return (tag & SHAPETAG_GROUPID_BITMASK);}
+inline  SUBSTANCEID shapeTagSubstanceId(SHAPETAG tag) {return (tag & SHAPETAG_SUBSTANCEID_BITMASK);}
 
 // Memory Types
 
@@ -355,16 +355,16 @@ inline int boxBottom(int4 box) {return box.w;}
 
 // Initial information about a tile.
 typedef struct TileInfo
-  { int4  tileBox
-  ; Slice tileShapeSlice
-  ; int   tileHDepth
-  ; int   tileVDepth
+  { int4  tileBox    // boundaries of tile
+  ; int   tileHDepth // logarithmic horizontal depth in tree (tileHDepth ^ 2 == tile width)
+  ; int   tileVDepth // logarithmic vertical   depth in tree (tileVDepth ^ 2 == tile height)
+  ; Slice tileShapeSlice // beggining and length of shape records for the tile.
   ;} TileInfo;
 
-// A group contains information about the substance of a group of combined shapes.
-typedef struct Group
-  { COLOR  groupColor; // this is either the solid color of the shape or a reference to a picture ref.
-  } Group;
+// A substance contains information about the substance of a group of combined shapes.
+typedef struct Substance
+  { COLOR  substanceColor; // this is either the solid color of the shape or a reference to a picture ref.
+  } Substance;
 
 // A picture reference is a reference to bitmap data that can be the substance of a shape.
 typedef struct PictureRef
@@ -447,7 +447,7 @@ inline void popTop(ThresholdState *tS) {
 #define RANDOM_POS int
 
 typedef struct ShapeState {
-      LMEM   GROUPID  shapeIndices[MAXSHAPE];        // a mapping from shape bit positions in the shapeStacks to shapeIndices in the tile.
+      LMEM   SUBSTANCEID  shapeIndices[MAXSHAPE];        // a mapping from shape bit positions in the shapeStacks to shapeIndices in the tile.
       PMEM SHAPESHACK shapeStack[SHAPESHACKSECTIONS]; // the current shape Stack. (Each bit represents the presence of a shape in the stack.)
 } ShapeState;
 
@@ -671,14 +671,14 @@ inline void updateShapeStack(         SHAPEBIT  shapeBit
                             );
 
 COLOR readColor ( PMEM ColorState *cS
-                , SMEM      Group *groups
-                ,         GROUPID  shapeId
+                , SMEM  Substance *substances
+                ,     SUBSTANCEID  substanceId
                 ,            bool  isSolidColor
                 );
 
 COLOR determineColor( PMEM   ShapeState *shS
                     , PMEM   ColorState *cS
-                    , SMEM        Group *groups
+                    , SMEM    Substance *substances
                     , SMEM        Shape *shapeHeap
                     ,         GEO_ENTRY  shapeStart
                     );
@@ -708,7 +708,7 @@ void writePixelGlobal ( PMEM TileState *tileS
 void buildThresholdArray ( PMEM  ThresholdState *tS
                          , PMEM      ShapeState *shS
                          , SMEM          float4 *geometryHeap
-                         , SMEM           Group *groups
+                         , SMEM       Substance *substances
                          , SMEM           Shape *shapeHeap
                          ,            GEO_ENTRY  shapeStart
                          ,            GEO_ENTRY  numShapes
@@ -775,7 +775,7 @@ void setContinuation(          TileState *tileS
 float8 sectionColor ( PMEM     ParseState *pS
                     , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
-                    , SMEM          Group *groups
+                    , SMEM      Substance *substances
                     , SMEM          Shape *shapeHeap
                     ,           GEO_ENTRY  shapeStart
                     );
@@ -786,7 +786,7 @@ void calculatePixel ( PMEM      TileState *tileS
                     , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
                     , SMEM         float4 *geometryHeap
-                    , SMEM          Group *groups
+                    , SMEM      Substance *substances
                     , SMEM          Shape *shapeHeap
                     ,               float  x
                     );
@@ -795,7 +795,7 @@ void renderPixelBuffer ( PMEM   TileState *tileS
                        , SMEM      float4 *geometryHeap
                        , GMEM       uchar *pictureData
                        , CMEM  PictureRef *pictureRefs
-                       , SMEM       Group *groups
+                       , SMEM   Substance *substances
                        , SMEM       Shape *shapeHeap
                        ,            COLOR  backgroundColor
                        ,              int  column
@@ -814,7 +814,7 @@ void initColorState ( PMEM  ColorState *init
 void rebuildColorState ( PMEM  ThresholdState *tS
                        , PMEM      ParseState *pS
                        , PMEM      ColorState *cS
-                       , SMEM           Group *groups
+                       , SMEM       Substance *substances
                        );
 
 void fillOutBuffer (       TileState *tileS
@@ -830,20 +830,20 @@ void showTree(            Traversal t
 void showPixelBuffer(__local uint *pixelBuffer, int sectionWidth, int height);
 void showTileSliceAlignment (int tileIndex, SMEM Slice *tileHeap);
 void showShape (Shape shape);
-void showGroup(Group group);
+void showSubstance(Substance substance);
 void showShapeIndices(ShapeState *shS, int numShapes);
 void showShapeColors(     ShapeState *shS
-                   , SMEM      Group *groups
+                   , SMEM  Substance *substances
                    , SMEM      Shape *shapeHeap
                    ,             int  numShapes
                    );
-void showGroups(SMEM Group *groups, int numGroups);
+void showSubstances(SMEM Substance *substances, int numSubstances);
 void showContinuation(Continuation c);
 void showShapeRefs(SMEM REF *shapeRefs, int numShapes);
-void showShapes (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Group *groups, int numShapes);
+void showShapes (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *substances, int numShapes);
 void showShapeStack(SHAPESHACK *shapeStack);
 void showShapeStackHs(SHAPESHACK *shapeStack);
-void showShapeAlignment (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Group *groups, int numShapes);
+void showShapeAlignment (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *substances, int numShapes);
 void showData (GMEM uchar *pictData, int width, int height);
 void showThresholdHeader( HEADER header);
 void showThresholdGeo (THRESHOLD threshold);
@@ -882,21 +882,21 @@ void showThresholdsHs ( PMEM ThresholdState *tS
                       );
 void showThresholdStateHs ( PMEM ThresholdState *tS
                           , PMEM     ShapeState *shS
-                          , SMEM          Group *groups
+                          , SMEM      Substance *substances
                           , SMEM          Shape *shapeHeap
                           ,                 int  numShapes
                           );
 void showColorsHs ( PMEM ThresholdState *tS
                   , PMEM     ShapeState *shS
-                  , SMEM          Group *groups
+                  , SMEM      Substance *substances
                   , SMEM          Shape *shapeHeap
                   ,                int  num
                   );
 
 void showParseStateHs(  PMEM ThresholdState *tS
                      ,           ParseState *pS
-                     , SMEM           Group *groups
-                     , SMEM            Shape *shapeHeap
+                     , SMEM       Substance *substances
+                     , SMEM           Shape *shapeHeap
                      ,                COLOR  color
                      );
 
@@ -1609,16 +1609,16 @@ bool traverseTree( SMEM    float2 *strandHeap
 
 // read a color value depending on the substance and absolute position.
 COLOR readColor ( PMEM ColorState *cS
-                , SMEM      Group *groups
-                ,         GROUPID  shapeId
+                , SMEM  Substance *substances
+                ,     SUBSTANCEID  substanceId
                 ,            bool  isSolidColor
                 ) {
-    Group group = groups[shapeId];
+    Substance substance = substances[substanceId];
     //DEBUG_IF(showShape(shape);)
     if (isSolidColor) {
-        return group.groupColor;
+        return substance.substanceColor;
     } else { // its a picture reference
-        uint pictId = (as_uint4(group.groupColor)).x;
+        uint pictId = (as_uint4(substance.substanceColor)).x;
         PictureRef pRef = cS->csPictureRefs[pictId];
         int2 relativePosition = cS->absolutePosition - pRef.pictTranslate;
         if (relativePosition.x >= 0 &&
@@ -1641,7 +1641,7 @@ COLOR readColor ( PMEM ColorState *cS
 // determine the current color based on the shape stack
 COLOR determineColor( PMEM    ShapeState *shS
                     , PMEM    ColorState *cS
-                    , SMEM         Group *groups
+                    , SMEM     Substance *substances
                     , SMEM         Shape *shapeHeap
                     ,          GEO_ENTRY  shapeStart
                     ) {
@@ -1649,11 +1649,11 @@ COLOR determineColor( PMEM    ShapeState *shS
     COLOR baseColor = TRANSPARENT_COLOR;
     COLOR nextColor;
     bool done = false;
-       GROUPID lastId = NULLINDEX;
+       SUBSTANCEID lastId = NULLINDEX;
     bool lastIsContinue = true;
     bool lastIsSet = false;
     while (!done) {
-           GROUPID shapeId = NULLINDEX;
+           SUBSTANCEID substanceId = NULLINDEX;
         bool shouldComposite = true;
         topBit = findTop(shS->shapeStack, topBit);
         //DEBUG_IF(printf("topBit %i ", topBit);showShapeStack(shS->shapeStack);printf("\n");)
@@ -1666,10 +1666,10 @@ COLOR determineColor( PMEM    ShapeState *shS
         else {
             int referenceFromBit = shS->shapeIndices[topBit];
             SHAPETAG tag = shapeHeap[referenceFromBit].shapeTag;
-            shapeId = shapeTagGroupId(tag);
-            //DEBUG_IF(printf("topBit %i shapeId %i lastId %i ",
-            //                 topBit,   shapeId,   lastId   );)
-            if (shapeId == lastId) {
+            substanceId = shapeTagSubstanceId(tag);
+            //DEBUG_IF(printf("topBit %i substanceId %i lastId %i ",
+            //                 topBit,   substanceId,   lastId   );)
+            if (substanceId == lastId) {
                 if (lastIsContinue) {
                     if (!shapeTagIsContinue(tag)) {
                         lastIsSet = shapeTagIsAdd(tag);
@@ -1681,16 +1681,16 @@ COLOR determineColor( PMEM    ShapeState *shS
                 }
                 shouldComposite = false;
             }
-            if (shapeId != lastId) {
+            if (substanceId != lastId) {
                 nextColor = readColor ( cS
-                                      , groups
-                                      , shapeId
+                                      , substances
+                                      , substanceId
                                       , shapeTagIsSolidColor(tag)
                                       );
                 shouldComposite = true;
                 lastIsSet = shapeTagIsAdd(tag) || shapeTagIsContinue(tag);
             }
-            lastId = shapeId;
+            lastId = substanceId;
 
         }
         //DEBUG_IF(printf("done %i lastIsContinue %i lastIsSet %i shouldComposite %i baseColor %2.2v4f nextColor %2.2v4f \n",
@@ -1735,7 +1735,7 @@ inline void passHeaderBottom( PMEM ShapeState *shS
 }
 
 #define DEBUG_BUILDTHRESHOLDARRAY \
-            DEBUG_HS(printf(",\n");showThresholdStateHs(tS, shS, groups, shapeHeap, shapeBit);)
+            DEBUG_HS(printf(",\n");showThresholdStateHs(tS, shS, substances, shapeHeap, shapeBit);)
 
 #define LIMITSHAPE 0
 
@@ -1785,7 +1785,7 @@ void removeLastShape( PMEM  ThresholdState *tS
 void buildThresholdArray ( PMEM  ThresholdState *tS
                          , PMEM      ShapeState *shS
                          , SMEM          float4 *geometryHeap
-                         , SMEM           Group *groups
+                         , SMEM       Substance *substances
                          , SMEM           Shape *shapeHeap
                          ,            GEO_ENTRY  shapeStart
                          ,            GEO_ENTRY  numShapes
@@ -1842,12 +1842,12 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
             }
             shapeBit += 1;
             //DEBUG_IF(if(shapeIndex > LIMITSHAPE-2) {printf("after RemoveBit\n");
-            //                              showShapeColors(shS, groups, shapeHeap, shapeBit);
+            //                              showShapeColors(shS, substances, shapeHeap, shapeBit);
             //                              showThresholds(tS);
             //                             })
         }
     }
-    //DEBUG_IF(printf("shapeColors %i\n",shapeBit);showShapeColors(shS, groups, shapeHeap, shapeBit);)
+    //DEBUG_IF(printf("shapeColors %i\n",shapeBit);showShapeColors(shS, substances, shapeHeap, shapeBit);)
     DEBUG_BUILDTHRESHOLDARRAY
     //DEBUG_IF(showShapeIndices(shS, shapeBit);)
 }
@@ -2018,18 +2018,18 @@ void initTileState ( PMEM  TileState *tileS
                            );
 }
 
-#define DEBUG_NEXTSECTION DEBUG_HS(printf(",\n");showParseStateHs(tS, pS, groups, shapeHeap, color);)
+#define DEBUG_NEXTSECTION DEBUG_HS(printf(",\n");showParseStateHs(tS, pS, substances, shapeHeap, color);)
 
 float8 sectionColor ( PMEM     ParseState *pS
                     , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
-                    , SMEM          Group *groups
+                    , SMEM      Substance *substances
                     , SMEM          Shape *shapeHeap
                     ,           GEO_ENTRY  shapeStart
                     ) {
     COLOR color = determineColor( shS
                                 , cS
-                                , groups
+                                , substances
                                 , shapeHeap
                                 , shapeStart
                                 );
@@ -2216,7 +2216,7 @@ void calculatePixel ( PMEM      TileState *tileS
                     , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
                     , SMEM         float4 *geometryHeap
-                    , SMEM          Group *groups
+                    , SMEM      Substance *substances
                     , SMEM          Shape *shapeHeap
                     ,               float  x
                     ) {
@@ -2244,7 +2244,7 @@ void calculatePixel ( PMEM      TileState *tileS
                     buildThresholdArray( tS
                                        , shS
                                        , geometryHeap
-                                       , groups
+                                       , substances
                                        , shapeHeap
                                        , tileS->tileShapeStart
                                        , tileS->tileNumShapes
@@ -2283,7 +2283,7 @@ void calculatePixel ( PMEM      TileState *tileS
             float8 colorArea = sectionColor( pS
                                            , shS
                                            , cS
-                                           , groups
+                                           , substances
                                            , shapeHeap
                                            , tileS->tileShapeStart
                                            );
@@ -2320,7 +2320,7 @@ void renderPixelBuffer ( PMEM   TileState *tileS
                        , SMEM      float4 *geometryHeap
                        , GMEM       uchar *pictureData
                        , CMEM  PictureRef *pictureRefs
-                       , SMEM       Group *groups
+                       , SMEM   Substance *substances
                        , SMEM       Shape *shapeHeap
                        ,            COLOR  backgroundColor
                        ,              int  column
@@ -2356,7 +2356,7 @@ void renderPixelBuffer ( PMEM   TileState *tileS
                        , &shS
                        , &cS
                        ,  geometryHeap
-                       ,  groups
+                       ,  substances
                        ,  shapeHeap
                        ,  x
                        );
@@ -2379,7 +2379,7 @@ void renderPixelBuffer ( PMEM   TileState *tileS
 
 __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                               , SMEM      Shape *shapeHeap
-                              , SMEM      Group *groupHeap
+                              , SMEM  Substance *substanceHeap
                               , SMEM   TileInfo *tileHeap
                               , GMEM      uchar *pictureData
                               , CMEM PictureRef *pictureRefs
@@ -2403,7 +2403,7 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
     //testShapeStack();
     //testDeleteBit();
     //DEBUG_IF(printf("tileIndex %i column %i tileDeltaX %i tileDeltaY %i\n", tileIndex, column, tileS.tileDeltaX, tileS.tileDeltaY);)
-    //DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeStart, groupHeap, tileS.tileNumShapes);)
+    //DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeStart, substanceHeap, tileS.tileNumShapes);)
     if (tileS.tileDeltaX + column < tileS.bitmapWidth) {
         if (tileS.tileNumShapes == 0) {
             fillOutBuffer (&tileS
@@ -2419,7 +2419,7 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                               ,  geometryHeap
                               ,  pictureData
                               ,  pictureRefs
-                              ,  groupHeap
+                              ,  substanceHeap
                               ,  shapeHeap
                               ,  backgroundColor
                               ,  column
@@ -2432,7 +2432,7 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
     barrier(CLK_GLOBAL_MEM_FENCE);
 }
 
-// when there are no groups in the tile fill it with the background color.
+// when there are no shapes in the tile fill it with the background color.
 void fillOutBuffer ( PMEM TileState *tileS
                    , GMEM      uint *out
                    ,          COLOR  color
@@ -2655,33 +2655,33 @@ void showTileSliceAlignment (int gTileIndex, SMEM Slice *tileHeap) {
     printf ("%i :              alignment %2i        \n", gTileIndex, (long)&tileHeap[gTileIndex+1]       - (long)&tileHeap[gTileIndex]);
 }
 
-void showGroup(Group group) {
-    printf ("     groupColor %2i  %2.2v4f \n", (long) &group.groupColor - (long)&group, group.groupColor);
+void showSubstance(Substance substance) {
+    printf ("     substanceColor %2i  %2.2v4f \n", (long) &substance.substanceColor - (long)&substance, substance.substanceColor);
 }
 
 void showShapeIndices( ShapeState *shS
                      ,        int  numShapes
                      ) {
     int num = min(numShapes, MAXSHAPE);
-    printf("Group indices %i\n", num);
+    printf("Substance indices %i\n", num);
     for (int i = 0; i < num; i++) {
         printf("        [%02i] -> %02i\n", i, shS->shapeIndices[i]);
     }
 }
 
 void showShapeColors(     ShapeState *shS
-                   , SMEM      Group *groups
+                   , SMEM  Substance *substances
                    , SMEM      Shape *shapeHeap
                    ,             int  numShapes
                    ) {
     int num = min(numShapes, MAXSHAPE);
-    printf("Group indices %i\n", num);
+    printf("Substance indices %i\n", num);
     for (int i = 0; i < num; i++) {
         Shape shape = shapeHeap[shS->shapeIndices[i]];
         SHAPETAG tag = shape.shapeTag;
-        GROUPID shapeId = shapeTagGroupId(tag);
-        Group group = groups[shapeId];
-        COLOR color = group.groupColor;
+        SUBSTANCEID substanceId = shapeTagSubstanceId(tag);
+        Substance substance = substances[substanceId];
+        COLOR color = substance.substanceColor;
         printf("        [%02i] -> %02i (%2.2v4f)\n", i, shS->shapeIndices[i], color);
     }
 }
@@ -2696,12 +2696,12 @@ void showContinuation(Continuation c) {
     printf (" contNeedHorizontalPass %2i %i   \n" , (long) &c.contNeedHorizontalPass - (long)&c, c.contNeedHorizontalPass );
 }
 
-void showGroups(SMEM Group *groups, int numGroups) {
-  printf("groups: num = %i\n", numGroups);
-  for (int n = 0; n < numGroups; n++) {
+void showSubstances(SMEM Substance *substances, int numSubstances) {
+  printf("substances: num = %i\n", numSubstances);
+  for (int n = 0; n < numSubstances; n++) {
     printf(" %i\n", n);
-    showGroup(groups[n]);
-    //printf ("      alignment %2i \n", (long) &groups[n+1] - (long)&groups[n]);
+    showSubstance(substances[n]);
+    //printf ("      alignment %2i \n", (long) &substances[n+1] - (long)&substances[n]);
   }
 }
 
@@ -2712,7 +2712,7 @@ void showShapeRefs(SMEM REF *shapeRefs, int numShapes) {
     }
 }
 
-void showShapes(SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Group *groups, int numShapes) {
+void showShapes(SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *substances, int numShapes) {
     for (int n = 0; n < numShapes; n ++ ) {
         Shape shape = shapeHeap[shapeStart + n];
         printf("%i: ", n);
@@ -2744,14 +2744,14 @@ void showShape(Shape shape) {
     printf ("  shapeSlice.l %2i %i \n"     , (long) &shape.shapeSlice.sLength - (long)&shape, shape.shapeSlice.sLength );
 }
 
-void showShapeAlignment (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Group *groups, int numShapes) {
+void showShapeAlignment (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *substances, int numShapes) {
     printf("Shape Alignment: numShapes = %i\n", numShapes);
     for (int n = 0; n < numShapes; n ++ ) {
         printf ("%2i ----------------------------------------------------------------\n",n );
         Shape shape = shapeHeap[shapeStart + n];
         showShape(shape);
         printf ("       alignment %2i \n"        , (long) &shapeHeap[shapeStart + n + 1]                 - (long)&shapeHeap[shapeStart + n] );
-        showGroup(groups[shapeTagGroupId(shape.shapeTag)]);
+        showSubstance(substances[shapeTagSubstanceId(shape.shapeTag)]);
     }
 }
 
@@ -2802,7 +2802,7 @@ void showThresholdsHs ( PMEM ThresholdState *tS
 }
 void showThresholdStateHs ( PMEM ThresholdState *tS
                           , PMEM     ShapeState *shS
-                          , SMEM          Group *groups
+                          , SMEM      Substance *substances
                           , SMEM          Shape *shapeHeap
                           ,                 int  numShapes
                           ) {
@@ -2816,7 +2816,7 @@ void showThresholdStateHs ( PMEM ThresholdState *tS
   int num = min(numShapes, MAXSHAPE);
   showColorsHs ( tS
                , shS
-               , groups
+               , substances
                , shapeHeap
                , num
                );
@@ -2826,17 +2826,17 @@ void showThresholdStateHs ( PMEM ThresholdState *tS
 
 void showColorsHs ( PMEM ThresholdState *tS
                   , PMEM     ShapeState *shS
-                  , SMEM          Group *groups
+                  , SMEM      Substance *substances
                   , SMEM          Shape *shapeHeap
                   ,                int  num
                   ) {
   for (int i = 0; i < num; i++) {
       if (i>0) {printf(", ");}
-      Shape shape     = shapeHeap[shS->shapeIndices[i]];
-      SHAPETAG tag    = shape.shapeTag;
-      GROUPID shapeId = shapeTagGroupId(tag);
-      Group group = groups[shapeId];
-      COLOR color = group.groupColor;
+      Shape           shape = shapeHeap[shS->shapeIndices[i]];
+      SHAPETAG          tag = shape.shapeTag;
+      SUBSTANCEID substanceId = shapeTagSubstanceId(tag);
+      Substance   substance = substances[substanceId];
+      COLOR           color = substance.substanceColor;
       showColorHs(color);printf("\n");
   }
 }
@@ -2848,7 +2848,7 @@ void showShapeStateHs( PMEM ShapeState *shS) {
 }
 void showParseStateHs( PMEM ThresholdState *tS
                      , PMEM     ParseState *pS
-                     , SMEM          Group *groups
+                     , SMEM      Substance *substances
                      , SMEM          Shape *shapeHeap
                      ,               COLOR color
                      ) {

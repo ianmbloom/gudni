@@ -188,12 +188,12 @@ drawFrame frame shapeTree =
         let canvasSize = Point2 width height
         appS <- use appState
         (mPictData, mems) <- liftIO $ providePictureData appS
-        (shapes, boundedShapedEnclosures, shapeState) <- lift  $ traverseShapeTree mems (fromIntegral <$> canvasSize) shapeTree
-        (primEntries, geometryPile) <- liftIO $ buildGeometryPile $ concat boundedShapedEnclosures
-        --liftIO $ evaluate $ rnf (shapes, primBag, blockShapes, shapeState)
+        (substances, boundedShapedEnclosures, shapeState) <- lift  $ traverseShapeTree mems (fromIntegral <$> canvasSize) shapeTree
+        (shapeEntries, geometryPile) <- liftIO $ buildGeometryPile $ concat boundedShapedEnclosures
+        --liftIO $ evaluate $ rnf (substances, boundedShapedEnclosures, shapeState)
         markAppTime "Traverse Shape Tree"
         let tileTree = buildTileTree (fromIntegral <$> canvasSize)
-            tileTree' = {-tr "tree" $-} foldl addPrimToTree tileTree {-$ tr "boxShapes"-} primEntries
+            tileTree' = {-tr "tree" $-} foldl addShapeToTree tileTree {-$ tr "boxShapes"-} shapeEntries
         --liftIO $ putStrLn $ show tileTree'
         markAppTime "Build Tile Array"
         randomField <- use appRandomField
@@ -205,7 +205,7 @@ drawFrame frame shapeTree =
                                         (shapeState ^. stPictureRefs)
                                         randomField
             jobInput = RasterJobInput (backgroundColor shapeTree)
-                                      shapes
+                                      substances
                                       tileTree'
         appMessage "===================== rasterStart ====================="
         liftIO $ buildAndQueueRasterJobs frame rasterParams jobInput tileTree'

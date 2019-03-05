@@ -17,7 +17,7 @@ module Graphics.Gudni.Figure.ShapeTree
   , sScale
   , sRotate
   , mapShapeRep
-  , shapeSubstance
+  , shapeSubstanceType
   , shapeToken
   , shapeCompoundTree
   , Substance (..)
@@ -76,7 +76,7 @@ data Substance r = Solid Color | Texture r deriving (Show)
 
 data SRep token substance rep = SRep
   { _shapeToken        :: token
-  , _shapeSubstance    :: Substance substance
+  , _shapeSubstanceType    :: Substance substance
   , _shapeCompoundTree :: rep
   } deriving (Show)
 makeLenses ''SRep

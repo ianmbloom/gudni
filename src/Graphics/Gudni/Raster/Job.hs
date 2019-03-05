@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE FlexibleInstances   #-}
 
 module Graphics.Gudni.Raster.Job
   ( GeoReference(..)
@@ -15,8 +16,6 @@ module Graphics.Gudni.Raster.Job
   , rJGroupPile
   , rJTilePile
   , rJBackgroundColor
-  , rJShapeMap
-  , ShapeId(..)
   , newRasterJob
   , resetRasterJob
   , freeRasterJob
@@ -57,32 +56,18 @@ import Data.List (intercalate)
 import Data.Maybe
 import qualified Data.Map as M
 
-type ShapeId = Reference Shape
-
-data TileInfo = TileInfo
-  -- | Pixel boundaries of tile.
-  { _tiBox    :: !(Box IntSpace)
-  -- | Range of shapeIds in the geometry heap.
-  , _tiShapes :: !(Slice (Shaper GeoReference))
-  -- | Logarithmic horizontal depth.
-  , _tiHDepth :: !(CInt)
-  -- | Logarithmic vertical depth.
-  , _tiVDepth :: !(CInt)
-  } deriving (Show)
-
 data RasterJobInput = RasterJobInput
   { _rjiBackgroundColor :: Color
-  , _rjiShapes          :: [ShapeHeader]
+  , _rjiSubstances          :: [SubstanceInfo]
   , _rjiTileTree        :: TileTree
   }
 makeLenses ''RasterJobInput
 
 data RasterJob = RasterJob
-  { _rJShapePile       :: !(Pile Shape)
-  , _rJTilePile        :: !(Pile TileInfo)
-  , _rJGroupPile       :: !(Pile ShapeHeader)
+  { _rJShapePile       :: !(Pile (Shape GeoReference))
+  , _rJTilePile        :: !(Pile (Tile (Slice (Shape GeoReference))))
+  , _rJGroupPile       :: !(Pile SubstanceInfo)
   , _rJBackgroundColor :: !Color
-  , _rJShapeMap        :: M.Map PrimId ShapeId
   } deriving (Show)
 makeLenses ''RasterJob
 
@@ -96,15 +81,14 @@ runRasterJobMonad job code = execStateT code job
 -- | Create a new rasterJob with default allocation sizes.
 newRasterJob :: MonadIO m => m RasterJob
 newRasterJob = liftIO $
-    do  initShapePile     <- newPile :: IO (Pile Shape)
-        initTilePile     <- newPile :: IO (Pile TileInfo)
-        initGroupPile    <- newPile :: IO (Pile ShapeHeader)
+    do  initShapePile <- newPile :: IO (Pile (Shape GeoReference))
+        initTilePile  <- newPile :: IO (Pile (Tile (Slice (Shape GeoReference))))
+        initGroupPile <- newPile :: IO (Pile SubstanceInfo)
         return RasterJob
             { _rJShapePile       = initShapePile
             , _rJGroupPile       = initGroupPile
             , _rJTilePile        = initTilePile
             , _rJBackgroundColor = clear black
-            , _rJShapeMap         = M.empty
             }
 
 -- | Free all memory allocated by the 'RasterJob'
@@ -117,39 +101,39 @@ freeRasterJob job =
 -- | Reset pile cursors for the entire job and erase the shape map
 resetRasterJob :: MonadIO m => RasterJobMonad s m ()
 resetRasterJob =
-    do  rJShapePile    %= resetPile
-        rJTilePile     %= resetPile
-        rJShapeMap     .= M.empty
+    do  rJShapePile %= resetPile
+        rJGroupPile %= resetPile
+        rJTilePile  %= resetPile
 
-referenceShape :: Shaper PrimEntry -> Shaper GeoReference
-referenceShape (Shaper info primEntry) = Shaper info (primEntry ^. primGeoRef)
+referenceShape :: Shape ShapeEntry -> Shape GeoReference
+referenceShape (Shape info shapeEntry) = Shape info (shapeEntry ^. shapeGeoRef)
 
 appendShapes :: MonadIO m
-            => [Shaper GeoReference]
-            -> RasterJobMonad DisplaySpace m (Slice (Shaper GeoReference))
+            => [Shape GeoReference]
+            -> RasterJobMonad DisplaySpace m (Slice (Shape GeoReference))
 appendShapes shapes =
        -- add the shape to the pile of shapes and return a reference to it.
        addListToPileState rJShapePile shapes
 
 
 tileToRasterJob :: MonadIO m
-                => Tile
+                => Tile TileEntry
                 -> RasterJobMonad DisplaySpace m ()
 tileToRasterJob tile =
-  do  let primEntries = tilePrims tile
-      slice <- appendShapes $ map referenceShape primEntries
-      let tileInfo = TileInfo (tileBox tile) slice 0 0
+  do  let shapeEntries = tile ^. tileRep . tileShapes
+      slice <- appendShapes $ map referenceShape shapeEntries
+      let tileInfo = set tileRep slice tile
       addToPileState rJTilePile tileInfo
       return ()
 
 buildRasterJob :: MonadIO m
                 => RasterJobInput
-                -> [Tile]
+                -> [Tile TileEntry]
                 -> m RasterJob
 buildRasterJob input tiles =
   do  job <- liftIO newRasterJob
       job' <- runRasterJobMonad job $
-                  do groupPile <- liftIO $ listToPile $ input ^. rjiShapes
+                  do groupPile <- liftIO $ listToPile $ input ^. rjiSubstances
                      rJBackgroundColor .= input ^. rjiBackgroundColor
                      rJGroupPile .= groupPile
                      mapM tileToRasterJob tiles
@@ -175,33 +159,5 @@ outputRasterJob job =
     putStrLn "---------------- rJTilePile ----------------------- "
     putStrList =<< (pileToList . view rJTilePile $ job)
 
-instance StorableM TileInfo where
-  sizeOfM _ = do sizeOfM (undefined :: Box IntSpace)
-                 sizeOfM (undefined :: Slice ShapeId)
-                 sizeOfM (undefined :: CInt)
-                 sizeOfM (undefined :: CInt)
-  alignmentM _ = do alignmentM (undefined :: Box IntSpace)
-                    alignmentM (undefined :: Slice ShapeId)
-                    alignmentM (undefined :: CInt)
-                    alignmentM (undefined :: CInt)
-  peekM = do box    <- peekM
-             slice  <- peekM
-             hDepth <- peekM
-             vDepth <- peekM
-             return (TileInfo box slice hDepth vDepth)
-  pokeM (TileInfo box slice hDepth vDepth) = do pokeM box
-                                                pokeM slice
-                                                pokeM hDepth
-                                                pokeM vDepth
-
-instance Storable TileInfo where
-  sizeOf = sizeOfV
-  alignment = alignmentV
-  peek = peekV
-  poke = pokeV
-
-instance NFData TileInfo where
-  rnf (TileInfo a b c d) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()
-
 instance NFData RasterJob where
-  rnf (RasterJob a b c d e) = {-a `deepseq`-} b `deepseq` c `deepseq` d `deepseq` e `deepseq` ()
+  rnf (RasterJob a b c d) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()

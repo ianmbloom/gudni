@@ -9,7 +9,6 @@
 module Graphics.Gudni.Raster.TraverseShapeTree
   ( EnclosureMonad (..)
   , runEnclosureMonad
-  , PrimId (..)
   , makeCurveEnclosure
   , ShapeTreeState (..)
   , stTokenMap
@@ -48,14 +47,12 @@ runEnclosureMonad code =
      (evalStateT code) (curveTable, mAXsECTIONsIZE)
 
 type Combiners t = Group (Combiner t)
-type Shapers   t = Group (Shaper t)
+type Shapes   t = Group (Shape t)
 type Outlines    = Group (Outline DisplaySpace)
 
-type PrimId = Reference (Shaper Enclosure)
-
 data ShapeTreeState token = ShapeTreeState
-    { _stGroupId           :: GroupId
-    , _stTokenMap          :: M.Map token GroupId
+    { _stSubstanceId       :: SubstanceId
+    , _stTokenMap          :: M.Map token SubstanceId
     , _stCurrentPictureRef :: Int
     , _stPictureRefs       :: [PictureRef PictureMemory]
     , _stPictureMems       :: [PictureMemory]
@@ -74,41 +71,41 @@ excludeBox canvasSize box =
 makeCurveEnclosures :: CurveTable
                     -> Int
                     -> Point2 DisplaySpace
-                    -> Group (Shaper Outlines)
-                    -> [Shaper (BoundingBox, Enclosure)]
+                    -> Group (Shape Outlines)
+                    -> [Shape (BoundingBox, Enclosure)]
 makeCurveEnclosures curveTable sectionSize canvasSize  =
     catMaybes . unGroup . fmap (makeCurveEnclosure curveTable sectionSize canvasSize)
 
 makeCurveEnclosure :: CurveTable
                    -> Int
                    -> Point2 DisplaySpace
-                   -> Shaper Outlines
-                   -> Maybe (Shaper (BoundingBox, Enclosure))
-makeCurveEnclosure curveTable sectionSize canvasSize (Shaper shapeInfo outlines) =
+                   -> Shape Outlines
+                   -> Maybe (Shape (BoundingBox, Enclosure))
+makeCurveEnclosure curveTable sectionSize canvasSize (Shape shapeInfo outlines) =
      let boundingBox = getBoundingBox outlines
      in  if excludeBox canvasSize boundingBox
          then Nothing
          else let enclosure = enclose curveTable sectionSize (unGroup outlines)
-              in  Just (Shaper shapeInfo (boundingBox, enclosure))
+              in  Just (Shape shapeInfo (boundingBox, enclosure))
 
 type ShapeTreeMonad token = State (ShapeTreeState token)
 
 evalShapeTreeMonad :: [PictureMemory]
                    -> ShapeTreeMonad token a
                    -> (a, ShapeTreeState token)
-evalShapeTreeMonad pictureMems mf = runState mf (ShapeTreeState (GroupId 0) M.empty 0 [] pictureMems)
+evalShapeTreeMonad pictureMems mf = runState mf (ShapeTreeState (SubstanceId 0) M.empty 0 [] pictureMems)
 
--- | Traverse the ShapeTree while assigning ids to every shapeGroup, recording every tokens relationship to
+-- | Traverse the ShapeTree while assigning ids to every shapeSubstanceId, recording every tokens relationship to
 -- and assigning a picture reference to each referenced picture.
 parseShapeTree :: (Ord token)
                =>                       STree overlap trans (SRep token (PictureRef PictId) a)
-               -> ShapeTreeMonad token (STree overlap trans (SRep GroupId PictId            a))
+               -> ShapeTreeMonad token (STree overlap trans (SRep SubstanceId PictId        a))
 parseShapeTree = \case
   SLeaf (SRep token substance compound) ->
-      do  shapeId  <- use stGroupId
-          stGroupId += 1
+      do  substanceId  <- use stSubstanceId
+          stSubstanceId += 1
           tokenMap <- use stTokenMap
-          stTokenMap .= M.insert token shapeId tokenMap
+          stTokenMap .= M.insert token substanceId tokenMap
           colorOrPicture <-
              case substance of
                  Texture pictureRef -> do
@@ -121,7 +118,7 @@ parseShapeTree = \case
                      stCurrentPictureRef += 1
                      return . Texture . fromIntegral $ current
                  Solid color -> return $ Solid color
-          return $ SLeaf (SRep shapeId colorOrPicture compound)
+          return $ SLeaf (SRep substanceId colorOrPicture compound)
   STransform t child   -> STransform t <$> parseShapeTree child
   SOverlap overlap above below ->
       do  above' <- parseShapeTree above
@@ -131,7 +128,7 @@ parseShapeTree = \case
 class Combinable o t where
   combine :: o -> t -> t -> t
 
-instance Combinable () [(ShapeHeader, Group (Shaper (Group (Outline DisplaySpace))))] where
+instance Combinable () [(SubstanceInfo, Group (Shape (Group (Outline DisplaySpace))))] where
   combine () over under = over ++ under
 
 instance Combinable CombineType (Group (Combiner (Group (Outline DisplaySpace)))) where
@@ -165,11 +162,11 @@ combineShapeTree = \case
      in  combine overlap above' below'
   STransform t child -> error "shapeTransforms should be removed before combining"
 
-mkPrimitive :: GroupId -> Substance a -> Combiner rep -> Shaper rep
-mkPrimitive token substance (Combiner combineType rep) = Shaper (ShapeInfo (substanceToSubstanceType substance) combineType token) rep
+mkShape :: SubstanceId -> Substance a -> Combiner rep -> Shape rep
+mkShape token substance (Combiner combineType rep) = Shape (ShapeInfo (substanceToSubstanceType substance) combineType token) rep
 
-buildPrimitives :: SRep GroupId PictId (Group (Combiner t)) -> (ShapeHeader, Group (Shaper t))
-buildPrimitives (SRep token substance rep) = (ShapeHeader substance, fmap (mkPrimitive token substance) rep)
+buildShapes :: SRep SubstanceId PictId (Group (Combiner t)) -> (SubstanceInfo, Group (Shape t))
+buildShapes (SRep token substance rep) = (SubstanceInfo substance, fmap (mkShape token substance) rep)
 
 defaultCombineType :: t -> Group (Combiner t)
 defaultCombineType a = Group [Combiner CombineAdd a]
@@ -178,20 +175,20 @@ traverseShapeTree :: (Monad m)
                  => [PictureMemory]
                  -> Point2 DisplaySpace
                  -> ShapeTreeRoot
-                 -> EnclosureMonad m ( [ShapeHeader]
-                                     , [[Shaper (BoundingBox, Enclosure)]]
+                 -> EnclosureMonad m ( [SubstanceInfo]
+                                     , [[Shape (BoundingBox, Enclosure)]]
                                      , ShapeTreeState Int)
 traverseShapeTree pictureMems canvasSize (ShapeRoot backgroundColor shapeTree) =
     do  (curveTable, sectionSize) <- get
         let (parsedShapeTree, shapeTreeState) = evalShapeTreeMonad pictureMems (parseShapeTree shapeTree)
-            outlineTree :: STree () (TransformType DisplaySpace) (SRep GroupId PictId (STree CombineType (TransformType DisplaySpace) Outlines))
+            outlineTree :: STree () (TransformType DisplaySpace) (SRep SubstanceId PictId (STree CombineType (TransformType DisplaySpace) Outlines))
             outlineTree = fmap (over shapeCompoundTree (fmap (Group . rawShapeToOutlines))) parsedShapeTree
-            transformedTree :: STree () (TransformType DisplaySpace) (SRep GroupId PictId (STree CombineType (TransformType DisplaySpace) Outlines))
+            transformedTree :: STree () (TransformType DisplaySpace) (SRep SubstanceId PictId (STree CombineType (TransformType DisplaySpace) Outlines))
             transformedTree = transformShapeTree (fmap . fmap . fmap) . (fmap . fmap $ transformShapeTree fmap) $ outlineTree
-            combinedCompounds :: STree () (TransformType DisplaySpace) (SRep GroupId PictId (Combiners Outlines))
+            combinedCompounds :: STree () (TransformType DisplaySpace) (SRep SubstanceId PictId (Combiners Outlines))
             combinedCompounds = fmap (over shapeCompoundTree (combineShapeTree . fmap defaultCombineType)) transformedTree
-            curveShapes :: [(ShapeHeader, Shapers Outlines)]
-            curveShapes = combineShapeTree . fmap (pure . buildPrimitives) $ combinedCompounds
+            curveShapes :: [(SubstanceInfo, Shapes Outlines)]
+            curveShapes = combineShapeTree . fmap (pure . buildShapes) $ combinedCompounds
             boundedShapedEnclosures = parMap rpar {- map -} (makeCurveEnclosures curveTable sectionSize canvasSize) $ map snd curveShapes
             shapes = map fst curveShapes
         return (shapes, boundedShapedEnclosures, shapeTreeState)
