@@ -82,5 +82,6 @@ instance KernelArgs s g w o r => KernelArgs s g w o (CULong  -> r) where prepArg
 instance KernelArgs s g w o r => KernelArgs s g w o (CSize   -> r) where prepArg = stoPrepArg
 instance KernelArgs s g w o r => KernelArgs s g w o (CLLong  -> r) where prepArg = stoPrepArg
 instance KernelArgs s g w o r => KernelArgs s g w o (CULLong -> r) where prepArg = stoPrepArg
+instance KernelArgs s g w o r => KernelArgs s g w o (Point2 CInt -> r) where prepArg = stoPrepArg
 instance KernelArgs s g w o r => KernelArgs s g w o (Point2 IntSpace -> r) where prepArg = stoPrepArg
 instance KernelArgs s g w o r => KernelArgs s g w o (Point2 DisplaySpace -> r) where prepArg = stoPrepArg

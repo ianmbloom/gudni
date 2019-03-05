@@ -22,6 +22,7 @@ module Graphics.Gudni.Figure.Point
   , negated
   , normalize
   , norm
+  , pointArea
 )
 where
 
@@ -58,6 +59,9 @@ pY elt_fn (Point2 x y) = (\y' -> Point2 x (unOrtho y')) <$> (elt_fn . Ortho $ y)
 -- | Make a point from two orthogonal dimensions.
 makePoint :: Ortho XDimension s -> Ortho YDimension s -> Point2 s
 makePoint (Ortho x) (Ortho y) = P (V2 x y)
+
+pointArea :: Num s => Point2 s -> s
+pointArea (Point2 x y) = x * y
 
 instance (Functor f, Convertable a b) => Convertable (Point f a) (Point f b) where
   convert = fmap convert

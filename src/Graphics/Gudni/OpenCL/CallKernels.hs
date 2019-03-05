@@ -53,7 +53,9 @@ import Foreign.Ptr
 import Foreign.Storable
 
 
+
 import Linear
+import Linear.Affine
 
 import CLUtil.KernelArgs
 import CLUtil
@@ -102,18 +104,18 @@ generateCall  :: (KernelArgs
               -> Maybe (Pile Word8)
               -> [PictureRef PictureMemory]
               -> VS.Vector CFloat
-              -> CInt
-              -> CInt
+              -> Point2 CInt
               -> CInt
               -> RasterJob
               -> a
               -> CL ()
-generateCall state kernel geometryHeap pictData pictRefs randomField bitmapWidth bitmapHeight frame job target =
+generateCall state kernel geometryHeap pictData pictRefs randomField bitmapSize frame job target =
     let shapeHeap       = job ^. rJShapePile
         groupPile       = job ^. rJGroupPile
         tileHeap        = job ^. rJTilePile
         numTiles        = tileHeap ^. pileSize
         backgroundColor = job ^. rJBackgroundColor
+        computeDepth = adjustedLog cOMPUTEsIZE :: CInt
         commonKernel pictPile pictRefPile =
             runKernel kernel
                       geometryHeap
@@ -124,8 +126,8 @@ generateCall state kernel geometryHeap pictData pictRefs randomField bitmapWidth
                       pictRefPile
                       randomField
                       backgroundColor
-                      bitmapWidth
-                      bitmapHeight
+                      bitmapSize
+                      computeDepth
                       frame
                       target
     in
@@ -143,8 +145,8 @@ raster :: CInt
 raster frame params job =
     let tileW        = (fromIntegral $ mAXtILEsIZE ^. pX) :: CInt
         tileH        = (fromIntegral $ mAXtILEsIZE ^. pY) :: CInt
-        (V2 bitmapWidth bitmapHeight)     = targetArea (params ^. rpTarget)
-        outputSize   = fromIntegral $ bitmapWidth * bitmapHeight
+        bitmapSize   = P $ targetArea (params ^. rpTarget)
+        outputSize   = fromIntegral $ pointArea bitmapSize
         state        = clState (params ^. rpLibrary)
         numTiles     = (fromIntegral $ job ^. rJTilePile ^. pileSize) :: CInt
         rasterCall :: CL ()
@@ -156,8 +158,7 @@ raster frame params job =
                                        (params ^. rpPictData)
                                        (params ^. rpPictRefs)
                                        (params ^. rpRandomField)
-                                       bitmapWidth
-                                       bitmapHeight
+                                       bitmapSize
                                        frame
                                        job
                                        (OutPtr outputPtr outputSize)

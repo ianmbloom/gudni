@@ -55,7 +55,7 @@ data VTree = VTree
 buildTileTree :: Point2 IntSpace -> HTree
 buildTileTree = buildTileTree' (fromIntegral $ mAXtILEsIZE ^. pX)
 
-adjustedLog :: IntSpace -> Int
+adjustedLog :: (Integral s, Integral v )=> s -> v
 adjustedLog x = if x < 1 then 0 else ceiling . logBase 2 . fromIntegral $ x
 
 buildTileTree' :: IntSpace -> Point2 IntSpace -> HTree
