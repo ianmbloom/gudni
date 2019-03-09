@@ -6,15 +6,15 @@
 
 module Graphics.Gudni.Raster.Job
   ( GeoReference(..)
-  , RasterJobMonad(..)
-  , runRasterJobMonad
+  , BuildJobsMonad(..)
+  , execBuildJobsMonad
   , RasterJob(..)
   , rJShapePile
   , rJTilePile
   , newRasterJob
   , resetRasterJob
   , freeRasterJob
-  , tileToRasterJob
+  , addTileToRasterJob
   , buildRasterJob
   , outputRasterJob
   )
@@ -60,11 +60,19 @@ data RasterJob = RasterJob
   } deriving (Show)
 makeLenses ''RasterJob
 
-type RasterJobMonad s m = StateT (RasterJob) m
+data BuildState = BuildState
+  { _bsTileCount :: Int -- number of tiles added to the current job.
+  , _bsJobs  :: [RasterJob] -- accumulated jobs.
+  }
+makeLenses ''BuildState
+
+type BuildJobsMonad m = StateT BuildState m
 
 -- | Run a RasterJobMonad and return the state.
-runRasterJobMonad :: MonadIO m => RasterJob -> RasterJobMonad s m a -> m RasterJob
-runRasterJobMonad job code = execStateT code job
+execBuildJobsMonad :: MonadIO m => BuildJobsMonad m a -> m [RasterJob]
+execBuildJobsMonad code =
+  do initJob <- newRasterJob
+     fmap (view bsJobs) $ execStateT code (BuildState 0 [initJob])
 
 -- | Create a new rasterJob with default allocation sizes.
 newRasterJob :: MonadIO m => m RasterJob
@@ -83,7 +91,7 @@ freeRasterJob job =
         freePile $ job ^. rJTilePile
 
 -- | Reset pile cursors for the entire job and erase the shape map
-resetRasterJob :: MonadIO m => RasterJobMonad s m ()
+resetRasterJob :: MonadIO m => StateT RasterJob m ()
 resetRasterJob =
     do  rJShapePile %= resetPile
         rJTilePile  %= resetPile
@@ -93,15 +101,15 @@ referenceShape (Shape info shapeEntry) = Shape info (shapeEntry ^. shapeGeoRef)
 
 appendShapes :: MonadIO m
             => [Shape GeoReference]
-            -> RasterJobMonad DisplaySpace m (Slice (Shape GeoReference))
+            -> StateT RasterJob m (Slice (Shape GeoReference))
 appendShapes shapes =
        -- add the shape to the pile of shapes and return a reference to it.
        addListToPileState rJShapePile shapes
 
-tileToRasterJob :: MonadIO m
-                => Tile TileEntry
-                -> RasterJobMonad DisplaySpace m ()
-tileToRasterJob tile =
+addTileToRasterJob :: MonadIO m
+                   => Tile TileEntry
+                   -> StateT RasterJob m ()
+addTileToRasterJob tile =
   do  let shapeEntries = tile ^. tileRep . tileShapes
       slice <- appendShapes $ map referenceShape shapeEntries
       let tileInfo = set tileRep slice tile
@@ -109,14 +117,21 @@ tileToRasterJob tile =
       return ()
 
 buildRasterJob :: MonadIO m
-                => [Tile TileEntry]
-                -> m RasterJob
-buildRasterJob tiles =
-  do  job <- liftIO newRasterJob
-      job' <- runRasterJobMonad job $
-                  mapM tileToRasterJob tiles
-      --liftIO $ outputRasterJob job'
-      return job'
+                => Int
+                -> Tile TileEntry
+                -> BuildJobsMonad m ()
+buildRasterJob maxTilesPerJob tile =
+  do  jobs <- use bsJobs
+      count <- use bsTileCount
+      if count >= maxTilesPerJob
+      then do newJob <- newRasterJob
+              bsJobs .= newJob:jobs
+              bsTileCount .= 0
+              buildRasterJob maxTilesPerJob tile
+      else do let currentJob = head jobs
+              job' <- execStateT (addTileToRasterJob tile) currentJob
+              bsJobs .= job':tail jobs
+              bsTileCount += 1
 
 outputRasterJob :: RasterJob -> IO ()
 outputRasterJob job =

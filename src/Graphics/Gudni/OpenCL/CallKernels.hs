@@ -159,6 +159,5 @@ buildRasterJobs :: (MonadIO m, Show token)
 buildRasterJobs params =
   do  tileTree <- use geoTileTree
       let tilesPerCall = fromIntegral . clMaxGroupSize $ params ^. rpLibrary
-          tileGroups = breakList tilesPerCall . tileTreeToList $ tileTree
-      jobs <- liftIO $ mapM buildRasterJob tileGroups
+      jobs <- execBuildJobsMonad (traverseTileTree (buildRasterJob tilesPerCall) tileTree)
       return jobs

@@ -9,7 +9,7 @@ module Graphics.Gudni.Raster.TileTree
   , tileShapeCount
   , buildTileTree
   , addShapeToTree
-  , tileTreeToList
+  , traverseTileTree
   , adjustedLog
   )
 where
@@ -144,16 +144,18 @@ vSplit tile =
       vTree = VTree (fromIntegral cut) (HLeaf tEmpty) (HLeaf bEmpty)
   in  {-tr "vSplit" $-} foldl insertShapeV vTree $ reverse (tile ^. tileRep . tileShapes)
 
-tileTreeToList :: TileTree -> [Tile TileEntry]
-tileTreeToList = tileTreeToListV
+traverseTileTree :: Monad m => (Tile TileEntry -> m t) -> TileTree -> m t
+traverseTileTree = traverseTileTreeV
 
-tileTreeToListH :: HTree -> [Tile TileEntry]
-tileTreeToListH (HTree _ left right) = tileTreeToListV left ++ tileTreeToListV right
-tileTreeToListH (HLeaf tile) = pure tile
+traverseTileTreeH :: Monad m => (Tile TileEntry -> m t) -> HTree -> m t
+traverseTileTreeH f (HTree _ left right) = do traverseTileTreeV f left
+                                              traverseTileTreeV f right
+traverseTileTreeH f (HLeaf tile) = f tile
 
-tileTreeToListV :: VTree -> [Tile TileEntry]
-tileTreeToListV (VTree _ top bottom) = tileTreeToListH top ++ tileTreeToListH bottom
-tileTreeToListV (VLeaf tile) = pure tile
+traverseTileTreeV :: Monad m => (Tile TileEntry -> m t) -> VTree -> m t
+traverseTileTreeV f (VTree _ top bottom) = do traverseTileTreeH f top
+                                              traverseTileTreeH f bottom
+traverseTileTreeV f (VLeaf tile) = f tile
 
 showTile tile =   "Shapes " ++ show (tile ^. tileRep . tileShapeCount)
               ++ " Strands " ++ show (tile ^. tileRep . tileStrandCount)
