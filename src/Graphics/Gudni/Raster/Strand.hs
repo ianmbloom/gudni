@@ -203,7 +203,7 @@ attachEQ (         x:           xs) = (Nothing, x, Nothing):attachEQ   xs
 attachEQ []                         = []
 
 vertical :: (Num s, Ord s, Iota s) => Maybe (Triple (Point2 s)) -> Ortho YDimension s
-vertical (Just (V3 a _ b)) = b ^. pY - b ^. pY
+vertical (Just (V3 a _ b)) = a ^. pY - b ^. pY
 vertical _                 = 0
 
 flipTriple :: Triple a -> Triple a

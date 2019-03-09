@@ -65,8 +65,8 @@ traverseTree combineOp transformOp c t f tree = go c t tree
                   SLeaf rep -> f c t rep
                   SOverlap overlap above below ->
                      do let (a, b) = combineOp overlap c
-                        go a t above
                         go b t below
+                        go a t above
                   STransform tOp child -> go c (transformOp tOp t) child
 
 traverseCompoundTree :: (Num s, Monad m)

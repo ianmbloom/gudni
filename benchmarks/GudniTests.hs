@@ -77,17 +77,17 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 20
-    , _stateStep        = 5000
+    , _stateCurrentTest = 27
+    , _stateStep        = 12
     , _stateFrameNumber = 0
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("benchmark1"        , benchmark1          ) --  1 -
-           , ("fuzzy cookie"       , fuzzyDonut          ) --  2 -
-           , ("fuzzy basic"        , fuzzyBasic          ) --  3 -
-           , ("fuzzy circles"      , fuzzyCircles        ) --  4 -
-           , ("fuzzy squares"      , fuzzySquares        ) --  5 -
+           , ("fuzzy cookie"      , fuzzyDonut          ) --  2 -
+           , ("fuzzy basic"       , fuzzyBasic          ) --  3 -
+           , ("fuzzy circles"     , fuzzyCircles        ) --  4 -
+           , ("fuzzy squares"     , fuzzySquares        ) --  5 -
            , ("testPict"          , testPict            ) --  6 -
            , ("rectGrid"          , rectGrid            ) --  7 -
            , ("plotter test"      , plots               ) --  8 -
@@ -162,15 +162,15 @@ fuzzyCircles state = return $
                let time = view stateLastTime state
                in  --sTranslateXY (100) (100) .
                    overlap $
-                   evalRand (sequence . replicate (state ^. stateStep) $ fuzzyCircle (makePoint 1440 900) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
+                   evalRand (sequence . replicate 5000 $ fuzzyCircle (makePoint 1440 900) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
 
 -- | Smaller random field of transparent circles.
 fuzzyCircles2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 fuzzyCircles2 state = return $
                let time = view stateLastTime state
-               in  sTranslateXY (-20) (-20) .
+               in  sTranslateXY 0 0 .
                    overlap $
-                   evalRand (sequence . replicate 20 $ fuzzyCircle (makePoint 100 100) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   evalRand (sequence . replicate (state ^. stateStep) $ fuzzyCircle (makePoint 200 200) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
 
 -- | A random field of transparent squares.
 fuzzySquares :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree

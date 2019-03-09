@@ -139,7 +139,7 @@ onShape wrapShape combineType transformType rawShape =
              maxStrandSize <- use geoMaxStrandSize
              let enclosure = enclose curveTable maxStrandSize (unGroup transformedOutlines)
              geometryPile <- use geoGeometryPile
-             (entry, geometryPile') <- liftIO $ runStateT (makeShapeEntry boundingBox $ tr "enclosure" enclosure) geometryPile
+             (entry, geometryPile') <- liftIO $ runStateT (makeShapeEntry boundingBox enclosure) geometryPile
              geoGeometryPile .= geometryPile'
              tileTree <- use geoTileTree
              geoTileTree .= addShapeToTree tileTree (wrapShape combineType entry)

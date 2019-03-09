@@ -109,7 +109,7 @@ generateCall params job bitmapSize frame target =
   do  let state        = clState (params ^. rpLibrary)
           numTiles     = job ^. rJTilePile . pileSize
           computeDepth = adjustedLog cOMPUTEsIZE :: CInt
-      liftIO $ outputGeometryState (params ^. rpGeometryState)
+      --liftIO $ outputGeometryState (params ^. rpGeometryState)
       --liftIO $ outputSubstanceState(params ^. rpSubstanceState)
       pictRefPile <- liftIO $ listToPile (params ^. rpSubstanceState . suPictureRefs)
       runKernel (multiTileRasterCL (params ^. rpLibrary))

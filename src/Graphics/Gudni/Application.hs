@@ -190,6 +190,7 @@ drawFrame frame shapeTreeRoot =
         --liftIO $ evaluate $ rnf (substances, boundedShapedEnclosures, substanceState)
         markAppTime "Traverse Shape Tree"
         geometryState <- lift $ get
+        --liftIO $ putStrLn $ "TileTree " ++ show (geometryState ^. geoTileTree)
         let rasterParams = RasterParams library
                                         pictData
                                         target
