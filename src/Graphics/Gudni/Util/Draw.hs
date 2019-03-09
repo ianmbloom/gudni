@@ -71,7 +71,7 @@ makeRow s = zipWith ($) (map sTranslate $ iterate (^+^ Point2 s 0) zeroPoint)
 makeColumn :: Num s => s -> [STree o (TransformType s) rep] -> [STree o (TransformType s) rep]
 makeColumn s = zipWith ($) (map sTranslate $ iterate (^+^ Point2 0 s) zeroPoint)
 
-makeGrid :: (DefaultOverlap o, Num s) => s -> Int -> Int -> [STree o (TransformType s) rep] -> STree o (TransformType s) rep
+makeGrid :: (HasDefault o, Num s) => s -> Int -> Int -> [STree o (TransformType s) rep] -> STree o (TransformType s) rep
 makeGrid s width height = overlap . take height . makeColumn s . map (overlap . take width . makeRow s) . breakList width
 
 increasingAngles :: (Floating s, Num s) => [Angle s]
@@ -86,8 +86,8 @@ makeLine y = overlap . makeRow y . map glyph
 paraGrid :: DisplaySpace -> [[Glyph DisplaySpace]] -> CompoundTree
 paraGrid s = overlap . makeColumn s . map (overlap . makeRow s . map glyph)
 
-overlap :: DefaultOverlap o => [STree o t rep] -> STree o t rep
-overlap = foldl1 (SOverlap defaultOverlap)
+overlap :: HasDefault o => [STree o t rep] -> STree o t rep
+overlap = foldl1 (SOverlap defaultValue)
 
 circle :: CompoundTree
 circle = sTranslateXY 0.0 (-0.5) $ arc fullTurn

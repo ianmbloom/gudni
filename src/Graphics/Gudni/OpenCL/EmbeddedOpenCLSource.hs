@@ -27,7 +27,7 @@ cppDefines =
   ]
 
 embeddedOpenCLSource :: BS.ByteString
-embeddedOpenCLSource = $(embedFile "src/Graphics/Gudni/OpenCL/Kernels.cl")
+embeddedOpenCLSource =  $(embedFile "src/Graphics/Gudni/OpenCL/Kernels.cl")
 
 openCLSourceWithDefines :: String
 openCLSourceWithDefines = appendCppDefines sOURCEfILEpADDING cppDefines (BS.unpack embeddedOpenCLSource)

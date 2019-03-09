@@ -1,3 +1,5 @@
+frameTimeMs = 3000000 --(3300000`div`10)*10 -- miliseconds
+
 tileTreeToGroups :: Int -> TileTree -> [[Tile]]
 tileTreeToGroups groupSize = map fst . tileTreeToGroupsH groupSize
 
@@ -83,3 +85,92 @@ checkJob job = not $ (isEmptyPile . view rJGeometryPile $ job) ||
                      (isEmptyPile . view rJGroupPile    $ job) ||
                      (isEmptyPile . view rJShapeRefPile  $ job) ||
                      (isEmptyPile . view rJTilePile     $ job)
+
+------------ Old tree traversal stuff
+
+combineShapeTree :: Combinable o a => STree o trans a -> a
+combineShapeTree = \case
+  SLeaf rep -> rep
+  SOverlap overlap above below ->
+     let above' = combineShapeTree above
+         below' = combineShapeTree below
+     in  combine overlap above' below'
+  STransform t child -> error "shapeTransforms should be removed before combining"
+
+defaultCombineType :: t -> Group (Combiner t)
+defaultCombineType a = Group [Combiner CombineAdd a]
+
+class Combinable o t where
+  combine :: o -> t -> t -> t
+
+instance Combinable () [(SubstanceInfo, Group (Shape (Group (Outline DisplaySpace))))] where
+  combine () over under = under ++ over
+
+instance Combinable CombineType (Group (Combiner (Group (Outline DisplaySpace)))) where
+  combine combineType (Group above) (Group below) =
+      let inverter =
+              case combineType of
+                  CombineSubtract -> map (over coCombineType invertCombineType)
+                  _ -> id
+      in  Group $ inverter below ++ above
+
+combinedCompounds :: STree () (TransformType DisplaySpace) (SRep SubstanceId PictId (Combiners (Outlines DisplaySpace)))
+combinedCompounds = fmap (over shapeCompoundTree (combineShapeTree . fmap defaultCombineType)) transformedTree
+curveShapes :: [(SubstanceInfo, Shapes (Outlines DisplaySpace))]
+curveShapes = combineShapeTree . fmap (pure . buildShapes) $ combinedCompounds
+
+
+buildShapes :: SRep SubstanceId PictId (Group (Combiner t)) -> (SubstanceInfo, Group (Shape t))
+buildShapes (SRep token substance rep) = (SubstanceInfo substance, fmap (mkShape token substance) rep)
+
+boundedShapedEnclosures = parMap rpar {- map -} (makeCurveEnclosures curveTable sectionSize canvasSize) $ map snd curveShapes
+substances = map fst curveShapes
+return (substances, boundedShapedEnclosures, shapeTreeState)
+--------------------- Fast Truncate -----------------------
+
+dOUBLEMAGIC         = 6755399441055744.0   :: CDouble  -- 2^52 * 1.5,  uses limited precisicion to floor
+dOUBLEMAGICDELTA    = 1.5e-8               :: CDouble  -- almost .5f =.5f + 1e^(number of exp bit)
+dOUBLEMAGICROUNDEPS = 0.5-dOUBLEMAGICDELTA :: CDouble  -- almost .5f =.5f - 1e^(number of exp bit)
+
+{-# INLINE fastTruncateDouble #-}
+fastTruncateDouble x = {-trWith showBin "fastTruncateDouble" $-} (unsafeCoerce :: CDouble -> Int) (x - dOUBLEMAGICROUNDEPS + dOUBLEMAGIC) .&. 0x0000FFFF
+
+{-# INLINE fastRoundDouble #-}
+fastRoundDouble    x = {-trWith showBin "fastRoundDouble" $-} (unsafeCoerce :: CDouble -> Int) (x + dOUBLEMAGIC) .&. 0x0000FFFF
+
+sINGLEMAGIC = (2 ^ 23) {-*  1.5-} {-6291456.0-} :: CFloat  -- 2^22 * 1.5,  uses limited precisicion to floor
+sINGLEMAGICDELTA    = 1.5e-8                    :: CFloat  -- almost .5f =.5f + 1e^(number of exp bit)
+sINGLEMAGICROUNDEPS = 0.5-sINGLEMAGICDELTA      :: CFloat  -- almost .5f =.5f - 1e^(number of exp bit)
+
+{-# INLINE fastTruncateSingle #-}
+fastTruncateSingle x = {-trWith showBin ("fastTruncateSingle" ++ show x ++ "-->") $-} (unsafeCoerce :: CFloat -> Int) (x - sINGLEMAGICROUNDEPS + sINGLEMAGIC) .&. 0x0000FFFF
+
+showTest = map fastTruncateSingle [4,4.1,4.5,4.7, 4.999, 4.99999]
+
+{-# INLINE fastRoundSingle #-}
+fastRoundSingle   x = {-trWith showBin "fastRoundSingle" $-} (unsafeCoerce :: CFloat -> Int) (x + sINGLEMAGIC) .&. 0x0000FFFF
+
+10200
+
+      repLevel (SRep token substance subtree) = do onSubstance token substance
+                                                   combineLevel token substance defaultCombine subtree
+      combineLevel token substance combine subtree =
+          case subtree of
+              SLeaf item -> onShape token substance combine item
+              SOverlap operator above below ->
+                  do let (aboveCombine, belowCombine) = traverseCombine operator combine
+                     combineLevel token substance aboveCombine above
+                     combineLevel token substance belowCombine below
+              STransform t child -> error "shapeTransforms should be removed before this traversal"
+
+buildGeometryPile :: [Shape (BoundingBox, Enclosure)] -> IO ([Shape ShapeEntry], GeometryPile)
+buildGeometryPile boundedShapedEnclosures =
+  do geometryPile <- newPileSize 65536 :: IO BytePile
+     runStateT (mapM (overShape makeShapeEntry) boundedShapedEnclosures) geometryPile
+
+outputGeometryPile :: GeometryPile -> IO ()
+outputGeometryPile pile =
+  do
+    putStrLn "---------------- rJGeometryPile ------------------- "
+    print pile
+    putStr =<< fmap unlines (bytePileToGeometry pile)

@@ -11,9 +11,11 @@ module Graphics.Gudni.Figure.Transformer
  , SimpleTransformable(..)
  , Transformable(..)
  , tTranslateXY
+ , identityTransform
 )
 where
 
+import Graphics.Gudni.Figure.HasDefault
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Point
@@ -43,21 +45,30 @@ class SimpleTransformable t s => Transformable t s where
 tTranslateXY :: SimpleTransformable t s => s -> s -> t s -> t s
 tTranslateXY x y = tTranslate $ Point2 x y
 
+identityTransform :: Num s => TransformType s
+identityTransform = Translate (Point2 0 0)
+
 instance Num s => SimpleTransformable Point2 s where
     tTranslate = (^+^)
     tScale     = flip (^*)
 instance (Floating s, Num s) => Transformable Point2 s where
     tRotate    = rotate
 
+instance Num s => HasDefault (TransformType s) where
+    defaultValue = Translate (Point2 0 0)
+
 data TransformType s where
   Translate :: Point2 s -> TransformType s
   Scale     :: s        -> TransformType s
   Rotate    :: Angle s  -> TransformType s
+  CombineTransform :: TransformType s -> TransformType s -> TransformType s
+  deriving (Show)
 
 applyTransformType :: Transformable t s => TransformType s -> t s -> t s
 applyTransformType (Translate delta) = tTranslate delta
 applyTransformType (Scale scale)     = tScale scale
 applyTransformType (Rotate angle)    = tRotate angle
+applyTransformType (CombineTransform a b) = applyTransformType b . applyTransformType a
 
 -- * Instances
 

@@ -10,6 +10,7 @@
 module Graphics.Gudni.Figure.Point
   ( Point2 (..)
   , pattern Point2
+  , pattern P
   , zeroPoint
   , pX
   , pY

@@ -12,6 +12,7 @@ module Graphics.Gudni.Raster.Constants
     , mAXtHRESHOLDS
     , rANDOMFIELDsIZE
     , sOURCEfILEpADDING
+    , iNITgEOMETRYpILEsIZE
     , sHAPETAGsUBSTANCEtYPEbITmASK
     , sHAPETAGsUBSTANCEtYPEsOLIDcOLOR
     , sHAPETAGsUBSTANCEtYPEpICTURE
@@ -33,7 +34,7 @@ mAXsTRANDpERtILE = mAXtHRESHOLDS
 
 sTOCHASTICfACTOR = 0.3 :: Float -- relative amount of variability in an edge.
 mAXtHRESHOLDS    = 512 :: Int   -- the size of the threshold header and threshold geometry buffers (must be a power of 2)
-mAXsHAPE         = 511 :: Int   -- total number of shapes per build. must be one less than the number of bits available.
+mAXsHAPE         = 7 :: Int -- 511 :: Int   -- total number of shapes per build. must be one less than the number of bits available.
 cOMPUTEsIZE      = 512 :: Int
 mAXtILEsIZE      = Point2 512 512 :: Point2 IntSpace
 mINtILEsIZE      = Point2 16  16  :: Point2 IntSpace
@@ -41,6 +42,8 @@ mAXsECTIONsIZE   = 16   :: Int
 rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
 
 sOURCEfILEpADDING = 32 :: Int -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
+
+iNITgEOMETRYpILEsIZE = 65536 :: Int
 
 -- ShapeTag layout
 -- Bits 31 - 30

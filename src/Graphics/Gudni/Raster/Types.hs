@@ -6,7 +6,8 @@
 {-# LANGUAGE UndecidableInstances       #-}
 
 module Graphics.Gudni.Raster.Types
-  ( Group         (..)
+  ( Group (..)
+  , Outlines (..)
   , Tile (..)
   , tileBox
   , tileHDepth
@@ -55,6 +56,9 @@ instance Boxable t => Boxable (Group t) where
 
 instance Functor Group where
   fmap f (Group vs) = Group (fmap f vs)
+
+-- | Convenience Synonym
+type Outlines s = Group (Outline s)
 
 -- | Tile is just a pairing of the Tile Info Header and some representation of its contents.
 data Tile rep = Tile

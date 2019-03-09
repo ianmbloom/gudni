@@ -61,7 +61,7 @@ instance Model BenchmarkState where
             statusGlyphs <- mapM glyphString $ lines status
             let tree = transformFromState testScene state
                 statusTree = statusDisplay state testName statusGlyphs
-                withStatus = if True then overlap [statusTree, tree] else tree
+                withStatus = if False then overlap [statusTree, tree] else tree
             return (ShapeRoot gray withStatus, "textForm")
     providePictureData state = return $ state ^. statePictures
 

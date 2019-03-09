@@ -54,7 +54,7 @@ data BenchmarkState = BenchmarkState
   , _stateDirection   :: Bool
   , _statePlayhead    :: DisplaySpace
   , _stateCursor      :: Point2 IntSpace
-  , _statePictures    :: (Maybe (Pile Word8), [PictureMemory])
+  , _statePictures    :: (Pile Word8, [PictureMemory])
   , _stateTests       :: [(String, BenchmarkState -> GlyphMonad IO ShapeTree)]
   , _stateCurrentTest :: Int
   , _stateStep        :: Int
@@ -70,14 +70,14 @@ initialModel pictures =
     , _stateAngle       = 0 @@ deg -- 0.02094 @@ rad -- 0 @@ turn-- quarterTurn
     , _statePaused      = True
     , _stateSpeed       = 0.1
-    , _statePace        = 1
+    , _statePace        = 0.1
     , _stateLastTime    = 0
     , _stateDirection   = True
     , _statePlayhead    = 0
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 2
+    , _stateCurrentTest = 20
     , _stateStep        = 5000
     , _stateFrameNumber = 0
     }
@@ -259,7 +259,7 @@ stackOfSquares state = return $
 -- | Basic test for shape subtraction.
 openSquare :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 openSquare state = return $
-    solid (transparent 0.5 white) $
+    solid (transparent 0.5 orange) $
           cSubtract (rectangle (Point2 5 5))
                     (sTranslate (Point2 1 1) $ rectangle (Point2 3 3))
 
@@ -326,6 +326,7 @@ sixPointRectangle state = return $
 -- | Very tiny square with not rotation. Usually the first thing tested for a new build.
 tinySquare :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
 tinySquare state = return $
+        sTranslateXY 0.3 0.3 .
         solid red $
         rectangle (Point2 2 2)
 

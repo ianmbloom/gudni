@@ -63,21 +63,7 @@ import Graphics.Gudni.Util.RandomField
 
 import System.Info
 
-frameTimeMs = 3000000 --(3300000`div`10)*10 -- miliseconds
-
 type SimpleTime = Double
-
-data ApplicationState s = AppState
-    { _appBackend       :: InterfaceState
-    , _appTimeKeeper    :: TimeKeeper
-    , _appStartTime     :: TimeSpec
-    , _appOpenCLLibrary :: OpenCLKernelLibrary
-    , _appStatus        :: String
-    , _appCycle         :: Int
-    , _appState         :: s
-    , _appRandomField   :: RandomField -- can't find a better place to put this.
-    }
-makeLenses ''ApplicationState
 
 class Model s where
   -- | Construct a ShapeTreeRoot from the state of type `s`
@@ -92,10 +78,21 @@ class Model s where
    -- | Path to the Truetype font file that is initially loaded.
   fontFile         :: s -> IO String
   -- | Bitmap texture data provided from the state for the rendered scene.
-  providePictureData :: s -> IO (Maybe (Pile Word8), [PictureMemory])
+  providePictureData :: s -> IO (Pile Word8, [PictureMemory])
+
+data ApplicationState s = AppState
+    { _appBackend       :: InterfaceState
+    , _appTimeKeeper    :: TimeKeeper
+    , _appStartTime     :: TimeSpec
+    , _appOpenCLLibrary :: OpenCLKernelLibrary
+    , _appStatus        :: String
+    , _appCycle         :: Int
+    , _appState         :: s
+    }
+makeLenses ''ApplicationState
 
 -- | Monad Stack for the event loop.
-type ApplicationMonad s = StateT (ApplicationState s) (EnclosureMonad (GlyphMonad IO))
+type ApplicationMonad s = StateT (ApplicationState s) (GeometryMonad (GlyphMonad IO))
 
 runApplicationMonad = flip evalStateT
 
@@ -109,8 +106,7 @@ setupApplication state  =
       ------------ Start TimeKeeper -------------------
       timeKeeper <- startTimeKeeper
       startTime <- getTime Realtime
-      randomField <- makeRandomField rANDOMFIELDsIZE
-      return $ AppState backendState timeKeeper startTime openCLLibrary "No Status" 0 state randomField
+      return $ AppState backendState timeKeeper startTime openCLLibrary "No Status" 0 state
 
 -- | Closes the interface.
 closeApplication :: ApplicationMonad s ()
@@ -123,7 +119,8 @@ runApplication state =
         runGlyphMonad $
             do  mFontFile <- liftIO $ fontFile state
                 addFont mFontFile
-                runEnclosureMonad $
+                randomField <- liftIO $ makeRandomField rANDOMFIELDsIZE
+                runGeometryMonad randomField $
                     runApplicationMonad appState $
                         do  loop
                             closeApplication
@@ -179,42 +176,33 @@ processState elapsedTime inputs =
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
 drawFrame :: (Model s) => CInt -> ShapeTreeRoot -> ApplicationMonad s ()
-drawFrame frame shapeTree =
+drawFrame frame shapeTreeRoot =
     do  --appMessage "ResetJob"
         library <- use appOpenCLLibrary
-        let openCLState = clState library
         target <- withIO appBackend (prepareTarget (clUseGLInterop library))
-        let (V2 width height) = targetArea target
-        let canvasSize = Point2 width height
         appS <- use appState
-        (mPictData, mems) <- liftIO $ providePictureData appS
-        (substances, boundedShapedEnclosures, shapeState) <- lift  $ traverseShapeTree mems (fromIntegral <$> canvasSize) shapeTree
-        (shapeEntries, geometryPile) <- liftIO $ buildGeometryPile $ concat boundedShapedEnclosures
-        --liftIO $ evaluate $ rnf (substances, boundedShapedEnclosures, shapeState)
+        (pictData, pictureMemoryReferences) <- liftIO $ providePictureData appS
+        let canvasSize = P (targetArea target)
+        lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
+        lift (geoTileTree .= buildTileTree (fromIntegral <$> canvasSize))
+        substanceState <- lift ( execSubstanceMonad pictureMemoryReferences $
+                                 buildOverShapeTree shapeTreeRoot)
+        --liftIO $ evaluate $ rnf (substances, boundedShapedEnclosures, substanceState)
         markAppTime "Traverse Shape Tree"
-        let tileTree = buildTileTree (fromIntegral <$> canvasSize)
-            tileTree' = {-tr "tree" $-} foldl addShapeToTree tileTree {-$ tr "boxShapes"-} shapeEntries
-        --liftIO $ putStrLn $ show tileTree'
-        markAppTime "Build Tile Array"
-        randomField <- use appRandomField
-        let pictRefs = shapeState ^. stPictureRefs
-            rasterParams = RasterParams library
+        geometryState <- lift $ get
+        let rasterParams = RasterParams library
+                                        pictData
                                         target
-                                        geometryPile
-                                        mPictData
-                                        (shapeState ^. stPictureRefs)
-                                        randomField
-            jobInput = RasterJobInput (backgroundColor shapeTree)
-                                      substances
-                                      tileTree'
+                                        geometryState
+                                        substanceState
         appMessage "===================== rasterStart ====================="
-        liftIO $ buildAndQueueRasterJobs frame rasterParams jobInput tileTree'
+        jobs <- lift $ buildRasterJobs rasterParams
+        lift $ queueRasterJobs frame rasterParams jobs
         appMessage "===================== rasterDone ====================="
         markAppTime "Rasterize Threads"
         withIO appBackend $ presentTarget target
         markAppTime "Raster Frame"
-        --geometryPile %= resetPile
-        liftIO $ freePile geometryPile
+        lift resetGeometryMonad
         --liftIO $ threadDelay 3000000
 
 -- Final phase of the event loop.

@@ -11,6 +11,8 @@
 module Graphics.Gudni.Figure.ShapeTree
   ( STree(..)
   , STreeRoot(..)
+  , rootBackgroundColor
+  , rootShapeTree
   , SRep(..)
   , sTranslate
   , sTranslateXY
@@ -25,7 +27,7 @@ module Graphics.Gudni.Figure.ShapeTree
   , ShapeTreeRoot(..)
   , ShapeTree(..)
   , CompoundTree(..)
-  , DefaultOverlap(..)
+  , HasDefault(..)
   , invertCombineType
   , cAdd
   , cSubtract
@@ -33,6 +35,7 @@ module Graphics.Gudni.Figure.ShapeTree
   )
 where
 
+import Graphics.Gudni.Figure.HasDefault
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Angle
@@ -64,20 +67,28 @@ data STree overlap trans leaf where
   SLeaf      :: leaf -> STree overlap trans leaf
   STransform :: trans -> STree overlap trans leaf -> STree overlap trans leaf
   SOverlap   :: overlap -> STree overlap trans leaf -> STree overlap trans leaf -> STree overlap trans leaf
+  deriving (Show)
 
 data STreeRoot tree = ShapeRoot
-  { backgroundColor :: Color
-  , shapeTreeTree   :: tree
-  }
+  { _rootBackgroundColor :: Color
+  , _rootShapeTree       :: tree
+  } deriving (Show)
+makeLenses ''STreeRoot
 
 data CombineType = CombineContinue | CombineAdd | CombineSubtract deriving (Ord, Eq, Show)
+
+instance HasDefault CombineType where
+  defaultValue = CombineAdd
+
+instance HasDefault () where
+  defaultValue = ()
 
 data Substance r = Solid Color | Texture r deriving (Show)
 
 data SRep token substance rep = SRep
-  { _shapeToken        :: token
-  , _shapeSubstanceType    :: Substance substance
-  , _shapeCompoundTree :: rep
+  { _shapeToken         :: token
+  , _shapeSubstanceType :: Substance substance
+  , _shapeCompoundTree  :: rep
   } deriving (Show)
 makeLenses ''SRep
 
@@ -113,15 +124,6 @@ type ShapeTreeRoot = STreeRoot ShapeTree
 
 instance NFData CombineType where
   rnf _ = ()
-
-class DefaultOverlap o where
-  defaultOverlap :: o
-
-instance DefaultOverlap () where
-  defaultOverlap = ()
-
-instance DefaultOverlap CombineType where
-  defaultOverlap = CombineAdd
 
 invertCombineType :: CombineType -> CombineType
 invertCombineType combineType =

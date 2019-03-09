@@ -61,9 +61,12 @@ newtype ShapeTag = ShapeTag {unShapeTag :: ShapeTag_} deriving (Ord, Eq, Num, En
 mAXsHAPEID = sHAPEiDbITMASK - 1 :: CULong
 
 -- | A shape header includes the id and tags.
-data SubstanceInfo = SubstanceInfo
+newtype SubstanceInfo = SubstanceInfo
    { substanceInfoSubstance :: Substance PictId -- the information used to color the interior of the shape.
    } deriving Show
+
+instance NFData SubstanceInfo where
+  rnf (SubstanceInfo a) = rnf a
 
 -- | Get the substancetype flag from a substance.
 substanceToSubstanceType :: Substance a -> SubstanceType
@@ -119,8 +122,6 @@ extractShapeInfo tag = let substanceType = tagToSubstanceType tag
                       in  ShapeInfo substanceType combineType groupId
 
 -- * Instances
-instance NFData SubstanceInfo where
-  rnf (SubstanceInfo a ) = a `deepseq` ()
 
 instance StorableM SubstanceInfo where
   sizeOfM _ =

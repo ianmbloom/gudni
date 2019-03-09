@@ -18,12 +18,7 @@ module Graphics.Gudni.Figure.Space
   , Iota (..)
   , DisplaySpace (..)
   , IntSpace (..)
-
-  , fastTruncateDouble
-  , fastTruncateSingle
-  , fastRoundDouble
   , showBin
-
   )
 where
 
@@ -54,7 +49,7 @@ import Linear.Epsilon
 
 showBin i = printf "The value of %d in hex is: 0x%08x and binary is: %b\n" i i i
 
-type DisplaySpace_ = CFloat
+type DisplaySpace_ = Float
 newtype DisplaySpace = DSpace {unDSpace :: DisplaySpace_} deriving (Enum, RealFrac, Fractional, Real, Num, Ord, Eq, RealFloat, Floating)
 
 type IntSpace_ = Int32
@@ -98,7 +93,7 @@ instance (Num s, Ord s, Iota s) => Epsilon s where
 
 --------------------- Random -----------------
 instance Random DisplaySpace where
-  random = runRand $ do value <- (realToFrac :: Float -> CFloat) <$> getRandomR (-10, 2880); return $ DSpace value
+  random = runRand $ do value <-  getRandomR (-10, 2880); return $ DSpace value
   randomR (DSpace l, DSpace h)= runRand $ do value <- getRandomR (l, h); return $ DSpace value
 
 ------------------------ Orthoganal Geometry ---------------------
@@ -117,30 +112,6 @@ orthoganal (Ortho z) = Ortho z
 
 instance Functor (Ortho d) where
   fmap f (Ortho x) = Ortho (f x)
-
---------------------- Fast Truncate -----------------------
-
-dOUBLEMAGIC         = 6755399441055744.0   :: CDouble  -- 2^52 * 1.5,  uses limited precisicion to floor
-dOUBLEMAGICDELTA    = 1.5e-8               :: CDouble  -- almost .5f =.5f + 1e^(number of exp bit)
-dOUBLEMAGICROUNDEPS = 0.5-dOUBLEMAGICDELTA :: CDouble  -- almost .5f =.5f - 1e^(number of exp bit)
-
-{-# INLINE fastTruncateDouble #-}
-fastTruncateDouble x = {-trWith showBin "fastTruncateDouble" $-} (unsafeCoerce :: CDouble -> Int) (x - dOUBLEMAGICROUNDEPS + dOUBLEMAGIC) .&. 0x0000FFFF
-
-{-# INLINE fastRoundDouble #-}
-fastRoundDouble    x = {-trWith showBin "fastRoundDouble" $-} (unsafeCoerce :: CDouble -> Int) (x + dOUBLEMAGIC) .&. 0x0000FFFF
-
-sINGLEMAGIC = (2 ^ 23) {-*  1.5-} {-6291456.0-} :: CFloat  -- 2^22 * 1.5,  uses limited precisicion to floor
-sINGLEMAGICDELTA    = 1.5e-8                    :: CFloat  -- almost .5f =.5f + 1e^(number of exp bit)
-sINGLEMAGICROUNDEPS = 0.5-sINGLEMAGICDELTA      :: CFloat  -- almost .5f =.5f - 1e^(number of exp bit)
-
-{-# INLINE fastTruncateSingle #-}
-fastTruncateSingle x = {-trWith showBin ("fastTruncateSingle" ++ show x ++ "-->") $-} (unsafeCoerce :: CFloat -> Int) (x - sINGLEMAGICROUNDEPS + sINGLEMAGIC) .&. 0x0000FFFF
-
-showTest = map fastTruncateSingle [4,4.1,4.5,4.7, 4.999, 4.99999]
-
-{-# INLINE fastRoundSingle #-}
-fastRoundSingle   x = {-trWith showBin "fastRoundSingle" $-} (unsafeCoerce :: CFloat -> Int) (x + sINGLEMAGIC) .&. 0x0000FFFF
 
 --------------------- Show --------------------------
 
@@ -167,14 +138,15 @@ instance Storable a => Storable (Ortho d a) where
 instance Storable DisplaySpace where
     sizeOf    _         = sizeOf    (undefined :: DisplaySpace_)
     alignment _         = alignment (undefined :: DisplaySpace_)
-    peek ptr            = DSpace <$> peek (castPtr ptr)
-    poke ptr (DSpace x) = poke (castPtr ptr) x
+    peek ptr            = DSpace . (realToFrac :: CFloat -> Float) <$> peek (castPtr ptr)
+    poke ptr (DSpace x) = poke (castPtr ptr) $ (realToFrac :: Float -> CFloat) x
 
 instance Storable IntSpace where
     sizeOf   _          = sizeOf    (undefined :: IntSpace_)
     alignment _         = alignment (undefined :: IntSpace_)
     peek ptr            = ISpace . fromIntegral <$> (peek (castPtr ptr) :: IO CInt)
     poke ptr (ISpace x) = poke (castPtr ptr) (fromIntegral x :: CInt)
+
 ----------- DeepSeq --------------------------------
 
 instance (NFData d, NFData a) => NFData (Ortho d a) where

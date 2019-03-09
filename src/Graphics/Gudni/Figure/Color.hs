@@ -13,6 +13,7 @@ module Graphics.Gudni.Figure.Color
   , pureRed, pureGreen, pureBlue
   , red, orange, yellow, green, blue, purple
   , black, gray, white
+  , clearBlack
 
   , saturate
   , lighten
@@ -69,6 +70,9 @@ pureRed   = rgbaColor 1 0 0 1
 pureGreen = rgbaColor 0 1 0 1
 -- | Blue based on simple rgb values.
 pureBlue  = rgbaColor 0 0 1 1
+
+-- | Transparent color with rgb values of zero.
+clearBlack = rgbaColor 0 0 0 0
 
 red    = Color N.red    1.0
 orange = Color N.orange 1.0

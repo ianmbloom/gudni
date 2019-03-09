@@ -38,11 +38,11 @@
 #define COLORBUFFERSIZE 4
 #define MINCROP 0.2f
 // Debugging
-#define DEBUGCOLUMN 5 // Determines the column for DEBUG_IF macro
+#define DEBUGCOLUMN 0 // Determines the column for DEBUG_IF macro
 #define DEBUGINDEX  0 // Determines the index for DEBUG_IF macro
 #define INDEX get_global_id(0)
 #define COLUMN get_global_id(1)
-#define DEBUG_IF(statement)   //if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // on the fly debugging output
+#define DEBUG_IF(statement)   if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // on the fly debugging output
 #define DEBUG_HS(statement)   // if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // debugging output for parsing by TraceVisualizer
 
 #ifdef cl_amd_printf
@@ -785,6 +785,7 @@ void fillOutBuffer (       TileState *tileS
                    );
 
 // Debug Functions
+void showTraversal(Traversal t);
 void showTree(            Traversal t
              , SMEM       float4 *tree
              ,            int     treeSize
@@ -1311,7 +1312,7 @@ void addLineSegment ( PMEM  ThresholdState *tS
                     ,                  int  addType
                     ,                 bool *enclosedByStrand
                     ) {
-    //DEBUG_IF(printf("--------------- addThreshold %i left: %v2f right: %v2f addType: %i\n", tS->addThresholdCount, left, right, addType);)
+    DEBUG_IF(printf("--------------- addLineSegment %i left: %v2f right: %v2f addType: %i\n", tS->addThresholdCount, left, right, addType);)
     THRESHOLD newThreshold = lineToThreshold( left
                                             , right
                                             );
@@ -1434,10 +1435,6 @@ void spawnThresholds ( PMEM  ThresholdState *tS
                      ,            Traversal *r
                      ,                 bool *enclosedByStrand
                      ) {
-    //DEBUG_IF(printf("before xPos_L %f left_L: %v2f control_L: %v2f right_L: %v2f\n" \
-    //               ,        xPos_L,   left_L,      control_L,      right_L       ); \
-    //         printf("       xPos_R %f left_R: %v2f control_R: %v2f right_R: %v2f\n" \
-    //               ,        xPos_R,   left_R,      control_R,      right_R       ); )
     float y_L; // this is the y value
     if (l->travLeftX >= LEFTBORDER) { // if the left side is the left edge of the strand, don't bifurcate.
       y_L = l->travLeftY;
@@ -1777,6 +1774,8 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
             if (inRange) {
                 // create thresholds based on the traversal results.
                 //DEBUG_IF(printf("shapeBit %i shapeIndex %i\n",shapeBit, shapeIndex);)
+                //DEBUG_IF(printf("left: ");showTraversal(left );)
+                //DEBUG_IF(printf("right:");showTraversal(right);)
                 spawnThresholds (  tS
                                 ,  shapeBit
                                 , &left
@@ -1784,7 +1783,8 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
                                 , &enclosedByStrand
                                 );
             }
-            //DEBUG_IF(showThresholds(tS);)
+            DEBUG_IF(printf("afterspawn:\n");showThresholds(tS);)
+
             strandHeap += currentSize;
             enclosedByShape = enclosedByShape != enclosedByStrand; // using not equal as exclusive or.
         } // for currentStrand
@@ -2286,8 +2286,8 @@ void renderPixelBuffer ( PMEM   TileState *tileS
 }
 
 __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
-                              , SMEM      Shape *shapeHeap
                               , SMEM  Substance *substanceHeap
+                              , SMEM      Shape *shapeHeap
                               , SMEM   TileInfo *tileHeap
                               , GMEM      uchar *pictureData
                               , CMEM PictureRef *pictureRefs
@@ -2310,7 +2310,7 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                                         );
     //testShapeStack();
     //testDeleteBit();
-    //DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeStart, substanceHeap, tileS.tileNumShapes);)
+    DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeStart, substanceHeap, tileS.tileNumShapes);)
     if (threadActive && tileS.tileNumShapes == 0) {
         fillOutBuffer (&tileS
                       , out
@@ -2411,6 +2411,11 @@ float infiniteZero(float x) {return isinf(x) ? 0 : x;}
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////////////
+
+void showTraversal(Traversal t) {
+  printf("travLeft %v2f travControl %v2f travRight %v2f travXPos %f travIndex %i\n"
+       ,t.travLeft   ,t.travControl   ,t.travRight   ,t.travXPos ,t.travIndex     );
+}
 
 void showTree(            Traversal t
              , SMEM       float4 *tree

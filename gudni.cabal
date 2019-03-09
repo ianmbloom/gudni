@@ -68,7 +68,8 @@ library
                      , Graphics.Gudni.OpenCL.DeviceQuery
 
   -- Modules included in this library but not exported.
-  other-modules:       Graphics.Gudni.Figure.Box
+  other-modules:       Graphics.Gudni.Figure.HasDefault
+                     , Graphics.Gudni.Figure.Box
                      , Graphics.Gudni.Figure.Color
                      , Graphics.Gudni.Figure.Glyph
                      , Graphics.Gudni.Figure.OpenCurve
@@ -101,6 +102,7 @@ library
                      , Graphics.Gudni.Raster.StrandLookupTable
                      , Graphics.Gudni.Raster.TileTree
                      , Graphics.Gudni.Raster.TraverseShapeTree
+                     , Graphics.Gudni.Raster.Geometry
                      , Graphics.Gudni.Raster.Types
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util

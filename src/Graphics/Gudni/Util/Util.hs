@@ -29,6 +29,7 @@ module Graphics.Gudni.Util.Util
   , withIO
   , lpad
   , mapAccumM
+  , putStrList
   )
 where
 
@@ -164,6 +165,13 @@ mapAccumM f a (b:bs) = do (a', b') <- f a b
                           return (a'', b':bs')
 mapAccumM f a [] = return (a, [])
 
+putStrList :: (Show a) => [a] -> IO ()
+putStrList ls =
+  do
+    putStrLn "["
+    forM_ ls $ \ x ->
+      putStrLn $ "   " ++ show x
+    putStrLn "]"
 {-
 
 liftIOState :: IO a -> StateT (Job) IO a

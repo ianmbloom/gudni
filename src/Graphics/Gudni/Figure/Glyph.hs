@@ -91,7 +91,7 @@ type GlyphMonad m = StateT GlyphCache m
 
 -- | Evaluate a 'GlyphMonad'.
 runGlyphMonad :: (Monad m) => GlyphMonad m a -> m a
-runGlyphMonad mf = (evalStateT mf) emptyGlyphCache
+runGlyphMonad mf = evalStateT mf emptyGlyphCache
 
 
 fromRight (Right x) = x

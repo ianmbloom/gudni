@@ -12,8 +12,9 @@ module Graphics.Gudni.OpenCL.CallKernels
   , OpenCLKernelLibrary(..)
   , geoMemoryLimit
   , groupSizeLimit
-  , buildAndQueueRasterJobs
   , RasterParams(..)
+  , queueRasterJobs
+  , buildRasterJobs
   )
 where
 
@@ -66,13 +67,13 @@ import Control.Monad.Morph
 
 import Data.Word
 
-data RasterParams = RasterParams
+data RasterParams token = RasterParams
   { _rpLibrary         :: OpenCLKernelLibrary
+  , _rpPictData        :: Pile Word8
   , _rpTarget          :: DrawTarget
-  , _rpGeometryPile    :: GeometryPile
-  , _rpPictData        :: Maybe (Pile Word8)
-  , _rpPictRefs        :: [PictureRef PictureMemory]
-  , _rpRandomField     :: RandomField
+  , _rpGeometryState   :: GeometryState
+  , _rpSubstanceState  :: SubstanceState token
+
   }
 makeLenses ''RasterParams
 
@@ -96,93 +97,68 @@ generateCall  :: (KernelArgs
                        -> NumWorkItems
                        -> WorkGroup
                        -> CL ())
-                 , Show a
+                 , Show a, Show token
                  )
-              => OpenCLState
-              -> CLKernel
-              -> GeometryPile
-              -> Maybe (Pile Word8)
-              -> [PictureRef PictureMemory]
-              -> VS.Vector CFloat
+              => RasterParams token
+              -> RasterJob
               -> Point2 CInt
               -> CInt
-              -> RasterJob
               -> a
               -> CL ()
-generateCall state kernel geometryHeap pictData pictRefs randomField bitmapSize frame job target =
-    let shapeHeap       = job ^. rJShapePile
-        groupPile       = job ^. rJGroupPile
-        tileHeap        = job ^. rJTilePile
-        numTiles        = tileHeap ^. pileSize
-        backgroundColor = job ^. rJBackgroundColor
-        computeDepth = adjustedLog cOMPUTEsIZE :: CInt
-        commonKernel pictPile pictRefPile =
-            runKernel kernel
-                      geometryHeap
-                      shapeHeap
-                      groupPile
-                      tileHeap
-                      pictPile
-                      pictRefPile
-                      randomField
-                      backgroundColor
-                      bitmapSize
-                      computeDepth
-                      frame
-                      target
-    in
-    do  pictPile <- case pictData of Nothing -> liftIO $ emptyPictureData
-                                     Just p  -> liftIO $ return p
-        pictRefPile <- liftIO $ listToPile pictRefs
-        commonKernel pictPile pictRefPile
-                     (Work2D (job ^. rJTilePile . pileSize) (fromIntegral cOMPUTEsIZE))
-                     (WorkGroup [1, fromIntegral cOMPUTEsIZE])
+generateCall params job bitmapSize frame target =
+  do  let state        = clState (params ^. rpLibrary)
+          numTiles     = job ^. rJTilePile . pileSize
+          computeDepth = adjustedLog cOMPUTEsIZE :: CInt
+      liftIO $ outputGeometryState (params ^. rpGeometryState)
+      --liftIO $ outputSubstanceState(params ^. rpSubstanceState)
+      pictRefPile <- liftIO $ listToPile (params ^. rpSubstanceState . suPictureRefs)
+      runKernel (multiTileRasterCL (params ^. rpLibrary))
+                (params ^. rpGeometryState  . geoGeometryPile)
+                (params ^. rpSubstanceState . suSubstancePile)
+                (job    ^. rJShapePile)
+                (job    ^. rJTilePile)
+                (params ^. rpPictData)
+                pictRefPile
+                (params ^. rpGeometryState  . geoRandomField)
+                (params ^. rpSubstanceState . suBackgroundColor)
+                bitmapSize
+                computeDepth
+                frame
+                target
+                (Work2D numTiles (fromIntegral cOMPUTEsIZE))
+                (WorkGroup [1, fromIntegral cOMPUTEsIZE])
 
-raster :: CInt
-       -> RasterParams
+
+raster :: Show token
+       => CInt
+       -> RasterParams token
        -> RasterJob
        -> CL ()
 raster frame params job =
-    let tileW        = (fromIntegral $ mAXtILEsIZE ^. pX) :: CInt
-        tileH        = (fromIntegral $ mAXtILEsIZE ^. pY) :: CInt
-        bitmapSize   = P $ targetArea (params ^. rpTarget)
-        outputSize   = fromIntegral $ pointArea bitmapSize
-        state        = clState (params ^. rpLibrary)
-        numTiles     = (fromIntegral $ job ^. rJTilePile ^. pileSize) :: CInt
-        rasterCall :: CL ()
-        rasterCall =
-            case targetBuffer (params ^. rpTarget) of
-                HostBitmapTarget outputPtr ->
-                    generateCall state (multiTileRasterCL (params ^. rpLibrary))
-                                       (params ^. rpGeometryPile)
-                                       (params ^. rpPictData)
-                                       (params ^. rpPictRefs)
-                                       (params ^. rpRandomField)
-                                       bitmapSize
-                                       frame
-                                       job
-                                       (OutPtr outputPtr outputSize)
-                GLTextureTarget textureName -> error "GLTextureTarget not implemented"
-    in do liftIO $ putStrLn $ ">>> rasterCall frame: " ++ show frame
-          rasterCall
-          liftIO $ putStrLn ">>> rasterCall done"
+    do  let bitmapSize   = P $ targetArea (params ^. rpTarget)
+            outputSize   = fromIntegral $ pointArea bitmapSize
+        liftIO $ putStrLn $ ">>> rasterCall frame: " ++ show frame
+        case targetBuffer (params ^. rpTarget) of
+            HostBitmapTarget outputPtr ->
+                generateCall params job bitmapSize frame (OutPtr outputPtr outputSize)
+            GLTextureTarget textureName -> error "GLTextureTarget not implemented"
+        liftIO $ putStrLn ">>> rasterCall done"
 
-rasterSection :: CInt
-              -> RasterParams
-              -> RasterJobInput
-              -> [Tile TileEntry]
-              -> CL ()
-rasterSection frame params input section =
-  do  job <- liftIO $ buildRasterJob input section
-      raster frame params job
+queueRasterJobs :: (MonadIO m, Show token)
+                => CInt
+                -> RasterParams token
+                -> [RasterJob]
+                -> GeometryMonad m ()
+queueRasterJobs frame params jobs =
+    do  let state = clState (params ^. rpLibrary)
+        liftIO $ mapM_ (runCL state . raster frame params) jobs
 
-buildAndQueueRasterJobs :: CInt
-                        -> RasterParams
-                        -> RasterJobInput
-                        -> TileTree
-                        -> IO ()
-buildAndQueueRasterJobs frame params input tileTree =
-  do  let tilesPerCall = tr "tilesPerCall" $ fromIntegral . clMaxGroupSize $ params ^. rpLibrary
-          tileGroups = trWith (show .  length) "tileGroups" $ breakList tilesPerCall . tileTreeToList $ tileTree
-          state = clState (params ^. rpLibrary)
-      liftIO $ mapM_ (runCL state . rasterSection frame params input) tileGroups
+buildRasterJobs :: (MonadIO m, Show token)
+                => RasterParams token
+                -> GeometryMonad m [RasterJob]
+buildRasterJobs params =
+  do  tileTree <- use geoTileTree
+      let tilesPerCall = fromIntegral . clMaxGroupSize $ params ^. rpLibrary
+          tileGroups = breakList tilesPerCall . tileTreeToList $ tileTree
+      jobs <- liftIO $ mapM buildRasterJob tileGroups
+      return jobs

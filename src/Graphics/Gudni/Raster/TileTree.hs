@@ -30,7 +30,7 @@ type Height = Ortho YDimension DisplaySpace
 type Size   = Int
 
 data TileEntry = TileEntry
-    { _tileShapes     :: [Shape ShapeEntry]
+    { _tileShapes      :: [Shape ShapeEntry]
     , _tileStrandCount :: NumStrands
     , _tileShapeCount  :: Size
     } deriving (Show)
