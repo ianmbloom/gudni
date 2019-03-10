@@ -304,32 +304,32 @@ processKeycode keycode =
     SDL.KeycodeCaret             -> KeySymbol SymbolCaret
     SDL.KeycodeUnderscore        -> KeySymbol SymbolUnderscore
     SDL.KeycodeBackquote         -> KeySymbol SymbolBackquote
-    SDL.KeycodeA                 -> KeyLetter LetterA                      -- ^ The A key
-    SDL.KeycodeB                 -> KeyLetter LetterB                      -- ^ The B key
-    SDL.KeycodeC                 -> KeyLetter LetterC                      -- ^ The C key
-    SDL.KeycodeD                 -> KeyLetter LetterD                      -- ^ The D key
-    SDL.KeycodeE                 -> KeyLetter LetterE                      -- ^ The E key
-    SDL.KeycodeF                 -> KeyLetter LetterF                      -- ^ The F key
-    SDL.KeycodeG                 -> KeyLetter LetterG                      -- ^ The G key
-    SDL.KeycodeH                 -> KeyLetter LetterH                      -- ^ The H key
-    SDL.KeycodeI                 -> KeyLetter LetterI                      -- ^ The I key
-    SDL.KeycodeJ                 -> KeyLetter LetterJ                      -- ^ The J key
-    SDL.KeycodeK                 -> KeyLetter LetterK                      -- ^ The K key
-    SDL.KeycodeL                 -> KeyLetter LetterL                      -- ^ The L key
-    SDL.KeycodeM                 -> KeyLetter LetterM                      -- ^ The M key
-    SDL.KeycodeN                 -> KeyLetter LetterN                      -- ^ The N key
-    SDL.KeycodeO                 -> KeyLetter LetterO                      -- ^ The O key
-    SDL.KeycodeP                 -> KeyLetter LetterP                      -- ^ The P key
-    SDL.KeycodeQ                 -> KeyLetter LetterQ                      -- ^ The Q key
-    SDL.KeycodeR                 -> KeyLetter LetterR                      -- ^ The R key
-    SDL.KeycodeS                 -> KeyLetter LetterS                      -- ^ The S key
-    SDL.KeycodeT                 -> KeyLetter LetterT                      -- ^ The T key
-    SDL.KeycodeU                 -> KeyLetter LetterU                      -- ^ The U key
-    SDL.KeycodeV                 -> KeyLetter LetterV                      -- ^ The V key
-    SDL.KeycodeW                 -> KeyLetter LetterW                      -- ^ The W key
-    SDL.KeycodeX                 -> KeyLetter LetterX                      -- ^ The X key
-    SDL.KeycodeY                 -> KeyLetter LetterY                      -- ^ The Y key
-    SDL.KeycodeZ                 -> KeyLetter LetterZ                      -- ^ The Z key
+    SDL.KeycodeA                 -> KeyLetter LetterA                      -- The A key
+    SDL.KeycodeB                 -> KeyLetter LetterB                      -- The B key
+    SDL.KeycodeC                 -> KeyLetter LetterC                      -- The C key
+    SDL.KeycodeD                 -> KeyLetter LetterD                      -- The D key
+    SDL.KeycodeE                 -> KeyLetter LetterE                      -- The E key
+    SDL.KeycodeF                 -> KeyLetter LetterF                      -- The F key
+    SDL.KeycodeG                 -> KeyLetter LetterG                      -- The G key
+    SDL.KeycodeH                 -> KeyLetter LetterH                      -- The H key
+    SDL.KeycodeI                 -> KeyLetter LetterI                      -- The I key
+    SDL.KeycodeJ                 -> KeyLetter LetterJ                      -- The J key
+    SDL.KeycodeK                 -> KeyLetter LetterK                      -- The K key
+    SDL.KeycodeL                 -> KeyLetter LetterL                      -- The L key
+    SDL.KeycodeM                 -> KeyLetter LetterM                      -- The M key
+    SDL.KeycodeN                 -> KeyLetter LetterN                      -- The N key
+    SDL.KeycodeO                 -> KeyLetter LetterO                      -- The O key
+    SDL.KeycodeP                 -> KeyLetter LetterP                      -- The P key
+    SDL.KeycodeQ                 -> KeyLetter LetterQ                      -- The Q key
+    SDL.KeycodeR                 -> KeyLetter LetterR                      -- The R key
+    SDL.KeycodeS                 -> KeyLetter LetterS                      -- The S key
+    SDL.KeycodeT                 -> KeyLetter LetterT                      -- The T key
+    SDL.KeycodeU                 -> KeyLetter LetterU                      -- The U key
+    SDL.KeycodeV                 -> KeyLetter LetterV                      -- The V key
+    SDL.KeycodeW                 -> KeyLetter LetterW                      -- The W key
+    SDL.KeycodeX                 -> KeyLetter LetterX                      -- The X key
+    SDL.KeycodeY                 -> KeyLetter LetterY                      -- The Y key
+    SDL.KeycodeZ                 -> KeyLetter LetterZ                      -- The Z key
     SDL.KeycodeCapsLock          -> KeyUnsupported
     SDL.KeycodeF1                -> KeyUnsupported
     SDL.KeycodeF2                -> KeyUnsupported

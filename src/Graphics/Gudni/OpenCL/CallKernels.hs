@@ -79,7 +79,7 @@ import Data.Word
 
 data RasterParams token = RasterParams
   { _rpLibrary         :: OpenCLKernelLibrary
-  , _rpPictData        :: Pile Word8
+  , _rpPictData        :: VS.Vector Word8
   , _rpTarget          :: DrawTarget
   , _rpGeometryState   :: GeometryState
   , _rpSubstanceState  :: SubstanceState token

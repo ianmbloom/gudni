@@ -65,15 +65,20 @@ instance NFData s => NFData (PictureUsage s) where
 
 -- | Create a vector of raw bytes and list of picture memory offsets that the rasterizer
 -- can use to reference images. (Rickety)
-makePictures :: [DynamicImage] -> IO (Pile Word8, [PictureMemoryReference])
+makePictures :: [DynamicImage] -> IO (VS.Vector Word8, [PictureMemoryReference])
 makePictures images =
-  do pile <- newPile :: IO (Pile Word8)
-     let rgba8s  = map convertRGBA8 images
-     (pile', offsets) <- mapAccumM addVectorToPile pile (map imageData rgba8s)
-     let sizes   = zipWith Point2 (map (fromIntegral . imageWidth ) rgba8s)
-                                  (map (fromIntegral . imageHeight) rgba8s)
-         pictMems = zipWith PictureMemory sizes offsets
-     return (pile', pictMems)
+  do let rgba8s  = map convertRGBA8 images
+         pictData = VS.concat (map imageData rgba8s)
+         imageAllocation img = imageWidth img * imageHeight img * 4
+         allocSizes :: [Int]
+         allocSizes = map imageAllocation rgba8s
+         offsets :: [Int]
+         total :: Int
+         (total, offsets) = mapAccumL (\ a b -> (a + b, a)) 0 allocSizes
+         dimensions   = zipWith Point2 (map (fromIntegral . imageWidth ) rgba8s)
+                                       (map (fromIntegral . imageHeight) rgba8s)
+         pictMems = zipWith PictureMemory dimensions (map (Ref . fromIntegral) offsets)
+     return (pictData, pictMems)
 
 instance StorableM PictureMemoryReference where
   sizeOfM _ =

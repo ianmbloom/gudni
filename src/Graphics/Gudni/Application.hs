@@ -61,6 +61,7 @@ import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.RandomField
 
+import qualified Data.Vector.Storable as VS
 import System.Info
 
 type SimpleTime = Double
@@ -75,10 +76,10 @@ class Model s where
   -- | Determine if the application will enter the event loop.
   -- for debugging purposes you can set this to False and render on frame and quit.
   shouldLoop       :: s -> Bool
-   -- | Path to the Truetype font file that is initially loaded.
+  -- | Path to the Truetype font file that is initially loaded.
   fontFile         :: s -> IO String
   -- | Bitmap texture data provided from the state for the rendered scene.
-  providePictureData :: s -> IO (Pile Word8, [PictureMemoryReference])
+  providePictureData :: s -> IO (VS.Vector Word8, [PictureMemoryReference])
 
 data ApplicationState s = AppState
     { -- | The state maintained specific to the interface type.

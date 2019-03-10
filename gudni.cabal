@@ -13,7 +13,7 @@ name:                gudni
 version:             0.1.0.0
 
 -- A short (one-line) description of the package.
-synopsis:            Haskell-centric Realtime 2D Raster Engine
+synopsis:            Haskell-centric Fast Accurate Rasterizer
 
 -- A longer description of the package.
 -- description:
@@ -56,15 +56,13 @@ flag trace
 library
   -- Modules exported by the library.
   exposed-modules:     Graphics.Gudni.Application
+                     , Graphics.Gudni.Figure.ShapeTree
                      , Graphics.Gudni.Figure
                      , Graphics.Gudni.Interface
                      , Graphics.Gudni.Util.Debug
                      , Graphics.Gudni.Util.Fuzzy
-                     , Graphics.Gudni.Util.Pile
                      , Graphics.Gudni.Util.Draw
                      , Graphics.Gudni.Util.Plot
-                     , Graphics.Gudni.Util.Scaffolding
-                     , Graphics.Gudni.Interface.GLInterop
                      , Graphics.Gudni.OpenCL.DeviceQuery
 
   -- Modules included in this library but not exported.
@@ -78,7 +76,6 @@ library
                      , Graphics.Gudni.Figure.Angle
                      , Graphics.Gudni.Figure.RawShape
                      , Graphics.Gudni.Figure.Segment
-                     , Graphics.Gudni.Figure.ShapeTree
                      , Graphics.Gudni.Figure.Space
                      , Graphics.Gudni.Figure.Transformer
                      , Graphics.Gudni.Figure.Picture
@@ -86,6 +83,7 @@ library
                      , Graphics.Gudni.Interface.FontLibrary
                      , Graphics.Gudni.Interface.Input
                      , Graphics.Gudni.Interface.InterfaceSDL
+                     , Graphics.Gudni.Interface.GLInterop
                      , Graphics.Gudni.Interface.ScreenMode
                      , Graphics.Gudni.Raster.Constants
                      , Graphics.Gudni.OpenCL.Setup
@@ -106,7 +104,9 @@ library
                      , Graphics.Gudni.Raster.Types
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util
+                     , Graphics.Gudni.Util.Pile
                      , Graphics.Gudni.Util.RandomField
+                     , Graphics.Gudni.Util.Scaffolding
 
   -- LANGUAGE extensions used by modules in this package.
   other-extensions:    FlexibleContexts
@@ -192,6 +192,7 @@ executable gudni-benchmarks
     build-depends:   gudni
                    , base
                    , lens
+                   , vector
                    , mtl
                    , IfElse
                    , MonadRandom >=0.5 && <0.6

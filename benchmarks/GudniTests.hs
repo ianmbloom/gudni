@@ -29,7 +29,6 @@ import Graphics.Gudni.Application
 import Graphics.Gudni.Util.Draw
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Fuzzy
-import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Draw
 import Graphics.Gudni.Util.Plot
 
@@ -37,6 +36,7 @@ import Data.Word
 import Data.Maybe
 import Data.Char
 import Control.Lens
+import qualified Data.Vector.Storable as VS
 
 import Control.Monad.Random
 import System.Random
@@ -54,7 +54,7 @@ data BenchmarkState = BenchmarkState
   , _stateDirection   :: Bool
   , _statePlayhead    :: SubSpace
   , _stateCursor      :: Point2 PixelSpace
-  , _statePictures    :: (Pile Word8, [PictureMemoryReference])
+  , _statePictures    :: (VS.Vector Word8, [PictureMemoryReference])
   , _stateTests       :: [(String, BenchmarkState -> GlyphMonad IO (ShapeTree Int))]
   , _stateCurrentTest :: Int
   , _stateStep        :: Int
@@ -380,8 +380,8 @@ instance Show BenchmarkState where
      show (state ^. statePlayhead   ) ++ ", " ++
      show (state ^. stateCursor     ) ++ ", " ++
      show (state ^. stateCurrentTest) ++ ", " ++
-     show (state ^. stateStep       ) ++ ", " ++
-     show (state ^. statePictures   ) ++ " }"
+     show (state ^. stateStep       ) {-++ ", " ++
+     show (state ^. statePictures   )-} ++ " }"
 
 -- | Sample text paragraph.
 mobyDick :: String

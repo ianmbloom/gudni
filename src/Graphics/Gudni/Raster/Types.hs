@@ -74,13 +74,13 @@ type Outlines s = Group (Outline s)
 
 -- | Tile is just a pairing of the Tile Info Header and some representation of its contents.
 data Tile rep = Tile
-  -- | Pixel boundaries of tile.
-  { _tileBox    :: !(Box PixelSpace)
-  -- | Logarithmic horizontal depth.
+  { -- | Pixel boundaries of tile.
+    _tileBox    :: !(Box PixelSpace)
+    -- | Logarithmic horizontal depth.
   , _tileHDepth :: !Int
-  -- | Logarithmic vertical depth.
+    -- | Logarithmic vertical depth.
   , _tileVDepth :: !Int
-  -- | Representation of the contents of the tile.
+    -- | Representation of the contents of the tile.
   , _tileRep :: rep
   } deriving (Show)
 makeLenses ''Tile

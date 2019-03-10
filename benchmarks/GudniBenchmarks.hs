@@ -13,7 +13,6 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Fuzzy
-import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Draw
 
 import Data.Word
