@@ -227,3 +227,8 @@ transformOutlineTree shapeTree =
         --transformedTree :: STree () (Transformer SubSpace) (SRep SubstanceId PictId (STree Compound (Transformer SubSpace) Outlines))
         transformedTree = transformShapeTree (fmap . fmap . fmap) . (fmap . fmap $ transformShapeTree fmap) $ outlineTree
     in  transformedTree
+
+
+starLine c x = take x (repeat c)
+titleBar m = starLine '>' 15 ++ m ++ starLine '>' 15 ++ "\n"
+lowerBar m = starLine '<' 15 ++ m ++ starLine '<' 15 ++ "\n"

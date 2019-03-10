@@ -112,7 +112,7 @@ generateCall params job bitmapSize frame target =
           -- adjusted log2 of the number of threads
           computeDepth = adjustedLog computeSize :: CInt
       --liftIO $ outputGeometryState (params ^. rpGeometryState)
-      liftIO $ outputSubstanceState(params ^. rpSubstanceState)
+      --liftIO $ outputSubstanceState(params ^. rpSubstanceState)
       runKernel (multiTileRasterCL (params ^. rpLibrary))
                 (params ^. rpGeometryState  . geoGeometryPile)
                 (params ^. rpSubstanceState . suSubstancePile)
