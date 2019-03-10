@@ -5,6 +5,18 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Figure.Color
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- This is mainly a wrapper around Data.Colour that allows for easy manipulation of alpha transparency.
+
 module Graphics.Gudni.Figure.Color
   ( Color(..)
   , rgbaColor
@@ -74,6 +86,7 @@ pureBlue  = rgbaColor 0 0 1 1
 -- | Transparent color with rgb values of zero.
 clearBlack = rgbaColor 0 0 0 0
 
+-- | Wrapped colors
 red    = Color N.red    1.0
 orange = Color N.orange 1.0
 yellow = Color N.yellow 1.0
@@ -134,6 +147,7 @@ influenceHue amount (Color blender bA) (Color color cA) =
       (_,_,l) = C.hslView . C.toSRGB $ color
   in  transparent cA $ hslColor h s l
 
+-- | The amount to mix in a color to ish it.
 ishAmount = 0.05
 
 -- | Make a slightly redder version of the color.

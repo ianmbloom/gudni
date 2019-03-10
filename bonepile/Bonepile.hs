@@ -174,3 +174,56 @@ outputGeometryPile pile =
     putStrLn "---------------- rJGeometryPile ------------------- "
     print pile
     putStr =<< fmap unlines (bytePileToGeometry pile)
+
+-- | Reset pile cursors for the entire job and erase the shape map
+resetRasterJob :: MonadIO m => StateT RasterJob m ()
+resetRasterJob =
+    do  rJShapePile %= resetPile
+        rJTilePile  %= resetPile
+
+instance (Num s, Ord s, Iota s) => Epsilon s where
+  nearZero = (<= iota)
+
+-- | Largest size for all of the geometry data for a scene.
+geoMemoryLimit :: OpenCLKernelLibrary -> Int
+geoMemoryLimit library = fromIntegral $ clGlobalMemSize library --clMaxConstantBufferSize library
+
+-- |
+groupSizeLimit :: OpenCLKernelLibrary -> CSize
+groupSizeLimit = clMaxGroupSize
+
+--
+overShape :: (t -> StateT s IO u) -> (Shape t) -> StateT s IO (Shape u)
+overShape f (Shape i t) = do u <- f t
+                             return $ Shape i u
+
+{-
+buildStrand :: (Num s, Ord s, Iota s) => (Maybe (Triple (Point2 s)), (Ordering, [Triple (Point2 s)]), Maybe (Triple (Point2 s))) -> [Triple (Point2 s)]
+buildStrand (start, (LT, xs), end) =                            buildStrand' start xs end
+buildStrand (start, (GT, xs), end) = reverse . map flipTriple $ buildStrand' start xs end
+buildStrand (start, (EQ, xs), end) = error "buildStrand'' encountered EQ section."
+-}
+
+transformShapeTree :: forall t s o leaf . (Transformable t s)
+                   => ((t s -> t s) -> leaf -> leaf)
+                   -> STree o (Transformer s) leaf
+                   -> STree o (Transformer s) leaf
+transformShapeTree f tree =
+  case tree of
+      SLeaf rep -> SLeaf rep
+      STransform t child ->
+          fmap (f (applyTransformer t)) $ transformShapeTree f child
+      SMeld overlap above below ->
+          let above' = transformShapeTree f above
+              below' = transformShapeTree f below
+          in  SMeld overlap above' below'
+
+transformOutlineTree :: (Floating s, Eq s)
+                     => STree o (Transformer s) (SRep token substance (STree o1 (Transformer s) (RawShape_ s)))
+                     -> STree o (Transformer s) (SRep token substance (STree o1 (Transformer s) (Outlines s)))
+transformOutlineTree shapeTree =
+    let --outlineTree :: STree () (Transformer SubSpace) (SRep SubstanceId PictId (STree Compound (Transformer SubSpace) Outlines))
+        outlineTree = fmap (over shapeCompoundTree (fmap (Group . rawShapeToOutlines))) shapeTree
+        --transformedTree :: STree () (Transformer SubSpace) (SRep SubstanceId PictId (STree Compound (Transformer SubSpace) Outlines))
+        transformedTree = transformShapeTree (fmap . fmap . fmap) . (fmap . fmap $ transformShapeTree fmap) $ outlineTree
+    in  transformedTree

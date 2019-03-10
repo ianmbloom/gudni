@@ -7,11 +7,21 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE DataKinds            #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.OpenCL.CallKernel
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Functions for preparing buffers and calling the rasterizer kernel∘
+
 module Graphics.Gudni.OpenCL.CallKernels
   ( raster
   , OpenCLKernelLibrary(..)
-  , geoMemoryLimit
-  , groupSizeLimit
   , RasterParams(..)
   , queueRasterJobs
   , buildRasterJobs
@@ -28,7 +38,7 @@ import Graphics.Gudni.Raster.TraverseShapeTree
 import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Raster.ShapeInfo
 import Graphics.Gudni.Raster.Types
-import Graphics.Gudni.Raster.Geometry
+import Graphics.Gudni.Raster.Serialize
 import Graphics.Gudni.Raster.TileTree
 import Graphics.Gudni.Raster.Job
 
@@ -40,7 +50,7 @@ import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.OpenCL.KernelLibrary
 import Graphics.Gudni.OpenCL.DeviceQuery
 import Graphics.Gudni.OpenCL.Instances
-import Graphics.Gudni.OpenCL.GLInterop
+import Graphics.Gudni.Interface.GLInterop
 
 import Control.Monad
 import Control.Monad.State
@@ -77,17 +87,7 @@ data RasterParams token = RasterParams
   }
 makeLenses ''RasterParams
 
-pixelBufferSize :: CInt -> CInt -> CInt
-pixelBufferSize width height = width * height
-
-emptyPictureData :: IO (Pile Word8)
-emptyPictureData = do pile <- newPile
-                      (pile', _) <- addToPile "emptyPictureData" pile (0::Word8) -- openCL will fail to launch kernel if a parameter is completely empty
-                      return pile'
-
-emptyPictureRefs :: [PictureRef PictureMemory]
-emptyPictureRefs = [PictureRef zeroPoint (PictureMemory 0 zeroPoint)]
-
+-- | Generate an call the rasterizer kernel. Polymorphic over the DrawTarget type.
 generateCall  :: (KernelArgs
                       'KernelSync
                       'NoWorkGroups
@@ -106,58 +106,74 @@ generateCall  :: (KernelArgs
               -> a
               -> CL ()
 generateCall params job bitmapSize frame target =
-  do  let state        = clState (params ^. rpLibrary)
-          numTiles     = job ^. rJTilePile . pileSize
-          computeDepth = adjustedLog cOMPUTEsIZE :: CInt
+  do  let numTiles     = job ^. rJTilePile . pileSize
+          -- ideal number of threads per tile
+          computeSize  = fromIntegral . clMaxGroupSize $ params ^. rpLibrary
+          -- adjusted log2 of the number of threads
+          computeDepth = adjustedLog computeSize :: CInt
       --liftIO $ outputGeometryState (params ^. rpGeometryState)
-      --liftIO $ outputSubstanceState(params ^. rpSubstanceState)
-      pictRefPile <- liftIO $ listToPile (params ^. rpSubstanceState . suPictureRefs)
+      liftIO $ outputSubstanceState(params ^. rpSubstanceState)
       runKernel (multiTileRasterCL (params ^. rpLibrary))
                 (params ^. rpGeometryState  . geoGeometryPile)
                 (params ^. rpSubstanceState . suSubstancePile)
                 (job    ^. rJShapePile)
                 (job    ^. rJTilePile)
                 (params ^. rpPictData)
-                pictRefPile
+                (params ^. rpSubstanceState . suPictureUsages)
                 (params ^. rpGeometryState  . geoRandomField)
                 (params ^. rpSubstanceState . suBackgroundColor)
                 bitmapSize
                 computeDepth
                 frame
                 target
-                (Work2D numTiles (fromIntegral cOMPUTEsIZE))
-                (WorkGroup [1, fromIntegral cOMPUTEsIZE])
+                (Work2D numTiles (fromIntegral computeSize))
+                (WorkGroup [1, fromIntegral computeSize])
 
-
+-- | Rasterize a rasterJob inside the CLMonad
 raster :: Show token
        => CInt
        -> RasterParams token
        -> RasterJob
        -> CL ()
 raster frame params job =
-    do  let bitmapSize   = P $ targetArea (params ^. rpTarget)
+    do  let -- width and height of the output buffer.
+            bitmapSize   = P $ targetArea (params ^. rpTarget)
+            -- total number of 32 bit words in the output buffer.
             outputSize   = fromIntegral $ pointArea bitmapSize
+            -- get the actual target buffer we are writing to.
+            buffer = targetBuffer (params ^. rpTarget)
         liftIO $ putStrLn $ ">>> rasterCall frame: " ++ show frame
-        case targetBuffer (params ^. rpTarget) of
+        -- generate a kernel call for that buffer type.
+        case buffer of
             HostBitmapTarget outputPtr ->
+                -- In this case the resulting bitmap will be stored in memory at outputPtr.
                 generateCall params job bitmapSize frame (OutPtr outputPtr outputSize)
-            GLTextureTarget textureName -> error "GLTextureTarget not implemented"
+            GLTextureTarget textureName ->
+                -- In this case an identifier for a Texture object that stays on the GPU would be stored∘
+                -- But currently this isn't working, so throw an error.
+                error "GLTextureTarget not implemented"
         liftIO $ putStrLn ">>> rasterCall done"
 
+-- | Queue a list of Rasterjobs and run them inside the CLMonad.
 queueRasterJobs :: (MonadIO m, Show token)
                 => CInt
                 -> RasterParams token
                 -> [RasterJob]
                 -> GeometryMonad m ()
 queueRasterJobs frame params jobs =
-    do  let state = clState (params ^. rpLibrary)
+    do  -- Get the OpenCL state from the Library structure.
+        let state = clState (params ^. rpLibrary)
+        -- Run the rasterizer over each rasterJob inside a CLMonad.
         liftIO $ mapM_ (runCL state . raster frame params) jobs
 
 buildRasterJobs :: (MonadIO m, Show token)
                 => RasterParams token
                 -> GeometryMonad m [RasterJob]
 buildRasterJobs params =
-  do  tileTree <- use geoTileTree
+  do  -- Get the tile tree from the geometryState
+      tileTree <- use geoTileTree
+      -- Determine the maximum number of tiles per RasterJob
       let tilesPerCall = fromIntegral . clMaxGroupSize $ params ^. rpLibrary
-      jobs <- execBuildJobsMonad (traverseTileTree (buildRasterJob tilesPerCall) tileTree)
+      -- Build all of the RasterJobs by traversing the TileTree.
+      jobs <- execBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall) tileTree)
       return jobs

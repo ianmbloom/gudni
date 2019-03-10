@@ -1,6 +1,18 @@
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Figure.Angle
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Segments are a typesafe way to describe the components of a bezier curve sequence.
+
 module Graphics.Gudni.Figure.Segment
   ( Segment (..)
   , anchor
@@ -46,9 +58,11 @@ pattern Curved p c = Seg p (Just c)
 curved :: Ortho XDimension s -> Ortho YDimension s -> Ortho XDimension s -> Ortho YDimension s -> Segment s
 curved x y cx cy = Seg (makePoint x y) (Just (makePoint cx cy))
 
+-- | Map over the points of a segment.
 overSegment :: (Point2 s -> Point2 z) -> Segment s -> Segment z
 overSegment f (Seg o c) = Seg (f o) (fmap f c)
 
+-- | Return true if the segment has a control point.
 hasControl :: Segment s -> Bool
 hasControl (Seg _ (Just _)) = True
 hasControl (Seg _ Nothing ) = False
@@ -67,6 +81,7 @@ instance Random s => Random (Segment s) where
                                                       return $ Seg v (Just c)
                                               else    return $ Seg v Nothing
 
+-- | Generate a random segment from inside the boundaries of a range of points.
 randomSegmentFromPoints :: (RandomGen g, Random s) => (Point2 s, Point2 s) -> g -> (Segment s, g)
 randomSegmentFromPoints (p0, p1) = randomR (Seg p0 Nothing, Seg p1 Nothing)
 

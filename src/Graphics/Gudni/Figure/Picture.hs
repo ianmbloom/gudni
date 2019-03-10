@@ -1,8 +1,20 @@
 {-# LANGUAGE FlexibleInstances #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Figure.Picture
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Functions for importing and storing bitmap data to use as textured substances in shapes.
+
 module Graphics.Gudni.Figure.Picture
   ( PictId(..)
-  , PictureMemory(..)
-  , PictureRef(..)
+  , PictureMemoryReference(..)
+  , PictureUsage(..)
   , makePictures
   )
 where
@@ -25,30 +37,34 @@ import qualified Data.Vector.Storable as VS
 import Control.DeepSeq
 
 type PictId = CUInt
-type PictScale_ = CUInt
 type MemOffset_ = Reference Word8
 
 -- | The starting memory offset and size of a picture.
-data PictureMemory = PictureMemory
-  { pictMemOffset :: MemOffset_
-  , pictSize      :: Point2 IntSpace
+data PictureMemoryReference = PictureMemory
+  { -- | The offset of the picture data within the combined buffer of all source pictures.
+    pictMemOffset :: MemOffset_
+    -- | The dimensions of the picture in memory.
+  , pictSize      :: Point2 PixelSpace
   } deriving (Show)
 
-instance NFData PictureMemory where
+instance NFData PictureMemoryReference where
   rnf (PictureMemory a b) = a `deepseq` b `deepseq` ()
 
--- | A reference to a picture and an offset.
-data PictureRef s = PictureRef
-  { pictTranslate :: Point2 IntSpace
-  , pictData      :: s
+-- | A reference to a picture by a particular substance. Currently this just has translation information
+-- But it could also include more tranformation information those were implemented for pictures.
+data PictureUsage ref = PictureUsage
+  { -- | Translation vector for this particular usage.
+    pictTranslate :: Point2 PixelSpace
+    -- | An identifier for the source picture.
+  , pictSource    :: ref
   } deriving (Show)
 
-instance NFData s => NFData (PictureRef s) where
-  rnf (PictureRef a b) = a `deepseq` b `deepseq` ()
+instance NFData s => NFData (PictureUsage s) where
+  rnf (PictureUsage a b) = a `deepseq` b `deepseq` ()
 
 -- | Create a vector of raw bytes and list of picture memory offsets that the rasterizer
 -- can use to reference images. (Rickety)
-makePictures :: [DynamicImage] -> IO (Pile Word8, [PictureMemory])
+makePictures :: [DynamicImage] -> IO (Pile Word8, [PictureMemoryReference])
 makePictures images =
   do pile <- newPile :: IO (Pile Word8)
      let rgba8s  = map convertRGBA8 images
@@ -58,13 +74,13 @@ makePictures images =
          pictMems = zipWith PictureMemory offsets sizes
      return (pile', pictMems)
 
-instance StorableM PictureMemory where
+instance StorableM PictureMemoryReference where
   sizeOfM _ =
     do sizeOfM (undefined :: MemOffset_     )
-       sizeOfM (undefined :: Point2 IntSpace)
+       sizeOfM (undefined :: Point2 PixelSpace)
   alignmentM _ =
     do alignmentM (undefined :: MemOffset_     )
-       alignmentM (undefined :: Point2 IntSpace)
+       alignmentM (undefined :: Point2 PixelSpace)
   peekM = do size      <- peekM
              memOffset <- peekM
              return (PictureMemory size memOffset)
@@ -72,21 +88,21 @@ instance StorableM PictureMemory where
     do  pokeM size
         pokeM memOffset
 
-instance StorableM (PictureRef PictureMemory) where
+instance StorableM (PictureUsage PictureMemoryReference) where
   sizeOfM _ =
-    do sizeOfM (undefined :: Point2 IntSpace)
-       sizeOfM (undefined :: PictureMemory  )
+    do sizeOfM (undefined :: Point2 PixelSpace)
+       sizeOfM (undefined :: PictureMemoryReference  )
   alignmentM _ =
-    do alignmentM (undefined :: Point2 IntSpace)
-       alignmentM (undefined :: PictureMemory  )
+    do alignmentM (undefined :: Point2 PixelSpace)
+       alignmentM (undefined :: PictureMemoryReference  )
   peekM = do translate <- peekM
              pMem      <- peekM
-             return (PictureRef translate pMem)
-  pokeM (PictureRef translate pMem) =
+             return (PictureUsage translate pMem)
+  pokeM (PictureUsage translate pMem) =
     do  pokeM translate
         pokeM pMem
 
-instance Storable (PictureRef PictureMemory) where
+instance Storable (PictureUsage PictureMemoryReference) where
   sizeOf = sizeOfV
   alignment = alignmentV
   peek = peekV

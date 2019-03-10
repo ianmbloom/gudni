@@ -10,7 +10,6 @@ module Graphics.Gudni.Util.Debug
   , trF
   , tc
   , tcWith
-  , trTitle
   , trCList
   , trLength
   , trWhen
@@ -76,11 +75,6 @@ trF = trWith (showFl' 3)
 trHex :: (Integral a) => String -> a -> a
 trHex = trWith (\t -> showHex (fromIntegral t) "")
 
-
-starLine c x = take x (repeat c)
-titleBar m = starLine '>' 15 ++ m ++ starLine '>' 15 ++ "\n"
-lowerBar m = starLine '<' 15 ++ m ++ starLine '<' 15 ++ "\n"
-
 tcWith :: (a -> String) -> String -> a -> a
 tcWith f m x = trace (m++"-->") $
                   trace ("-->"++m++"   "++(f x)) x
@@ -88,8 +82,6 @@ tcWith f m x = trace (m++"-->") $
 tc :: Show a => String -> a -> a
 tc = tcWith show
 --tc m x = trace (m++"-->") $ trace ("-->"++m++"   "++(show x)) x
-
-trTitle m x = trace (titleBar m) $ trace (show x ++ "\n" ++ lowerBar m) $ x
 
 --trHeap len m h = tinternal (\y -> (show $ show16and8 0 $ B.unpack $ B.take len y) ++ "...") m h
 trCList m x = trace (m++":"++concat (zipWith (\i l ->", " ++ show i ++ ":" ++ show l) [0..] x)) x

@@ -3,6 +3,18 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Raster.ShapeInfo
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Constructors for attaching metadata to shapes∘
+
 module Graphics.Gudni.Raster.ShapeInfo
   ( ShapeInfo (..)
   , SubstanceInfo (..)
@@ -42,7 +54,7 @@ instance Show SubstanceId where
 -- | ShapeInfo includes substance flags and the combination method for a particular shape.
 data ShapeInfo = ShapeInfo
     { _shapeSubstanceType :: SubstanceType
-    , _shapeCombine       :: CombineType
+    , _shapeCombine       :: Compound
     , _shapeSubstanceId   :: SubstanceId
     } deriving (Show)
 makeLenses ''ShapeInfo
@@ -80,9 +92,9 @@ makeShapeTag (ShapeInfo substance combine groupId) =
                           SubstanceSolidColor -> sHAPETAGsUBSTANCEtYPEsOLIDcOLOR
                           SubstancePicture    -> sHAPETAGsUBSTANCEtYPEpICTURE
       combineFlag   = case combine of
-                          CombineContinue     -> sHAPETAGcOMBINEtYPEcONTINUE
-                          CombineAdd          -> sHAPETAGcOMBINEtYPEaDD
-                          CombineSubtract     -> sHAPETAGcOMBINEtYPEsUBTRACT
+                          CompoundContinue     -> sHAPETAGcOMPOUNDtYPEcONTINUE
+                          CompoundAdd          -> sHAPETAGcOMPOUNDtYPEaDD
+                          CompoundSubtract     -> sHAPETAGcOMPOUNDtYPEsUBTRACT
   in  if unSubstanceId groupId <= mAXsHAPEID
       then ShapeTag (substanceFlag .|. combineFlag .|. (unSubstanceId groupId .&. sHAPEiDbITMASK))
       else error "shapeID out of bounds"
@@ -98,17 +110,17 @@ tagBitsToSubstanceType tagBits
   | tagBits == sHAPETAGsUBSTANCEtYPEpICTURE    = SubstancePicture
   | otherwise = error "bitMask does not correspond to a valid SubstanceType."
 
--- | Extract the 'CombineType' from a 'ShapeTag'.
-tagToCombineType :: ShapeTag -> CombineType
-tagToCombineType tag = tagBitsToCombineType (unShapeTag tag .&. sHAPETAGcOMBINEtYPEbITmASK)
+-- | Extract the 'Compound' from a 'ShapeTag'.
+tagToCompound :: ShapeTag -> Compound
+tagToCompound tag = tagBitsToCompound (unShapeTag tag .&. sHAPETAGcOMPOUNDtYPEbITmASK)
 
--- | Select the 'CombineType' from the masked 'ShapeTag_'.
-tagBitsToCombineType :: ShapeTag_ -> CombineType
-tagBitsToCombineType tagBits
-  | tagBits == sHAPETAGcOMBINEtYPEcONTINUE = CombineContinue
-  | tagBits == sHAPETAGcOMBINEtYPEaDD      = CombineAdd
-  | tagBits == sHAPETAGcOMBINEtYPEsUBTRACT = CombineSubtract
-  | otherwise = error "bitMask does not correspond to a valid CombineType."
+-- | Select the 'Compound' from the masked 'ShapeTag_'.
+tagBitsToCompound :: ShapeTag_ -> Compound
+tagBitsToCompound tagBits
+  | tagBits == sHAPETAGcOMPOUNDtYPEcONTINUE = CompoundContinue
+  | tagBits == sHAPETAGcOMPOUNDtYPEaDD      = CompoundAdd
+  | tagBits == sHAPETAGcOMPOUNDtYPEsUBTRACT = CompoundSubtract
+  | otherwise = error "bitMask does not correspond to a valid Compound."
 
 -- | Extract the 'SubstanceId' from the 'ShapeTag'.
 tagToSubstanceId :: ShapeTag -> SubstanceId
@@ -117,7 +129,7 @@ tagToSubstanceId tag = SubstanceId (unShapeTag tag .&. sHAPEiDbITMASK)
 -- | Extract the 'ShapeInfo' from the 'ShapeTag'.
 extractShapeInfo :: ShapeTag -> ShapeInfo
 extractShapeInfo tag = let substanceType = tagToSubstanceType tag
-                           combineType   = tagToCombineType tag
+                           combineType   = tagToCompound tag
                            groupId       = tagToSubstanceId tag
                       in  ShapeInfo substanceType combineType groupId
 

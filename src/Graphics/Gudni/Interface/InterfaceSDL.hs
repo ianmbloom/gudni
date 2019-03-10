@@ -1,5 +1,18 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.OpenCL.Input
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Functions for interfacing between the rasterizer and SDL2 interface library.
+
+
 module Graphics.Gudni.Interface.InterfaceSDL
   ( InterfaceState (..)
   , interfaceWindow
@@ -43,6 +56,7 @@ import Graphics.Rendering.OpenGL
 
 import CLUtil.State
 
+-- | State information about the host interface library.
 data InterfaceState = InterfaceState
   { _interfaceWindow   :: SDL.Window
   , _interfaceRenderer :: SDL.Renderer
@@ -51,9 +65,11 @@ data InterfaceState = InterfaceState
   }
 makeLenses ''InterfaceState
 
-makeV2 :: Point2 IntSpace -> V2 CInt
+-- | Convert an SDL point to a Gudni PixelSpace point.
+makeV2 :: Point2 PixelSpace -> V2 CInt
 makeV2 p = V2 (fromIntegral . view pX $ p) (fromIntegral . view pY $ p)
 
+-- | Opwn a window
 startInterface :: ScreenMode -> IO InterfaceState
 startInterface screenMode =
   do  SDL.initializeAll
@@ -99,8 +115,10 @@ startInterface screenMode =
       SDL.windowSize window $= size
       return $ InterfaceState window renderer texture size
 
+-- | Create an SDL texture with a bits per channel RGBA
 makeTexture renderer size = SDL.createTexture renderer SDL.ARGB8888 SDL.TextureAccessStreaming size
 
+-- | Prepare a draw target based on whether or not GL-CL interop is in use.
 prepareTarget :: Bool -> StateT InterfaceState IO DrawTarget
 prepareTarget useGLInterop =
     do  window   <- use interfaceWindow
@@ -119,6 +137,7 @@ prepareTarget useGLInterop =
                   else prepareHostBitmapTarget texture size
         return $ DrawTarget size texture buffer
 
+-- | Prepare an OpenGL texture as a target for rendering.
 prepareGLTextureTarget :: SDL.Texture -> V2 CInt -> StateT InterfaceState IO TargetBuffer
 prepareGLTextureTarget texture size =
       do liftIO $ do  SDL.glBindTexture texture
@@ -126,11 +145,13 @@ prepareGLTextureTarget texture size =
                       SDL.glUnbindTexture texture
                       return $ GLTextureTarget (TextureObject . fromIntegral $ glName)
 
+-- | Prepare a CPU memory buffer as a target for rendering.
 prepareHostBitmapTarget :: SDL.Texture -> V2 CInt -> StateT InterfaceState IO TargetBuffer
 prepareHostBitmapTarget texture size =
       do (ptr, _) <- liftIO $ SDL.lockTexture texture Nothing
          return $ HostBitmapTarget (castPtr ptr)
 
+-- | Present a rendered frame on the screne.
 presentTarget :: DrawTarget -> StateT InterfaceState IO ()
 presentTarget target =
   do  let texture = targetTexture target
@@ -139,19 +160,22 @@ presentTarget target =
       liftIO $ do  SDL.copy renderer texture Nothing Nothing
                    SDL.present renderer
 
+-- | Close out the interface.
 closeInterface :: StateT InterfaceState IO ()
 closeInterface =
   do window <- use interfaceWindow
      lift $ SDL.destroyWindow window
      lift SDL.quit
 
-checkInputs :: StateT InterfaceState IO [Input (Point2 IntSpace)]
+-- | Poll the interface for new inputs.
+checkInputs :: StateT InterfaceState IO [Input (Point2 PixelSpace)]
 checkInputs =
     do events <- lift SDL.pollEvents
        let inputs = mapMaybe processEvent events
        return inputs
 
-processEvent :: SDL.Event -> Maybe (Input (Point2 IntSpace))
+-- | Convert an SDL event to a Gudni Input.
+processEvent :: SDL.Event -> Maybe (Input (Point2 PixelSpace))
 processEvent (SDL.Event _ payload) =
   case payload of
     SDL.WindowShownEvent  _                                              -> Nothing
@@ -197,26 +221,33 @@ processEvent (SDL.Event _ payload) =
         SDL.KeymapChangedEvent                                           -> Nothing
     -}
 
-makeIntPoint :: Int -> Int -> Point2 IntSpace
+-- | Make a PixelSpace point for two ints.
+makeIntPoint :: Int -> Int -> Point2 PixelSpace
 makeIntPoint x y = makePoint (Ortho . ISpace . fromIntegral $ x) (Ortho . ISpace . fromIntegral $ y)
 
+-- | Convert an input motion to a Gudni InputDetection
 motionToDetection :: SDL.InputMotion -> InputDetection
 motionToDetection SDL.Released = Released
 motionToDetection SDL.Pressed  = Pressed
 
+-- | Convert an SDL MouseMotionEvent to a Gudni Input
 processMouseMotionEventData (SDL.MouseMotionEventData w _ buttons (Point2 x y) _) =
   Just $ InputMouse Motion noModifier 0 (makeIntPoint (fromIntegral x * 2) (fromIntegral y * 2))
 
+-- | Convert an SDL MouseButtonEvent to a Gudni Input
 processMouseButtonEventData (SDL.MouseButtonEventData w motion _ buttons clicks (Point2 x y)) =
   Just $ InputMouse (motionToDetection motion) noModifier (fromIntegral clicks) (makeIntPoint (fromIntegral x * 2) (fromIntegral y * 2))
 
+-- | Convert an SDL Keyboard event to a Gudni Input
 processKeyboardEventData (SDL.KeyboardEventData w motion rep keysym) =
   let (modifier, keyInput) = processKeySym keysym
   in  Just $ InputKey (motionToDetection motion) modifier keyInput
 
+-- | Convert an SDL KeySym to a Gudni keyboard input and keyboard modifier.
 processKeySym :: SDL.Keysym -> (InputKeyModifier, InputKeyboard)
 processKeySym (SDL.Keysym _ keycode modifier) = (processModifier modifier, processKeycode keycode)
 
+-- | Conver an SDL KeyModifier to a Gudni keyboard modifier.
 processModifier :: SDL.KeyModifier -> InputKeyModifier
 processModifier m =
   KeyModifier { _keyModAlt  = SDLK.keyModifierLeftAlt   m || SDLK.keyModifierRightAlt   m
@@ -225,6 +256,7 @@ processModifier m =
               , _keyModSys  = SDLK.keyModifierLeftGUI   m || SDLK.keyModifierRightGUI   m
               }
 
+-- | Convert a SDL Keycode to a Gudni keyboard input
 processKeycode :: SDL.Keycode -> InputKeyboard
 processKeycode keycode =
   case keycode of

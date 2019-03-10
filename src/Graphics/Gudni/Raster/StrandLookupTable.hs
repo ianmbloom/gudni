@@ -1,4 +1,16 @@
 {-# LANGUAGE FlexibleContexts #-}
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Raster.StrandLookupTable
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Functions for building a lookup table for converting sequenced strands into
+-- strands that are reordered as trees.
 
 module Graphics.Gudni.Raster.StrandLookupTable
   ( CurveTable
@@ -16,6 +28,7 @@ import Data.Vector ((!))
 import Linear.V3
 
 import Control.Lens
+
 
 data ITree =
   IBranch
@@ -81,7 +94,8 @@ type CurveTable = V.Vector (V.Vector Int)
 buildCurveTable :: Int -> CurveTable
 buildCurveTable maxSize = V.fromList $ map (curveLine maxSize . (+3) . (*2)) [0..maxSize `div` 2]
 
-makeCurveStrand :: (Show s, Ord s, Num s, Iota s, VS.Storable s)
+-- | Convert a build a tree from the midpoints and combine it with the begining and end of the strand.
+makeCurveStrand :: (Show s, Ord s, Num s, VS.Storable s)
                 => CurveTable
                 -> (V3 (Point2 s), [(Point2 s, Point2 s)] )
                 -> VS.Vector (Point2 s)

@@ -1,5 +1,17 @@
 {-# LANGUAGE TemplateHaskell #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.OpenCL.Input
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Functions for abstracting input from the host interface library.
+
 module Graphics.Gudni.Interface.Input
   ( InputDetection (..)
   , InputArrow (..)
@@ -23,6 +35,7 @@ where
 import Graphics.Gudni.Figure
 import Control.Lens
 
+-- | Window Events
 data InputWindow
   = WindowClosed
   | WindowResized Int Int
@@ -32,10 +45,13 @@ data InputWindow
   | WindowMouseLeft
   deriving (Eq, Show)
 
+-- | Types of mouse input.
 data InputDetection = Pressed | Released | Motion deriving (Eq, Show)
 
+-- | Keyboard Arrows
 data InputArrow = ArrowUp | ArrowDown | ArrowLeft | ArrowRight deriving (Eq, Show)
 
+-- | Keyboard Modifiers
 data InputKeyModifier = KeyModifier
   { _keyModAlt      :: Bool
   , _keyModCtrl     :: Bool
@@ -44,10 +60,13 @@ data InputKeyModifier = KeyModifier
   } deriving (Eq, Show)
 makeLenses ''InputKeyModifier
 
+-- | Make a keystroke with no modifiers.
 noModifier = KeyModifier False False False False
+-- | Return true if the keyboard modifier contains true .
 isShift (KeyModifier _ _ True _) = True
 isShift _ = False
 
+-- | Categories for different types of keyboard input.
 data InputKeyboard
   = KeyLetter InputLetter
   | KeyNumber InputNumber
@@ -58,6 +77,7 @@ data InputKeyboard
   | KeyUnsupported
   deriving (Eq, Show)
 
+-- | Letter keys
 data InputLetter
   = LetterA
   | LetterB
@@ -87,6 +107,7 @@ data InputLetter
   | LetterZ
   deriving (Eq, Show)
 
+-- | Number keys
 data InputNumber
   = Number0
   | Number1
@@ -100,6 +121,7 @@ data InputNumber
   | Number9
   deriving (Eq, Show)
 
+-- | Symbol Keys
 data InputSymbol
   = SymbolPlus
   | SymbolMinus
@@ -135,6 +157,7 @@ data InputSymbol
   | SymbolBar
   deriving (Eq, Show)
 
+-- | Keyboard Modifiers
 data InputModifier
   = ModifierLControl
   | ModifierLShift
@@ -146,6 +169,7 @@ data InputModifier
   | ModifierRSystem
   deriving (Eq, Show)
 
+-- | Keyboard Commands
 data InputCommand
   = CommandEscape
   | CommandEnter
@@ -165,6 +189,7 @@ data InputCommand
   | CommandQuit
   deriving (Eq, Show)
 
+-- | General input types
 data Input positionInfo
   = InputWindow InputWindow
   | InputText String
@@ -172,6 +197,7 @@ data Input positionInfo
   | InputMouse InputDetection InputKeyModifier Int positionInfo
   deriving (Eq, Show)
 
+-- | Convert an input to a displayable string.
 inputToString :: Input a -> String
 inputToString input =
   case input of

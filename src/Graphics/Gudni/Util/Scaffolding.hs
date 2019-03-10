@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- Work in progress, top level datastructure for alignment and text layout.
 module Graphics.Gudni.Util.Scaffolding
   ( Alignment (..)
   , Align(..)
@@ -24,7 +25,7 @@ data Align = Align
   , alignVertical   :: Alignment
   }
 
-alignBoxes :: Align -> BoundingBox -> BoundingBox -> (Point2 DisplaySpace, Point2 DisplaySpace)
+alignBoxes :: Align -> BoundingBox -> BoundingBox -> (Point2 SubSpace, Point2 SubSpace)
 alignBoxes (Align aH aV) boxOver boxUnder =
         let (h0, h1) = case aH of
                   AlignOver -> (0,0)
@@ -45,14 +46,14 @@ alignBoxes (Align aH aV) boxOver boxUnder =
 type Label = String
 
 data Scaffolding a = Coupler
-                   | Brace (Point2 DisplaySpace) (Scaffolding a)
+                   | Brace (Point2 SubSpace) (Scaffolding a)
                    | Joint [(Label,Scaffolding a)]
                    | Transom (Transom a) (Scaffolding a)
 
-data Transom a = Transom1 (   [Label]) (   (Point2 DisplaySpace) -> a)
-               | Transom2 (V2 [Label]) (V2 (Point2 DisplaySpace) -> a)
-               | Transom3 (V3 [Label]) (V3 (Point2 DisplaySpace) -> a)
-               | Transom4 (V4 [Label]) (V4 (Point2 DisplaySpace) -> a)
+data Transom a = Transom1 (   [Label]) (   (Point2 SubSpace) -> a)
+               | Transom2 (V2 [Label]) (V2 (Point2 SubSpace) -> a)
+               | Transom3 (V3 [Label]) (V3 (Point2 SubSpace) -> a)
+               | Transom4 (V4 [Label]) (V4 (Point2 SubSpace) -> a)
 
 class Leafable t a => Scaffoldable t a where
   buildScaffolding :: t -> Scaffolding a
@@ -61,13 +62,13 @@ class Leafable t a where
   makeLeaf :: t -> a
 
 {-
-putGlyph :: (Transformable a, Leafable (Glyph DisplaySpace) a) => Glyph DisplaySpace -> Point2 DisplaySpace -> a
+putGlyph :: (Transformable a, Leafable (Glyph SubSpace) a) => Glyph SubSpace -> Point2 SubSpace -> a
 putGlyph glyph p = tTranslate p . makeLeaf $ glyph
 
-instance Leafable (Glyph DisplaySpace) CompoundTree where
+instance Leafable (Glyph SubSpace) CompoundTree where
   makeLeaf glyph = SLeaf . RawGlyph $ glyph
 
-instance (Transformable a, Leafable (Glyph DisplaySpace) a) => Scaffoldable Glyph a where
+instance (Transformable a, Leafable (Glyph SubSpace) a) => Scaffoldable Glyph a where
   buildScaffolding glyph = Transom (Transom1 ["base"] (putGlyph glyph))
                                    (Joint [("base"  ,                                            Coupler)
                                           ,("width" , Brace (makePoint (glyphAdvanceWidth glyph) 0) Coupler)
@@ -75,7 +76,7 @@ instance (Transformable a, Leafable (Glyph DisplaySpace) a) => Scaffoldable Glyp
                                    )
 -}
 
-findPoint :: Scaffolding t -> [Label] -> Point2 DisplaySpace
+findPoint :: Scaffolding t -> [Label] -> Point2 SubSpace
 findPoint scaffold [] =
   case scaffold of
     Coupler -> Point2 0 0
@@ -104,7 +105,7 @@ stack xs = undefined -- let scaffolds = map buildScaffolding xs
 rack :: Scaffoldable a t => [a] -> Scaffolding t
 rack = undefined -- foldl1 (\next -> Brace (makePoint 1 0)
 
---paragraph :: DisplaySpace -> DisplaySpace -> String -> CompoundTree
+--paragraph :: SubSpace -> SubSpace -> String -> CompoundTree
 --paragraph = stack . map (rack . map glyph) . lines
 
 newtype Scaffold a = Scaffold {unScaffold :: a}
@@ -113,14 +114,14 @@ class Scaffoldable2 a where
   makeScaffold :: a -> Scaffold a
 
 class HasHeight a where
-  heightOf :: a -> DisplaySpace
+  heightOf :: a -> SubSpace
 
 class HasWidth a where
-  widthOf :: a -> DisplaySpace
+  widthOf :: a -> SubSpace
 
 class HasPort a where
   numPorts :: a -> Int
-  getPort  :: a -> Point2 DisplaySpace
+  getPort  :: a -> Point2 SubSpace
 
 data MyTree = Branch MyTree MyTree | Leaf Int
 
@@ -133,13 +134,13 @@ instance HasWidth (Scaffold MyTree) where
 --stack :: HasHeight a => [a] -> ShapeTree
 
 --class HasEnvelope a where
---  envelope :: a -> Point2 DisplaySpace -> V2 DisplaySpace -> DisplaySpace
+--  envelope :: a -> Point2 SubSpace -> V2 SubSpace -> SubSpace
 --
 --class HasMaxTrace a where
---  maxTrace :: a -> Point2 DisplaySpace -> V2 DisplaySpace -> Maybe DisplaySpace
+--  maxTrace :: a -> Point2 SubSpace -> V2 SubSpace -> Maybe SubSpace
 --
 --class HasMinTrace a where
---  minTrace :: a -> Point2 DisplaySpace -> V2 DisplaySpace -> Maybe DisplaySpace
+--  minTrace :: a -> Point2 SubSpace -> V2 SubSpace -> Maybe SubSpace
 
 --stack :: HasHeight a => [a] -> a
 --stack xs = undefined

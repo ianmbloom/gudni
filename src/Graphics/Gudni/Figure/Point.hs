@@ -7,6 +7,18 @@
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Figure.Angle
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Defines a point structure which has orthoganal components.
+
 module Graphics.Gudni.Figure.Point
   ( Point2 (..)
   , pattern Point2
@@ -61,11 +73,9 @@ pY elt_fn (Point2 x y) = (\y' -> Point2 x (unOrtho y')) <$> (elt_fn . Ortho $ y)
 makePoint :: Ortho XDimension s -> Ortho YDimension s -> Point2 s
 makePoint (Ortho x) (Ortho y) = P (V2 x y)
 
+-- | Calculate the area of a box defined by the origin and this point.
 pointArea :: Num s => Point2 s -> s
 pointArea (Point2 x y) = x * y
-
-instance (Functor f, Convertable a b) => Convertable (Point f a) (Point f b) where
-  convert = fmap convert
 
 instance Random s => Random (Point2 s) where
   random = runRand $ do x <- getRandom; y <- getRandom; return (Point2 x y)

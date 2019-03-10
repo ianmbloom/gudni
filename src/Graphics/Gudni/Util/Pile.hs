@@ -7,6 +7,19 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE FlexibleContexts           #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Raster.Types
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- A pile is an appendable buffer of data that reallocates memory as it grows∘
+-- Piles can be reused without reallocating memory.
+
 module Graphics.Gudni.Util.Pile
   ( Reference (..)
   , nULLREFERENCE
@@ -107,6 +120,7 @@ instance Storable (Breadth t) where
 refToBreadth :: Reference t -> Breadth t
 refToBreadth (Ref i) = Breadth i
 
+-- | A slice defines a range in an array with the starting point and the length.
 data Slice t = Slice
   { sliceStart   :: !(Reference t)
   , sliceLength  :: !(Breadth t)
@@ -134,23 +148,31 @@ instance Storable (Slice t) where
   peek = peekV
   poke = pokeV
 
+-- | A pile is an appendable memory buffer that reallocates memory as it grows.
 data Pile t = Pile
-  { _pileCursor :: !Int
+  { -- The current position of the write head.
+    _pileCursor :: !Int
+    -- The current total allocated size of the buffer.
   , _pileSize   :: !Int
+    -- The pointer to the start of the buffer.
   , _pileData   :: !(Ptr t)
   } deriving (Show)
 
+-- | Lens for the current position of the write head.
 pileCursor :: Lens' (Pile t) (Reference t)
 pileCursor plFunc (Pile cursor size ptr) = (\(Ref cursor') -> Pile (fromIntegral cursor') size ptr) <$> plFunc (Ref . fromIntegral $ cursor)
 
+-- | Lens for the current size of the pile.
 pileBreadth :: (Functor f, Contravariant f) => Optic' (->) f (Pile t) (Breadth t)
 pileBreadth = pileCursor . to refToBreadth
 
 pileSize :: (Functor f, Contravariant f) => Optic' (->) f (Pile t) Int
 pileSize = pileCursor . to (fromIntegral . unRef)
 
+-- Additional amount to reallocate with each step.
 cHUNKSIZE = (1024 :: Int)
 
+-- | Reallocate the pile with new space.
 extendPile :: forall t . Storable t => String -> Pile t -> IO (Pile t)
 extendPile message pile@(Pile cursor size startPtr) =
   do
@@ -169,11 +191,13 @@ addToPile' message pile@(Pile cursor size startPtr) item =
     do e <- extendPile message pile
        addToPile' message e item
 
+-- | Add an item to a pile.
 addToPile :: forall t. (Show t, Storable t) => String -> Pile t -> t -> IO (Pile t, Reference t)
 addToPile message pile@(Pile cursor size startPtr) item =
   do pile <- addToPile' message pile item
      return (pile, Ref $ fromIntegral cursor)
 
+-- | Add a list of items to a pile. Return a slice for the newly added items.
 addListToPile :: (Show t, Storable t) => Pile t -> [t] -> IO (Pile t, Slice t)
 addListToPile pile list =
   do let cursor = pile ^. pileCursor
@@ -181,6 +205,7 @@ addListToPile pile list =
      let breadth = pile' ^. pileCursor - cursor
      return (pile', Slice (Ref $ fromIntegral cursor) (Breadth $ fromIntegral breadth))
 
+-- | Copy the contents of a pile into another pile.
 addPileToPile :: forall t . (Show t, Storable t) => Pile t -> Pile t -> IO (Pile t)
 addPileToPile destination source =
   do let sourceCursor = _pileCursor source
@@ -197,6 +222,8 @@ addPileToPile destination source =
        do copyBytes destStart (_pileData source) sourceSize
           return destination {_pileCursor = destCursor + sourceCursor}
 
+-- | Add an item to a pile within a StateT monad transformer with a lens to the pile within the state.
+-- updating the state along the way.
 addToPileState :: (Storable t, Show t, MonadState s m, Monad m, MonadIO m)
                => Lens' s (Pile t)
                -> t
@@ -207,6 +234,8 @@ addToPileState lens object =
      lens .= pile'
      return ref
 
+-- | Add to a bytepile within a StateT monad transformer with a lens to the bytepile within the state.
+-- updating the state along the way.
 addToBytePileState :: (Storable t, Show t, MonadState s m, Monad m, MonadIO m)
                    => Lens' s BytePile
                    -> t
@@ -217,6 +246,8 @@ addToBytePileState lens object =
      lens .= pile'
      return ref
 
+-- | Add a list of items to a pile within a StateT monad transformer with a lens to the pile within the state.
+-- updating the state along the way. Return a slice for the newly added items.
 addListToPileState :: (Storable t, Show t, MonadState s m, Monad m, MonadIO m)
                    => Lens' s (Pile t)
                    -> [t]
@@ -227,6 +258,7 @@ addListToPileState lens list =
      lens .= pile'
      return slice
 
+-- | Add a vector of items to a pile. Return a reference to the beggining.
 addVectorToPile :: forall t . Storable t => Pile t -> VS.Vector t -> IO (Pile t, Reference t)
 addVectorToPile pile@(Pile cursor size startPtr) vector =
   let vlen =  VS.length vector
@@ -243,46 +275,57 @@ addVectorToPile pile@(Pile cursor size startPtr) vector =
     do e <- extendPile "addVectorToPile" pile
        addVectorToPile e vector
 
+-- | Convert a pile to a list.
 pileToList :: forall t . (Storable t, Show t) => Pile t -> IO [t]
 pileToList (Pile cursor size startPtr) = peekArray cursor startPtr
 
+-- | Convert a list to a pile.
 listToPile :: forall t . (Storable t, Show t) => [t] -> IO (Pile t)
 listToPile list = do pile <- newPile
                      (pile', _) <- addListToPile pile list
                      return pile'
 
+-- | Get an item from a pile at a specific index.
 getPileItem :: forall t . (Storable t) => Pile t -> Int -> IO t
 getPileItem (Pile cursor size startPtr) index =
   let offset = startPtr `plusPtr` (index * sizeOf (undefined :: t))
   in peek offset
 
+-- | Get the last item added to the pile
 pileTop :: forall t . (Storable t) => Pile t -> IO t
 pileTop pile@(Pile cursor _ startPtr) =
   getPileItem pile (cursor - 1)
 
+-- | Replace the last item added to the pile.
 replacePileTop :: forall t . (Show t, Storable t) => Pile t -> t -> IO (Pile t, Reference t)
 replacePileTop (Pile cursor size startPtr) item = addToPile "replacePileTop" (Pile (cursor - 1) size startPtr) item
 
+-- | Extract a slice of a pile as a list.
 getPileSlice :: forall t . (Storable t) => Pile t -> Int -> Int -> IO [t]
 getPileSlice pile start len = peekArray len (_pileData pile `plusPtr` start)
 
+-- | Extract a slice of a pile as a vector.
 getPileSliceVector pile start len = VS.fromList <$> getPileSlice pile start len
 
 newPile :: forall t a . (Storable t) => IO (Pile t)
 newPile = newPileSize cHUNKSIZE
 
+-- | Create a new pile.
 newPileSize :: forall t a . (Storable t) => Int -> IO (Pile t)
 newPileSize size =
   do
     ptr <- mallocBytes (size * sizeOf (undefined :: t))
     return (Pile 0 size ptr)
 
+-- | Free the memory allocated by a pile.
 freePile :: Pile a -> IO ()
 freePile (Pile _ _ ptr) = free ptr
 
+-- | Reset the start point of a tile as though it were new.
 resetPile :: Pile t -> Pile t
 resetPile (Pile _ size ptr) = Pile 0 size ptr
 
+-- | Return true if a pile has any items.
 isEmptyPile :: Pile t -> Bool
 isEmptyPile (Pile c _ _ ) = c == 0
 
@@ -291,6 +334,7 @@ instance (NFData t) => NFData (Pile t) where
 
 type BytePile = Pile CChar
 
+-- | Add any type with an instance of Storable to a pile or bytes.
 addToBytePile' :: forall t. (Storable t, Show t) => String -> BytePile -> t -> IO BytePile
 addToBytePile' message pile@(Pile cursor size startPtr) item =
   let end = cursor + sizeOf item
@@ -305,15 +349,18 @@ addToBytePile' message pile@(Pile cursor size startPtr) item =
        e <- extendPile message pile
        addToBytePile' message e item
 
+-- | Add any type with an instance of Storable to a pile or bytes. Return the position where it started (in bytes)
 addToBytePile :: forall t. (Storable t, Show t) => String -> BytePile -> t -> IO (BytePile, Int)
 addToBytePile message pile@(Pile cursor size startPtr) item =
     do --putStrLn $ "addToBytePile " ++ message ++ show item
        pile' <- addToBytePile' message pile item
        return (pile', cursor)
 
+-- | Determine if an item can be added to a bytepile without going over size limit.
 canAddToBytePile :: (Storable t) => BytePile -> Int -> t -> Bool
 canAddToBytePile (Pile cursor _ _) limit item = cursor + sizeOf item < limit
 
+-- | Add a vector of any storable type to a byte piles. Return the start position in bytes.
 addVectorToBytePile :: forall t . (Storable t, Show t) => BytePile -> VS.Vector t -> IO (BytePile, Reference CChar)
 addVectorToBytePile pile@(Pile cursor size startPtr) vector =
   let vlen =  VS.length vector
@@ -327,12 +374,15 @@ addVectorToBytePile pile@(Pile cursor size startPtr) vector =
   else do e <- extendPile "addVectorToBytePile" pile
           addVectorToBytePile e vector
 
+-- | Make a bytepile into a list of CChars.
 bytePileToCharList :: BytePile -> IO [CChar]
 bytePileToCharList (Pile cursor size startPtr) = peekArray cursor startPtr
 
+-- | Make a bytepile into a list of CInts.
 bytePileToIntList :: BytePile -> IO [CInt]
 bytePileToIntList (Pile cursor size startPtr) = peekArray (cursor `div` sizeOf (undefined::CInt)) (castPtr startPtr :: Ptr CInt)
 
+-- | Make a bytepile into a list of strings to display its contents.
 bytePileToShortList :: BytePile -> IO [String]
 bytePileToShortList (Pile cursor size startPtr) =
   do
@@ -340,12 +390,14 @@ bytePileToShortList (Pile cursor size startPtr) =
     return $ zipWith (\x y -> show x ++ ":" ++ show y) (map (*2) [0..]) ss
 
 
+-- | Breakdown a list into fixed sections.
 section :: Int -> [a] -> [[a]]
 section n []   = []
 section n list = let (front, rest) = splitAt n list
                  in front:section n rest
 
 
+-- | Display the contents of a geometry pile in a readable format for debugging
 bytePileToGeometry :: BytePile -> IO [String]
 bytePileToGeometry (Pile cursor size startPtr) =
   do
@@ -355,7 +407,7 @@ bytePileToGeometry (Pile cursor size startPtr) =
     let fList = map (concat . intersperse ":") . section 2 . map (showFl' 6) $ sf
     return $ zipWith3 (\x y z -> show x ++ ": " ++ show y ++ "|" ++ show z) (map (*2) [0..]) fList sList
 
-
+-- | Breakdown a bytepile into a list of word alligned floats.
 bytePileToFloatList :: Int -> BytePile -> IO [String]
 bytePileToFloatList offset (Pile cursor size startPtr) =
   do ss <- peekArray (cursor `div` sizeOf (undefined::CFloat)) (castPtr (startPtr `plusPtr` offset) :: Ptr CFloat)

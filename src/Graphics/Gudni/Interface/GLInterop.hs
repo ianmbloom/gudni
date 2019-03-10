@@ -5,7 +5,19 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE CPP #-}
 
-module Graphics.Gudni.OpenCL.GLInterop
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Interface.GLInterop
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Functions for using GLTexture objects as an OutputBuffer for the rasterizer.
+
+module Graphics.Gudni.Interface.GLInterop
     ( initFromGL
     , glGetTextureSize
 --    , bufferFromGL
@@ -48,7 +60,8 @@ import Data.List
 foreign import ccall "cl.h clGetExtensionFunctionAddress"
     raw_clGetExtensionFunctionAddress :: CString -> IO (Ptr ())
 
-------- Mac OS X (CGL API) ------
+-- -----------------------------------------------------------------------------
+-- Mac OS X (CGL API)
 
 foreign import ccall "CGLGetCurrentContext"
     cGLGetCurrentContext :: IO (Ptr ())
@@ -56,7 +69,8 @@ foreign import ccall "CGLGetCurrentContext"
 foreign import ccall "CGLGetShareGroup"
     cGLGetShareGroup :: Ptr () -> IO (Ptr ())
 
-------- XWindows (GLX API) -------
+-- -----------------------------------------------------------------------------
+-- XWindows (GLX API) -------
 -- https://en.wikipedia.org/wiki/GLX
 foreign import ccall "glXGetCurrentContext"
     glXGetCurrentContext :: IO (Ptr ())
@@ -64,8 +78,8 @@ foreign import ccall "glXGetCurrentContext"
 foreign import ccall "glXGetCurrentDisplay"
     glXGetCurrentDisplay :: IO (Ptr ())
 
-------- Microsoft Windows (WGL API) ----
-
+-- -----------------------------------------------------------------------------
+-- Microsoft Windows (WGL API) ----
 -- obtain a handle to the current OpenGL rendering context of the calling thread.
 -- https://msdn.microsoft.com/en-us/library/dd374383(v=vs.85).aspx
 data HGLRC

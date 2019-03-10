@@ -5,9 +5,21 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Figure.Transformer
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Functions and classes for linear transformation of objects.
+
 module Graphics.Gudni.Figure.Transformer
- ( TransformType (..)
- , applyTransformType
+ ( Transformer (..)
+ , applyTransformer
  , SimpleTransformable(..)
  , Transformable(..)
  , tTranslateXY
@@ -19,8 +31,6 @@ import Graphics.Gudni.Figure.HasDefault
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Point
---import Graphics.Gudni.Figure.Box
---import Graphics.Gudni.Figure.Outline
 
 import Graphics.Gudni.Util.Debug
 
@@ -45,7 +55,7 @@ class SimpleTransformable t s => Transformable t s where
 tTranslateXY :: SimpleTransformable t s => s -> s -> t s -> t s
 tTranslateXY x y = tTranslate $ Point2 x y
 
-identityTransform :: Num s => TransformType s
+identityTransform :: Num s => Transformer s
 identityTransform = Translate (Point2 0 0)
 
 instance Num s => SimpleTransformable Point2 s where
@@ -54,30 +64,30 @@ instance Num s => SimpleTransformable Point2 s where
 instance (Floating s, Num s) => Transformable Point2 s where
     tRotate    = rotate
 
-instance Num s => HasDefault (TransformType s) where
+instance Num s => HasDefault (Transformer s) where
     defaultValue = Translate (Point2 0 0)
 
-data TransformType s where
-  Translate :: Point2 s -> TransformType s
-  Scale     :: s        -> TransformType s
-  Rotate    :: Angle s  -> TransformType s
-  CombineTransform :: TransformType s -> TransformType s -> TransformType s
+data Transformer s where
+  Translate :: Point2 s -> Transformer s
+  Scale     :: s        -> Transformer s
+  Rotate    :: Angle s  -> Transformer s
+  CombineTransform :: Transformer s -> Transformer s -> Transformer s
   deriving (Show)
 
-applyTransformType :: Transformable t s => TransformType s -> t s -> t s
-applyTransformType (Translate delta) = tTranslate delta
-applyTransformType (Scale scale)     = tScale scale
-applyTransformType (Rotate angle)    = tRotate angle
-applyTransformType (CombineTransform a b) = applyTransformType b . applyTransformType a
+applyTransformer :: Transformable t s => Transformer s -> t s -> t s
+applyTransformer (Translate delta) = tTranslate delta
+applyTransformer (Scale scale)     = tScale scale
+applyTransformer (Rotate angle)    = tRotate angle
+applyTransformer (CombineTransform a b) = applyTransformer b . applyTransformer a
 
 -- * Instances
 
-instance NFData s => NFData (TransformType s) where
+instance NFData s => NFData (Transformer s) where
   rnf (Translate a) = a `deepseq` ()
   rnf (Scale     a) = a `deepseq` ()
   rnf (Rotate    a) = a `deepseq` ()
 
-instance (Floating s, Num s, Random s) => Random (TransformType s) where
+instance (Floating s, Num s, Random s) => Random (Transformer s) where
   random = runRand $
     do r :: Int <- getRandomR (0,1)
        case r of
@@ -89,7 +99,7 @@ instance (Floating s, Num s, Random s) => Random (TransformType s) where
                  return $ Rotate (angle @@ turn)
   randomR _ = random
 
-instance Hashable s => Hashable (TransformType s) where
+instance Hashable s => Hashable (Transformer s) where
     hashWithSalt s (Translate a) = s `hashWithSalt` (0 :: Int) `hashWithSalt` a
     hashWithSalt s (Scale a)     = s `hashWithSalt` (1 :: Int) `hashWithSalt` a
     hashWithSalt s (Rotate a)    = s `hashWithSalt` (2 :: Int) `hashWithSalt` a

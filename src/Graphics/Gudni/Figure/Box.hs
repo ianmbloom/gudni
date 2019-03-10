@@ -8,6 +8,18 @@
 -- {-# LANGUAGE TemplateHaskell       #-}
 -- {-# LANGUAGE DatatypeContexts      #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Figure.Box
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- A simple box type for bounding boxes.
+
 module Graphics.Gudni.Figure.Box
   ( Box (..)
   , Boxable(..)
@@ -57,7 +69,10 @@ newtype Box s = Bx {unBx :: V2 (Point2 s)} deriving (Eq)
 pattern Box topLeft bottomRight = Bx (V2 topLeft bottomRight)
 
 -- | Type synonym for bounding boxes
-type BoundingBox = Box DisplaySpace
+type BoundingBox = Box SubSpace
+
+-----------------------------------------------------------------------------
+-- Box optics.
 
 -- | 'Lens' for the top left point of a box.
 topLeftBox     :: Lens' (Box s) (Point2 s)
@@ -85,6 +100,10 @@ topSide  = topLeftBox . pY
 -- | 'Lens' for the bottom of a box.
 bottomSide      :: Lens' (Box s) (Ortho YDimension s)
 bottomSide = bottomRightBox . pY
+
+-----------------------------------------------------------------------------
+-- Functions for creating and manipulating boxes∘
+
 -- | Make a box from its four sides.
 makeBox        :: Ortho XDimension s -> Ortho YDimension s -> Ortho XDimension s -> Ortho YDimension s -> Box s
 makeBox l t r b = Box (makePoint l t) (makePoint r b)
@@ -118,9 +137,7 @@ unionBox :: (Num s, Ord s) => Box s -> Box s -> Box s
 unionBox a b = makeBox (min (a ^. leftSide ) (b ^. leftSide )) (min (a ^. topSide   ) (b ^. topSide   ))
                        (max (a ^. rightSide) (b ^. rightSide)) (max (a ^. bottomSide) (b ^. bottomSide))
 
-instance Convertable a b => Convertable (Box a) (Box b) where
-  convert (Box a b) = Box (convert a) (convert b)
-
+-----------------------------------------------------------------------------
 -- | Typeclass for things that can calculate a bounding box.
 class Boxable t where
   getBoundingBox :: t -> BoundingBox
@@ -131,7 +148,7 @@ instance Boxable [BoundingBox] where
       then emptyBox
       else foldr1 unionBox list
 
-instance Boxable (VS.Vector (Point2 DisplaySpace)) where
+instance Boxable (VS.Vector (Point2 SubSpace)) where
   getBoundingBox vs =
       let left   = VS.minimum (VS.map (view pX) vs)
           top    = VS.minimum (VS.map (view pY) vs)
@@ -139,7 +156,7 @@ instance Boxable (VS.Vector (Point2 DisplaySpace)) where
           bottom = VS.maximum (VS.map (view pY) vs)
       in makeBox left top right bottom
 
-instance Boxable [Point2 DisplaySpace] where
+instance Boxable [Point2 SubSpace] where
   getBoundingBox vs =
       let left   = minimum (map (view pX) vs)
           top    = minimum (map (view pY) vs)
@@ -149,6 +166,7 @@ instance Boxable [Point2 DisplaySpace] where
          then emptyBox -- TODO make this a maybe
          else makeBox left top right bottom
 
+-- Boxes have an instance for SimpleTransformable but no instance for Transformable.
 instance Num s => SimpleTransformable Box s where
   tTranslate p = mapBox (^+^ p)
   tScale     s = mapBox (^* s)
@@ -179,5 +197,5 @@ sd = showFl . realToFrac
 instance Show BoundingBox where
   show (Box (Point2 left top) (Point2 right bottom)) = "Bx " ++ sd left ++ ", " ++ sd top ++ ", " ++ sd right ++ ", " ++ sd bottom
 
-instance Show (Box IntSpace) where
+instance Show (Box PixelSpace) where
   show (Box (Point2 left top) (Point2 right bottom)) = "Bx " ++ show left ++ ", " ++ show top ++ ", " ++ show right ++ ", " ++ show bottom

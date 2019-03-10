@@ -6,6 +6,19 @@
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Figure.Angle
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Functions for defining Outlines which are closed bezier curves that are the component
+-- parts of shapes.
+
 module Graphics.Gudni.Figure.Outline
   ( CurvePair
   , pattern CurvePair
@@ -15,7 +28,7 @@ module Graphics.Gudni.Figure.Outline
   , Outline(..)
   , mapOutline
   , segmentsToOutline
-  , openCurveToOutline
+  , closeOpenCurve
   )
 where
 
@@ -32,54 +45,70 @@ import Linear.V2
 import Data.Hashable
 import Control.DeepSeq
 
+-- | A CurvePair is a representation of two points along an outline∘
+-- The control point is called offCurve and in the case of a straight segment the point just colinear with
+-- the onCurve points before and after it. This is just internal, user defined outlines should be specified as
+-- sequences of Segments.
 newtype CurvePair s = Cp {_unCp :: V2 (Point2 s)} deriving (Eq, Ord, Show, Num)
 makeLenses ''CurvePair
 pattern CurvePair a b = Cp (V2 a b)
 
+-- | Lens for the anchor or on-curve point.
 onCurve :: Lens' (CurvePair s) (Point2 s)
 onCurve = unCp . _x
+-- | Lens for the control or off-curve point.
 offCurve :: Lens' (CurvePair s) (Point2 s)
 offCurve = unCp . _y
 
+-- | Map over both points in a CurvePair.
 mapCurvePair :: (Point2 s -> Point2 z) -> CurvePair s -> CurvePair z
 mapCurvePair f (Cp v2) = Cp (fmap f v2)
 
+-- | Make every two points in a list of points into a CurvePair. Useful for raw glyph data.
 pairPoints :: [Point2 s] -> [CurvePair s]
 pairPoints (v0:v1:rest) = (CurvePair v0 v1):pairPoints rest
 pairPoints [] = []
 pairPoints [v0] = []
 
-data Outline s = Outline [CurvePair s]
+-- | An outline is just a wrapper for a list of CurvePairs. It represents one curve loop∘
+-- A shape is defined by a list of outlines.
+newtype Outline s = Outline [CurvePair s]
                deriving (Eq, Ord, Show)
 
+-- | Map over every point in an outline.
 mapOutline :: (Point2 s -> Point2 z) -> Outline s -> Outline z
 mapOutline f (Outline ps) = Outline (map (mapCurvePair f) ps)
 
+-- | Make a mid point from two points.
 mid :: (Fractional s, Num s) => Point2 s -> Point2 s -> Point2 s
 mid v0 v1 = lerp 0.5 v0 v1
 
+-- | Convert a loop of Segments to a loop of CurvePairs.
+segmentsToCurvePairs :: (Fractional s) => [Segment s] -> [CurvePair s]
 segmentsToCurvePairs segments = segmentsToCurvePairs' (head segments ^. anchor) segments
 
-segmentsToCurvePairs' :: (Fractional s) => (Point2 s) -> [Segment s] -> [CurvePair s]
+segmentsToCurvePairs' :: (Fractional s) => Point2 s -> [Segment s] -> [CurvePair s]
 segmentsToCurvePairs' first segs = case segs of
       (Seg v0 Nothing:[])             -> CurvePair v0 (mid v0 first):[]
       (Seg v0 Nothing:Seg v1 mC:rest) -> CurvePair v0 (mid v0 v1):segmentsToCurvePairs' first (Seg v1 mC:rest)
       (Seg v0 (Just c):rest)          -> CurvePair v0 c:segmentsToCurvePairs' first rest
       []                              -> []
 
-
+-- | Convert a list of lists of segments to a list of outlines.
 segmentsToOutline :: (Fractional s) => [[Segment s]] -> [Outline s]
 segmentsToOutline = map (Outline . segmentsToCurvePairs)
 
-openCurveToOutline :: (Fractional s, Eq s) => OpenCurve s -> [Outline s]
-openCurveToOutline curve =
+-- | Close an open curve and convert it to an outline. An additional straight segment is added if the outset and the terminator of
+-- the curve are not the same.
+closeOpenCurve :: (Fractional s, Eq s) => OpenCurve s -> [Outline s]
+closeOpenCurve curve =
   let segments = if curve ^. terminator == curve ^. outset
                  then curve ^. curveSegments -- if the beggining of the curve is the same as the end, ignore the end
                  else Straight (curve ^. terminator) : curve ^. curveSegments -- else insert a straight segment from the end to the beggining.
   in segmentsToOutline [segments]
 
 
-instance Boxable (CurvePair DisplaySpace) where
+instance Boxable (CurvePair SubSpace) where
   getBoundingBox (CurvePair a b) =
       let left   = min (a ^. pX) (b ^. pX)
           top    = min (a ^. pY) (b ^. pY)
@@ -87,7 +116,7 @@ instance Boxable (CurvePair DisplaySpace) where
           bottom = max (a ^. pY) (b ^. pY)
       in  makeBox left top right bottom
 
-instance Boxable (Outline DisplaySpace) where
+instance Boxable (Outline SubSpace) where
   getBoundingBox (Outline vs) = getBoundingBox . map getBoundingBox $ vs
 
 instance (Num s) => SimpleTransformable Outline s where

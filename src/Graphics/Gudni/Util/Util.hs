@@ -1,5 +1,17 @@
 {-# LANGUAGE RankNTypes         #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Util.Util
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Various utility functions used in the library.
+
 module Graphics.Gudni.Util.Util
   ( takeItem
   , removeItem

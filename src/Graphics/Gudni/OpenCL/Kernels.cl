@@ -1,16 +1,16 @@
 // 1 Space for haskell defined macros
 // 2 So the line numbers are correct
-// 3
-// 4
-// 5
-// 6
-// 7
-// 8
-// 9
-// 10
-// 11
-// 12
-// 13
+// 3  -----------------------------------------------------------------------------
+// 4  -- |
+// 5  -- Module      :  Graphics.Gudni.OpenCL.CallKernel
+// 6  -- Copyright   :  (c) Ian Bloom 2019
+// 7  -- License     :  BSD-style (see the file libraries/base/LICENSE)
+// 8  --
+// 9  -- Maintainer  :  Ian Bloom
+// 10 -- Stability   :  experimental
+// 11 -- Portability :  portable
+// 12 --
+// 13 -- OpenCL kernel for rendering a bitmap from provided data buffers.
 // 14
 // 15
 // 16
@@ -100,16 +100,16 @@ inline bool     shapeTagIsSolidColor(SHAPETAG tag)  {return (tag & SHAPETAG_SUBS
 inline SHAPETAG shapeTagSubstanceType(SHAPETAG tag) {return (tag & SHAPETAG_SUBSTANCETYPE_BITMASK) >> SHAPETAG_SUBSTANCETYPE_SHIFT;}
 
 // Bits 29 - 28
-//#define SHAPETAG_COMBINETYPE_BITMASK      0x3000000000000000
-//#define SHAPETAG_COMBINETYPE_CONTINUE     0x1000000000000000
-//#define SHAPETAG_COMBINETYPE_ADD          0x2000000000000000
-//#define SHAPETAG_COMBINETYPE_SUBTRACT     0x3000000000000000
-#define SHAPETAG_COMBINETYPE_SHIFT        28
+//#define SHAPETAG_COMPOUNDTYPE_BITMASK      0x3000000000000000
+//#define SHAPETAG_COMPOUNDTYPE_CONTINUE     0x1000000000000000
+//#define SHAPETAG_COMPOUNDTYPE_ADD          0x2000000000000000
+//#define SHAPETAG_COMPOUNDTYPE_SUBTRACT     0x3000000000000000
+#define SHAPETAG_COMPOUNDTYPE_SHIFT        28
 
-inline int  shapeTagCombineType(SHAPETAG tag) {return (tag & SHAPETAG_COMBINETYPE_BITMASK) >> SHAPETAG_COMBINETYPE_SHIFT;   }
-inline bool shapeTagIsAdd(SHAPETAG tag)       {return (tag & SHAPETAG_COMBINETYPE_BITMASK) == SHAPETAG_COMBINETYPE_ADD;     }
-inline bool shapeTagIsSubtract(SHAPETAG tag)  {return (tag & SHAPETAG_COMBINETYPE_BITMASK) == SHAPETAG_COMBINETYPE_SUBTRACT;}
-inline bool shapeTagIsContinue(SHAPETAG tag)  {return (tag & SHAPETAG_COMBINETYPE_BITMASK) == SHAPETAG_COMBINETYPE_CONTINUE;}
+inline int  shapeTagCompound(SHAPETAG tag) {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) >> SHAPETAG_COMPOUNDTYPE_SHIFT;   }
+inline bool shapeTagIsAdd(SHAPETAG tag)       {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) == SHAPETAG_COMPOUNDTYPE_ADD;     }
+inline bool shapeTagIsSubtract(SHAPETAG tag)  {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) == SHAPETAG_COMPOUNDTYPE_SUBTRACT;}
+inline bool shapeTagIsContinue(SHAPETAG tag)  {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) == SHAPETAG_COMPOUNDTYPE_CONTINUE;}
 
 // Bits 27 - 0
 #define SHAPETAG_SUBSTANCEID_BITMASK          0x0FFFFFFFFFFFFFFF

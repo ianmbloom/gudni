@@ -50,7 +50,7 @@ import Graphics.Gudni.Raster.Types
 import Graphics.Gudni.Raster.Constants (rANDOMFIELDsIZE)
 import Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
 import Graphics.Gudni.Raster.TileTree
-import Graphics.Gudni.Raster.Geometry
+import Graphics.Gudni.Raster.Serialize
 import Graphics.Gudni.Raster.Job
 import Graphics.Gudni.Raster.TraverseShapeTree
 
@@ -67,9 +67,9 @@ type SimpleTime = Double
 
 class Model s where
   -- | Construct a ShapeTreeRoot from the state of type `s`
-  constructFigure  :: s -> String -> GlyphMonad IO (ShapeTreeRoot, String)
+  constructScene  :: s -> String -> GlyphMonad IO (Scene Int)
   -- | Update the state based on the elapsed time and a list of inputs
-  updateModelState :: Monad m => Int -> SimpleTime -> [Input (Point2 IntSpace)] -> s -> m s
+  updateModelState :: Monad m => Int -> SimpleTime -> [Input (Point2 PixelSpace)] -> s -> m s
   -- | Set the initial display to FullScreen or a specific window size in pixels.
   screenSize       :: s -> ScreenMode
   -- | Determine if the application will enter the event loop.
@@ -78,15 +78,22 @@ class Model s where
    -- | Path to the Truetype font file that is initially loaded.
   fontFile         :: s -> IO String
   -- | Bitmap texture data provided from the state for the rendered scene.
-  providePictureData :: s -> IO (Pile Word8, [PictureMemory])
+  providePictureData :: s -> IO (Pile Word8, [PictureMemoryReference])
 
 data ApplicationState s = AppState
-    { _appBackend       :: InterfaceState
+    { -- | The state maintained specific to the interface type.
+      _appBackend       :: InterfaceState
+      -- | Structure for marking time.
     , _appTimeKeeper    :: TimeKeeper
+      -- | The start time of the application.
     , _appStartTime     :: TimeSpec
+      -- | Constructor used to store the OpenCL state, compiled kernels and device metadata.
     , _appOpenCLLibrary :: OpenCLKernelLibrary
+      -- | A string representing information about the app. Usually timing data and other stuff for display.
     , _appStatus        :: String
+     -- | The number of event loop cycles that have commenced from starting.
     , _appCycle         :: Int
+     -- | Polymorphic type defined by the client program. Represents the state of the client application.
     , _appState         :: s
     }
 makeLenses ''ApplicationState
@@ -94,16 +101,17 @@ makeLenses ''ApplicationState
 -- | Monad Stack for the event loop.
 type ApplicationMonad s = StateT (ApplicationState s) (GeometryMonad (GlyphMonad IO))
 
+runApplicationMonad :: ApplicationState s -> ApplicationMonad s a -> GeometryMonad (GlyphMonad IO) a
 runApplicationMonad = flip evalStateT
 
 -- | Initializes openCL, frontend interface, timekeeper, randomfield data and returns the initial `ApplicationState`
 setupApplication :: Model s => s -> IO (ApplicationState s)
 setupApplication state  =
-  do  ----------- Setup OpenCL Kernels ----------------
+  do  -- Setup OpenCL state and kernels.
       openCLLibrary <- setupOpenCL False False openCLSourceWithDefines
-      ------------ Initialize Backend ---------------------
+      -- Initialize the backend state.
       backendState <- startInterface (screenSize state)
-      ------------ Start TimeKeeper -------------------
+      -- Start the timeKeeper
       timeKeeper <- startTimeKeeper
       startTime <- getTime Realtime
       return $ AppState backendState timeKeeper startTime openCLLibrary "No Status" 0 state
@@ -115,14 +123,23 @@ closeApplication = withIO appBackend closeInterface
 -- | Initialize the ApplicationMonad stack and enter the event loop.
 runApplication :: (Show s, Model s) => s -> IO ()
 runApplication state =
-    do  appState <- setupApplication state
+    do  -- Initialize the application and get the initial state.
+        appState <- setupApplication state
+        -- Start the glyph monad.
         runGlyphMonad $
-            do  mFontFile <- liftIO $ fontFile state
+            do  -- Load a font file.
+                mFontFile <- liftIO $ fontFile state
+                -- Add the font file to the glyph monad.
                 addFont mFontFile
+                -- Generate a random field for the stochastic aliasing of the rasterizer.
                 randomField <- liftIO $ makeRandomField rANDOMFIELDsIZE
+                -- Run the geometry serialization monad.
                 runGeometryMonad randomField $
+                    -- Run the application monad.
                     runApplicationMonad appState $
-                        do  loop
+                        do  -- start the event loop.
+                            loop
+                            -- when the loop exits close the application.
                             closeApplication
 
 -- | Convert a `Timespec` to the `SimpleTime` (a double in seconds from application start)
@@ -156,7 +173,7 @@ beginCycle =
     do  restartAppTimer
 
 -- | Update the model state and generate a shape tree, marking time along the way.
-processState :: (Show s, Model s) => SimpleTime -> [Input (Point2 IntSpace)] -> ApplicationMonad s (ShapeTreeRoot, String)
+processState :: (Show s, Model s) => SimpleTime -> [Input (Point2 PixelSpace)] -> ApplicationMonad s (Scene Int)
 processState elapsedTime inputs =
     do  frame <- fromIntegral <$> use appCycle
         overState $ updateModelState frame elapsedTime inputs
@@ -168,15 +185,15 @@ processState elapsedTime inputs =
         else appMessage $ show state ++ show inputs
 
         --shapeTree <- lift . evalRandIO $ fuzz 5000
-        (shapeTree, textForm) <- lift . lift $ constructFigure state status
+        shapeTree <- lift . lift $ constructScene state status
         --appMessage $ "ShapeTree " ++ show shapeTree
         --lift . putStrLn $ textForm
         markAppTime "Build State"
-        return (shapeTree, "textForm")
+        return shapeTree
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
-drawFrame :: (Model s) => CInt -> ShapeTreeRoot -> ApplicationMonad s ()
-drawFrame frame shapeTreeRoot =
+drawFrame :: (Model s) => CInt -> Scene Int -> ApplicationMonad s ()
+drawFrame frame scene =
     do  --appMessage "ResetJob"
         library <- use appOpenCLLibrary
         target <- withIO appBackend (prepareTarget (clUseGLInterop library))
@@ -186,7 +203,7 @@ drawFrame frame shapeTreeRoot =
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
         lift (geoTileTree .= buildTileTree (fromIntegral <$> canvasSize))
         substanceState <- lift ( execSubstanceMonad pictureMemoryReferences $
-                                 buildOverShapeTree shapeTreeRoot)
+                                 buildOverScene scene)
         --liftIO $ evaluate $ rnf (substances, boundedShapedEnclosures, substanceState)
         markAppTime "Traverse Shape Tree"
         geometryState <- lift $ get
@@ -204,6 +221,7 @@ drawFrame frame shapeTreeRoot =
         withIO appBackend $ presentTarget target
         markAppTime "Raster Frame"
         lift resetGeometryMonad
+        liftIO $ freeRasterJobs jobs
         --liftIO $ threadDelay 3000000
 
 -- Final phase of the event loop.
@@ -244,14 +262,10 @@ loop  =
       inputs <- withIO appBackend checkInputs
       unless (any isQuit inputs) $
           do  elapsedTime <- getElapsedTime
-              --appMessage "beginCycle"
               beginCycle
-              --appMessage "processState"
-              (shapeTree, textForm) <- processState elapsedTime inputs
+              scene <- processState elapsedTime inputs
               frame <- fromIntegral <$> use appCycle
-              appMessage ("drawFrame " ++ show frame)
-              drawFrame frame shapeTree
-              --appMessage "endCycle"
+              drawFrame frame scene
               endCycle elapsedTime
               liftIO performMinorGC
               continue <- shouldLoop <$> use appState

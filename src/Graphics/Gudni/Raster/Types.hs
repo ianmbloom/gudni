@@ -5,6 +5,18 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Raster.Types
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Basic constructors and types for the rasterizer.
+
 module Graphics.Gudni.Raster.Types
   ( Group (..)
   , Outlines (..)
@@ -16,7 +28,7 @@ module Graphics.Gudni.Raster.Types
   , Shape        (..)
   , shShapeInfo, shRep
   , Combiner      (..)
-  , coCombineType, coRep
+  , coCompound, coRep
   , NumShapes     (..)
   , GeoReference  (..)
   , ShapeEntry(..)
@@ -63,7 +75,7 @@ type Outlines s = Group (Outline s)
 -- | Tile is just a pairing of the Tile Info Header and some representation of its contents.
 data Tile rep = Tile
   -- | Pixel boundaries of tile.
-  { _tileBox    :: !(Box IntSpace)
+  { _tileBox    :: !(Box PixelSpace)
   -- | Logarithmic horizontal depth.
   , _tileHDepth :: !Int
   -- | Logarithmic vertical depth.
@@ -86,9 +98,9 @@ instance Functor Shape where
 instance NFData t => NFData (Shape t) where
   rnf (Shape a b) = a `deepseq` b `deepseq` ()
 
--- | Combiner is just a pairing of CombineType with some representation of reference to a shape.
+-- | Combiner is just a pairing of Compound with some representation of reference to a shape.
 data Combiner t = Combiner
-    { _coCombineType :: CombineType
+    { _coCompound :: Compound
     , _coRep         :: t
     } deriving (Show)
 makeLenses ''Combiner
@@ -105,8 +117,7 @@ newtype NumShapes = NumShapes {unNumShapes :: NumShapes_} deriving (Eq, Ord, Num
 instance Show NumShapes where
   show = show . unNumShapes
 
------------------- GeoReference -------------------------
--- a GeoReference is not a slice, it points to the first piece of data in memory and gives the number of strands
+-- | A GeoReference is not a slice, it points to the first piece of data in memory and gives the number of strands
 -- the header of the strand gives the actual size of geometric data in memory.
 data GeoReference = GeoRef
   { _geoStart      :: Reference CChar
@@ -138,7 +149,7 @@ data ShapeEntry = ShapeEntry
     } deriving (Show)
 makeLenses ''ShapeEntry
 
--------------------------- Shape ------------------------------
+-- Instances
 
 instance StorableM (Shape GeoReference) where
   sizeOfM _ = do sizeOfM (undefined :: ShapeInfo)
@@ -158,11 +169,11 @@ instance Storable (Shape GeoReference) where
   poke = pokeV
 
 instance StorableM (Tile (Slice (Shape GeoReference))) where
-  sizeOfM _ = do sizeOfM (undefined :: Box IntSpace)
+  sizeOfM _ = do sizeOfM (undefined :: Box PixelSpace)
                  sizeOfM (undefined :: CInt)
                  sizeOfM (undefined :: CInt)
                  sizeOfM (undefined :: Slice (Shape GeoReference))
-  alignmentM _ = do alignmentM (undefined :: Box IntSpace)
+  alignmentM _ = do alignmentM (undefined :: Box PixelSpace)
                     alignmentM (undefined :: CInt)
                     alignmentM (undefined :: CInt)
                     alignmentM (undefined :: Slice (Shape GeoReference))

@@ -3,6 +3,18 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TemplateHaskell      #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Figure.Glyph
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Functions for accessing glyphs from a font file, storing them in a cache and converting them to outlines.
+
 module Graphics.Gudni.Figure.Glyph
   ( CodePoint (..)
   , Glyph (..)
@@ -37,6 +49,7 @@ import Data.Hashable
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
+import Data.Either
 
 import qualified Graphics.Text.TrueType as F
 import qualified Graphics.Text.TrueType.Internal as FI
@@ -78,7 +91,9 @@ instance NFData a => NFData (Glyph a) where
 -- | A cache of all glyphs that have been loaded from the font file so far and the font file itself.
 data GlyphCache =
   GlyphCache
-  { _gCMap  :: M.Map CodePoint (Glyph DisplaySpace)
+  { -- | Map from CodePoints to cached glyphs.
+    _gCMap  :: M.Map CodePoint (Glyph SubSpace)
+    -- | Original font data structure. Contains an error message depending on how the font is loaded.
   , _gCFont :: Either String F.Font
   } deriving (Show)
 makeLenses ''GlyphCache
@@ -93,58 +108,77 @@ type GlyphMonad m = StateT GlyphCache m
 runGlyphMonad :: (Monad m) => GlyphMonad m a -> m a
 runGlyphMonad mf = evalStateT mf emptyGlyphCache
 
-
-fromRight (Right x) = x
-fromRight (Left message) = error message
-
 -- | Add a fontfile to the GlyphMonad.
 addFont :: String -> GlyphMonad IO ()
 addFont file_name =
-  do
-    ttf_buffer <- liftIO $ LB.readFile file_name
-    gCFont .= F.decodeFont ttf_buffer
+  do  -- load the TrueType font file into a buffer.
+      ttf_buffer <- liftIO $ LB.readFile file_name
+      -- Decode it into the glyph monad cache.
+      gCFont .= F.decodeFont ttf_buffer
 
--- Helper function for translating fontfiles.
+-- | Helper function for translating font file pairs to points.
 pairToPoint (x,y) = Point2 x y
 
+-- | Helper function to flip the data inside glyphs
 flipY h (x,y) = (x, h + negate y)
 
+-- | Accessors into font internals.
 makeLenses ''F.Font
 makeLenses ''FI.HorizontalHeader
 makeLenses ''F.RawGlyph
 
+rightOrError (Right t) = t
+rightOrError (Left err) = error err
+
+
 -- | Retrieve a glyph from the glyphCache, read it from the font file if necessary.
-getGlyph :: (MonadState GlyphCache m, Monad m) => CodePoint -> m (Glyph DisplaySpace)
+getGlyph :: (MonadState GlyphCache m, Monad m) => CodePoint -> m (Glyph SubSpace)
 getGlyph codepoint =
-  do  dict <- use gCMap
+  do  -- the current map from codepoints to previously decoded glyphs.
+      dict <- use gCMap
+      -- the original font data structure
       eFont <- use gCFont
+      -- check if the glyph has already been loaded.
       case M.lookup codepoint dict of
-          Just glyph -> return glyph
+          Just glyph -> return glyph -- if so return it.
           Nothing ->
-            let font = fromRight eFont
+            let -- otherwise load it from the font, store it in the cache and return it.
+                font = rightOrError eFont
+                -- get the scale factor from the font.
                 fontScaleFactor = 1 / (fromIntegral $ F.unitsPerEm font)
+                -- get the width to advance for this glyph and the vector of RawGlyph structures.
+                glyphVector :: V.Vector F.RawGlyph
                 (advance, glyphVector) = F.getCharacterGlyphsAndMetrics font (chr . unCodePoint $ codepoint)
+                -- get the general metadata header for the font.
                 header = font ^. fontHorizontalHeader
+                -- pull the acent and descent information for the header.
                 (FI.FWord ascent ) = (fromJust header) ^. hheaAscent
                 (FI.FWord descent) = (fromJust header) ^. hheaDescent
+                -- get the list of contours from first rawglyph.
                 contours :: [VU.Vector (Int16, Int16)]
                 contours = if V.length glyphVector > 0
                            then (V.head glyphVector) ^. rawGlyphContour
                            else []
                 height = ascent + descent
                 vertices :: [[(Int16,Int16)]]
+                -- turn the contours to lists of pairs and flip them vertically.
                 vertices = map (map (flipY (fromIntegral $ height)) . VU.toList) contours
-                shape :: [Outline DisplaySpace]
-                shape =  map (Outline . pairPoints . map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) vertices
-                glyph :: Glyph DisplaySpace
-                glyph = Glyph { glyphVertices        = shape
+                -- create outlines from the lists of vertices by converting them to Point2 SubSpace and scaling them
+                -- by the fontfactor, this means a normal glyph will have a height of 1 in SubSpace.
+                outlines :: [Outline SubSpace]
+                outlines =  map (Outline . pairPoints . map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) vertices
+                -- build the Glyph constructor including the metadata and the outlines.
+                glyph :: Glyph SubSpace
+                glyph = Glyph { glyphVertices        = outlines
                               , glyphAdvanceWidth    = Ortho $ realToFrac advance * fontScaleFactor
                               , glyphAscent          = Ortho $ realToFrac ascent  * fontScaleFactor
                               , glyphDescent         = Ortho $ realToFrac descent * fontScaleFactor
                               }
-            in  do  gCMap .= M.insert codepoint glyph dict
+            in  do  -- insert the new glyph into the cache.
+                    gCMap .= M.insert codepoint glyph dict
+                    -- return it as well.
                     return glyph
 
 -- | Convert a string of characters to a list of glyphs in the GlyphMonad.
-glyphString :: (MonadState GlyphCache m, Monad m) => String -> m [Glyph DisplaySpace]
+glyphString :: (MonadState GlyphCache m, Monad m) => String -> m [Glyph SubSpace]
 glyphString = mapM (getGlyph . CodePoint . ord)

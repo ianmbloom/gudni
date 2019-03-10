@@ -24,12 +24,12 @@ fuzzyBreak :: RandomGen g => Int -> Rand g (Int, Int)
 fuzzyBreak size = do b <- getRandomR (0,size)
                      return (b, size - b)
 
-instance Random CombineType where
+instance Random Compound where
   random = runRand $ do r :: Int <- getRandomR(0,2)
                         return $ case r of
-                                  0 -> CombineContinue
-                                  1 -> CombineAdd
-                                  2 -> CombineSubtract
+                                  0 -> CompoundContinue
+                                  1 -> CompoundAdd
+                                  2 -> CompoundSubtract
   randomR _ = random
 
 instance Random Color where
@@ -72,19 +72,19 @@ instance (Num token, Random token, Fuzzy rep) => Fuzzy (SRep token substance rep
                  child <- fuzz (size - 1)
                  return $ SRep token color child
 
-instance Fuzzy ShapeTree where
+instance Fuzzy (ShapeTree Int) where
   fuzz size = do if (size < 1)
                  then do child <- fuzz (size - 1)
                          return $ SLeaf child
                  else do a :: Int <- getRandomR (0,1)
                          case a of
-                           0 -> do transformType :: TransformType DisplaySpace <- getRandom
+                           0 -> do transformType :: Transformer SubSpace <- getRandom
                                    child <- fuzz (size - 1)
                                    return $ STransform transformType child
                            1 -> do (aboveSize, belowSize) <- fuzzyBreak (size - 1)
                                    above <- fuzz aboveSize
                                    below <- fuzz belowSize
-                                   return $ SOverlap () above below
+                                   return $ SMeld () above below
 
 instance Fuzzy CompoundTree where
     fuzz size = if size < 1
@@ -110,7 +110,7 @@ instance Fuzzy CompoundTree where
 
 --type RawTree rep = ShapeTree Align (SRep Int (PictureRef PictId) (CompoundTree rep))
 
-fuzzyCurve :: (RandomGen g) => Point2 DisplaySpace -> Int -> Rand g ShapeTree
+fuzzyCurve :: (RandomGen g) => Point2 SubSpace -> Int -> Rand g (ShapeTree Int)
 fuzzyCurve range len = do
   color <- Solid <$> getRandom
   token <- getRandomR(0,32768)
@@ -122,7 +122,7 @@ makePairs (a:b:cs) = (a,b):makePairs cs
 makePairs (a:[]) = error "shoudn't happen"
 makePairs [] = error "shoudn't happen"
 
-fuzzyRadial :: (RandomGen g) => DisplaySpace -> DisplaySpace -> Int -> Rand g ShapeTree
+fuzzyRadial :: (RandomGen g) => SubSpace -> SubSpace -> Int -> Rand g (ShapeTree Int)
 fuzzyRadial minRad maxRad len = do
   color <- Solid <$> getRandom
   token <- getRandomR(0,32768)
@@ -134,13 +134,13 @@ fuzzyRadial minRad maxRad len = do
       segmentList = take len $ zipWith makeSegment boolList pointPairList
   return $ SLeaf $ SRep token color $ SLeaf $ Raw segmentList
 
-fuzzyGray :: (RandomGen g) => Point2 DisplaySpace -> Int -> Rand g ShapeTree
+fuzzyGray :: (RandomGen g) => Point2 SubSpace -> Int -> Rand g (ShapeTree Int)
 fuzzyGray range len = do
   token <- getRandomR(0,32768)
   segmentList <- take len <$> getRandomRs(straight 0 0, straight 10 10)
   return $ SLeaf $ SRep token (Solid $ transparent 0.3 white) $ SLeaf $ Raw segmentList
 
-fuzzyCircle :: (RandomGen g) => Point2 DisplaySpace -> DisplaySpace -> DisplaySpace -> Rand g ShapeTree
+fuzzyCircle :: (RandomGen g) => Point2 SubSpace -> SubSpace -> SubSpace -> Rand g (ShapeTree Int)
 fuzzyCircle range  minRad maxRad = do
   color <- Solid <$> getRandom
   token <- getRandomR(0,32768)
@@ -148,7 +148,7 @@ fuzzyCircle range  minRad maxRad = do
   point <- getRandomR(makePoint 0 0, range)
   return $ sTranslate point $ sScale radius $ SLeaf $ SRep token color circle
 
-fuzzySquare :: (RandomGen g) => Point2 DisplaySpace -> DisplaySpace -> DisplaySpace -> Rand g ShapeTree
+fuzzySquare :: (RandomGen g) => Point2 SubSpace -> SubSpace -> SubSpace -> Rand g (ShapeTree Int)
 fuzzySquare range  minRad maxRad = do
   color <- Solid <$> getRandom
   token <- getRandomR(0,32768)

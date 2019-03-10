@@ -43,19 +43,19 @@ import System.Random
 
 
 data BenchmarkState = BenchmarkState
-  { _stateScale       :: DisplaySpace
-  , _stateDelta       :: Point2 DisplaySpace
-  , _stateCircleDelta :: Point2 DisplaySpace
-  , _stateAngle       :: Angle  DisplaySpace
+  { _stateScale       :: SubSpace
+  , _stateDelta       :: Point2 SubSpace
+  , _stateCircleDelta :: Point2 SubSpace
+  , _stateAngle       :: Angle  SubSpace
   , _statePaused      :: Bool
-  , _stateSpeed       :: DisplaySpace
-  , _statePace        :: DisplaySpace
+  , _stateSpeed       :: SubSpace
+  , _statePace        :: SubSpace
   , _stateLastTime    :: SimpleTime
   , _stateDirection   :: Bool
-  , _statePlayhead    :: DisplaySpace
-  , _stateCursor      :: Point2 IntSpace
-  , _statePictures    :: (Pile Word8, [PictureMemory])
-  , _stateTests       :: [(String, BenchmarkState -> GlyphMonad IO ShapeTree)]
+  , _statePlayhead    :: SubSpace
+  , _stateCursor      :: Point2 PixelSpace
+  , _statePictures    :: (Pile Word8, [PictureMemoryReference])
+  , _stateTests       :: [(String, BenchmarkState -> GlyphMonad IO (ShapeTree Int))]
   , _stateCurrentTest :: Int
   , _stateStep        :: Int
   , _stateFrameNumber :: Int
@@ -77,7 +77,7 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 27
+    , _stateCurrentTest = 6
     , _stateStep        = 12
     , _stateFrameNumber = 0
     }
@@ -112,7 +112,7 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 27 -
            ]
 
-maxThresholdTest :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+maxThresholdTest :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 maxThresholdTest state =
     return $
     let frame = view stateFrameNumber state
@@ -125,7 +125,7 @@ maxThresholdTest state =
 
 -- | Stack of very wide thin RGB rectangles useful for testing large numbers of shapes per tile and
 -- subpixel geometry.
-maxShapeTest :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+maxShapeTest :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 maxShapeTest state =
      return .
      makeGrid 1 1 (state ^. stateStep + 2000 + 1) .
@@ -137,19 +137,19 @@ maxShapeTest state =
         ]
 
 -- | All the turtle plots from the plot module.
-plots :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+plots :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 plots state = return $
               sTranslateXY 100 100 . sScale 30 . makeGrid 10 16 1 . catMaybes . map (fmap (solid yellow . rawCurve) . curveLibrary) $ turtleNames
 
 -- | A fuzz test of random curves where the random points are all within a donut shape.
-fuzzyDonut :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+fuzzyDonut :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 fuzzyDonut state = return $
                let time = view stateLastTime state
                in  sTranslateXY 500 500 .
                    overlap $ evalRand (sequence . replicate 16 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 -- | A basic fuzz test of random curves contained in a rectagular area.
-fuzzyBasic :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+fuzzyBasic :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 fuzzyBasic state = return $
                let time = view stateLastTime state
                in  sTranslateXY (100) (100) .
@@ -157,7 +157,7 @@ fuzzyBasic state = return $
                    evalRand (sequence . replicate 16 $ fuzzyCurve (makePoint 1440 900) 10) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 -- | A random field of transparent circles.
-fuzzyCircles :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+fuzzyCircles :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 fuzzyCircles state = return $
                let time = view stateLastTime state
                in  --sTranslateXY (100) (100) .
@@ -165,7 +165,7 @@ fuzzyCircles state = return $
                    evalRand (sequence . replicate 5000 $ fuzzyCircle (makePoint 1440 900) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
 
 -- | Smaller random field of transparent circles.
-fuzzyCircles2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+fuzzyCircles2 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 fuzzyCircles2 state = return $
                let time = view stateLastTime state
                in  sTranslateXY 0 0 .
@@ -173,21 +173,21 @@ fuzzyCircles2 state = return $
                    evalRand (sequence . replicate (state ^. stateStep) $ fuzzyCircle (makePoint 200 200) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
 
 -- | A random field of transparent squares.
-fuzzySquares :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+fuzzySquares :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 fuzzySquares state = return $
                let time = view stateLastTime state
                in  overlap $
                    evalRand (sequence . replicate 5000 $ fuzzySquare (makePoint 1440 900) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 -- | Smaller random field of transparent squares.
-fuzzySquares2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+fuzzySquares2 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 fuzzySquares2 state = return $
                let time = view stateLastTime state
                in  overlap $
                    evalRand (sequence . replicate 20 $ fuzzySquare (makePoint 100 100) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 -- | A grid of rotating glyphs with overlapping subtracted glyphs
-benchmark1 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+benchmark1 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 benchmark1 state =
     do defaultGlyphs <- glyphString "***O***X" --"ALl WoRk AnD nO pLaY mAkEs JaCk A dUlL bOy" ++ ['a'..'z']++['A'..'Z']++['0'..'9']++"!@#$%^&*()_+-={}[]:;\"'<>,./?\\|"
        subtractorGlyphs <- glyphString "*"
@@ -205,7 +205,7 @@ benchmark1 state =
                 cSubtract textGrid subtractor
 
 -- | A grid of rectangles.
-rectGrid :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+rectGrid :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 rectGrid state = return $
     let grid  :: CompoundTree
         grid   = makeGrid 1 100 100 . repeat . rectangle $ Point2 0.5 0.5
@@ -216,7 +216,7 @@ rectGrid state = return $
         grid
 
 -- | A knob is a vertical curve section whose control point sticks out further in the x direction than it's other points
-simpleKnob :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+simpleKnob :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 simpleKnob state = return $
         sScale 100 .
         solid (transparent 1.0 (dark $ dark gray)) .
@@ -226,7 +226,7 @@ simpleKnob state = return $
         ]
 
 -- | Test shape for intersecting thresholds.
-hourGlass :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+hourGlass :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 hourGlass state = return $
   let step = fromIntegral $ state ^. stateStep
   in    sTranslateXY 0 0 .
@@ -241,13 +241,13 @@ hourGlass state = return $
         ]
 
 -- | Test for loading a texture.
-testPict :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+testPict :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 testPict state = return $
-        overlap [ textureWith (PictureRef (Point2 0 0) 0) $ sTranslateXY 100 100 (cSubtract (sScale 200 circle) (sScale 100 circle))
+        overlap [ textureWith (PictureUsage (Point2 0 0) 0) $ sTranslateXY 100 100 (cSubtract (sScale 200 circle) (sScale 100 circle))
                 , sTranslateXY 50 50 $ solid (transparent 0.2 blue) $ rectangle (Point2 40  2000)]
 
 -- | Simple stack of squares.
-stackOfSquares :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+stackOfSquares :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 stackOfSquares state = return $
         overlap
           [ (sTranslateXY 0 0  . solid (transparent 1.0 red    ) $ rectangle (Point2 4 4) )
@@ -257,14 +257,14 @@ stackOfSquares state = return $
           ]
 
 -- | Basic test for shape subtraction.
-openSquare :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+openSquare :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 openSquare state = return $
     solid (transparent 0.5 orange) $
           cSubtract (rectangle (Point2 5 5))
                     (sTranslate (Point2 1 1) $ rectangle (Point2 3 3))
 
 -- | Basic test for shape subtraction and transparency.
-openSquareOverlap2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+openSquareOverlap2 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 openSquareOverlap2 state = return $
         sScale 0.25 $
         overlap [ (sTranslateXY 0 0 . solid (transparent 0.25 blue  ) $ cSubtract (rectangle (Point2 16 16)) (sTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
@@ -272,7 +272,7 @@ openSquareOverlap2 state = return $
                 ]
 
 -- | Basic test for shape subtraction and muliple transparency.
-openSquareOverlap3 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+openSquareOverlap3 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 openSquareOverlap3 state = return $
     let angle = view statePlayhead state @@ turn
     in  sTranslateXY 400 400 .
@@ -283,14 +283,14 @@ openSquareOverlap3 state = return $
                 ]
 
 -- | Test for shape edges that abut.
-concentricSquares2 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+concentricSquares2 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 concentricSquares2 state = return $
         overlap [ (sTranslateXY 0 0 . solid (transparent 1.0 red ) $ cSubtract (rectangle (Point2 5 5)) (sTranslate (Point2 1 1) $ rectangle (Point2 3 3) ) )
                 , (sTranslateXY 1 1 . solid (transparent 1.0 blue) $ cSubtract (rectangle (Point2 3 3)) (sTranslate (Point2 1 1) $ rectangle (Point2 1 1) ) )
                 ]
 
 -- | Another test for shape edges that abut.
-concentricSquares3 :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+concentricSquares3 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 concentricSquares3 state = return $
         overlap [ (sTranslateXY 0 0 . solid (transparent 1.0 red   ) $ cSubtract (rectangle (Point2 10 10)) (sTranslate (Point2 2 2) $ rectangle (Point2 6 6) ) )
                 , (sTranslateXY 2 2 . solid (transparent 1.0 green ) $ cSubtract (rectangle (Point2  6  6)) (sTranslate (Point2 2 2) $ rectangle (Point2 2 2) ) )
@@ -298,7 +298,7 @@ concentricSquares3 state = return $
                 ]
 
 -- | Simple test one glyph.
-simpleGlyph :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+simpleGlyph :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 simpleGlyph state =
   do let character = chr $ state ^. stateStep
      characterGlyph <- getGlyph . CodePoint . ord $ character
@@ -309,14 +309,14 @@ simpleGlyph state =
                 glyph characterGlyph
 
 -- | Simple test one arc.
-simpleArc :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+simpleArc :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 simpleArc state = return $
         sScale 100 .
         solid (transparent 1.0 $ dark gray) $
         arc (0.3 @@ turn)
 
 -- | Test for straight vertical segments with multiple colinear points.
-sixPointRectangle :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+sixPointRectangle :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 sixPointRectangle state = return $
         solid (transparent 1.0 (dark gray)) $
         raw [straight 0 0, straight 1 0, straight 2 0
@@ -324,14 +324,14 @@ sixPointRectangle state = return $
             ]
 
 -- | Very tiny square with not rotation. Usually the first thing tested for a new build.
-tinySquare :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+tinySquare :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 tinySquare state = return $
         sTranslateXY 0.3 0.3 .
         solid red $
         rectangle (Point2 2 2)
 
 -- | Very simple rotated box.
-simpleRectangle :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+simpleRectangle :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 simpleRectangle state = return $
   sTranslateXY (0.35 + 0.1) 0 .
   sRotate (45 @@ deg) .
@@ -340,7 +340,7 @@ simpleRectangle state = return $
   rectangle (Point2 2 2)
 
 -- | Simple rectangle test across multiple tiles.
-tallRectangle :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+tallRectangle :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 tallRectangle state = return $
         sTranslateXY 0 1 .
         sRotate (3 @@ deg) .
@@ -348,7 +348,7 @@ tallRectangle state = return $
         rectangle (Point2 0.5 2000)
 
 -- | Simple multishape test useful for subpixel geometry.
-twoBrackets :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+twoBrackets :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 twoBrackets state = return $
     solid white $
     overlap [ raw  [straight (-0.2) 0.0, straight   1.2  1.4
@@ -360,7 +360,7 @@ twoBrackets state = return $
             ]
 
 -- | Very simple subtraction test.
-subtractDiamond :: Monad m => BenchmarkState -> GlyphMonad m ShapeTree
+subtractDiamond :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 subtractDiamond state = return $
     solid white $
     cSubtract (diamond $ makePoint 8 8) (sTranslateXY 2 0 $ diamond $ makePoint 8 8)

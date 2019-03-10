@@ -33,13 +33,13 @@ import System.IO.Silently
 
 import System.Info
 
-getTest :: BenchmarkState -> (String, BenchmarkState -> GlyphMonad IO ShapeTree)
+getTest :: BenchmarkState -> (String, BenchmarkState -> GlyphMonad IO (ShapeTree Int))
 getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
     screenSize state = --FullScreen
-                       Window $ Point2 32
-                                       32
+                       Window $ Point2 800
+                                       600
     shouldLoop _ = True
     fontFile state = fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
     updateModelState frame elapsedTime inputs state =
@@ -55,14 +55,14 @@ instance Model BenchmarkState where
                             timeDelta = elapsedTime - lastTime
                             dt = realToFrac timeDelta * realToFrac speed
                         statePlayhead %= (`f` dt)
-    constructFigure state status =
+    constructScene state status =
         do  testScene <- (snd $ getTest state) state
             testName <- glyphString (fst $ getTest state)
             statusGlyphs <- mapM glyphString $ lines status
             let tree = transformFromState testScene state
                 statusTree = statusDisplay state testName statusGlyphs
                 withStatus = if False then overlap [statusTree, tree] else tree
-            return (ShapeRoot gray withStatus, "textForm")
+            return (Scene gray withStatus)
     providePictureData state = return $ state ^. statePictures
 
 statusDisplay state testName status =
@@ -75,7 +75,7 @@ statusDisplay state testName status =
     testName :
     status
 
-transformFromState :: ShapeTree -> BenchmarkState -> ShapeTree
+transformFromState :: ShapeTree Int -> BenchmarkState -> ShapeTree Int
 transformFromState constructed state =
   let sc    = view stateScale state
       delta = view stateDelta state
@@ -85,7 +85,7 @@ transformFromState constructed state =
       sScale sc $
       constructed
 
-processInput :: Monad m => Input (Point2 IntSpace) -> StateT BenchmarkState m ()
+processInput :: Monad m => Input (Point2 PixelSpace) -> StateT BenchmarkState m ()
 processInput input =
     case input of
         (InputKey Pressed _ inputKeyboard) ->

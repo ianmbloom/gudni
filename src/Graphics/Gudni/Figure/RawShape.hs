@@ -1,5 +1,18 @@
 {-# LANGUAGE GADTs, TemplateHaskell, LambdaCase, FlexibleContexts, ScopedTypeVariables, KindSignatures #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Figure.RawShape
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- A RawShape is just an easy way to store some basic descriptions of shapes∘
+-- This step can probably be removed.
+
 module Graphics.Gudni.Figure.RawShape
   ( RawShape (..)
   , RawShape_(..)
@@ -38,7 +51,7 @@ import qualified Data.ByteString.Char8 as B
 
 import System.Random
 
-type RawShape = RawShape_ DisplaySpace
+type RawShape = RawShape_ SubSpace
 
 data RawShape_ s where
      RawBox       :: s -> Point2 s -> RawShape_ s
@@ -84,7 +97,7 @@ rawShapeToOutlines shape =
           , Seg (p1 ^+^ leftNormal ) Nothing
           , Seg (p1 ^+^ rightNormal) Nothing
           ]]
-    RawCurve p -> openCurveToOutline p
+    RawCurve p -> closeOpenCurve p
 
 instance Hashable s => Hashable (RawShape_ s) where
     hashWithSalt s (RawBox a b     ) = s `hashWithSalt` (0::Int) `hashWithSalt` a `hashWithSalt` b

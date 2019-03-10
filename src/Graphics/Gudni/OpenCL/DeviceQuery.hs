@@ -18,19 +18,20 @@ import Graphics.Gudni.Util.Util
 
 import Data.List
 
+-- | Determine if the Device Name of a particular device contains a specific string.
 deviceNameContains selector deviceID =
   do  name <- clGetDeviceName deviceID
       return (isInfixOf selector name)
 
-
+-- | Pad a device query line for aligned display.
 showQuery deviceID (title, f) =
   do answer <- f deviceID
      putStrLn $ (lpad 40 title) ++ ": " ++ answer
 
+-- | Output a query of all information about a every available OpenCL platform and
+-- every device on that platform.
 queryOpenCL deviceType =
-  do
-  --clGetPlatformIDs :: IO [CLPlatformID]
-      platformIDs <- clGetPlatformIDs
+  do  platformIDs <- clGetPlatformIDs
       forM platformIDs $ \platformID ->
         do
          name <- clGetPlatformInfo platformID CL_PLATFORM_NAME
@@ -40,6 +41,7 @@ queryOpenCL deviceType =
          deviceIDs <- clGetDeviceIDs platformID deviceType
          forM deviceIDs dumpOpenCLDeviceInfo
 
+-- | Output a query of all information about a particular OpenCL device.
 dumpOpenCLDeviceInfo deviceID =
   do  name <- clGetDeviceName deviceID
       putStrLn $ "======================== " ++ name ++ " ========================"

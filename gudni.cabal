@@ -64,7 +64,7 @@ library
                      , Graphics.Gudni.Util.Draw
                      , Graphics.Gudni.Util.Plot
                      , Graphics.Gudni.Util.Scaffolding
-                     , Graphics.Gudni.OpenCL.GLInterop
+                     , Graphics.Gudni.Interface.GLInterop
                      , Graphics.Gudni.OpenCL.DeviceQuery
 
   -- Modules included in this library but not exported.
@@ -95,14 +95,14 @@ library
                      , Graphics.Gudni.OpenCL.Instances
                      , Graphics.Gudni.OpenCL.KernelLibrary
                      , Graphics.Gudni.Raster.ShapeInfo
-                     , Graphics.Gudni.Raster.Geometry
+                     , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.Job
                      , Graphics.Gudni.Raster.Strand
                      , Graphics.Gudni.Raster.Enclosure
                      , Graphics.Gudni.Raster.StrandLookupTable
                      , Graphics.Gudni.Raster.TileTree
                      , Graphics.Gudni.Raster.TraverseShapeTree
-                     , Graphics.Gudni.Raster.Geometry
+                     , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.Types
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util
