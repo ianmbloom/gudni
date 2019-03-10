@@ -41,10 +41,11 @@ type MemOffset_ = Reference Word8
 
 -- | The starting memory offset and size of a picture.
 data PictureMemoryReference = PictureMemory
-  { -- | The offset of the picture data within the combined buffer of all source pictures.
-    pictMemOffset :: MemOffset_
-    -- | The dimensions of the picture in memory.
-  , pictSize      :: Point2 PixelSpace
+  { -- | The dimensions of the picture in memory.
+    pictSize      :: Point2 PixelSpace
+    -- | The offset of the picture data within the combined buffer of all source pictures.
+  , pictMemOffset :: MemOffset_
+
   } deriving (Show)
 
 instance NFData PictureMemoryReference where
@@ -71,16 +72,16 @@ makePictures images =
      (pile', offsets) <- mapAccumM addVectorToPile pile (map imageData rgba8s)
      let sizes   = zipWith Point2 (map (fromIntegral . imageWidth ) rgba8s)
                                   (map (fromIntegral . imageHeight) rgba8s)
-         pictMems = zipWith PictureMemory offsets sizes
+         pictMems = zipWith PictureMemory sizes offsets
      return (pile', pictMems)
 
 instance StorableM PictureMemoryReference where
   sizeOfM _ =
-    do sizeOfM (undefined :: MemOffset_     )
-       sizeOfM (undefined :: Point2 PixelSpace)
+    do sizeOfM (undefined :: Point2 PixelSpace)
+       sizeOfM (undefined :: MemOffset_     )
   alignmentM _ =
-    do alignmentM (undefined :: MemOffset_     )
-       alignmentM (undefined :: Point2 PixelSpace)
+    do alignmentM (undefined :: Point2 PixelSpace)
+       alignmentM (undefined :: MemOffset_     )
   peekM = do size      <- peekM
              memOffset <- peekM
              return (PictureMemory size memOffset)

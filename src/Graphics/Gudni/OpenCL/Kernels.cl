@@ -369,11 +369,11 @@ typedef struct Substance
   } Substance;
 
 // A picture reference is a reference to bitmap data that can be the substance of a shape.
-typedef struct PictureRef
+typedef struct PictureUse
   { int2 pictTranslate; // translation vector in pixel units
-    int  pictMemOffset; // starting point of the pixel data in the memory buffer
     int2 pictSize;      // size of the bitmap
-  } PictureRef;
+    int  pictMemOffset; // starting point of the pixel data in the memory buffer
+  } PictureUse;
 
 /*
 #define COLORBUFFERMODULOMASK = 0x3 // must be adjusted if COLORBUFFERSIZE is changed
@@ -384,7 +384,7 @@ typedef struct PictureRef
 typedef struct ColorState {
                COLOR   csBackgroundColor;         // background color
      GMEM      uchar  *csPictureData;             // global image information
-     CMEM PictureRef  *csPictureRefs;             // global list of image references
+     CMEM PictureUse  *csPictureRefs;             // global list of image references
                 bool   csIsConstant;              // determine is the color state changes after a pixel move
                 int2   absolutePosition;          // the absolute position of the current pixel.
   } ColorState;
@@ -757,7 +757,7 @@ void calculatePixel ( PMEM      TileState *tileS
 void renderPixelBuffer ( PMEM   TileState *tileS
                        , SMEM      float4 *geometryHeap
                        , GMEM       uchar *pictureData
-                       , CMEM  PictureRef *pictureRefs
+                       , CMEM  PictureUse *pictureRefs
                        , SMEM   Substance *substances
                        , SMEM       Shape *shapeHeap
                        ,            COLOR  backgroundColor
@@ -769,7 +769,7 @@ void renderPixelBuffer ( PMEM   TileState *tileS
 void initColorState ( PMEM  ColorState *init
                     ,            COLOR  backgroundColor
                     , GMEM       uchar *pictureData
-                    , CMEM  PictureRef *pictureRefs
+                    , CMEM  PictureUse *pictureRefs
                     ,             int2  absolutePosition
                     );
 
@@ -917,6 +917,7 @@ inline COLOR loadPixel_Word32_RGBA(uchar4 pixel) {
 
 inline COLOR getPicturePixel(GMEM uchar *pictData, int w, int x, int y) {
      GMEM uchar4 *pixelPointer = ((GMEM uchar4 *)pictData) + mul24(y, w) + x;
+     DEBUG_IF(printf("getPicturePixel x %i y %i w %i \n", x, y, w);)
      return loadPixel_Word32_RGBA(*pixelPointer);
 }
 
@@ -1577,12 +1578,14 @@ COLOR readColor ( PMEM ColorState *cS
         return substance.substanceColor;
     } else { // its a picture reference
         uint pictId = (as_uint4(substance.substanceColor)).x;
-        PictureRef pRef = cS->csPictureRefs[pictId];
+        PictureUse pRef = cS->csPictureRefs[pictId];
         int2 relativePosition = cS->absolutePosition - pRef.pictTranslate;
+        DEBUG_IF(printf("pictId %i pRef.pictSize %v2i pRef.memOffset %i relativePosition %v2i \n", pictId, pRef.pictSize, pRef.pictMemOffset, relativePosition);)
         if (relativePosition.x >= 0 &&
             relativePosition.y >= 0 &&
             relativePosition.x < pRef.pictSize.x &&
             relativePosition.y < pRef.pictSize.y) {
+
             return getPicturePixel( cS->csPictureData + pRef.pictMemOffset
                                   , pRef.pictSize.x
                                   , relativePosition.x
@@ -1607,11 +1610,11 @@ COLOR determineColor( PMEM    ShapeState *shS
     COLOR baseColor = TRANSPARENT_COLOR;
     COLOR nextColor;
     bool done = false;
-       SUBSTANCEID lastId = NULLINDEX;
+    SUBSTANCEID lastId = NULLINDEX;
     bool lastIsContinue = true;
     bool lastIsSet = false;
     while (!done) {
-           SUBSTANCEID substanceId = NULLINDEX;
+        SUBSTANCEID substanceId = NULLINDEX;
         bool shouldComposite = true;
         topBit = findTop(shS->shapeStack, topBit);
         //DEBUG_IF(printf("topBit %i ", topBit);showShapeStack(shS->shapeStack);printf("\n");)
@@ -2220,7 +2223,7 @@ void calculatePixel ( PMEM      TileState *tileS
 void initColorState( PMEM   ColorState *init
                    ,             COLOR  backgroundColor
                    , GMEM        uchar *pictureData
-                   , CMEM   PictureRef *pictureRefs
+                   , CMEM   PictureUse *pictureRefs
                    ,              int2  pos
                    ) {
   init->csBackgroundColor = backgroundColor;
@@ -2234,7 +2237,7 @@ void initColorState( PMEM   ColorState *init
 void renderPixelBuffer ( PMEM   TileState *tileS
                        , SMEM      float4 *geometryHeap
                        , GMEM       uchar *pictureData
-                       , CMEM  PictureRef *pictureRefs
+                       , CMEM  PictureUse *pictureRefs
                        , SMEM   Substance *substances
                        , SMEM       Shape *shapeHeap
                        ,            COLOR  backgroundColor
@@ -2290,7 +2293,7 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                               , SMEM      Shape *shapeHeap
                               , SMEM   TileInfo *tileHeap
                               , GMEM      uchar *pictureData
-                              , CMEM PictureRef *pictureRefs
+                              , CMEM PictureUse *pictureRefs
                               , CMEM      float *randomField
                               ,           COLOR  backgroundColor
                               ,            int2  bitmapSize
@@ -2568,6 +2571,7 @@ void showShapes(SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *sub
         else {
             printf("    ");
         }
+        printf("isSolid %i ",shapeTagIsSolidColor(shape.shapeTag));
         printf("%i - %i tag: %lX \n", shape.shapeSlice.sStart, shape.shapeSlice.sLength, shape.shapeTag);
     }
 }
