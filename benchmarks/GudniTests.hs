@@ -77,8 +77,8 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 6
-    , _stateStep        = 12
+    , _stateCurrentTest = 0
+    , _stateStep        = 67
     , _stateFrameNumber = 0
     }
 
@@ -162,7 +162,7 @@ fuzzyCircles state = return $
                let time = view stateLastTime state
                in  --sTranslateXY (100) (100) .
                    overlap $
-                   evalRand (sequence . replicate 5000 $ fuzzyCircle (makePoint 1440 900) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
+                   evalRand (sequence . replicate 10000 $ fuzzyCircle (makePoint 2800 1800) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
 
 -- | Smaller random field of transparent circles.
 fuzzyCircles2 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
@@ -218,7 +218,9 @@ rectGrid state = return $
 -- | A knob is a vertical curve section whose control point sticks out further in the x direction than it's other points
 simpleKnob :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 simpleKnob state = return $
+        sTranslateXY 100 100 .
         sScale 100 .
+
         solid (transparent 1.0 (dark $ dark gray)) .
         raw $
         [ curved 0 0 1 1

@@ -349,6 +349,6 @@ outlineToStrands :: CurveTable
                  -> Outline SubSpace
                  -> [Strand]
 outlineToStrands table sectionSize (Outline ps) =
-    if length ps < 3
+    if length ps < 2
     then []
     else splitShape table sectionSize ps
