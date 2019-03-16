@@ -9,13 +9,13 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Functions for building a lookup table for converting sequenced strands into
--- strands that are reordered as trees.
+-- Functions for building a lookup table for reordering sequenced strands into
+-- binary trees based on their length.
 
-module Graphics.Gudni.Raster.StrandLookupTable
-  ( CurveTable
-  , buildCurveTable
-  , makeCurveStrand
+module Graphics.Gudni.Raster.ReorderTable
+  ( ReorderTable
+  , buildReorderTable
+  , fromReorderTable
   )
 where
 
@@ -38,6 +38,7 @@ data ITree =
   } |
   ILeaf
 
+-- | Convert an ITree to a list.
 subForest (IBranch _ left right) = [left, right]
 subForest ILeaf = []
 
@@ -78,33 +79,33 @@ breadth nd = concatMap getIndex $ nd : breadth' [nd]
           breadth' nds = let cs = foldr ((++).subForest) [] nds
                          in  cs ++ breadth' cs
 
-curveLine :: Int -> Int -> (V.Vector Int)
-curveLine maxSize size =
-  let internal = if size > 3 then [0..(((size-3) `div` 2) - 1)] else []
+makeTreeRow :: Int -> [Int]
+makeTreeRow size =
+  let internal = [0..(size `div` 2) - 1]
       halfTree = breadth $ buildITree internal
       doubleTree = map (*2) halfTree
-      tree = map (+3) $ concatMap (\x -> [x, x+1]) doubleTree
-      rightBound = 0
-      leftBound  = 1
-      leftControl  = 2
-  in V.fromList $ rightBound:leftBound:leftControl:tree
+      tree = concatMap (\x -> [x, x+1]) doubleTree
+  in  tree
 
-type CurveTable = V.Vector (V.Vector Int)
+-- | Reorder the range so that the first three indices are to the
+-- first point, first control point, and last point followed by the appropriate tree order for the rest which
+-- is precomputed and provided by the ReorderTable
+reorderForExtents :: Int -> Int -> [Int]
+reorderForExtents maxSize size =
+  if size < 3
+  then []
+  else [size - 1, 0, 1] ++
+       if (size > 3)
+       then map (+2) (makeTreeRow (size - 3))
+       else []
 
-buildCurveTable :: Int -> CurveTable
-buildCurveTable maxSize = V.fromList $ map (curveLine maxSize . (+3) . (*2)) [0..maxSize `div` 2]
+type ReorderTable = V.Vector (V.Vector Int)
 
--- | Convert a build a tree from the midpoints and combine it with the begining and end of the strand.
-makeCurveStrand :: (Show s, Ord s, Num s, VS.Storable s)
-                => CurveTable
-                -> (V3 (Point2 s), [(Point2 s, Point2 s)] )
-                -> VS.Vector (Point2 s)
-makeCurveStrand table (V3 right left control, rest) =
-  let curveVector = V.fromList (right:left:control:concatMap (\(x,y) -> [x,y]) rest)
-      direction = compare (V.head curveVector ^. pX) (V.last curveVector ^. pX) -- determine the direction of the entire strand.
-      size = V.length curveVector
-      line = table ! {- tr ("size" ++ show size ++ "table index") -} (((size - 1) `div` 2) - 1)
-  in
-  if   size >= 3 && odd size
-  then VS.generate size (\x -> curveVector ! (line ! x))
-  else error ("makeCurveStrand must have size >= 3 and odd size." ++ show curveVector)
+buildReorderTable :: Int -> ReorderTable
+buildReorderTable maxSize = V.fromList $ map (V.fromList . reorderForExtents maxSize . (+1) . (*2)) [0..maxSize `div` 2]
+
+tableRow :: ReorderTable -> Int -> V.Vector Int
+tableRow table size = table ! (size `div` 2)
+
+fromReorderTable :: ReorderTable -> Int -> Int -> Int
+fromReorderTable table size i = (table ! (size `div` 2)) ! i

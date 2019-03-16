@@ -1616,3 +1616,32 @@ void showContinuation(Continuation c) {
     printf ("   contInHorizontalPass %2i %i   \n" , (long) &c.contInHorizontalPass   - (long)&c, c.contInHorizontalPass   );
     printf (" contNeedHorizontalPass %2i %i   \n" , (long) &c.contNeedHorizontalPass - (long)&c, c.contNeedHorizontalPass );
 }
+
+
+float arbitraryIntersect( HEADER currentHeader
+                        , THRESHOLD current
+                        , HEADER nextHeader
+                        , THRESHOLD next
+                        ) {
+
+    float aC = tBottom(current)-tTop(current);
+    // B = x1-x2
+    float bC = tBottomX(currentHeader, current)-tTopX(currentHeader,current);
+
+    // A = y2-y1
+    float aN = tBottom(next)-tTop(next);
+    // B = x1-x2
+    float bN = tBottomX(nextHeader, next)-tTopX(nextHeader, next);
+    // det = A1*B2 - A2*B1
+    float det = aC*bN - aN*bC;
+    float intersectY = FLT_MAX; // will be clamped to bottom.
+    if(fabs(det) > 0.001){
+        // C = Ax1+By1
+        //float cC = aC * tBottomX(currentHeader, current) + bC * tTop(current);
+        // C = Ax1+By1
+        //float cN = aN * tBottomX(nextHeader, next) + bN * tTop(next);
+        intersectY = 999; //(aC*cN - aN*cC)/det;
+        //DEBUG_IF(printf("det %f intersectY %f slicePoint %f\n", det, intersectY, slicePoint);)
+    }
+    return clamp(intersectY, tTop(current),tBottom(current));
+}

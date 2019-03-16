@@ -119,7 +119,7 @@ notLast [x]    = []
 notLast (x:xs) = x : notLast xs
 notLast []     = error "notLast cannot be empty"
 
-takeFirstLast :: Show a => [a] -> (a, [a], a)
+takeFirstLast :: [a] -> (a, [a], a)
 takeFirstLast xs = let (center, right) = splitLast (tail xs) in (head xs, center, right)
 
 splitLast :: [a] -> ([a],a)

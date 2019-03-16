@@ -42,8 +42,8 @@
 #define DEBUGINDEX  0 // Determines the index for DEBUG_IF macro
 #define INDEX get_global_id(0)
 #define COLUMN get_global_id(1)
-#define DEBUG_IF(statement)   // if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // on the fly debugging output
-#define DEBUG_HS(statement)   // if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // debugging output for parsing by TraceVisualizer
+#define DEBUG_IF(statement)  // if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // on the fly debugging output
+#define DEBUG_HS(statement)  // if (COLUMN == DEBUGCOLUMN && INDEX == DEBUGINDEX) {statement} // debugging output for parsing by TraceVisualizer
 
 #ifdef cl_amd_printf
 #pragma OPENCL EXTENSION cl_amd_printf : enable
@@ -90,29 +90,13 @@
 // Is Compound determines if the shape is a complex compound shape. If it is zero the shape is assumed to be made up of continuation
 // shapes.
 
-// Bits 31 - 30
-//#define SHAPETAG_SUBSTANCETYPE_BITMASK    0xC000000000000000
-//#define SHAPETAG_SUBSTANCETYPE_SOLIDCOLOR 0x8000000000000000
-//#define SHAPETAG_SUBSTANCETYPE_PICTURE    0x4000000000000000
-#define SHAPETAG_SUBSTANCETYPE_SHIFT      30
-
-inline bool     shapeTagIsSolidColor(SHAPETAG tag)  {return (tag & SHAPETAG_SUBSTANCETYPE_BITMASK) == SHAPETAG_SUBSTANCETYPE_SOLIDCOLOR;}
+inline bool     shapeTagIsSolidColor (SHAPETAG tag) {return (tag & SHAPETAG_SUBSTANCETYPE_BITMASK) == SHAPETAG_SUBSTANCETYPE_SOLIDCOLOR;}
 inline SHAPETAG shapeTagSubstanceType(SHAPETAG tag) {return (tag & SHAPETAG_SUBSTANCETYPE_BITMASK) >> SHAPETAG_SUBSTANCETYPE_SHIFT;}
 
-// Bits 29 - 28
-//#define SHAPETAG_COMPOUNDTYPE_BITMASK      0x3000000000000000
-//#define SHAPETAG_COMPOUNDTYPE_CONTINUE     0x1000000000000000
-//#define SHAPETAG_COMPOUNDTYPE_ADD          0x2000000000000000
-//#define SHAPETAG_COMPOUNDTYPE_SUBTRACT     0x3000000000000000
-#define SHAPETAG_COMPOUNDTYPE_SHIFT        28
-
-inline int  shapeTagCompound(SHAPETAG tag) {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) >> SHAPETAG_COMPOUNDTYPE_SHIFT;   }
-inline bool shapeTagIsAdd(SHAPETAG tag)       {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) == SHAPETAG_COMPOUNDTYPE_ADD;     }
-inline bool shapeTagIsSubtract(SHAPETAG tag)  {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) == SHAPETAG_COMPOUNDTYPE_SUBTRACT;}
-inline bool shapeTagIsContinue(SHAPETAG tag)  {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) == SHAPETAG_COMPOUNDTYPE_CONTINUE;}
-
-// Bits 27 - 0
-#define SHAPETAG_SUBSTANCEID_BITMASK          0x0FFFFFFFFFFFFFFF
+inline int  shapeTagCompound  (SHAPETAG tag) {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) >> SHAPETAG_COMPOUNDTYPE_SHIFT;   }
+inline bool shapeTagIsAdd     (SHAPETAG tag) {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) == SHAPETAG_COMPOUNDTYPE_ADD;     }
+inline bool shapeTagIsSubtract(SHAPETAG tag) {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) == SHAPETAG_COMPOUNDTYPE_SUBTRACT;}
+inline bool shapeTagIsContinue(SHAPETAG tag) {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) == SHAPETAG_COMPOUNDTYPE_CONTINUE;}
 
 inline  SUBSTANCEID shapeTagSubstanceId(SHAPETAG tag) {return (tag & SHAPETAG_SUBSTANCEID_BITMASK);}
 
@@ -158,31 +142,31 @@ inline  SUBSTANCEID shapeTagSubstanceId(SHAPETAG tag) {return (tag & SHAPETAG_SU
 // threshold enable - determines if the threshold has been disabled by when converted from brush to shapeindex
 // in brush mode - determines if the payload is the shapeBit or defining a compound shape.
 
-#define POSITIVE_SLOPE_MASK     0x80000000 // leftmost bit
-#define PERSIST_AND_SLOPE_MASK  0xC0000000 // leftmost and second to leftmost bit
-#define PERSIST_TOP             0xC0000000 // positive slope and persist
-#define PERSIST_BOTTOM          0x40000000 // not positive slopw and persist
+#define POSITIVE_SLOPE_MASK    0x80000000 // leftmost bit
+#define PERSIST_AND_SLOPE_MASK 0xC0000000 // leftmost and second to leftmost bit
+#define PERSIST_TOP            0xC0000000 // positive slope and persist
+#define PERSIST_BOTTOM         0x40000000 // not positive slopw and persist
 
-#define POSITIVE_SLOPE          0x80000000
-#define NEGATIVE_SLOPE          0x00000000
+#define POSITIVE_SLOPE         0x80000000
+#define NEGATIVE_SLOPE         0x00000000
 
-#define PERSIST                 0x40000000 // isolate the persist bit
-#define NONPERSIST              0x00000000 // just zero
-#define UNPERSISTMASK           0xBFFFFFFF // everything but the persist bit
+#define PERSIST                0x40000000 // isolate the persist bit
+#define NONPERSIST             0x00000000 // just zero
+#define UNPERSISTMASK          0xBFFFFFFF // everything but the persist bit
 
-#define THRESHOLDENABLE         0x20000000 // determine if the threshold has been deactivated by brushes.
-#define THRESHOLDDISABLE        0x00000000
-#define DISABLEMASK             0xDFFFFFFF // AND with a header to disable the header.
+#define THRESHOLDENABLE        0x20000000 // determine if the threshold has been deactivated by brushes.
+#define THRESHOLDDISABLE       0x00000000
+#define DISABLEMASK            0xDFFFFFFF // AND with a header to disable the header.
 
-#define SHAPEBIT_MASK           0x0FFFFFFF // right 29 bits including the brushmode
-#define WITHOUT_SHAPEBIT        0xF0000000 // bits without shape index
+#define SHAPEBIT_MASK          0x0FFFFFFF // right 29 bits including the brushmode
+#define WITHOUT_SHAPEBIT       0xF0000000 // bits without shape index
 
 // & has a lower precedence than !=
-inline       bool headerPositiveSlope(HEADER h) {return (h & POSITIVE_SLOPE_MASK) != 0;} // determine if the threshold has a positive slope
-inline       bool headerPersistTop   (HEADER h) {return (h & PERSIST_AND_SLOPE_MASK) == PERSIST_TOP;   } // determine if the top of the threshold affects the persistant state of the shapestack
-inline       bool headerPersistBottom(HEADER h) {return (h & PERSIST_AND_SLOPE_MASK) == PERSIST_BOTTOM;} // determine if the bottom of the threshold affects the persistant state of the shapestack
-inline       bool headerPersistEither(HEADER h) {return (h & PERSIST) != 0;  } // determine if either top or bottom of the threshold affects the persistant state of the shapestack
-inline   SHAPEBIT headerShapeBit     (HEADER h) {return  h & SHAPEBIT_MASK;} // get the index of the shape that corresponds to the threshold
+inline     bool headerPositiveSlope(HEADER h) {return (h & POSITIVE_SLOPE_MASK) != 0;} // determine if the threshold has a positive slope
+inline     bool headerPersistTop   (HEADER h) {return (h & PERSIST_AND_SLOPE_MASK) == PERSIST_TOP;   } // determine if the top of the threshold affects the persistant state of the shapestack
+inline     bool headerPersistBottom(HEADER h) {return (h & PERSIST_AND_SLOPE_MASK) == PERSIST_BOTTOM;} // determine if the bottom of the threshold affects the persistant state of the shapestack
+inline     bool headerPersistEither(HEADER h) {return (h & PERSIST) != 0;  } // determine if either top or bottom of the threshold affects the persistant state of the shapestack
+inline SHAPEBIT headerShapeBit     (HEADER h) {return  h & SHAPEBIT_MASK;} // get the index of the shape that corresponds to the threshold
 
 inline HEADER unPersist      (HEADER h) {return h & UNPERSISTMASK;}
 inline HEADER disableHeader  (HEADER h) {return h & DISABLEMASK;  }
@@ -244,83 +228,83 @@ inline float thresholdInvertedSlope ( HEADER header
 
 // ShapeStack
 
-#define SHAPESHACK             ulong
-#define SHAPESHACKBITS         64
-#define SHAPESHACKCARRYSHIFT   63
-#define SHAPESHACKCARRYMASK    0x1
-#define SHAPESHACKSECTIONSHIFT 6    // the amount to shift to get the section from the total bits
-#define SHAPESHACKSECTIONBITS  0x3F
-#define SHAPESHACKSECTIONS     8
+#define SHAPESTACK             ulong
+#define SHAPESTACKBITS         64
+#define SHAPESTACKCARRYSHIFT   63
+#define SHAPESTACKCARRYMASK    0x1
+#define SHAPESTACKSECTIONSHIFT 6    // the amount to shift to get the section from the total bits
+#define SHAPESTACKSECTIONBITS  0x3F
+#define SHAPESTACKSECTIONS     8
 
-#define EMPTY_SHAPESHACK       0x0
-#define COMPLETE_MASK         0xFFFFFFFFFFFFFFFF
+#define EMPTY_SHAPESTACK       0x0
+#define COMPLETE_MASK          0xFFFFFFFFFFFFFFFF
 // The shape index of top shape (the visible one) can be determined by counting the leading zeros in the shapestack value using clz
 
-inline void clearShapeStack(SHAPESHACK *stack) {
-    for (int i = 0; i < SHAPESHACKSECTIONS; i++) {
-        stack[i] = EMPTY_SHAPESHACK;
+inline void clearShapeStack(SHAPESTACK *stack) {
+    for (int i = 0; i < SHAPESTACKSECTIONS; i++) {
+        stack[i] = EMPTY_SHAPESTACK;
     }
 }
 
-inline SHAPESHACK ignoreStack(SHAPESHACK section, int ignoreBits) {
-    //DEBUG_IF(printf("ignoreBits %i (COMPLETE_MASK << ignoreBits) %lX (~(COMPLETE_MASK << ignoreBits)) %lX ignoreStack %lX (SHAPESHACKBITS - clz(ignoreStack)) - 1 %i \n", ignoreBits, (COMPLETE_MASK << ignoreBits), (~(COMPLETE_MASK << ignoreBits)), ignoreStack, (SHAPESHACKBITS - clz(ignoreStack)) - 1 );)
-    return ignoreBits >= SHAPESHACKBITS ? section : (~(COMPLETE_MASK << ignoreBits)) & section;
+inline SHAPESTACK ignoreStack(SHAPESTACK section, int ignoreBits) {
+    //DEBUG_IF(printf("ignoreBits %i (COMPLETE_MASK << ignoreBits) %lX (~(COMPLETE_MASK << ignoreBits)) %lX ignoreStack %lX (SHAPESTACKBITS - clz(ignoreStack)) - 1 %i \n", ignoreBits, (COMPLETE_MASK << ignoreBits), (~(COMPLETE_MASK << ignoreBits)), ignoreStack, (SHAPESTACKBITS - clz(ignoreStack)) - 1 );)
+    return ignoreBits >= SHAPESTACKBITS ? section : (~(COMPLETE_MASK << ignoreBits)) & section;
 }
 
-inline int findSectionTop(SHAPESHACK section) {
+inline int findSectionTop(SHAPESTACK section) {
     // find the top set bit
-    return SHAPESHACKBITS - clz(section);
+    return SHAPESTACKBITS - clz(section);
 }
 
-inline int findTop(PMEM SHAPESHACK *shapeStack, int ignoreAbove) {
-    int ignoreSection = (ignoreAbove >> SHAPESHACKSECTIONSHIFT);
-    int ignoreBits    = ignoreAbove & SHAPESHACKSECTIONBITS;
+inline int findTop(PMEM SHAPESTACK *shapeStack, int ignoreAbove) {
+    int ignoreSection = (ignoreAbove >> SHAPESTACKSECTIONSHIFT);
+    int ignoreBits    = ignoreAbove & SHAPESTACKSECTIONBITS;
     //DEBUG_IF(printf("findTop ignoreAbove %i iS %i ignoreBits %i ", ignoreAbove, ignoreSection, ignoreBits);)
-    SHAPESHACK section = ignoreStack(shapeStack[ignoreSection], ignoreBits);
-    while (section == EMPTY_SHAPESHACK && ignoreSection > 0) {
+    SHAPESTACK section = ignoreStack(shapeStack[ignoreSection], ignoreBits);
+    while (section == EMPTY_SHAPESTACK && ignoreSection > 0) {
       ignoreSection -= 1;
       section = shapeStack[ignoreSection];
     }
     int sectionBits = findSectionTop(section);
-    return (ignoreSection << SHAPESHACKSECTIONSHIFT) + sectionBits - 1;
+    return (ignoreSection << SHAPESTACKSECTIONSHIFT) + sectionBits - 1;
 }
 
 
-inline SHAPESHACK setSectionBit(SHAPEBIT bit)                     {return (((ulong)0x1) << bit);} // create a shape by shifting a bit to the right position
-inline SHAPESHACK flipSectionBit(SHAPEBIT bit, SHAPESHACK section) {return (section ^ setSectionBit(bit));} // if shape on is true, toggle a shape bit
+inline SHAPESTACK setSectionBit(SHAPEBIT bit)                     {return (((ulong)0x1) << bit);} // create a shape by shifting a bit to the right position
+inline SHAPESTACK flipSectionBit(SHAPEBIT bit, SHAPESTACK section) {return (section ^ setSectionBit(bit));} // if shape on is true, toggle a shape bit
 
-inline void flipBit(SHAPEBIT shapeBit, PMEM SHAPESHACK *shapeStack) {
-    int section = shapeBit >> SHAPESHACKSECTIONSHIFT;
-    int bit     = shapeBit & SHAPESHACKSECTIONBITS;
+inline void flipBit(SHAPEBIT shapeBit, PMEM SHAPESTACK *shapeStack) {
+    int section = shapeBit >> SHAPESTACKSECTIONSHIFT;
+    int bit     = shapeBit & SHAPESTACKSECTIONBITS;
     //DEBUG_IF(printf("flipBit section %i bit %i before shapeStack[section] %lx ", section, bit, shapeStack[section]);)
     shapeStack[section] = flipSectionBit(bit, shapeStack[section]);
     //DEBUG_IF(printf(" after shapeStack[section] %lx\n", shapeStack[section]);)
 }
 
-inline SHAPESHACK carryBitSet(SHAPESHACK carryBit) {
-    return carryBit << SHAPESHACKCARRYSHIFT;
+inline SHAPESTACK carryBitSet(SHAPESTACK carryBit) {
+    return carryBit << SHAPESTACKCARRYSHIFT;
 }
 
-inline SHAPESHACK shiftSection(SHAPESHACK carryBit, SHAPESHACK shapeStack) {
+inline SHAPESTACK shiftSection(SHAPESTACK carryBit, SHAPESTACK shapeStack) {
   return carryBitSet(carryBit) | (shapeStack >> 1);
 }
 
-inline SHAPESHACK getCarryBit(SHAPESHACK section) {
-  return section & SHAPESHACKCARRYMASK;
+inline SHAPESTACK getCarryBit(SHAPESTACK section) {
+  return section & SHAPESTACKCARRYMASK;
 }
 
-inline SHAPESHACK deleteSectionBit(SHAPESHACK carryBit, SHAPESHACK shapeStack, SHAPEBIT shapeBit) {
-    SHAPESHACK breakMask = COMPLETE_MASK << shapeBit;
+inline SHAPESTACK deleteSectionBit(SHAPESTACK carryBit, SHAPESTACK shapeStack, SHAPEBIT shapeBit) {
+    SHAPESTACK breakMask = COMPLETE_MASK << shapeBit;
     //DEBUG_IF(printf("shapeStack %lX shapeBit %i ----> !breakMask %lX (shapeStack >> 1) & (breakMask)) %lX shapeStack & !breakMask %lX\n", shapeStack, shapeBit, ~breakMask,(shapeStack >> 1) & breakMask, shapeStack & ~breakMask);)
     return ((shiftSection(carryBit, shapeStack)) & breakMask) | (shapeStack & (~breakMask));
 }
 
-inline void deleteBit(PMEM SHAPESHACK *shapeStack, SHAPEBIT shapeBit) {
-    int section = shapeBit >> SHAPESHACKSECTIONSHIFT;
-    int bit     = shapeBit & SHAPESHACKSECTIONBITS;
-    SHAPESHACK carryBit = EMPTY_SHAPESHACK;
-    for (int i = SHAPESHACKSECTIONS - 1; i > section; i--) {
-      SHAPESHACK nextCarryBit = getCarryBit(shapeStack[i]);
+inline void deleteBit(PMEM SHAPESTACK *shapeStack, SHAPEBIT shapeBit) {
+    int section = shapeBit >> SHAPESTACKSECTIONSHIFT;
+    int bit     = shapeBit & SHAPESTACKSECTIONBITS;
+    SHAPESTACK carryBit = EMPTY_SHAPESTACK;
+    for (int i = SHAPESTACKSECTIONS - 1; i > section; i--) {
+      SHAPESTACK nextCarryBit = getCarryBit(shapeStack[i]);
       shapeStack[i] = shiftSection(carryBit, shapeStack[i]);
       carryBit = nextCarryBit;
     }
@@ -405,8 +389,6 @@ typedef struct ThresholdState {
                int  addThresholdCount;
   } ThresholdState;
 
-
-
 inline int cycleLocation(int i) {
   return (i + MAXTHRESHOLDS) & MAXTHRESHOLDMASK;
   // this makes the position cyclic if MAXTHRESHOLDS is a power of 2
@@ -450,7 +432,7 @@ inline void popTop(ThresholdState *tS) {
 
 typedef struct ShapeState {
       LMEM   SUBSTANCEID  shapeIndices[MAXSHAPE];        // a mapping from shape bit positions in the shapeStacks to shapeIndices in the tile.
-      PMEM SHAPESHACK shapeStack[SHAPESHACKSECTIONS]; // the current shape Stack. (Each bit represents the presence of a shape in the stack.)
+      PMEM SHAPESTACK shapeStack[SHAPESTACKSECTIONS]; // the current shape Stack. (Each bit represents the presence of a shape in the stack.)
 } ShapeState;
 
 typedef struct ParseState {
@@ -594,12 +576,6 @@ inline void adjustToExclude( PMEM ThresholdState *pS
                            ,           THRESHOLD  threshold
                            );
 
-float arbitraryIntersect(    HEADER currentHeader
-                        , THRESHOLD current
-                        ,    HEADER nextHeader
-                        , THRESHOLD next
-                        );
-
 int countActive ( PMEM ThresholdState *tS
                 ,               float *nextTop
                 );
@@ -653,7 +629,7 @@ inline void passHeaderBottom( PMEM ShapeState *shS
                             );
 
 inline void updateShapeStack(         SHAPEBIT  shapeBit
-                            , PMEM  SHAPESHACK *shapeStack
+                            , PMEM  SHAPESTACK *shapeStack
                             );
 
 COLOR readColor ( PMEM ColorState *cS
@@ -803,8 +779,8 @@ void showShapeColors(     ShapeState *shS
 void showSubstances(SMEM Substance *substances, int numSubstances);
 void showShapeRefs(SMEM REF *shapeRefs, int numShapes);
 void showShapes (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *substances, int numShapes);
-void showShapeStack(SHAPESHACK *shapeStack);
-void showShapeStackHs(SHAPESHACK *shapeStack);
+void showShapeStack(SHAPESTACK *shapeStack);
+void showShapeStackHs(SHAPESTACK *shapeStack);
 void showShapeAlignment (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *substances, int numShapes);
 void showData (GMEM uchar *pictData, int width, int height);
 void showThresholdHeader( HEADER header);
@@ -820,7 +796,7 @@ void showThresholds (PMEM   ThresholdState *tS);
 void showActiveThresholds(PMEM ThresholdState *tS, int num);
 void showColorHs( COLOR color );
 
-void fillShapeStack(SHAPESHACK *stack, SHAPESHACK value);
+void fillShapeStack(SHAPESTACK *stack, SHAPESTACK value);
 
 void testShapeStack(void);
 void testIgnoreBits(void);
@@ -829,18 +805,21 @@ void testDeleteBit(void);
 void showColorStateHs (ColorState *cS
                       ,       int  numActive
                       );
-void showSectionHs(    int numActive
-                  ,  SPACE2 sectionStart
-                  ,  SPACE2 sectionEnd
-                  ,  float lastX
-                  ,  float currentX
-                  , COLOR color
-                  , ThresholdState *tS
-                  , ColorState *cS
+void showSectionHs(                 int  numActive
+                  ,              SPACE2  sectionStart
+                  ,              SPACE2  sectionEnd
+                  ,               float  lastX
+                  ,               float  currentX
+                  ,               COLOR  color
+                  , PMEM ThresholdState *tS
+                  , PMEM ColorState     *cS
                   );
-void showThresholdHs(int i, THRESHOLD threshold, HEADER header);
+void showThresholdHs(       int i
+                    , THRESHOLD threshold
+                    ,    HEADER header
+                    );
 void showThresholdsHs ( PMEM ThresholdState *tS
-                      , int num
+                      ,                 int  num
                       );
 void showThresholdStateHs ( PMEM ThresholdState *tS
                           , PMEM     ShapeState *shS
@@ -848,12 +827,15 @@ void showThresholdStateHs ( PMEM ThresholdState *tS
                           , SMEM          Shape *shapeHeap
                           ,                 int  numShapes
                           );
+
 void showColorsHs ( PMEM ThresholdState *tS
                   , PMEM     ShapeState *shS
                   , SMEM      Substance *substances
                   , SMEM          Shape *shapeHeap
                   ,                int  num
                   );
+
+void showShapeStateHs( PMEM ShapeState *shS);
 
 void showParseStateHs(  PMEM ThresholdState *tS
                      ,           ParseState *pS
@@ -1100,34 +1082,6 @@ inline void adjustToExclude( PMEM ThresholdState *tS
     }
 }
 
-float arbitraryIntersect( HEADER currentHeader
-                        , THRESHOLD current
-                        , HEADER nextHeader
-                        , THRESHOLD next
-                        ) {
-
-    float aC = tBottom(current)-tTop(current);
-    // B = x1-x2
-    float bC = tBottomX(currentHeader, current)-tTopX(currentHeader,current);
-
-    // A = y2-y1
-    float aN = tBottom(next)-tTop(next);
-    // B = x1-x2
-    float bN = tBottomX(nextHeader, next)-tTopX(nextHeader, next);
-    // det = A1*B2 - A2*B1
-    float det = aC*bN - aN*bC;
-    float intersectY = FLT_MAX; // will be clamped to bottom.
-    if(fabs(det) > 0.001){
-        // C = Ax1+By1
-        //float cC = aC * tBottomX(currentHeader, current) + bC * tTop(current);
-        // C = Ax1+By1
-        //float cN = aN * tBottomX(nextHeader, next) + bN * tTop(next);
-        intersectY = 999; //(aC*cN - aN*cC)/det;
-        //DEBUG_IF(printf("det %f intersectY %f slicePoint %f\n", det, intersectY, slicePoint);)
-    }
-    return clamp(intersectY, tTop(current),tBottom(current));
-}
-
 int countActive ( PMEM ThresholdState *tS
                 ,               float *nextTop
                 ) {
@@ -1313,7 +1267,7 @@ void addLineSegment ( PMEM  ThresholdState *tS
                     ,                  int  addType
                     ,                 bool *enclosedByStrand
                     ) {
-    DEBUG_IF(printf("--------------- addLineSegment %i left: %v2f right: %v2f addType: %i\n", tS->addThresholdCount, left, right, addType);)
+    //DEBUG_IF(printf("--------------- addLineSegment %i left: %v2f right: %v2f addType: %i\n", tS->addThresholdCount, left, right, addType);)
     THRESHOLD newThreshold = lineToThreshold( left
                                             , right
                                             );
@@ -1548,6 +1502,7 @@ bool traverseTree( SMEM    float2 *strandHeap
     l->travLeftControl = *((SMEM float4 *)(strandHeap + 2)) - threadDelta4; // load the leftmost point of the strand and it's control point.
     SMEM float4 *tree =   (SMEM float4 *)(strandHeap + 4); // Move to tree portion of strand array.
     //DEBUG_IF(printf("shape: %i strand: %i -------------\n", shapeIndex, strandIndex);)
+    //DEBUG_IF(printf("l->travLeftX: %f l->travRightX: %f \n", l->travLeftX, l->travRightX);)
     bool inRange = checkInRange(l);
     if (inRange) { // determine if the strand interacts at all with this column.
         //DEBUG_IF(showShape(shape);printf("--TREE--\n");showTree(*((float4 *)(strandHeap + 2)), *((float2 *)(strandHeap + 1)), tree, treeSize);)
@@ -1580,7 +1535,7 @@ COLOR readColor ( PMEM ColorState *cS
         uint pictId = (as_uint4(substance.substanceColor)).x;
         PictureUse pRef = cS->csPictureRefs[pictId];
         int2 relativePosition = cS->absolutePosition - pRef.pictTranslate;
-        DEBUG_IF(printf("pictId %i pRef.pictSize %v2i pRef.memOffset %i relativePosition %v2i \n", pictId, pRef.pictSize, pRef.pictMemOffset, relativePosition);)
+        //DEBUG_IF(printf("pictId %i pRef.pictSize %v2i pRef.memOffset %i relativePosition %v2i \n", pictId, pRef.pictSize, pRef.pictMemOffset, relativePosition);)
         if (relativePosition.x >= 0 &&
             relativePosition.y >= 0 &&
             relativePosition.x < pRef.pictSize.x &&
@@ -1774,6 +1729,7 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
                                        , &left
                                        , &right
                                        );
+            //DEBUG_IF(printf("currentStrand %i inRange %i\n",currentStrand, inRange);)
             if (inRange) {
                 // create thresholds based on the traversal results.
                 //DEBUG_IF(printf("shapeBit %i shapeIndex %i\n",shapeBit, shapeIndex);)
@@ -1786,7 +1742,7 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
                                 , &enclosedByStrand
                                 );
             }
-            DEBUG_IF(printf("afterspawn:\n");showThresholds(tS);)
+            //DEBUG_IF(printf("afterspawn:\n");showThresholds(tS);)
 
             strandHeap += currentSize;
             enclosedByShape = enclosedByShape != enclosedByStrand; // using not equal as exclusive or.
@@ -1935,8 +1891,8 @@ bool initTileState ( PMEM  TileState *tileS
     tileS->column        = column;
     tileS->intHeight     = min( desiredHeight, tileS->bitmapSize.y-tileS->threadDelta.y);
     tileS->floatHeight   = convert_float( tileS->intHeight);
-    DEBUG_IF(printf("column %i computeDepth %i hDepth %i vDepth %i diffDepth %i x %i y %i height %i floatHeight %f \n"\
-            , column,   computeDepth,   hDepth,   vDepth, diffDepth, tileS->threadDelta.x, tileS->threadDelta.y, desiredHeight,tileS->floatHeight);)
+    //DEBUG_IF(printf("column %i computeDepth %i hDepth %i vDepth %i diffDepth %i x %i y %i height %i floatHeight %f \n"\
+    //        , column,   computeDepth,   hDepth,   vDepth, diffDepth, tileS->threadDelta.x, tileS->threadDelta.y, desiredHeight,tileS->floatHeight);)
     return (internalDelta.y < tileS->tileSize.y) && (tileS->threadDelta.x < tileS->bitmapSize.x) && (tileS->threadDelta.y < tileS->bitmapSize.y);
 }
 
@@ -2352,7 +2308,7 @@ void fillOutBuffer ( PMEM TileState *tileS
 
 void testShapeStack(void) {
     DEBUG_IF(printf("clz(0x8000000000000000) %i, clz(0x00000000) %i\n", clz((ulong)0x8000000000000000), clz((ulong)0x0));)
-    __private SHAPESHACK stack[SHAPESHACKSECTIONS];
+    __private SHAPESTACK stack[SHAPESTACKSECTIONS];
     for (int bit = MAXSHAPE; bit >= 0; bit -= 1) {
         clearShapeStack(stack);
         flipBit(bit,   stack);
@@ -2363,8 +2319,8 @@ void testShapeStack(void) {
 
 void testIgnoreBits(void) {
   for (int ignoreAbove = 512; ignoreAbove >= 0; ignoreAbove--) {
-      DEBUG_IF( int ignoreSection = ignoreAbove >> SHAPESHACKSECTIONSHIFT; \
-                int ignoreBits    = ignoreAbove & SHAPESHACKSECTIONBITS; \
+      DEBUG_IF( int ignoreSection = ignoreAbove >> SHAPESTACKSECTIONSHIFT; \
+                int ignoreBits    = ignoreAbove & SHAPESTACKSECTIONBITS; \
                 printf("ignoreAbove: %i ignoreSection %i ignoreBits %i ",ignoreAbove,ignoreSection,ignoreBits); \
                 printf("(COMPLETE_MASK << ignoreBits) %016lX (~(COMPLETE_MASK << ignoreBits)) %016lX \n", (COMPLETE_MASK << ignoreBits), (~(COMPLETE_MASK << ignoreBits)) ); \
       )
@@ -2373,19 +2329,19 @@ void testIgnoreBits(void) {
 
 #define DELETEBITTESTVALUE 0xAAAAAAAAAAAAAAAA
 
-void fillShapeStack(SHAPESHACK *stack, SHAPESHACK value) {
-  for (int i = 0; i < SHAPESHACKSECTIONS; i ++) {
+void fillShapeStack(SHAPESTACK *stack, SHAPESTACK value) {
+  for (int i = 0; i < SHAPESTACKSECTIONS; i ++) {
     stack[i] = value;
   }
 }
 
 void testDeleteBit(void) {
-  __private SHAPESHACK stack[SHAPESHACKSECTIONS];
+  __private SHAPESTACK stack[SHAPESTACKSECTIONS];
   for (int i = 0; i < MAXSHAPE + 2; i++) {
     fillShapeStack(stack, DELETEBITTESTVALUE);
     deleteBit(stack, i);
     DEBUG_IF(printf("test deleteBit i %i ", i);)
-    for (int i = SHAPESHACKSECTIONS - 1; i >= 0; i--) {
+    for (int i = SHAPESTACKSECTIONS - 1; i >= 0; i--) {
       DEBUG_IF(printf(" %016lX", stack[i]);)
     }
     DEBUG_IF(printf("\n");)
@@ -2572,12 +2528,12 @@ void showShapes(SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *sub
             printf("    ");
         }
         printf("isSolid %i ",shapeTagIsSolidColor(shape.shapeTag));
-        printf("%i - %i tag: %lX \n", shape.shapeSlice.sStart, shape.shapeSlice.sLength, shape.shapeTag);
+        printf("start %i num %i tag %lX \n", shape.shapeSlice.sStart, shape.shapeSlice.sLength, shape.shapeTag);
     }
 }
 
-void showShapeStack(SHAPESHACK *shapeStack) {
-  for (int i = SHAPESHACKSECTIONS - 1; i >= 0; i--) {
+void showShapeStack(SHAPESTACK *shapeStack) {
+  for (int i = SHAPESTACKSECTIONS - 1; i >= 0; i--) {
     printf(" %016lX", shapeStack[i]);
   }
 }
@@ -2611,9 +2567,9 @@ void showData (GMEM uchar *pictData, int width, int height) {
 /////////////////////////////////////////////
 /////////////////////////////////////////////
 
-void showShapeStackHs(SHAPESHACK *shapeStack) {
+void showShapeStackHs(SHAPESTACK *shapeStack) {
   printf("ShapeStack {msList = [");
-  for (int i = SHAPESHACKSECTIONS - 1; i >= 0; i--) {
+  for (int i = SHAPESTACKSECTIONS - 1; i >= 0; i--) {
     printf(" %lu", shapeStack[i]);
     if (i > 0) {printf(",");} else {printf("]");}
   }

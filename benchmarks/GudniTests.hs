@@ -77,8 +77,8 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 0
-    , _stateStep        = 67
+    , _stateCurrentTest = 7
+    , _stateStep        = 69
     , _stateFrameNumber = 0
     }
 
@@ -103,13 +103,14 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("simpleArc"         , simpleArc           ) -- 18 -
            , ("sixPointRectangle" , sixPointRectangle   ) -- 19 -
            , ("tinySquare"        , tinySquare          ) -- 20 -
-           , ("simpleRectangle"   , simpleRectangle     ) -- 21 -
-           , ("tallRectangle"     , tallRectangle       ) -- 22 -
-           , ("twoBrackets"       , twoBrackets         ) -- 23 -
-           , ("fuzzySquares2"     , fuzzySquares2       ) -- 24 -
-           , ("maxThresholdTest"  , maxThresholdTest    ) -- 25 -
-           , ("maxShapeTest"      , maxShapeTest        ) -- 26 -
-           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 27 -
+           , ("mediumSequare"     , mediumSquare        ) -- 21 -
+           , ("simpleRectangle"   , simpleRectangle     ) -- 22 -
+           , ("tallRectangle"     , tallRectangle       ) -- 23 -
+           , ("twoBrackets"       , twoBrackets         ) -- 24 -
+           , ("fuzzySquares2"     , fuzzySquares2       ) -- 25 -
+           , ("maxThresholdTest"  , maxThresholdTest    ) -- 26 -
+           , ("maxShapeTest"      , maxShapeTest        ) -- 27 -
+           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 28 -
            ]
 
 maxThresholdTest :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
@@ -127,10 +128,10 @@ maxThresholdTest state =
 -- subpixel geometry.
 maxShapeTest :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 maxShapeTest state =
-     return .
-     makeGrid 1 1 (state ^. stateStep + 2000 + 1) .
-     concat .
-     repeat $
+    return .
+    makeGrid 1 1 (state ^. stateStep + 2000 + 1) .
+    concat .
+    repeat $
         [ (solid (transparent 1.0 (pureRed    )) $ rectangle (Point2 10000 1))
         , (solid (transparent 1.0 (pureGreen  )) $ rectangle (Point2 10000 1))
         , (solid (transparent 1.0 (pureBlue   )) $ rectangle (Point2 10000 1))
@@ -162,7 +163,7 @@ fuzzyCircles state = return $
                let time = view stateLastTime state
                in  --sTranslateXY (100) (100) .
                    overlap $
-                   evalRand (sequence . replicate 10000 $ fuzzyCircle (makePoint 2800 1800) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
+                   evalRand (sequence . replicate 100000 $ fuzzyCircle (makePoint 5760 3600) 10 20) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
 
 -- | Smaller random field of transparent circles.
 fuzzyCircles2 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
@@ -210,7 +211,7 @@ rectGrid state = return $
     let grid  :: CompoundTree
         grid   = makeGrid 1 100 100 . repeat . rectangle $ Point2 0.5 0.5
     in
-        --sTranslate (Point2 0.3 0.3) .
+        sTranslate (Point2 0 0) .
         --sRotate (5 @@ deg) .
         solid (transparent 1.0 white) $
         grid
@@ -325,12 +326,19 @@ sixPointRectangle state = return $
             ,straight 2 1, straight 1 1, straight 0 1
             ]
 
--- | Very tiny square with not rotation. Usually the first thing tested for a new build.
+-- | Very tiny square with no rotation. Usually the first thing tested for a new build.
 tinySquare :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 tinySquare state = return $
         sTranslateXY 0.3 0.3 .
         solid red $
         rectangle (Point2 2 2)
+
+-- | Medium sized square with no rotation.
+mediumSquare :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
+mediumSquare state = return $
+        sTranslateXY 0.1 0.1 .
+        solid red $
+        rectangle (Point2 10 10)
 
 -- | Very simple rotated box.
 simpleRectangle :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)

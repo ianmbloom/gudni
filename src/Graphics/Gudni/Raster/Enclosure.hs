@@ -27,7 +27,7 @@ import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.Outline
 import Graphics.Gudni.Raster.Strand
-import Graphics.Gudni.Raster.StrandLookupTable
+import Graphics.Gudni.Raster.ReorderTable
 import Graphics.Gudni.Util.StorableM
 
 import Foreign.Ptr
@@ -42,7 +42,6 @@ newtype NumStrands = NumStrands {unNumStrands :: NumStrands_} deriving (Eq, Ord,
 instance Show NumStrands where
   show = show . unNumStrands
 
-
 -- | An enclosure is a group of outlines turned into a group of strands∘
 -- A strand is sequence of pairs of onCurve and offCurve points and a terminating onCurve point where the x coordinates of each point
 -- are in order and increasing (except in specific circumstances). These sequences of points are transformed into complete binary trees that the rasterizer parses to determine if and where each
@@ -51,37 +50,37 @@ instance Show NumStrands where
 -- with the shape∘
 -- enclosureNumStrands should be equivalent to length . enclosureEnclosureStrands
 data Enclosure = Enclosure
- { enclosureNumStrands   :: !NumStrands
- , enclosureStrands      :: [Strand]
- } deriving (Show)
+    { enclosureNumStrands   :: !NumStrands
+    , enclosureStrands      :: [Strand]
+    } deriving (Show)
 
 -- | Convert a list of outlines into an enclosure.
-enclose :: CurveTable
+enclose :: ReorderTable
         -> Int
         -> [Outline SubSpace]
         -> Enclosure
-enclose curveTable sectionSize outlines =
+enclose curveTable maxSectionSize outlines =
   let -- Convert the list of outlines into a list of strands.
-      strands = concatMap (outlineToStrands curveTable sectionSize) outlines
+      strands = concatMap (outlineToStrands curveTable maxSectionSize) outlines
       -- Count the strands.
       numStrands = length strands
-  in  Enclosure { enclosureNumStrands    = fromIntegral numStrands
-                , enclosureStrands       = strands
+  in  Enclosure { enclosureNumStrands = fromIntegral numStrands
+                , enclosureStrands    = strands
                 }
 
 ------------------ Instances --------------------------
 
 instance StorableM Enclosure where
-  sizeOfM (Enclosure _ items) = mapM_ sizeOfM items
+  sizeOfM    (Enclosure _ items) = mapM_ sizeOfM items
   alignmentM (Enclosure _ items) = mapM_ alignmentM items
-  peekM = error "no peek for Enclosure"
-  pokeM (Enclosure _ items) = mapM_ pokeM items
+  peekM                          = error "no peek for Enclosure"
+  pokeM      (Enclosure _ items) = mapM_ pokeM items
 
 instance Storable Enclosure where
-  sizeOf = sizeOfV
+  sizeOf    = sizeOfV    
   alignment = alignmentV
-  peek = peekV
-  poke = pokeV
+  peek      = peekV
+  poke      = pokeV
 
 instance NFData NumStrands where
   rnf (NumStrands i) = i `deepseq` ()
@@ -89,8 +88,8 @@ instance NFData NumStrands where
 instance Storable NumStrands where
   sizeOf    _ = sizeOf    (undefined::NumStrands_)
   alignment _ = alignment (undefined::NumStrands_)
-  poke ptr  (NumStrands i) = poke (castPtr ptr) i
-  peek ptr = NumStrands <$> peek (castPtr ptr)
+  poke ptr  i = poke (castPtr ptr) . unNumStrands $ i
+  peek ptr    = NumStrands <$> peek (castPtr ptr)
 
 instance NFData Enclosure where
   rnf (Enclosure n ss) = n `deepseq` ss `deepseq` ()

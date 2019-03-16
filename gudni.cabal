@@ -95,9 +95,10 @@ library
                      , Graphics.Gudni.Raster.ShapeInfo
                      , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.Job
+                     , Graphics.Gudni.Raster.Deknob
                      , Graphics.Gudni.Raster.Strand
                      , Graphics.Gudni.Raster.Enclosure
-                     , Graphics.Gudni.Raster.StrandLookupTable
+                     , Graphics.Gudni.Raster.ReorderTable
                      , Graphics.Gudni.Raster.TileTree
                      , Graphics.Gudni.Raster.TraverseShapeTree
                      , Graphics.Gudni.Raster.Serialize
