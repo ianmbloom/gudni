@@ -82,6 +82,7 @@
 
 // Constants
 
+#define LARGE_PRIME 7919
 #define PIXELHEIGHT 1.0f
 #define COLUMNSPACING 1.0f
 #define MAXCHANNELUCHAR 0xFF   // maximum value for converting from uchar color value
@@ -728,6 +729,7 @@ bool initTileState ( PMEM  TileState *tileS
                    , SMEM   TileInfo *tileHeap
                    ,            int2  bitmapSize
                    ,             int  column
+                   ,             int  jobIndex
                    ,             int  computeDepth
                    );
 
@@ -1747,15 +1749,14 @@ void nextRenderArea ( PMEM ThresholdState *tS
     }
 }
 
-
 void initRandomField( ParseState *pS
                     , TileState *tileS
                     , CMEM float *randomField) {
   // find a random starting point in the field passed on the absolute start position of the column.
   int start = tileS->threadUnique & RANDOMFIELDMASK;
   pS->randomFieldCursor = (as_uint(randomField[start]) & RANDOMFIELDMASK);
-  if (tileS->tileIndex==0) {printf("tileS->tileIndex %i tileS->column %i start %i pS->randomFieldCursor %i tileS->threadUnique %i\n"
-                                   ,tileS->tileIndex   ,tileS->column   ,start   ,pS->randomFieldCursor,   tileS->threadUnique);}
+  //if (tileS->tileIndex==0) {printf("tileS->tileIndex %i tileS->column %i start %i pS->randomFieldCursor %i tileS->threadUnique %i\n"
+  //                                 ,tileS->tileIndex   ,tileS->column   ,start   ,pS->randomFieldCursor,   tileS->threadUnique);}
   pS->randomField = randomField;
 }
 
@@ -1813,11 +1814,13 @@ void initParseState (PMEM     ParseState *pS
 }
 
 inline int bitmaskN(int n) {return (1 << n) - 1;}
+
 bool initTileState ( PMEM  TileState *tileS
                    ,             int  tileIndex
                    , SMEM   TileInfo *tileHeap
                    ,            int2  bitmapSize
                    ,             int  column
+                   ,             int  jobIndex
                    ,             int  computeDepth
                    ) {
     TileInfo tileInfo    = tileHeap[tileIndex];
@@ -1834,7 +1837,7 @@ bool initTileState ( PMEM  TileState *tileS
     tileS->threadDelta   = internalDelta + boxLeftTop(tileInfo.tileBox); // the threadDelta is the internal delta + the topleft corner of the tileBox.
     tileS->tileIndex     = tileIndex;
     tileS->column        = column;
-    tileS->threadUnique  = column + tileIndex * (1 << computeDepth); // unique integer for the thread within the group.
+    tileS->threadUnique  = (column + tileIndex * (1 << computeDepth) + jobIndex * (1 << (computeDepth + computeDepth))) * LARGE_PRIME; // unique integer for the thread within the group.
     tileS->intHeight     = min( desiredHeight, tileS->bitmapSize.y-tileS->threadDelta.y);
     tileS->floatHeight   = convert_float( tileS->intHeight);
     //DEBUG_IF(printf("column %i computeDepth %i hDepth %i vDepth %i diffDepth %i x %i y %i height %i floatHeight %f \n"\
@@ -2169,18 +2172,20 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                               ,            int2  bitmapSize
                               ,             int  computeDepth
                               ,             int  frameNumber
+                              ,             int  jobIndex
                               , GMEM        uint *out
                               ) {
     int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
     int   column     = COLUMN;
     TileState tileS;
     bool threadActive = initTileState ( &tileS
-                                        ,  tileIndex
-                                        ,  tileHeap
-                                        ,  bitmapSize
-                                        ,  column
-                                        ,  computeDepth
-                                        );
+                                      ,  tileIndex
+                                      ,  tileHeap
+                                      ,  bitmapSize
+                                      ,  column
+                                      ,  jobIndex
+                                      ,  computeDepth
+                                      );
     //testShapeStack();
     //testDeleteBit();
     //DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeStart, substanceHeap, tileS.tileNumShapes);)

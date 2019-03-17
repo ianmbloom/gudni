@@ -77,7 +77,7 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 7
+    , _stateCurrentTest = 9
     , _stateStep        = 69
     , _stateFrameNumber = 0
     }
@@ -90,27 +90,29 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("fuzzy squares"     , fuzzySquares        ) --  5 -
            , ("testPict"          , testPict            ) --  6 -
            , ("rectGrid"          , rectGrid            ) --  7 -
-           , ("plotter test"      , plots               ) --  8 -
-           , ("openSquare"        , openSquare          ) --  9 -
-           , ("openSquareOverlap2", openSquareOverlap2  ) -- 10 -
-           , ("stackOfSquares"    , stackOfSquares      ) -- 11 -
-           , ("concentricSquares2", concentricSquares2  ) -- 12 -
-           , ("concentricSquares3", concentricSquares3  ) -- 13 -
-           , ("subtractDiamond "  , subtractDiamond     ) -- 14 -
-           , ("simpleKnob"        , simpleKnob          ) -- 15 -
-           , ("hourGlass"         , hourGlass           ) -- 16 -
-           , ("simpleGlyph"       , simpleGlyph         ) -- 17 -
-           , ("simpleArc"         , simpleArc           ) -- 18 -
-           , ("sixPointRectangle" , sixPointRectangle   ) -- 19 -
-           , ("tinySquare"        , tinySquare          ) -- 20 -
-           , ("mediumSequare"     , mediumSquare        ) -- 21 -
-           , ("simpleRectangle"   , simpleRectangle     ) -- 22 -
-           , ("tallRectangle"     , tallRectangle       ) -- 23 -
-           , ("twoBrackets"       , twoBrackets         ) -- 24 -
-           , ("fuzzySquares2"     , fuzzySquares2       ) -- 25 -
-           , ("maxThresholdTest"  , maxThresholdTest    ) -- 26 -
-           , ("maxShapeTest"      , maxShapeTest        ) -- 27 -
-           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 28 -
+           , ("solidGrid"         , solidGrid           ) --  8 -
+           , ("checkerBoard"      , checkerBoard        ) --  9 -
+           , ("plotter test"      , plots               ) -- 10 -
+           , ("openSquare"        , openSquare          ) -- 11 -
+           , ("openSquareOverlap2", openSquareOverlap2  ) -- 12 -
+           , ("stackOfSquares"    , stackOfSquares      ) -- 13 -
+           , ("concentricSquares2", concentricSquares2  ) -- 14 -
+           , ("concentricSquares3", concentricSquares3  ) -- 15 -
+           , ("subtractDiamond "  , subtractDiamond     ) -- 16 -
+           , ("simpleKnob"        , simpleKnob          ) -- 17 -
+           , ("hourGlass"         , hourGlass           ) -- 18 -
+           , ("simpleGlyph"       , simpleGlyph         ) -- 19 -
+           , ("simpleArc"         , simpleArc           ) -- 20 -
+           , ("sixPointRectangle" , sixPointRectangle   ) -- 21 -
+           , ("tinySquare"        , tinySquare          ) -- 22 -
+           , ("mediumSequare"     , mediumSquare        ) -- 23 -
+           , ("simpleRectangle"   , simpleRectangle     ) -- 24 -
+           , ("tallRectangle"     , tallRectangle       ) -- 25 -
+           , ("twoBrackets"       , twoBrackets         ) -- 26 -
+           , ("fuzzySquares2"     , fuzzySquares2       ) -- 27 -
+           , ("maxThresholdTest"  , maxThresholdTest    ) -- 28 -
+           , ("maxShapeTest"      , maxShapeTest        ) -- 29 -
+           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 30 -
            ]
 
 maxThresholdTest :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
@@ -211,8 +213,26 @@ rectGrid state = return $
     let grid  :: CompoundTree
         grid   = makeGrid 1 200 200 . repeat . rectangle $ Point2 0.5 0.5
     in
-        sTranslate (Point2 0 0) .
-        --sRotate (5 @@ deg) .
+        solid (transparent 1.0 white) $
+        grid
+
+-- | A grid of rectangles in direct contact
+solidGrid :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
+solidGrid state = return $
+    let grid  :: CompoundTree
+        grid   = makeGrid 1 200 200 . repeat . rectangle $ Point2 1 1
+    in
+        solid (transparent 1.0 white) $
+        grid
+
+-- | A grid of rectangles.
+checkerBoard :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
+checkerBoard state = return $
+    let grid  :: CompoundTree
+        grid   = makeGrid 1 200 200 . repeat $ overlap[ rectangle $ Point2 0.5 0.5
+                                                      , sTranslateXY 0.5 0.5 . rectangle $ Point2 0.5 0.5
+                                                      ]
+    in
         solid (transparent 1.0 white) $
         grid
 

@@ -61,7 +61,7 @@ instance Model BenchmarkState where
             let tree = transformFromState testScene state
                 statusTree = statusDisplay state testName statusGlyphs
                 withStatus = if False then overlap [statusTree, tree] else tree
-            return (Scene black withStatus)
+            return (Scene black {-(light gray)-} withStatus)
     providePictureData state = return $ state ^. statePictures
 
 statusDisplay state testName status =

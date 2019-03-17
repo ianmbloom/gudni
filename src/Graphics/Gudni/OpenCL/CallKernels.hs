@@ -89,23 +89,24 @@ makeLenses ''RasterParams
 
 -- | Generate an call the rasterizer kernel. Polymorphic over the DrawTarget type.
 generateCall  :: (KernelArgs
-                      'KernelSync
-                      'NoWorkGroups
-                      'UnknownWorkItems
-                      'Z
-                      (a
-                       -> NumWorkItems
-                       -> WorkGroup
-                       -> CL ())
+                 'KernelSync
+                 'NoWorkGroups
+                 'UnknownWorkItems
+                 'Z
+                 (a
+                 -> NumWorkItems
+                 -> WorkGroup
+                 -> CL ())
                  , Show a, Show token
                  )
               => RasterParams token
               -> RasterJob
               -> Point2 CInt
               -> CInt
+              -> CInt
               -> a
               -> CL ()
-generateCall params job bitmapSize frame target =
+generateCall params job bitmapSize frame jobIndex target =
   do  let numTiles     = job ^. rJTilePile . pileSize
           -- ideal number of threads per tile
           computeSize  = fromIntegral . clMaxGroupSize $ params ^. rpLibrary
@@ -125,29 +126,31 @@ generateCall params job bitmapSize frame target =
                 bitmapSize
                 computeDepth
                 frame
+                jobIndex
                 target
                 (Work2D numTiles (fromIntegral computeSize))
                 (WorkGroup [1, fromIntegral computeSize])
 
 -- | Rasterize a rasterJob inside the CLMonad
 raster :: Show token
-       => CInt
-       -> RasterParams token
+       => RasterParams token
+       -> CInt
        -> RasterJob
+       -> CInt
        -> CL ()
-raster frame params job =
+raster params frame job jobIndex =
     do  let -- width and height of the output buffer.
             bitmapSize   = P $ targetArea (params ^. rpTarget)
             -- total number of 32 bit words in the output buffer.
             outputSize   = fromIntegral $ pointArea bitmapSize
             -- get the actual target buffer we are writing to.
             buffer = targetBuffer (params ^. rpTarget)
-        liftIO $ putStrLn $ ">>> rasterCall frame: " ++ show frame
+        liftIO $ putStrLn $ ">>> rasterCall jobIndex: "++ show jobIndex ++ " frame: " ++ show frame
         -- generate a kernel call for that buffer type.
         case buffer of
             HostBitmapTarget outputPtr ->
                 -- In this case the resulting bitmap will be stored in memory at outputPtr.
-                generateCall params job bitmapSize frame (OutPtr outputPtr outputSize)
+                generateCall params job bitmapSize frame jobIndex (OutPtr outputPtr outputSize)
             GLTextureTarget textureName ->
                 -- In this case an identifier for a Texture object that stays on the GPU would be stored∘
                 -- But currently this isn't working, so throw an error.
@@ -164,7 +167,8 @@ queueRasterJobs frame params jobs =
     do  -- Get the OpenCL state from the Library structure.
         let state = clState (params ^. rpLibrary)
         -- Run the rasterizer over each rasterJob inside a CLMonad.
-        liftIO $ mapM_ (runCL state . raster frame params) jobs
+        let run job ix = runCL state (raster params frame job ix)
+        liftIO $ zipWithM_ run jobs [0..]
 
 buildRasterJobs :: (MonadIO m, Show token)
                 => RasterParams token

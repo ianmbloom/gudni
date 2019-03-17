@@ -75,8 +75,8 @@ data Action
         }
     | ThresholdStateHs
         { thresholds         :: [ThresholdHs]
-        , thresholdStart     :: Int
-        , numThresholds      :: Int
+        --, thresholdStart     :: Int
+        --, numThresholds      :: Int
         , renderStart        :: (Float, Float)
         , renderEnd          :: (Float, Float)
         --, needHorizontalPass :: Int
