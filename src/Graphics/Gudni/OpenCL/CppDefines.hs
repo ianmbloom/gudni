@@ -28,6 +28,7 @@ data CppValueType
   | CppHex32 Int
   | CppInt   Int
   | CppFloat Float
+  | CppNothing
 
 -- | A definition for a C Preprocessor #define pragma.
 data CppDefinition = Cpp
@@ -42,6 +43,7 @@ instance Show CppValueType where
     CppHex32 i -> map toUpper $ "0x" ++ showHex (fromIntegral i :: Word32) []
     CppInt   i -> showInt i                          []
     CppFloat f -> showFFloat Nothing f               []
+    CppNothing -> ""
 
 -- | Convert a CppDefinition to a string.
 instance Show CppDefinition where

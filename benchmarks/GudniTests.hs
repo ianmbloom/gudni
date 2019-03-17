@@ -209,7 +209,7 @@ benchmark1 state =
 rectGrid :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 rectGrid state = return $
     let grid  :: CompoundTree
-        grid   = makeGrid 1 100 100 . repeat . rectangle $ Point2 0.5 0.5
+        grid   = makeGrid 1 200 200 . repeat . rectangle $ Point2 0.5 0.5
     in
         sTranslate (Point2 0 0) .
         --sRotate (5 @@ deg) .

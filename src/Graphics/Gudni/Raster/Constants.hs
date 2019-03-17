@@ -42,18 +42,18 @@ import Control.Lens
 import Foreign.C.Types (CInt, CUInt, CULong)
 import Data.Word
 
-mAXtILESpERcALL  = 512 :: Int -- The maximum number of tiles per kernel call.
+mAXtILESpERcALL  = 256 :: Int -- The maximum number of tiles per kernel call.
 mAXsTRANDpERtILE = mAXtHRESHOLDS -- The maximum number of strands per tile, before it splits.
 
 sTOCHASTICfACTOR = 0.3 :: Float -- relative amount of variability in an edge.
-mAXtHRESHOLDS    = 512 :: Int -- the size of the threshold header and threshold geometry buffers (must be a power of 2)
-mAXsHAPE         = 511 :: Int -- total number of shapes per build. must be one less than the number of bits available.
-mAXtILEsIZE      = Point2 512 512 :: Point2 PixelSpace
+mAXtHRESHOLDS    = 256 :: Int -- the size of the threshold header and threshold geometry buffers (must be a power of 2)
+mAXsHAPE         = 255 :: Int -- total number of shapes per build. must be one less than the number of bits available.
+mAXtILEsIZE      = Point2 256 256 :: Point2 PixelSpace
 mINtILEsIZE      = Point2 32  32  :: Point2 PixelSpace -- Point2 16  16  :: Point2 PixelSpace
 mAXsECTIONsIZE   = 32   :: Int
 rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
 
-sOURCEfILEpADDING = 32 :: Int -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
+sOURCEfILEpADDING = 40 :: Int -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
 
 iNITgEOMETRYpILEsIZE = 65536 :: Int
 

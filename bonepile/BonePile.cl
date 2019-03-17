@@ -1645,3 +1645,67 @@ float arbitraryIntersect( HEADER currentHeader
     }
     return clamp(intersectY, tTop(current),tBottom(current));
 }
+
+// value used to fudge geometry errors when comparing geometric values
+#define TOLERANCE 0.002
+// equality with the fudge factor
+inline bool eqT( float a, float b) {
+  return fabs(a - b) <= TOLERANCE;
+}
+
+inline void updateShapeStack(         SHAPEBIT  shapeBit
+                            , PMEM  SHAPESTACK *shapeStack
+                            );
+
+
+////////////////////////////////////////////////
+// ShapeStack testing Functions
+////////////////////////////////////////////////
+
+void fillShapeStack(SHAPESTACK *stack, SHAPESTACK value);
+
+void testShapeStack(void);
+void testIgnoreBits(void);
+void testDeleteBit(void);
+
+void testShapeStack(void) {
+    DEBUG_IF(printf("clz(0x8000000000000000) %i, clz(0x00000000) %i\n", clz((ulong)0x8000000000000000), clz((ulong)0x0));)
+    __private SHAPESTACK stack[SHAPESTACKSECTIONS];
+    for (int bit = MAXSHAPE; bit >= 0; bit -= 1) {
+        clearShapeStack(stack);
+        flipBit(bit,   stack);
+        //flipBit(bit+1, stack);
+        DEBUG_IF(printf(" bit: %i top: %i ", bit, findTop(stack, 512));showShapeStack(stack);printf("\n");)
+    }
+}
+
+void testIgnoreBits(void) {
+  for (int ignoreAbove = 512; ignoreAbove >= 0; ignoreAbove--) {
+      DEBUG_IF( int ignoreSection = ignoreAbove >> SHAPESTACKSECTIONSHIFT; \
+                int ignoreBits    = ignoreAbove & SHAPESTACKSECTIONBITS; \
+                printf("ignoreAbove: %i ignoreSection %i ignoreBits %i ",ignoreAbove,ignoreSection,ignoreBits); \
+                printf("(COMPLETE_MASK << ignoreBits) %016lX (~(COMPLETE_MASK << ignoreBits)) %016lX \n", (COMPLETE_MASK << ignoreBits), (~(COMPLETE_MASK << ignoreBits)) ); \
+      )
+  }
+}
+
+#define DELETEBITTESTVALUE 0xAAAAAAAAAAAAAAAA
+
+void fillShapeStack(SHAPESTACK *stack, SHAPESTACK value) {
+  for (int i = 0; i < SHAPESTACKSECTIONS; i ++) {
+    stack[i] = value;
+  }
+}
+
+void testDeleteBit(void) {
+  __private SHAPESTACK stack[SHAPESTACKSECTIONS];
+  for (int i = 0; i < MAXSHAPE + 2; i++) {
+    fillShapeStack(stack, DELETEBITTESTVALUE);
+    deleteBit(stack, i);
+    DEBUG_IF(printf("test deleteBit i %i ", i);)
+    for (int i = SHAPESTACKSECTIONS - 1; i >= 0; i--) {
+      DEBUG_IF(printf(" %016lX", stack[i]);)
+    }
+    DEBUG_IF(printf("\n");)
+  }
+}
