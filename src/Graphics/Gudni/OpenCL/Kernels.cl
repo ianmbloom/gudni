@@ -306,36 +306,6 @@ inline void flipBit(SHAPEBIT shapeBit, PMEM SHAPESTACK *shapeStack) {
     //DEBUG_IF(printf(" after shapeStack[section] %lx\n", shapeStack[section]);)
 }
 
-inline SHAPESTACK carryBitSet(SHAPESTACK carryBit) {
-    return carryBit << SHAPESTACKCARRYSHIFT;
-}
-
-inline SHAPESTACK shiftSection(SHAPESTACK carryBit, SHAPESTACK shapeStack) {
-  return carryBitSet(carryBit) | (shapeStack >> 1);
-}
-
-inline SHAPESTACK getCarryBit(SHAPESTACK section) {
-  return section & SHAPESTACKCARRYMASK;
-}
-
-inline SHAPESTACK deleteSectionBit(SHAPESTACK carryBit, SHAPESTACK shapeStack, SHAPEBIT shapeBit) {
-    SHAPESTACK breakMask = COMPLETE_MASK << shapeBit;
-    //DEBUG_IF(printf("shapeStack %lX shapeBit %i ----> !breakMask %lX (shapeStack >> 1) & (breakMask)) %lX shapeStack & !breakMask %lX\n", shapeStack, shapeBit, ~breakMask,(shapeStack >> 1) & breakMask, shapeStack & ~breakMask);)
-    return ((shiftSection(carryBit, shapeStack)) & breakMask) | (shapeStack & (~breakMask));
-}
-
-inline void deleteBit(PMEM SHAPESTACK *shapeStack, SHAPEBIT shapeBit) {
-    int section = shapeBit >> SHAPESTACKSECTIONSHIFT;
-    int bit     = shapeBit & SHAPESTACKSECTIONBITS;
-    SHAPESTACK carryBit = EMPTY_SHAPESTACK;
-    for (int i = SHAPESTACKSECTIONS - 1; i > section; i--) {
-      SHAPESTACK nextCarryBit = getCarryBit(shapeStack[i]);
-      shapeStack[i] = shiftSection(carryBit, shapeStack[i]);
-      carryBit = nextCarryBit;
-    }
-    shapeStack[section] = deleteSectionBit(carryBit, shapeStack[section], bit);
-}
-
 // REF is a reference to an array with max index 32768
 #define REF uint
 
@@ -1625,41 +1595,6 @@ inline void passHeaderBottom( PMEM ShapeState *shS
     }
 }
 
-void removeLastShape( PMEM  ThresholdState *tS
-                    , PMEM      ShapeState *shS
-                    ,           GEO_ENTRY   shapeIndex
-                    ) {
-    SHAPEBIT removeBit = tS->numThresholds == 0 ? 0 : headerShapeBit(getHeader(tS, tS->numThresholds - 1));
-    int shiftAmount = 0;
-    for (int cursor = 0; cursor < tS->numThresholds; cursor ++) {
-        HEADER currentHeader = getHeader(tS, cursor);
-        THRESHOLD current = getThreshold(tS, cursor);
-        SHAPEBIT currentBit = headerShapeBit(currentHeader);
-        if (currentBit > removeBit) {
-            currentBit -= 1;
-        }
-        if (headerShapeBit(currentHeader) == removeBit)  {
-            shiftAmount += 1;
-            adjustToExclude(tS, current);
-        }
-        else {
-            setHeader(tS, cursor-shiftAmount, setShapeBit(currentHeader,currentBit));
-            setThreshold(tS, cursor-shiftAmount, current);
-        }
-    }
-    tS->numThresholds = max(0, tS->numThresholds - shiftAmount);
-    for (int i = removeBit; i < MAXSHAPE - 1; i++) {
-        shS->shapeIndices[i] = shS->shapeIndices[i+1];
-    }
-    //DEBUG_IF(printf("removeBit %i shapeBit %i\n", removeBit, shapeBit);)
-    //DEBUG_IF(printf("before deleteBit ");showShapeStack(shS->shapeStack);printf("\n");)
-    deleteBit(shS->shapeStack, removeBit);
-    //DEBUG_IF(printf("after  deleteBit ");showShapeStack(shS->shapeStack);printf("\n");)
-    if (removeBit < MAXSHAPE) {
-        shS->shapeIndices[shS->shapeBits] = shapeIndex;
-    }
-}
-
 // Parse all of the current shapes adding as many thresholds as possible.
 // Return the bottom of the rendering area which is the bottom of the tile if everything fits and the last
 // complete section if it doesn't.
@@ -1672,7 +1607,7 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
                          ,            GEO_ENTRY  numShapes
                          ,               float2  threadDelta
                          ) {
-    for (GEO_ENTRY n = 0; n < numShapes; n++) { // iterate over every shape in the current shape.
+    for (GEO_ENTRY n = 0; n < numShapes && shS->shapeBits < MAXSHAPE; n++) { // iterate over every shape in the current shape.
         GEO_ENTRY shapeIndex = shapeStart + n;
         tS->thresholdWasAdded = false;
         Shape shape = shapeHeap[shapeIndex]; // get the current shape.
@@ -1708,11 +1643,7 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
             passHeader(shS, shS->shapeBits);
         }
         if (tS->thresholdWasAdded || enclosedByShape) {
-            if (shS->shapeBits >= MAXSHAPE) {
-                shS->shapeBits -= 1;
-                removeLastShape(tS,shS,shapeIndex);
-            }
-            else {
+            if (shS->shapeBits < MAXSHAPE) {
                shS->shapeIndices[shS->shapeBits] = shapeIndex;
             }
             shS->shapeBits += 1;
