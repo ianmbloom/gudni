@@ -377,8 +377,6 @@ typedef struct ThresholdState {
             SPACE2  renderStart;
             SPACE2  renderEnd;          // the lowest vertical position that can be properly rendered with the current list of thresholds.
                                         // if we go below render bottom we must rebuild the threshold list.
-              bool  needHorizontalPass; // did we overrun the number of simultaneous horizontal thresholds.
-              bool  inHorizontalPass;   // special mode where we handle too many horizontal thresholds.
                int  thresholdWasAdded;  // used to determine if a shape ever interacted with the column as it's being added.
                int  slotThresholdCount;
                int  addThresholdCount;
@@ -1001,34 +999,24 @@ void trimThresholdTop( PMEM        HEADER *header
 inline void adjustToExclude( PMEM ThresholdState *tS
                            ,           THRESHOLD  threshold
                            ) {
-    //DEBUG_IF(printf("FAILED %i : ", pS->inHorizontalPass);)
     if (tBottom(threshold) > tS->renderStart.y) {
-        if (tS->inHorizontalPass) {
-                tS->renderEnd.x = min(tS->renderEnd.x, tLeft(threshold));
-            //DEBUG_IF(printf("trim area renderStart  %v2f renderEnd  %v2f \n", tS->renderStart,  tS->renderEnd);)
+        // We don't have enough space to store the threshold,
+        // so we need to trim the render area while ensuring
+        // that each buildRenderArray call, makes some progress
+        // (otherwise an infinite loop can occur).
+        SPACE top = tTop(threshold);
+        SPACE next;
+        if (top > tS->renderStart.y) { // top > tS->renderStart.y
+            // If top is greater than renderStart.y we can vertically trim the render area and still make progress.
+            // This is the most common occurance.
+            next = top;
         }
         else {
-            // We don't have enough space to store the threshold,
-            // so we need to trim the render area while ensuring
-            // that each buildRenderArray call, makes some progress
-            // (otherwise an infinite loop can occur).
-            SPACE top = tTop(threshold);
-            SPACE next;
-            if (top > tS->renderStart.y) { // top > tS->renderStart.y
-                // If top is greater than renderStart.y we can vertically trim the render area and still make progress.
-                // This is the most common occurance.
-                next = top;
-            }
-            else {
-                // Otherwise a single vertical section has > MAXTHRESHOLDS overlapping the section.
-                // So must horizontally trim the render area.
-                // First vertically trim the render area to the bottom of the threshold.
-                next = tBottom(threshold);
-                tS->needHorizontalPass = true;
-            }
-            tS->renderEnd.y = min(tS->renderEnd.y, next);
-            //DEBUG_IF(printf("trim area nex %f \n", next);)
+            // prevent an infinite loop by skipping to the bottom.
+            next = tBottom(threshold);
         }
+        tS->renderEnd.y = min(tS->renderEnd.y, next);
+        //DEBUG_IF(printf("trim area nex %f \n", next);)
     }
 }
 
@@ -1246,20 +1234,6 @@ void addThreshold ( PMEM  ThresholdState *tS
                              ((tBottom(newThreshold) <= tS->renderStart.y) && headerPersistBottom(newHeader));
         //DEBUG_IF(printf("mid add enclosed %i add %i ", *enclosedByStrand, addType);showThreshold(newHeader, newThreshold);printf("\n");)
         if ((tTop(newThreshold) < tS->renderEnd.y) && (tBottom(newThreshold) > tS->renderStart.y) && tLeft(newThreshold) < RIGHTBORDER) {
-            if (tS->inHorizontalPass) {
-                // find the midpoint of the threshold when bound by the section
-                //DEBUG_IF(printf("before modified ");showThreshold(newHeader, newThreshold);printf("\n");)
-                SPACE midX = thresholdMidXLow( newThreshold
-                                             , newHeader
-                                             , tS->renderStart.y
-                                             , tS->renderEnd.y
-                                             , tS->renderStart.x
-                                             , tS->renderEnd.x
-                                             );
-                //DEBUG_IF(printf ("midX %f >>>", midX );)
-                newThreshold = makeThreshold(tS->renderStart.y, tS->renderEnd.y, midX, midX);
-                //DEBUG_IF(printf("modified ");showThreshold(newHeader, newThreshold);printf("\n");)
-            }
             if (tTop(newThreshold) <= tS->renderStart.y) {
                 trimThresholdTop(&newHeader,&newThreshold, tS->renderStart.y);
             }
@@ -1278,7 +1252,6 @@ void addThreshold ( PMEM  ThresholdState *tS
                 //else {
                 //  DEBUG_IF(printf(" SKIP");)
                 //}
-                //DEBUG_IF(printf("inHori %i need %i \n", tS->inHorizontalPass, tS->needHorizontalPass);)
             }
         }
         //else {
@@ -1661,23 +1634,10 @@ void nextRenderArea ( PMEM ThresholdState *tS
                     , PMEM ParseState     *pS
                     ,               SPACE  height
                     ) {
-    if (tS->renderEnd.x == RIGHTBORDER) {
-        tS->inHorizontalPass = false;
-    }
-    if (!(tS->needHorizontalPass || tS->inHorizontalPass)) {
-        tS->renderStart.y = tS->renderEnd.y;
-    }
-    if (!tS->inHorizontalPass) {
-        tS->renderEnd.y = tS->needHorizontalPass ? min(tS->renderEnd.y, pS->pixelY)
-                                                 : height;
-    }
+    tS->renderStart.y = tS->renderEnd.y;
+    tS->renderEnd.y = height;
     tS->renderStart.x  = tS->renderEnd.x != RIGHTBORDER ? tS->renderEnd.x : LEFTBORDER;  // finish horizontal sweep.
     tS->renderEnd.x    = RIGHTBORDER;
-
-    if (tS->needHorizontalPass) {
-        tS->needHorizontalPass = false;
-        tS->inHorizontalPass   = true;
-    }
 }
 
 void initRandomField( ParseState *pS
@@ -1701,8 +1661,6 @@ float getRandom(ParseState *pS) {
 void initThresholdState(ThresholdState *tS) {
     tS->renderStart  = (SPACE2)(LEFTBORDER,0);
     tS->renderEnd    = (SPACE2)(RIGHTBORDER,0); // the lowest vertical position that can be properly rendered with the current list of thresholds.
-    tS->inHorizontalPass = false;
-    tS->needHorizontalPass = false;
     resetThresholdState(tS);
 }
 
@@ -1954,12 +1912,11 @@ void calculatePixel ( PMEM      TileState *tileS
         DEBUG_IF(printf("loop        sectionStart %v2f sectionEnd %v2f \n", pS->sectionStart, pS->sectionEnd);)
         //DEBUG_IF(printf("loop        renderStart  %v2f renderEnd  %v2f \n", pS->renderStart,  pS->renderEnd );)
         if (pS->sectionEnd.x == tS->renderEnd.x && pS->sectionEnd.y == tS->renderEnd.y) {
-            //do {
                 // If the section bottom is below the area we can properly render.
                 // Rebuild the threshold list and reset the processing state.
                 // TODO: This should really happen if ANY thread reaches the end of the render area. Otherwise different threads could trigger
                 // a rebuild out of sync.
-                //DEBUG_IF(printf("============== buildThresholdArray inHorizontalPass %i needHorizontalPass %i ===============\n", pS->inHorizontalPass, pS->needHorizontalPass);)
+                //DEBUG_IF(printf("============== buildThresholdArray ===============\n");)
                 if (pS->buildCount < MAXBUILDS) {
                     resetParser(pS);
                     nextRenderArea(tS, pS, tileS->floatHeight);
@@ -1983,19 +1940,12 @@ void calculatePixel ( PMEM      TileState *tileS
                 DEBUG_IF(showThresholds(tS);)
                 DEBUG_TRACE_ITEM(thresholdStateHs(*tS);)
                 //DEBUG_TRACE_ITEM(shapeStateHs(*shS);)
-            //} while (tS->needHorizontalPass);
             pS->sectionStart = tS->renderStart;
-            if (tS->inHorizontalPass) {
-                pS->sectionEnd.x = tS->renderStart.x;
-                pS->sectionEnd.y = tS->renderEnd.y;
-                pS->numActive = tS->numThresholds;
-            }
-            else {
-                pS->sectionStart.x = tS->renderStart.x;
-                pS->sectionStart.y = tS->renderStart.y;
-                pS->sectionEnd.x   = tS->renderEnd.x;
-                pS->sectionEnd.y   = tS->renderStart.y;
-            }
+            pS->sectionStart.x = tS->renderStart.x;
+            pS->sectionStart.y = tS->renderStart.y;
+            pS->sectionEnd.x   = tS->renderEnd.x;
+            pS->sectionEnd.y   = tS->renderStart.y;
+
         }
         //done = true; // this is for debugging only.
         if (!done) {
@@ -2437,8 +2387,6 @@ void thresholdStateHs (ThresholdState tS) {
     //printf(", numThresholds = %i\n", tS.numThresholds);
     printf(", renderStart = (%f, %f)\n", tS.renderStart.x, tS.renderStart.y);
     printf(", renderEnd = (%f, %f)\n", tS.renderEnd.x, tS.renderEnd.y);
-    //printf(", needHorizontalPass = %i\n", tS.needHorizontalPass);
-    //printf(", inHorizontalPass = %i\n", tS.inHorizontalPass);
     //printf(", thresholdWasAdded  = %i\n", tS.thresholdWasAdded);
     //printf(", slotThresholdCount = %i\n", tS.slotThresholdCount);
     //printf(", addThresholdCount  = %i\n", tS.addThresholdCount);
