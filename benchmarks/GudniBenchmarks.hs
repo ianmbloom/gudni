@@ -40,7 +40,7 @@ instance Model BenchmarkState where
                        Window $ Point2 100
                                        100
     shouldLoop _ = True
-    fontFile state = fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
+    fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =
         flip execStateT state $
             do  mapM_ processInput inputs
