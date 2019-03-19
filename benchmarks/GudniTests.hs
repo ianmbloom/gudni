@@ -37,6 +37,7 @@ import Data.Maybe
 import Data.Char
 import Control.Lens
 import qualified Data.Vector.Storable as VS
+import qualified Data.Vector as V
 
 import Control.Monad.Random
 import System.Random
@@ -77,7 +78,7 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 9
+    , _stateCurrentTest = 6
     , _stateStep        = 69
     , _stateFrameNumber = 0
     }
@@ -88,31 +89,32 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("fuzzy basic"       , fuzzyBasic          ) --  3 -
            , ("fuzzy circles"     , fuzzyCircles        ) --  4 -
            , ("fuzzy squares"     , fuzzySquares        ) --  5 -
-           , ("testPict"          , testPict            ) --  6 -
-           , ("rectGrid"          , rectGrid            ) --  7 -
-           , ("solidGrid"         , solidGrid           ) --  8 -
-           , ("checkerBoard"      , checkerBoard        ) --  9 -
-           , ("plotter test"      , plots               ) -- 10 -
-           , ("openSquare"        , openSquare          ) -- 11 -
-           , ("openSquareOverlap2", openSquareOverlap2  ) -- 12 -
-           , ("stackOfSquares"    , stackOfSquares      ) -- 13 -
-           , ("concentricSquares2", concentricSquares2  ) -- 14 -
-           , ("concentricSquares3", concentricSquares3  ) -- 15 -
-           , ("subtractDiamond "  , subtractDiamond     ) -- 16 -
-           , ("simpleKnob"        , simpleKnob          ) -- 17 -
-           , ("hourGlass"         , hourGlass           ) -- 18 -
-           , ("simpleGlyph"       , simpleGlyph         ) -- 19 -
-           , ("simpleArc"         , simpleArc           ) -- 20 -
-           , ("sixPointRectangle" , sixPointRectangle   ) -- 21 -
-           , ("tinySquare"        , tinySquare          ) -- 22 -
-           , ("mediumSequare"     , mediumSquare        ) -- 23 -
-           , ("simpleRectangle"   , simpleRectangle     ) -- 24 -
-           , ("tallRectangle"     , tallRectangle       ) -- 25 -
-           , ("twoBrackets"       , twoBrackets         ) -- 26 -
-           , ("fuzzySquares2"     , fuzzySquares2       ) -- 27 -
-           , ("maxThresholdTest"  , maxThresholdTest    ) -- 28 -
-           , ("maxShapeTest"      , maxShapeTest        ) -- 29 -
-           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 30 -
+           , ("fuzzy glyphs"      , fuzzyGlyphs2         ) --  6 -
+           , ("testPict"          , testPict            ) --  7 -
+           , ("rectGrid"          , rectGrid            ) --  8 -
+           , ("solidGrid"         , solidGrid           ) --  9 -
+           , ("checkerBoard"      , checkerBoard        ) -- 10 -
+           , ("plotter test"      , plots               ) -- 11 -
+           , ("openSquare"        , openSquare          ) -- 12 -
+           , ("openSquareOverlap2", openSquareOverlap2  ) -- 13 -
+           , ("stackOfSquares"    , stackOfSquares      ) -- 14 -
+           , ("concentricSquares2", concentricSquares2  ) -- 15 -
+           , ("concentricSquares3", concentricSquares3  ) -- 16 -
+           , ("subtractDiamond "  , subtractDiamond     ) -- 17 -
+           , ("simpleKnob"        , simpleKnob          ) -- 18 -
+           , ("hourGlass"         , hourGlass           ) -- 19 -
+           , ("simpleGlyph"       , simpleGlyph         ) -- 20 -
+           , ("simpleArc"         , simpleArc           ) -- 21 -
+           , ("sixPointRectangle" , sixPointRectangle   ) -- 22 -
+           , ("tinySquare"        , tinySquare          ) -- 23 -
+           , ("mediumSequare"     , mediumSquare        ) -- 24 -
+           , ("simpleRectangle"   , simpleRectangle     ) -- 25 -
+           , ("tallRectangle"     , tallRectangle       ) -- 26 -
+           , ("twoBrackets"       , twoBrackets         ) -- 27 -
+           , ("fuzzySquares2"     , fuzzySquares2       ) -- 28 -
+           , ("maxThresholdTest"  , maxThresholdTest    ) -- 29 -
+           , ("maxShapeTest"      , maxShapeTest        ) -- 30 -
+           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 31 -
            ]
 
 maxThresholdTest :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
@@ -164,8 +166,9 @@ fuzzyCircles :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 fuzzyCircles state = return $
                let time = view stateLastTime state
                in  --sTranslateXY (100) (100) .
+                   sScale 0.5 .
                    overlap $
-                   evalRand (sequence . replicate 100000 $ fuzzyCircle (makePoint 5760 3600) 10 20) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
+                   evalRand (sequence . replicate 1000000 $ fuzzyCircle (makePoint 5760 3600) 10 200) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
 
 -- | Smaller random field of transparent circles.
 fuzzyCircles2 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
@@ -173,7 +176,7 @@ fuzzyCircles2 state = return $
                let time = view stateLastTime state
                in  sTranslateXY 0 0 .
                    overlap $
-                   evalRand (sequence . replicate (state ^. stateStep) $ fuzzyCircle (makePoint 200 200) 5 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
+                   evalRand (sequence . replicate (state ^. stateStep) $ fuzzyCircle (makePoint 200 200) 5 10) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
 
 -- | A random field of transparent squares.
 fuzzySquares :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
@@ -188,6 +191,25 @@ fuzzySquares2 state = return $
                let time = view stateLastTime state
                in  overlap $
                    evalRand (sequence . replicate 20 $ fuzzySquare (makePoint 100 100) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+
+fuzzyGlyphs :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
+fuzzyGlyphs state =
+  do defaultGlyphs <- V.fromList <$> glyphString ['!'..'z']
+     let len = length defaultGlyphs
+     return $
+               let time = view stateLastTime state
+               in  overlap $
+                   evalRand (sequence . replicate 10000 $ fuzzyGlyph defaultGlyphs (makePoint 2880 1800) 10 300) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+
+fuzzyGlyphs2 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
+fuzzyGlyphs2 state =
+  do defaultGlyphs <- V.fromList <$> glyphString ['!'..'z']
+     let len = length defaultGlyphs
+     return $
+               let time = view stateLastTime state
+               in  sTranslateXY 200 200 .
+                   overlap $
+                   evalRand (sequence . replicate 200 $ fuzzyGlyph defaultGlyphs (makePoint 200 200) 10 200) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 -- | A grid of rotating glyphs with overlapping subtracted glyphs
 benchmark1 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)

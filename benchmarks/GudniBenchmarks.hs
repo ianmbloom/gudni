@@ -37,8 +37,8 @@ getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
     screenSize state = --FullScreen
-                       Window $ Point2 800
-                                       600
+                       Window $ Point2 100
+                                       100
     shouldLoop _ = True
     fontFile state = fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
     updateModelState frame elapsedTime inputs state =

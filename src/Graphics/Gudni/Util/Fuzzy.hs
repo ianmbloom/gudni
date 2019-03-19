@@ -9,6 +9,7 @@ module Graphics.Gudni.Util.Fuzzy
   , fuzzyRadial
   , fuzzyGray
   , fuzzyCircle
+  , fuzzyGlyph
   , fuzzySquare
   )
 where
@@ -16,6 +17,7 @@ where
 import Graphics.Gudni.Figure
 import Control.Monad.Random
 import Graphics.Gudni.Util.Draw
+import qualified Data.Vector as V
 
 class Fuzzy a where
   fuzz :: RandomGen g => Int -> Rand g a
@@ -34,9 +36,9 @@ instance Random Compound where
 
 instance Random Color where
   random = runRand $ do hue       <- getRandomR(0,360)
-                        sat       <- getRandomR(0.5,1)
-                        lightness <- getRandomR(0.2,1)
-                        alpha     <- getRandomR(0.2,0.4)
+                        sat       <- getRandomR(0.4,1)
+                        lightness <- getRandomR(0.4,0.9)
+                        alpha     <- getRandomR(0.2,0.5)
                         return $ transparent alpha $ hslColor hue sat lightness
   randomR _ = random
 
@@ -147,6 +149,18 @@ fuzzyCircle range  minRad maxRad = do
   radius<- getRandomR(minRad,maxRad)
   point <- getRandomR(makePoint 0 0, range)
   return $ sTranslate point $ sScale radius $ SLeaf $ SRep token color circle
+
+fuzzyGlyph :: (RandomGen g) => V.Vector (Glyph SubSpace) -> Point2 SubSpace -> SubSpace -> SubSpace -> Rand g (ShapeTree Int)
+fuzzyGlyph glyphs range minRad maxRad =
+  do  i <- getRandomR(0, V.length glyphs - 1)
+      let g = (V.!) glyphs i
+      color <- Solid <$> getRandom
+      token <- getRandomR(0,32768)
+      angle <- getRandomR(0,360)
+      radius<- getRandomR(minRad,maxRad)
+      point <- getRandomR(makePoint 0 0, range)
+      return $ sTranslate point $ sScale radius $ sRotate (angle @@ deg) $ SLeaf $ SRep token color $ glyph g
+
 
 fuzzySquare :: (RandomGen g) => Point2 SubSpace -> SubSpace -> SubSpace -> Rand g (ShapeTree Int)
 fuzzySquare range  minRad maxRad = do

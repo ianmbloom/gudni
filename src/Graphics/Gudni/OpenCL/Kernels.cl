@@ -44,7 +44,7 @@
 
 #define MAXTHRESHOLDMASK (MAXTHRESHOLDS - 1)
 
-#define MAXBUILDS 1 // number of times to rebuild the list of thresholds in one kernel.
+#define MAXBUILDS 2 // number of times to rebuild the list of thresholds in one kernel.
 #define COLORBUFFERSIZE 4
 #define MINCROP 0.2f
 // Debugging
@@ -2044,11 +2044,11 @@ void renderPixelBuffer ( PMEM   TileState *tileS
 
 __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                               , SMEM  Substance *substanceHeap
-                              , SMEM      Shape *shapeHeap
-                              , SMEM   TileInfo *tileHeap
                               , GMEM      uchar *pictureData
                               , CMEM PictureUse *pictureRefs
                               , CMEM      float *randomField
+                              , SMEM      Shape *shapeHeap
+                              , SMEM   TileInfo *tileHeap
                               ,           COLOR  backgroundColor
                               ,            int2  bitmapSize
                               ,             int  computeDepth
