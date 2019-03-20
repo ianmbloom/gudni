@@ -78,7 +78,7 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 6
+    , _stateCurrentTest = 32
     , _stateStep        = 69
     , _stateFrameNumber = 0
     }
@@ -115,6 +115,7 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("maxThresholdTest"  , maxThresholdTest    ) -- 29 -
            , ("maxShapeTest"      , maxShapeTest        ) -- 30 -
            , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 31 -
+           , ("fullRectangle"     , fullRectangle       ) -- 32 -
            ]
 
 maxThresholdTest :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
@@ -166,9 +167,9 @@ fuzzyCircles :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 fuzzyCircles state = return $
                let time = view stateLastTime state
                in  --sTranslateXY (100) (100) .
-                   sScale 0.5 .
+                   --sScale 0.5 .
                    overlap $
-                   evalRand (sequence . replicate 1000000 $ fuzzyCircle (makePoint 5760 3600) 10 200) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
+                   evalRand (sequence . replicate 50000 $ fuzzyCircle (makePoint 5760 3600) 10 50) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
 
 -- | Smaller random field of transparent circles.
 fuzzyCircles2 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
@@ -190,7 +191,7 @@ fuzzySquares2 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 fuzzySquares2 state = return $
                let time = view stateLastTime state
                in  overlap $
-                   evalRand (sequence . replicate 20 $ fuzzySquare (makePoint 100 100) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   evalRand (sequence . replicate 2000 $ fuzzySquare (makePoint 300 300) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
 
 fuzzyGlyphs :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 fuzzyGlyphs state =
@@ -381,6 +382,13 @@ mediumSquare state = return $
         sTranslateXY 0.1 0.1 .
         solid red $
         rectangle (Point2 10 10)
+
+-- | Medium sized square with no rotation.
+fullRectangle :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
+fullRectangle state = return $
+        sTranslateXY 0 0 .
+        solid red $
+        rectangle (makePoint 2880 1800)
 
 -- | Very simple rotated box.
 simpleRectangle :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)

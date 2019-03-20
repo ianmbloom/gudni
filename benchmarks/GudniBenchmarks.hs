@@ -37,8 +37,7 @@ getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
     screenSize state = --FullScreen
-                       Window $ Point2 100
-                                       100
+                       Window $ Point2 100 100
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =
@@ -63,7 +62,10 @@ instance Model BenchmarkState where
                 withStatus = if False then overlap [statusTree, tree] else tree
             return (Scene (light gray) withStatus)
     providePictureData state = return $ state ^. statePictures
+    handleOutput state target = do  presentTarget target
+                                    return state
 
+statusDisplay :: BenchmarkState -> [Glyph SubSpace] -> [[Glyph SubSpace]]  -> ShapeTree Int
 statusDisplay state testName status =
     sTranslateXY 1800 800 . --3200 2100 .
     sRotate (45 @@ deg) .
