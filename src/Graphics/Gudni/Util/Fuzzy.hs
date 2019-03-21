@@ -36,7 +36,7 @@ instance Random Compound where
 
 instance Random Color where
   random = runRand $ do hue       <- getRandomR(0,360)
-                        sat       <- getRandomR(0.4,1)
+                        sat       <- getRandomR(0.1,0.6)
                         lightness <- getRandomR(0.4,0.9)
                         alpha     <- getRandomR(0.2,0.5)
                         return $ transparent alpha $ hslColor hue sat lightness

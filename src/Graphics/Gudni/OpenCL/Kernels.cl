@@ -368,17 +368,17 @@ typedef struct ColorState {
                 int2   absolutePosition;          // the absolute position of the current pixel.
   } ColorState;
 
+#define RENDERSTART 0
+#define RENDEREND tileS->floatHeight
+
 // the threshold state stores references to the threshold buffers and their size.
 typedef struct ThresholdState {
     TMEM    HEADER  thresholdHeaders[MAXTHRESHOLDS]; // array of threshold header
     TMEM THRESHOLD  thresholds[MAXTHRESHOLDS];       // array of threshold geometry
                int  thresholdStart;                  // the position of the top of the stack.
                int  numThresholds;                   // number of thresholds in buffers
-            SPACE2  renderStart;
-            SPACE2  renderEnd;          // the lowest vertical position that can be properly rendered with the current list of thresholds.
-                                        // if we go below render bottom we must rebuild the threshold list.
                int  thresholdWasAdded;  // used to determine if a shape ever interacted with the column as it's being added.
-               int  slotThresholdCount;
+               int  insertThresholdCount;
                int  addThresholdCount;
   } ThresholdState;
 
@@ -484,6 +484,7 @@ void bifurcateCurve( Traversal *t
                    );
 
 void addLineSegment ( PMEM  ThresholdState *tS
+                    , PMEM       TileState *tileS
                     ,               float2  left
                     ,               float2  right
                     ,              SHAPEBIT  shapeBit
@@ -492,6 +493,7 @@ void addLineSegment ( PMEM  ThresholdState *tS
                     );
 
 void addThreshold ( PMEM ThresholdState *tS
+                  , PMEM      TileState *tileS
                   ,              HEADER  newHeader
                   ,           THRESHOLD  newThreshold
                   ,                 int  addType
@@ -514,7 +516,8 @@ void searchTree(      Traversal *trav
                );
 
 void spawnThresholds ( PMEM  ThresholdState *tS
-                     ,               HEADER  headerPayload
+                     , PMEM       TileState *tileS
+                     ,             SHAPEBIT  shapeBit
                      ,            Traversal *l
                      ,            Traversal *r
                      ,                 bool *enclosedByStrand
@@ -565,10 +568,6 @@ void trimThresholdTop( PMEM    HEADER *header
                      ,          SPACE  splitY
                      );
 
-inline void adjustToExclude( PMEM ThresholdState *pS
-                           ,           THRESHOLD  threshold
-                           );
-
 int countActive ( PMEM ThresholdState *tS
                 ,               float *nextTop
                 );
@@ -592,22 +591,15 @@ inline bool thresholdIsAbove( HEADER newHeader
                             , HEADER oldHeader
                             , THRESHOLD old);
 
-void removeLastThreshold ( PMEM ThresholdState *tS
-                         );
-
 bool isAboveLast( PMEM ThresholdState *tS
                   ,            HEADER  newHeader
                   ,         THRESHOLD  new
                   );
+
 void insertThreshold( PMEM ThresholdState *tS
                     ,              HEADER  newHeader
                     ,           THRESHOLD  new
                     );
-
-void slotThreshold ( PMEM ThresholdState *tS
-                   ,              HEADER  newHeader
-                   ,           THRESHOLD  new
-                   );
 
 inline void passHeader( PMEM ShapeState *shS
                       ,          HEADER  thresholdHeader
@@ -635,6 +627,7 @@ COLOR determineColor( PMEM   ShapeState *shS
                     );
 
 void verticalAdvance( PMEM ThresholdState *tS
+                    , PMEM      TileState *tileS
                     , PMEM     ParseState *pS
                     , PMEM     ShapeState *shS
                     );
@@ -649,12 +642,8 @@ void writePixelGlobal ( PMEM TileState *tileS
                       ,            int  y
                       );
 
- void removeLastShape( PMEM  ThresholdState *tS
-                     , PMEM      ShapeState *shS
-                     ,            GEO_ENTRY  shapeIndex
-                     );
-
 void buildThresholdArray ( PMEM  ThresholdState *tS
+                         , PMEM       TileState *tileS
                          , PMEM      ShapeState *shS
                          , SMEM          float4 *geometryHeap
                          , SMEM       Substance *substances
@@ -664,13 +653,6 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
                          ,               float2  threadDelta
                          );
 
-void resetParser (PMEM ParseState *pS);
-
-void nextRenderArea ( PMEM ThresholdState *tS
-                    , PMEM ParseState *pS
-                    ,           SPACE  height
-                    );
-
 void initRandomField( ParseState *pS
                     , TileState *tileS
                     , CMEM float *randomField
@@ -679,17 +661,14 @@ void initRandomField( ParseState *pS
 float getRandom(ParseState *pS);
 
 void initThresholdState(ThresholdState *tS);
-void resetThresholdState(ThresholdState *tS);
-void resetShapeState(ShapeState *shS);
 
 void initShapeState (PMEM    ShapeState *shS
                     );
 
-void initParseState (PMEM     ParseState *pS
-                    ,PMEM ThresholdState *tS
-                    ,PMEM      TileState *tileS
-                    ,                int  frameNumber
-                    ,     CMEM     float *randomField
+void initParseState ( PMEM ParseState *pS
+                    , PMEM  TileState *tileS
+                    ,             int  frameNumber
+                    , CMEM      float *randomField
                     );
 
 bool initTileState ( PMEM  TileState *tileS
@@ -996,30 +975,6 @@ void trimThresholdTop( PMEM        HEADER *header
     }
 }
 
-inline void adjustToExclude( PMEM ThresholdState *tS
-                           ,           THRESHOLD  threshold
-                           ) {
-    if (tBottom(threshold) > tS->renderStart.y) {
-        // We don't have enough space to store the threshold,
-        // so we need to trim the render area while ensuring
-        // that each buildRenderArray call, makes some progress
-        // (otherwise an infinite loop can occur).
-        SPACE top = tTop(threshold);
-        SPACE next;
-        if (top > tS->renderStart.y) { // top > tS->renderStart.y
-            // If top is greater than renderStart.y we can vertically trim the render area and still make progress.
-            // This is the most common occurance.
-            next = top;
-        }
-        else {
-            // prevent an infinite loop by skipping to the bottom.
-            next = tBottom(threshold);
-        }
-        tS->renderEnd.y = min(tS->renderEnd.y, next);
-        //DEBUG_IF(printf("trim area nex %f \n", next);)
-    }
-}
-
 int countActive ( PMEM ThresholdState *tS
                 ,               float *nextTop
                 ) {
@@ -1075,7 +1030,7 @@ void sliceActive( PMEM ThresholdState *tS
             setHeader(tS, cursor, currentHeader);
             setThreshold(tS, cursor, current);
             if (tKeep(splitHeader,split)) {
-                slotThreshold(tS, splitHeader, split);
+                insertThreshold(tS, splitHeader, split);
             }
         }
     }
@@ -1109,17 +1064,10 @@ inline bool thresholdIsAbove( HEADER newHeader
             );
 }
 
-void removeLastThreshold ( PMEM ThresholdState *tS
-                         ) {
-    THRESHOLD last = getThreshold(tS, tS->numThresholds - 1);
-    adjustToExclude(tS, last);
-    tS->numThresholds -= 1;
-}
-
 bool isAboveLast( PMEM ThresholdState *tS
-                  ,                   HEADER  newHeader
-                  ,                THRESHOLD  new
-                  ) {
+                ,              HEADER  newHeader
+                ,           THRESHOLD  new
+                ) {
     if (tS->numThresholds > 0) {
       HEADER lastHeader = getHeader(tS, tS->numThresholds - 1);
       THRESHOLD last = getThreshold(tS, tS->numThresholds - 1);
@@ -1134,6 +1082,7 @@ void insertThreshold( PMEM ThresholdState *tS
                     ,                   HEADER  newHeader
                     ,                THRESHOLD  new
                     ) {
+    tS->thresholdWasAdded = true;
     pushTopSlot(tS);
     int cursor = 0;
     bool isAbove = false;
@@ -1153,24 +1102,6 @@ void insertThreshold( PMEM ThresholdState *tS
 
 inline bool full(ThresholdState *tS) {
   return tS->numThresholds >= MAXTHRESHOLDS;
-}
-
-void slotThreshold ( PMEM ThresholdState *tS
-                   ,              HEADER  newHeader
-                   ,           THRESHOLD  new
-                   ) {
-    tS->slotThresholdCount += 1;
-    if (full(tS) && isAboveLast(tS, newHeader, new)) {
-        removeLastThreshold(tS);
-    }
-    if (full(tS)) {
-        adjustToExclude(tS, new);
-    }
-    else {
-        tS->thresholdWasAdded = true;
-        insertThreshold(tS, newHeader, new);
-
-    }
 }
 
 // create a threshold from a larger line segment and identifying information.
@@ -1199,6 +1130,7 @@ inline HEADER lineToHeader ( SHAPEBIT shapeBit
 // if it's header information should be pre-parsed (because it's above the render area)
 // or if it should be ignored (below the render area, or a horizontal threshold that can be bypassed)
 void addLineSegment ( PMEM  ThresholdState *tS
+                    , PMEM       TileState *tileS
                     ,               float2  left
                     ,               float2  right
                     ,             SHAPEBIT  shapeBit
@@ -1213,10 +1145,11 @@ void addLineSegment ( PMEM  ThresholdState *tS
                                    , left
                                    , right
                                    );
-    addThreshold(tS, newHeader, newThreshold, addType, enclosedByStrand);
+    addThreshold(tS, tileS, newHeader, newThreshold, addType, enclosedByStrand);
 }
 
 void addThreshold ( PMEM  ThresholdState *tS
+                  , PMEM       TileState *tileS
                   ,               HEADER  newHeader
                   ,            THRESHOLD  newThreshold
                   ,                  int  addType
@@ -1230,14 +1163,14 @@ void addThreshold ( PMEM  ThresholdState *tS
     if (tKeep(newHeader, newThreshold)) {
         // horizontal thresholds that have no persistance can be ignored.
         *enclosedByStrand = *enclosedByStrand ||
-                             ((tTop(newThreshold)    <= tS->renderStart.y) && headerPersistTop(newHeader)   ) ||
-                             ((tBottom(newThreshold) <= tS->renderStart.y) && headerPersistBottom(newHeader));
+                             ((tTop(newThreshold)    <= RENDERSTART) && headerPersistTop(newHeader)   ) ||
+                             ((tBottom(newThreshold) <= RENDERSTART) && headerPersistBottom(newHeader));
         //DEBUG_IF(printf("mid add enclosed %i add %i ", *enclosedByStrand, addType);showThreshold(newHeader, newThreshold);printf("\n");)
-        if ((tTop(newThreshold) < tS->renderEnd.y) && (tBottom(newThreshold) > tS->renderStart.y) && tLeft(newThreshold) < RIGHTBORDER) {
-            if (tTop(newThreshold) <= tS->renderStart.y) {
-                trimThresholdTop(&newHeader,&newThreshold, tS->renderStart.y);
+        if ((tTop(newThreshold) < RENDEREND) && (tBottom(newThreshold) > RENDERSTART) && tLeft(newThreshold) < RIGHTBORDER) {
+            if (tTop(newThreshold) <= RENDERSTART) {
+                trimThresholdTop(&newHeader,&newThreshold, RENDERSTART);
             }
-            if (tRight(newThreshold) <= tS->renderStart.x) {
+            if (tRight(newThreshold) <= LEFTBORDER) {
                 *enclosedByStrand = true;
                 //DEBUG_IF(printf(" LEFT");)
             }
@@ -1247,7 +1180,7 @@ void addThreshold ( PMEM  ThresholdState *tS
                 // large enough.g
                 //if (tS->addThresholdCount > 0) {
                     //DEBUG_IF(printf("  ADD");)
-                    slotThreshold(tS, newHeader, newThreshold);
+                    insertThreshold(tS, newHeader, newThreshold);
                 //}
                 //else {
                 //  DEBUG_IF(printf(" SKIP");)
@@ -1308,7 +1241,8 @@ void bifurcateCurve( Traversal *t
 // This is generally on horizontal or angled threshold called the center,
 // and potentially two vertical thresholds called the wings
 void spawnThresholds ( PMEM  ThresholdState *tS
-                     ,              SHAPEBIT  shapeBit
+                     , PMEM       TileState *tileS
+                     ,             SHAPEBIT  shapeBit
                      ,            Traversal *l
                      ,            Traversal *r
                      ,                 bool *enclosedByStrand
@@ -1324,6 +1258,7 @@ void spawnThresholds ( PMEM  ThresholdState *tS
     if ((l->travRightX < RIGHTBORDER) && (l->travRightX > LEFTBORDER)) {
         // add the threshold to the current state or buffer.
         addLineSegment (  tS
+                       ,  tileS
                        ,  (float2) (l->travXPos, y_L)
                        ,  l->travRight
                        ,  shapeBit
@@ -1345,6 +1280,7 @@ void spawnThresholds ( PMEM  ThresholdState *tS
     bool rightWing;
     if ((r->travLeftX > LEFTBORDER) && (r->travLeftX < RIGHTBORDER) && (l->travIndex != r->travIndex)) {
         addLineSegment (  tS
+                       ,  tileS
                        ,  r->travLeft
                        ,  (float2) (r->travXPos, y_R)
                        ,  shapeBit
@@ -1360,6 +1296,7 @@ void spawnThresholds ( PMEM  ThresholdState *tS
         float2 bridge_L = leftWing  || (l->travLeftX  == l->travRightX) ? l->travRight : (float2) (l->travXPos, y_L);
         float2 bridge_R = rightWing || (r->travLeftX  == r->travRightX) ? r->travLeft  : (float2) (r->travXPos, y_R);
         addLineSegment (  tS
+                       ,  tileS
                        ,  bridge_L
                        ,  bridge_R
                        ,  shapeBit
@@ -1572,6 +1509,7 @@ inline void passHeaderBottom( PMEM ShapeState *shS
 // Return the bottom of the rendering area which is the bottom of the tile if everything fits and the last
 // complete section if it doesn't.
 void buildThresholdArray ( PMEM  ThresholdState *tS
+                         , PMEM       TileState *tileS
                          , PMEM      ShapeState *shS
                          , SMEM          float4 *geometryHeap
                          , SMEM       Substance *substances
@@ -1603,6 +1541,7 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
                                        );
             if (inRange) {
                 spawnThresholds (  tS
+                                ,  tileS
                                 ,  shS->shapeBits
                                 , &left
                                 , &right
@@ -1624,22 +1563,6 @@ void buildThresholdArray ( PMEM  ThresholdState *tS
     }
 }
 
-void resetParser ( PMEM ParseState *pS
-                 ) {
-    pS->currentThreshold = 0;
-    pS->numActive        = 0; // the next threshold that is not currently active.
-}
-
-void nextRenderArea ( PMEM ThresholdState *tS
-                    , PMEM ParseState     *pS
-                    ,               SPACE  height
-                    ) {
-    tS->renderStart.y = tS->renderEnd.y;
-    tS->renderEnd.y = height;
-    tS->renderStart.x  = tS->renderEnd.x != RIGHTBORDER ? tS->renderEnd.x : LEFTBORDER;  // finish horizontal sweep.
-    tS->renderEnd.x    = RIGHTBORDER;
-}
-
 void initRandomField( ParseState *pS
                     , TileState *tileS
                     , CMEM float *randomField) {
@@ -1659,47 +1582,35 @@ float getRandom(ParseState *pS) {
 }
 
 void initThresholdState(ThresholdState *tS) {
-    tS->renderStart  = (SPACE2)(LEFTBORDER,0);
-    tS->renderEnd    = (SPACE2)(RIGHTBORDER,0); // the lowest vertical position that can be properly rendered with the current list of thresholds.
-    resetThresholdState(tS);
-}
-
-void resetThresholdState(ThresholdState *tS) {
     tS->numThresholds = 0;
     tS->thresholdStart = MAXTHRESHOLDS;
-    tS->slotThresholdCount = 0;
     tS->thresholdWasAdded = false;
     tS->addThresholdCount = INT_MAX; // maximum thresholds to add before stopping (for debugging).
 }
 
-void resetShapeState(ShapeState *shS) {
+void initShapeState (PMEM    ShapeState *shS
+                    ) {
   shS->shapeBits = 0;
   clearShapeStack(shS->shapeStack);
 }
 
-void initShapeState (PMEM    ShapeState *shS
-                    ) {
-    resetShapeState(shS);
-}
 
-
-void initParseState (PMEM     ParseState *pS
-                    ,PMEM ThresholdState *tS
-                    ,PMEM    TileState  *tileS
-                    ,               int  frameNumber
-                    ,    CMEM     float *randomField
+void initParseState ( PMEM ParseState *pS
+                    , PMEM  TileState *tileS
+                    ,             int  frameNumber
+                    , CMEM      float *randomField
                     ) {
-    resetParser(pS);
+    pS->currentThreshold = 0;
+    pS->numActive        = 0; // the next threshold that is not currently active.
     pS->accColorArea = (float8)(TRANSPARENT_COLOR,(float4)(0,0,0,0));
     // if we go below render bottom we must rebuild the threshold list.
-    pS->sectionStart = (SPACE2)(LEFTBORDER,0); // the top of the current vertical section being processed
-    pS->sectionEnd   = (SPACE2)(tS->renderEnd.x, tS->renderEnd.y); // the bottom of the current vertical section being processed
+    pS->sectionStart = (SPACE2)(LEFTBORDER, RENDERSTART); // the top of the current vertical section being processed
+    pS->sectionEnd   = (SPACE2)(RIGHTBORDER,RENDERSTART); // the bottom of the current vertical section being processed
     pS->sectionCount = 0;
 
     pS->frameNumber = frameNumber;
     pS->buildCount = 0;
     initRandomField(pS,tileS,randomField);
-    DEBUG_TRACE_BEGIN
 }
 
 inline int bitmaskN(int n) {return (1 << n) - 1;}
@@ -1754,10 +1665,11 @@ float8 sectionColor ( PMEM     ParseState *pS
 }
 
 void verticalAdvance( PMEM ThresholdState *tS
+                    , PMEM      TileState *tileS
                     , PMEM     ParseState *pS
                     , PMEM     ShapeState *shS
                     ) {
-    if (pS->sectionEnd.x == tS->renderEnd.x) {
+    if (pS->sectionEnd.x == RIGHTBORDER) {
         //DEBUG_IF(printf("---------- Vertical Advance -------------- \n");)
         // Start by undoing all of the state changes from the horizontal traversal.
         // Occasionally a threshold gets skipped because they are out of order.
@@ -1770,7 +1682,7 @@ void verticalAdvance( PMEM ThresholdState *tS
         }
         //DEBUG_IF(printf("<-rev");)
         // Next break is the next natural break point (either the bottom of the pixel or the bottom of the render area.
-        float nextBreak = min(tS->renderEnd.y, pS->pixelY);
+        float nextBreak = min(RENDEREND, pS->pixelY);
         // The activeBottom is the bottom of the current group of horizontally adjacent thresholds or max float if none are left.
         float activeBottom = tS->numThresholds > 0 ? tBottom(getThreshold(tS, 0)) : FLT_MAX;
         // If the last section ended at the bottom of the current group.
@@ -1812,7 +1724,7 @@ void verticalAdvance( PMEM ThresholdState *tS
                     pS->numActive -= 1;
                 }
                 for (int i = 0; i < pS->numActive; i++) {
-                    if (tTop(getThreshold(tS, i)) > tS->renderStart.y) { // TODO: Can probably get rid of this check.
+                    if (tTop(getThreshold(tS, i)) > RENDERSTART) { // TODO: Can probably get rid of this check.
                         //DEBUG_IF(if (headerPersistTop(getHeader(tS, i))) {printf("top  %i %i\n", i, headerShapeBit(getHeader(tS, i)));})
                         passHeaderTop(shS, getHeader(tS, i));
                     }
@@ -1853,14 +1765,8 @@ void horizontalAdvance( PMEM ThresholdState *tS
         //DEBUG_IF(printf("midX %f\n", nextX);)
     }
     else {
-        if (pS->sectionEnd.y == tS->renderEnd.y) {
-            //DEBUG_IF(printf("pS->sectionEnd.y == tS->renderEnd.y: nextX = tS->renderEnd.x\n");)
-            nextX = tS->renderEnd.x; // unless we can't render the entire horizontal section, this will be RIGHTBORDER.
-        }
-        else {
-            //DEBUG_IF(printf("else: nextX = RIGHTBORDER\n");)
-            nextX = RIGHTBORDER;
-        }
+        //DEBUG_IF(printf("else: nextX = RIGHTBORDER\n");)
+        nextX = RIGHTBORDER;
     }
     //DEBUG_IF(printf("nextX %f\n", nextX);)
     pS->sectionStart.x = pS->sectionEnd.x;
@@ -1905,73 +1811,30 @@ void calculatePixel ( PMEM      TileState *tileS
                     , SMEM          Shape *shapeHeap
                     ) {
     //DEBUG_IF(printf("                                              pixelY: %f \n", pS->pixelY);)
-    bool done = false;
-    int count = 100;
-    while (((pS->sectionEnd.x < RIGHTBORDER) || (pS->sectionEnd.y < pS->pixelY)) && !done /*&& count > 0*/) { // process all sections that do not reach the bottom of the pixel.
-        count -= 1;
+    while (((pS->sectionEnd.x < RIGHTBORDER) || (pS->sectionEnd.y < pS->pixelY))/*&& count > 0*/) { // process all sections that do not reach the bottom of the pixel.
         DEBUG_IF(printf("loop        sectionStart %v2f sectionEnd %v2f \n", pS->sectionStart, pS->sectionEnd);)
-        //DEBUG_IF(printf("loop        renderStart  %v2f renderEnd  %v2f \n", pS->renderStart,  pS->renderEnd );)
-        if (pS->sectionEnd.x == tS->renderEnd.x && pS->sectionEnd.y == tS->renderEnd.y) {
-                // If the section bottom is below the area we can properly render.
-                // Rebuild the threshold list and reset the processing state.
-                // TODO: This should really happen if ANY thread reaches the end of the render area. Otherwise different threads could trigger
-                // a rebuild out of sync.
-                //DEBUG_IF(printf("============== buildThresholdArray ===============\n");)
-                if (pS->buildCount < MAXBUILDS) {
-                    resetParser(pS);
-                    nextRenderArea(tS, pS, tileS->floatHeight);
-                    resetThresholdState(tS);
-                    resetShapeState(shS);
-                    buildThresholdArray( tS
+        //DEBUG_IF(printf("beforeV cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
+        verticalAdvance(tS, tileS, pS, shS);
+        //DEBUG_IF(printf("afterV  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
+        horizontalAdvance(tS, pS);
+        //DEBUG_IF(printf("afterH  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
+        float8 colorArea = sectionColor( pS
                                        , shS
-                                       , geometryHeap
+                                       , cS
                                        , substances
                                        , shapeHeap
                                        , tileS->tileShapeStart
-                                       , tileS->tileNumShapes
-                                       , convert_float2(tileS->threadDelta)
                                        );
-                    pS->buildCount += 1;
-                }
-                else {
-                    done = true;
-                }
-                DEBUG_IF(showShapeStack(shS->shapeStack);)
-                DEBUG_IF(showThresholds(tS);)
-                DEBUG_TRACE_ITEM(thresholdStateHs(*tS);)
-                //DEBUG_TRACE_ITEM(shapeStateHs(*shS);)
-            pS->sectionStart = tS->renderStart;
-            pS->sectionStart.x = tS->renderStart.x;
-            pS->sectionStart.y = tS->renderStart.y;
-            pS->sectionEnd.x   = tS->renderEnd.x;
-            pS->sectionEnd.y   = tS->renderStart.y;
-
+        pS->accColorArea += colorArea;
+        DEBUG_IF(printf("accColor %v8f", pS->accColorArea);)
+        DEBUG_TRACE_ITEM(parseStateHs(*pS);)
+        if (pS->currentThreshold < pS->numActive) {
+            //DEBUG_IF(printf("pass %i %i\n",pS->currentThreshold,headerShapeBit(getHeader(tS, pS->currentThreshold)));)
+            passHeader(shS, getHeader(tS, pS->currentThreshold));
         }
-        //done = true; // this is for debugging only.
-        if (!done) {
-            //DEBUG_IF(printf("beforeV cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
-            verticalAdvance(tS, pS, shS);
-            //DEBUG_IF(printf("afterV  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
-            horizontalAdvance(tS, pS);
-            //DEBUG_IF(printf("afterH  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
-            float8 colorArea = sectionColor( pS
-                                           , shS
-                                           , cS
-                                           , substances
-                                           , shapeHeap
-                                           , tileS->tileShapeStart
-                                           );
-            pS->accColorArea += colorArea;
-            DEBUG_IF(printf("accColor %v8f", pS->accColorArea);)
-            DEBUG_TRACE_ITEM(parseStateHs(*pS);)
-            if (pS->currentThreshold < pS->numActive) {
-                //DEBUG_IF(printf("pass %i %i\n",pS->currentThreshold,headerShapeBit(getHeader(tS, pS->currentThreshold)));)
-                passHeader(shS, getHeader(tS, pS->currentThreshold));
-            }
-            pS->currentThreshold += 1;
-            pS->sectionCount += 1;
-            //DEBUG_IF(printf("atEnd  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
-        }
+        pS->currentThreshold += 1;
+        pS->sectionCount += 1;
+        //DEBUG_IF(printf("atEnd  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
     } // while (((pS->sectionEnd.x < RIGHTBORDER) || (pS->sectionEnd.y < pS->pixelY)))
     //DEBUG_IF(printf("pixelDone\n");)=
 }
@@ -2002,12 +1865,13 @@ void renderPixelBuffer ( PMEM   TileState *tileS
                        ) {
     //DEBUG_IF(printf("INDEX %i gTileIndex %i numShapes %i \n", INDEX, gTileIndex, tileS->numShapes);)
     //barrier (CLK_LOCAL_MEM_FENCE);
+    DEBUG_TRACE_BEGIN
     ThresholdState tS;
     initThresholdState(&tS);
     ShapeState shS;
     initShapeState(&shS);
     ParseState pS;
-    initParseState(&pS, &tS, tileS, frameNumber, randomField);
+    initParseState(&pS, tileS, frameNumber, randomField);
     ColorState cS;
     initColorState( &cS
                   ,  backgroundColor
@@ -2015,6 +1879,19 @@ void renderPixelBuffer ( PMEM   TileState *tileS
                   ,  pictureRefs
                   ,  tileS->threadDelta
                   );
+    buildThresholdArray( &tS
+                       , tileS
+                       , &shS
+                       , geometryHeap
+                       , substances
+                       , shapeHeap
+                       , tileS->tileShapeStart
+                       , tileS->tileNumShapes
+                       , convert_float2(tileS->threadDelta)
+                       );
+    DEBUG_IF(showShapeStack(shS->shapeStack);)
+    DEBUG_IF(showThresholds(tS);)
+    DEBUG_TRACE_ITEM(thresholdStateHs(*tS);)
     int yInt = -1;
     for (pS.pixelY = 1.0f; pS.pixelY <= tileS->floatHeight; pS.pixelY += PIXELHEIGHT) { // y is the bottom of the current pixel.
         yInt += 1;
@@ -2039,7 +1916,6 @@ void renderPixelBuffer ( PMEM   TileState *tileS
         cS.absolutePosition += (int2)(0,1);
     } // for y
     DEBUG_TRACE_END
-    //DEBUG_IF(printf("slotThresholdCount = %i\n",pS.slotThresholdCount);)
 }
 
 __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
@@ -2385,10 +2261,7 @@ void thresholdStateHs (ThresholdState tS) {
     printf("{ thresholds = "); thresholdListHs(tS); printf("\n");
     //printf(", thresholdStart = %i\n", tS.thresholdStart);
     //printf(", numThresholds = %i\n", tS.numThresholds);
-    printf(", renderStart = (%f, %f)\n", tS.renderStart.x, tS.renderStart.y);
-    printf(", renderEnd = (%f, %f)\n", tS.renderEnd.x, tS.renderEnd.y);
     //printf(", thresholdWasAdded  = %i\n", tS.thresholdWasAdded);
-    //printf(", slotThresholdCount = %i\n", tS.slotThresholdCount);
     //printf(", addThresholdCount  = %i\n", tS.addThresholdCount);
     printf("}\n");
 }

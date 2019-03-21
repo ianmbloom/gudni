@@ -33,7 +33,7 @@ setupOpenCL :: Bool -> Bool -> String -> IO OpenCLKernelLibrary
 setupOpenCL enableProfiling useCLGLInterop src =
   do
       -- List all platforms and all devices.
-      --queryOpenCL CL_DEVICE_TYPE_ALL
+      queryOpenCL CL_DEVICE_TYPE_ALL
       --let deviceCriteria = deviceNameContains "Iris Pro"  -- select the first Iris Pro GPU
       --let deviceCriteria = deviceNameContains "AMD"       -- select the first AMD GPU
       let deviceCriteria = return . const True -- select the first available GPU

@@ -1783,3 +1783,53 @@ void removeLastShape( PMEM  ThresholdState *tS
             else {
                shS->shapeIndices[shS->shapeBits] = shapeIndex;
             }
+
+
+
+        //DEBUG_IF(printf("loop        renderStart  %v2f renderEnd  %v2f \n", pS->renderStart,  pS->renderEnd );)
+        if (pS->sectionEnd.x == RIGHTBORDER && pS->sectionEnd.y == RENDEREND) {
+                // If the section bottom is below the area we can properly render.
+                // Rebuild the threshold list and reset the processing state.
+                // TODO: This should really happen if ANY thread reaches the end of the render area. Otherwise different threads could trigger
+                // a rebuild out of sync.
+                //DEBUG_IF(printf("============== buildThresholdArray ===============\n");)
+
+                //DEBUG_TRACE_ITEM(shapeStateHs(*shS);)
+            pS->sectionStart.x = LEFTBORDER;
+            pS->sectionStart.y = RENDERSTART;
+            pS->sectionEnd.x = RIGHTBORDER;
+            pS->sectionEnd.y = RENDERSTART;
+
+        }
+        //done = true; // this is for debugging only.
+
+inline void adjustToExclude( PMEM ThresholdState *tS
+                           ,           THRESHOLD  threshold
+                           ) {
+    if (tBottom(threshold) > RENDERSTART) {
+        // We don't have enough space to store the threshold,
+        // so we need to trim the render area while ensuring
+        // that each buildRenderArray call, makes some progress
+        // (otherwise an infinite loop can occur).
+        SPACE top = tTop(threshold);
+        SPACE next;
+        if (top > RENDERSTART) { // top > RENDERSTART.y
+            // If top is greater than renderStart.y we can vertically trim the render area and still make progress.
+            // This is the most common occurance.
+            next = top;
+        }
+        else {
+            // prevent an infinite loop by skipping to the bottom.
+            next = tBottom(threshold);
+        }
+        //tS->renderEnd = min(tS->renderEnd, next);
+        //DEBUG_IF(printf("trim area nex %f \n", next);)
+    }
+}
+
+void removeLastThreshold ( PMEM ThresholdState *tS
+                         ) {
+    THRESHOLD last = getThreshold(tS, tS->numThresholds - 1);
+    adjustToExclude(tS, last);
+    tS->numThresholds -= 1;
+}
