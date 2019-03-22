@@ -37,7 +37,7 @@ getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
     screenSize state = --FullScreen
-                       Window $ Point2 100 100
+                       Window $ Point2 1440 900
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =

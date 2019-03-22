@@ -89,7 +89,7 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("fuzzy basic"       , fuzzyBasic          ) --  3 -
            , ("fuzzy circles"     , fuzzyCircles        ) --  4 -
            , ("fuzzy squares"     , fuzzySquares        ) --  5 -
-           , ("fuzzy glyphs"      , fuzzyGlyphs2         ) --  6 -
+           , ("fuzzy glyphs"      , fuzzyGlyphs2        ) --  6 -
            , ("testPict"          , testPict            ) --  7 -
            , ("rectGrid"          , rectGrid            ) --  8 -
            , ("solidGrid"         , solidGrid           ) --  9 -
@@ -167,9 +167,9 @@ fuzzyCircles :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
 fuzzyCircles state = return $
                let time = view stateLastTime state
                in  --sTranslateXY (100) (100) .
-                   --sScale 0.5 .
+                   sScale 0.5 .
                    overlap $
-                   evalRand (sequence . replicate 50000 $ fuzzyCircle (makePoint 5760 3600) 10 50) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
+                   evalRand (sequence . replicate 1000000 $ fuzzyCircle (makePoint 5760 3600) 10 20) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
 
 -- | Smaller random field of transparent circles.
 fuzzyCircles2 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int)
