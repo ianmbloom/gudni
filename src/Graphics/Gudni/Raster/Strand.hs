@@ -166,13 +166,12 @@ flipIfBackwards range =
 -- | Split an outline into strands.
 splitShape :: ReorderTable
            -> Int
-           -> [CurvePair SubSpace]
+           -> V.Vector (CurvePair SubSpace)
            -> [Strand]
 splitShape table maxSectionSize curvePairs =
     let outlineRange =  replaceKnobs .
                         pairsToTriples .
-                        vectorToRange .
-                        V.fromList $
+                        vectorToRange $
                         curvePairs
         ranges = splitRanges maxSectionSize outlineRange
         reorderedRanges = map

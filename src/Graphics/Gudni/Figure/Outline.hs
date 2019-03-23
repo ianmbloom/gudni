@@ -41,6 +41,7 @@ import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Util.Util
 import Control.Lens
 import Linear.V2
+import qualified Data.Vector as V
 
 import Data.Hashable
 import Control.DeepSeq
@@ -72,12 +73,12 @@ pairPoints [v0] = []
 
 -- | An outline is just a wrapper for a list of CurvePairs. It represents one curve loop∘
 -- A shape is defined by a list of outlines.
-newtype Outline s = Outline [CurvePair s]
+newtype Outline s = Outline (V.Vector (CurvePair s))
                deriving (Eq, Ord, Show)
 
 -- | Map over every point in an outline.
 mapOutline :: (Point2 s -> Point2 z) -> Outline s -> Outline z
-mapOutline f (Outline ps) = Outline (map (mapCurvePair f) ps)
+mapOutline f (Outline ps) = Outline (V.map (mapCurvePair f) ps)
 
 -- | Make a mid point from two points.
 mid :: (Fractional s, Num s) => Point2 s -> Point2 s -> Point2 s
@@ -96,7 +97,7 @@ segmentsToCurvePairs' first segs = case segs of
 
 -- | Convert a list of lists of segments to a list of outlines.
 segmentsToOutline :: (Fractional s) => [[Segment s]] -> [Outline s]
-segmentsToOutline = map (Outline . segmentsToCurvePairs)
+segmentsToOutline = map (Outline . V.fromList . segmentsToCurvePairs)
 
 -- | Close an open curve and convert it to an outline. An additional straight segment is added if the outset and the terminator of
 -- the curve are not the same.
@@ -116,8 +117,16 @@ instance Boxable (CurvePair SubSpace) where
           bottom = max (a ^. pY) (b ^. pY)
       in  makeBox left top right bottom
 
+instance Boxable (V.Vector BoundingBox) where
+  getBoundingBox vs =
+      let left   = V.minimum (V.map (view leftSide  ) vs)
+          top    = V.minimum (V.map (view topSide   ) vs)
+          right  = V.maximum (V.map (view rightSide ) vs)
+          bottom = V.maximum (V.map (view bottomSide) vs)
+      in makeBox left top right bottom
+
 instance Boxable (Outline SubSpace) where
-  getBoundingBox (Outline vs) = getBoundingBox . map getBoundingBox $ vs
+  getBoundingBox (Outline vs) = getBoundingBox . V.map getBoundingBox $ vs
 
 instance (Num s) => SimpleTransformable Outline s where
   tTranslate p = mapOutline (tTranslate p)
@@ -132,6 +141,9 @@ instance NFData s => NFData (CurvePair s) where
 
 instance NFData s => NFData (Outline s) where
   rnf (Outline ps) = ps `deepseq` ()
+
+instance Hashable a => Hashable (V.Vector a) where
+  hashWithSalt s vector = (V.foldl hashWithSalt s vector)
 
 instance Hashable p => Hashable (CurvePair p) where
   hashWithSalt s (Cp v2) = s `hashWithSalt` v2

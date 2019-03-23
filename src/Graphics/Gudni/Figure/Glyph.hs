@@ -166,7 +166,7 @@ getGlyph codepoint =
                 -- create outlines from the lists of vertices by converting them to Point2 SubSpace and scaling them
                 -- by the fontfactor, this means a normal glyph will have a height of 1 in SubSpace.
                 outlines :: [Outline SubSpace]
-                outlines =  map (Outline . pairPoints . map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) vertices
+                outlines =  map (Outline . V.fromList . pairPoints . map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) vertices
                 -- build the Glyph constructor including the metadata and the outlines.
                 glyph :: Glyph SubSpace
                 glyph = Glyph { glyphVertices        = outlines
