@@ -95,8 +95,8 @@ processInput input =
                 tests <- use stateTests
                 case inputKeyboard of
                     KeySymbol SymbolSpace  -> statePaused %= not
-                    KeyArrow ArrowUp       -> stateSpeed *=  1.25
-                    KeyArrow ArrowDown     -> stateSpeed //= 1.25
+                    KeyArrow  ArrowUp      -> stateSpeed *=  1.25
+                    KeyArrow  ArrowDown    -> stateSpeed //= 1.25
                     KeyLetter LetterW      -> stateDelta %= (^+^ Point2   0    (-pace))
                     KeyLetter LetterS      -> stateDelta %= (^+^ Point2   0      pace )
                     KeyLetter LetterA      -> stateDelta %= (^+^ Point2 (-pace)  0    )
@@ -104,8 +104,8 @@ processInput input =
                     KeyLetter LetterY      -> stateDirection %= not
                     KeyLetter LetterR      -> stateAngle %= normalizeAngle . (^+^ ((speed/30) @@ turn))
                     KeyLetter LetterT      -> stateAngle %= normalizeAngle . (^-^ ((speed/30) @@ turn))
-                    KeyArrow ArrowRight    -> whenM (uses stateCurrentTest (< (length tests - 1))) $ stateCurrentTest += 1
-                    KeyArrow ArrowLeft     -> whenM (uses stateCurrentTest (> 0)) $ stateCurrentTest -= 1
+                    KeyArrow  ArrowRight   -> whenM (uses stateCurrentTest (< (length tests - 1))) $ stateCurrentTest += 1
+                    KeyArrow  ArrowLeft    -> whenM (uses stateCurrentTest (> 0)) $ stateCurrentTest -= 1
                     KeySymbol SymbolComma  -> whenM (uses stateStep (> 0 {-arbitrary-})) $ stateStep -= 1
                     KeySymbol SymbolPeriod -> whenM (uses stateStep (< 1000)) $ stateStep += 1
                     KeySymbol SymbolRightBracket -> stateScale *=  1.1

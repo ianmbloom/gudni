@@ -1,7 +1,9 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Graphics.Gudni.Raster.Deknob
   ( Triple (..)
-  , pairsToTriples
-  , checkKnob
+  , Range  (..)
+  , replaceKnobs
   )
 where
 
@@ -9,17 +11,25 @@ import Linear
 import Graphics.Gudni.Figure
 
 import Control.Lens
+import Control.Loop
 
 -- | A triple is just a convenient way to represent a complete quadratic curve section.
 type Triple s = V3 (Point2 s)
 
-pairsToTriples :: [CurvePair s] -> [Triple s]
-pairsToTriples vs = go (view onCurve . head $ vs) vs
-  where go first vs =
-         case vs of
-           (v0:v1:vs) -> V3 (v0 ^. onCurve) (v0 ^. offCurve) (v1 ^. onCurve):go first (v1:vs)
-           (v0:[]) -> [V3 (v0 ^. onCurve) (v0 ^. offCurve) first]
-           [] -> error "pairsToTriples encountered end of list"
+-- | A range is inclusive so Range 1 3 includes [1,2,3], combining Range 1 1 and Range 2 2 would yield Range 1 2.
+data Range a = Range (Int -> a) Int
+
+instance Show a => Show (Range a) where
+  show (Range f len) = "Rg" ++ show len ++ " " ++ (show $ map f [0..len-1])
+
+instance Eq a => Eq (Range a) where
+  (==) (Range f0 len0) (Range f1 len1) =
+    let xs0 :: [a]
+        xs0 = map f0 [0..(len0-1)]
+        xs1 :: [a]
+        xs1 = map f1 [0..(len1-1)]
+    in  len0 == len1 &&
+        (all id $ zipWith (==) xs0 xs1)
 
 -- * Remove Knobs
 -- Knobs are segments of a curve where the curve point is outside of the horizontal range of the anchor points.
@@ -81,19 +91,37 @@ splitKnob' bottom top convex t v0 control v1
   where (V3 leftMid onCurve rightMid) = curvePoint t v0 control v1
 
 -- | If a curve is a knob, split it.
-checkKnob :: (Show s, Fractional s, Ord s, Num s, Iota s) => Triple s -> [Triple s]
+checkKnob :: (Show s, Fractional s, Ord s, Num s, Iota s) => Triple s -> Maybe (Triple s, Triple s)
 checkKnob (V3 a b c) =
     -- If both sides are convex in the left direction.
     if leftConvex b a && leftConvex b c
     then-- Split the knob based on it being left convex.
         let (V3 leftMid onCurve rightMid) = splitLeftKnob a b c
         -- And return the two resulting curves.
-        in  [V3 a leftMid onCurve, V3 onCurve rightMid c]
+        in Just (V3 a leftMid onCurve, V3 onCurve rightMid c)
     else-- Else if both sides are convex in the right direction
         if rightConvex b a && rightConvex b c
         then-- Split the know based on it being right convex.
             let (V3 leftMid  onCurve  rightMid) = splitRightKnob a b c
             -- And return the two resulting curves.
-            in [V3 a leftMid onCurve, V3 onCurve rightMid c]
+            in Just (V3 a leftMid onCurve, V3 onCurve rightMid c)
         else-- Otherwise return the curve unharmed.
-            [V3 a b c]
+            Nothing
+
+replaceKnob :: (Show s, Fractional s, Ord s, Num s, Iota s)
+            => Range (Triple s) -> Int -> Range (Triple s)
+replaceKnob (Range f len) i =
+  case checkKnob (f i) of
+    Nothing -> Range f len
+    Just (a,b) -> let g j = if j < i
+                            then f j
+                            else if j == i
+                                 then a
+                                 else if j == i + 1
+                                      then b
+                                      else f (j - 1)
+                  in  Range g (len + 1)
+
+replaceKnobs :: (Show s, Fractional s, Ord s, Num s, Iota s)
+             => Range (Triple s) -> Range (Triple s)
+replaceKnobs (Range f len) = numLoopFold 0 (len - 1) (Range f len) replaceKnob

@@ -232,3 +232,39 @@ transformOutlineTree shapeTree =
 starLine c x = take x (repeat c)
 titleBar m = starLine '>' 15 ++ m ++ starLine '>' 15 ++ "\n"
 lowerBar m = starLine '<' 15 ++ m ++ starLine '<' 15 ++ "\n"
+
+-- | Create a new range over one index.
+singletonRange :: Storable a => VS.Vector a -> Int -> Range a
+singletonRange vs x =
+  let len = VS.length vs
+      get = (VS.!) vs
+      rotate i = if i > len then i - len else i
+  in  Range (get . rotate . (+x)) 1
+
+makeRanges :: Storable a => VS.Vector a -> [Range a]
+makeRanges vs = take (VS.length vs) $ map (singletonRange vs) $ [0..]
+
+connectRanges :: Ord s => Int -> Range (Triple s) -> Range (Triple s) -> [Range (Triple s)]
+connectRanges maxSectionSize r0 r1 =
+    if connectable (rEnd r0) (rStart r1) && (rLength r0 + rLength r1 < maxSectionSize)
+    then [combineRanges r0 r1]
+    else [r0, r1]
+
+connectAllRanges :: (Storable s, Ord s) => Int -> [Range (Triple s)] -> [Range (Triple s)]
+connectAllRanges _       [r]    = [r]
+connectAllRanges maxSize (r:rs) = let rest = connectAllRanges maxSize rs
+                                  in  connectRanges maxSize r (head rest) ++ tail rest
+connectAllRanges maxSize []     = error "connectAllRanges reached empty list"
+
+triplesToPairs :: Range (Triple s) -> Range (CurvePair s)
+triplesToPairs (Range f len) =
+  let g i = CurvePair (f i ^. _x) (f i ^. _y)
+  in  Range g len
+
+pairsToPoints :: Range (CurvePair s) -> Range (Point2 s)
+pairsToPoints (Range f len) =
+  let part i = if even i then view onCurve else view offCurve
+      g    i = if i == len
+               then
+               else part i . f . (`div` 2) $ i
+  in Range g (len * 2 + 1)

@@ -195,5 +195,5 @@ buildRasterJobs params =
       -- Determine the maximum number of tiles per RasterJob
       let tilesPerCall = fromIntegral . clMaxGroupSize $ params ^. rpLibrary
       -- Build all of the RasterJobs by traversing the TileTree.
-      jobs <- execBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall) $ {-tr "tileTree"-} tileTree)
+      jobs <- execBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall) tileTree)
       return $ trWith (show . length) "num jobs" $ jobs

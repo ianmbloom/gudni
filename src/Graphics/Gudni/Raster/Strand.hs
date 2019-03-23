@@ -39,7 +39,7 @@ import Foreign.Ptr
 import Foreign.C.Types
 import Foreign.Storable
 import Foreign.Ptr
-import qualified Data.Vector.Storable as VS
+import qualified Data.Vector as V
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.List (sortBy)
 
@@ -64,36 +64,25 @@ instance Show Strand where
 type Length = Int
 type Index = Int
 
--- | A range is inclusive so Range 1 3 includes [1,2,3], combining Range 1 1 and Range 2 2 would yield Range 1 2.
-data Range a = Range (Int -> a) Int
-instance Show a => Show (Range a) where
-  show (Range f len) = "Rg" ++ show len ++ " " ++ (show $ map f [0..len-1])
-
 -- | Get the first element of the range.
 rStart :: Range a -> a
 rStart (Range f len) = f 0
+
 -- | Get the last element of the range.
 rEnd :: Range a -> a
 rEnd   (Range f len) = f (len - 1)
+
 -- | Get the ith element of the range
 peekRange :: Range a -> Index -> a
 peekRange (Range f len) i = f i
+
 -- | Get the length of the range.
 rLength :: Range a -> Length
 rLength (Range f len) = len
 
-
-
--- | Create a new range over one index.
-singletonRange :: Storable a => VS.Vector a -> Int -> Range a
-singletonRange vs x =
-  let len = VS.length vs
-      get = (VS.!) vs
-      rotate i = if i > len then i - len else i
-  in  Range (get . rotate . (+x)) 1
-
-makeRanges :: Storable a => VS.Vector a -> [Range a]
-makeRanges vs = take (VS.length vs) $ map (singletonRange vs) $ [0..]
+-- | Create a new range that covers and entire vector.
+vectorToRange :: V.Vector a -> Range a
+vectorToRange vs = Range ((V.!) vs) (V.length vs)
 
 composeRange :: (Int -> Int) -> Range a -> Range a
 composeRange g (Range f len) = Range (f . g) len
@@ -121,17 +110,39 @@ connectable a b =
       hB = compareHorizontal b
   in  (hA == hB) && hA /= EQ
 
-connectRanges :: Ord s => Int -> Range (Triple s) -> Range (Triple s) -> [Range (Triple s)]
-connectRanges maxSectionSize r0 r1 =
-    if connectable (rEnd r0) (rStart r1) && (rLength r0 + rLength r1 < maxSectionSize)
-    then [combineRanges r0 r1]
-    else [r0, r1]
+splitRanges  :: forall s . (Show s, Storable s, Ord s) => Int -> Range (Triple s) -> [Range (Triple s)]
+splitRanges maxLength (Range f rangeLength) = go 0 0
+  where
+  go :: Index -> Index -> [Range (Triple s)]
+  go start cursor =
+      let current = f cursor
+          next    = f (cursor + 1)
+          len     = (cursor - start) + 1
+          range   = Range (f . (+ start)) len
+      in  if cursor < rangeLength - 1
+          then if connectable current next && len < maxLength
+               then go start (cursor + 1)
+               else range : go (cursor + 1) (cursor + 1)
+          else [range]
 
-connectAllRanges :: Ord s => Int -> [Range (Triple s)] -> [Range (Triple s)]
-connectAllRanges _       [r]    = [r]
-connectAllRanges maxSize (r:rs) = let rest = connectAllRanges maxSize rs
-                                  in  connectRanges maxSize r (head rest) ++ tail rest
-connectAllRanges maxSize []     = error "connectAllRanges reached empty list"
+pairsToTriples :: Range (CurvePair s) -> Range (Triple s)
+pairsToTriples (Range f len) =
+  let g i = V3 (f i ^. onCurve) (f i ^. offCurve) end
+        where end = if i < len - 1
+                    then f (i+1) ^. onCurve
+                    else f 0     ^. onCurve
+  in  Range g len
+
+unTriple :: Show s => Range (Triple s) -> Range (Point2 s)
+unTriple (Range triples len) =
+  let div2     i = i `div` 2
+      part     i = if even i then view _x else view _y
+      newlen     = len * 2 + 1
+      dec      x = x -1
+      getPoint i = if i == newlen - 1
+                   then view _z . triples . div2 . dec $ i
+                   else part  i . triples . div2       $ i
+  in  Range getPoint newlen
 
 reverseIndex :: Length -> Index -> Index
 reverseIndex len i = (len - 1) - i
@@ -152,34 +163,21 @@ flipIfBackwards range =
         then reverseRange range
         else range
 
-dec x = x -1
-
-unTriple :: Show s => Range (Triple s) -> Range (Point2 s)
-unTriple (Range triples len) =
-  let div2     i = i `div` 2
-      part     i = if even i then view _x else view _y
-      newlen     = len * 2 + 1
-      getPoint i = if i == newlen - 1
-                   then view _z . triples . div2 . dec $ i
-                   else part  i . triples . div2       $ i
-  in  Range getPoint newlen
-
 -- | Split an outline into strands.
 splitShape :: ReorderTable
            -> Int
            -> [CurvePair SubSpace]
            -> [Strand]
 splitShape table maxSectionSize curvePairs =
-    let tripleVector =  VS.fromList .
-                        concatMap checkKnob .
-                        pairsToTriples $
+    let outlineRange =  replaceKnobs .
+                        pairsToTriples .
+                        vectorToRange .
+                        V.fromList $
                         curvePairs
-        len     = VS.length tripleVector
-        ranges  = connectAllRanges maxSectionSize (makeRanges tripleVector)
+        ranges = splitRanges maxSectionSize outlineRange
         reorderedRanges = map
                        ( reorder
                        . unTriple
-                       -- . tr "flipRange "
                        . flipIfBackwards
                        ) ranges
         reorder range = Strand

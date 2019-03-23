@@ -36,7 +36,7 @@ instance Random Compound where
 
 instance Random Color where
   random = runRand $ do hue       <- getRandomR(0,360)
-                        sat       <- getRandomR(0.1,0.6)
+                        sat       <- getRandomR(0.3,1)
                         lightness <- getRandomR(0.4,0.9)
                         alpha     <- getRandomR(0.2,0.5)
                         return $ transparent alpha $ hslColor hue sat lightness
@@ -154,11 +154,11 @@ fuzzyGlyph :: (RandomGen g) => V.Vector (Glyph SubSpace) -> Point2 SubSpace -> S
 fuzzyGlyph glyphs range minRad maxRad =
   do  i <- getRandomR(0, V.length glyphs - 1)
       let g = (V.!) glyphs i
-      color <- Solid <$> getRandom
-      token <- getRandomR(0,32768)
-      angle <- getRandomR(0,360)
-      radius<- getRandomR(minRad,maxRad)
-      point <- getRandomR(makePoint 0 0, range)
+      color  <- Solid <$> getRandom
+      token  <- getRandomR(0,32768)
+      angle  <- getRandomR(0,360)
+      radius <- getRandomR(minRad,maxRad)
+      point  <- getRandomR(makePoint 0 0, range)
       return $ sTranslate point $ sScale radius $ sRotate (angle @@ deg) $ SLeaf $ SRep token color $ glyph g
 
 
