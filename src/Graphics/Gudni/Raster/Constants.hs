@@ -46,7 +46,7 @@ mAXtILESpERcALL  = 512 :: Int -- The maximum number of tiles per kernel call.
 mAXsTRANDpERtILE = mAXtHRESHOLDS -- The maximum number of strands per tile, before it splits.
 
 sTOCHASTICfACTOR = 0.3 :: Float -- relative amount of variability in an edge.
-mAXtHRESHOLDS    = 512 :: Int -- the size of the threshold header and threshold geometry buffers (must be a power of 2)
+mAXtHRESHOLDS    = 1024 :: Int -- the size of the threshold header and threshold geometry buffers (must be a power of 2)
 mAXsHAPE         = 511 :: Int -- total number of shapes per build. must be one less than the number of bits available.
 mAXtILEsIZE      = Point2 512 512 :: Point2 PixelSpace
 mINtILEsIZE      = Point2 16  16  :: Point2 PixelSpace
