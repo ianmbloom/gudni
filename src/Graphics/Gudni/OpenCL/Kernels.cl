@@ -1946,14 +1946,7 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
     //testShapeStack();
     //testDeleteBit();
     //DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeStart, substanceHeap, tileS.tileNumShapes);)
-    if (threadActive && tileS.tileNumShapes == 0) {
-        fillOutBuffer (&tileS
-                      , out
-                      , backgroundColor
-                      );
-    }
-    barrier(CLK_GLOBAL_MEM_FENCE);
-    if (threadActive && tileS.tileNumShapes > 0) {
+    if (threadActive) {
         renderPixelBuffer ( &tileS
                           ,  geometryHeap
                           ,  pictureData
@@ -1968,20 +1961,6 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
     }
     barrier(CLK_GLOBAL_MEM_FENCE);
 }
-
-// when there are no shapes in the tile fill it with the background color.
-void fillOutBuffer ( PMEM TileState *tileS
-                   , GMEM      uint *out
-                   ,          COLOR  color
-                   ) {
-    uint pixel = colorToSolidPixel_Word32_BGRA(color);
-    int outPos = mul24(tileS->threadDelta.y, tileS->bitmapSize.x) + tileS->threadDelta.x;
-    for (int y = 0; y < tileS->intHeight; y++) {
-        out[outPos] = pixel;
-        outPos += tileS->bitmapSize.x;
-    }
-}
-
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Functions for Exporting Debugging Information in human readable forms.

@@ -197,8 +197,8 @@ outlineToStrands table sectionSize (Outline ps) =
     else splitShape table (sectionSize `div` 2) ps
 
 --  SubSpace (Floating point) Strands are written to memory so that the each point aligns to 64 bit boundaries in GPU memory.
---- The order is designed to facilitate as many 64bit memory accesses as possible and determine the horizontal range of the curve with the minumum loads
---- Because of this there are a lot of unused bits in the first 64 bits.
+--  The order is designed to facilitate as many 64bit memory accesses as possible and determine the horizontal range of the curve with the minumum loads
+--  Because of this there are a lot of unused bits in the first 64 bits.
 --  The Size field refers to the number of 64 bits chunks that the loading function must skip ahead to get to the next tree so it includes the header.
 --  In memory the format the header should appear this way:
 --  | 32 bit             | 32 bit    | 64 bit            | 64 bit          | 64 bit                | 64 bit            | ...

@@ -108,6 +108,7 @@ closeOpenCurve curve =
                  else Straight (curve ^. terminator) : curve ^. curveSegments -- else insert a straight segment from the end to the beggining.
   in segmentsToOutline [segments]
 
+-- * Instances
 
 instance Boxable (CurvePair SubSpace) where
   getBoundingBox (CurvePair a b) =
@@ -134,8 +135,6 @@ instance (Num s) => SimpleTransformable Outline s where
 instance (Floating s, Num s) => Transformable Outline s where
   tRotate    a = mapOutline (tRotate a)
 
--- * Instances
-
 instance NFData s => NFData (CurvePair s) where
   rnf (Cp v2) = v2 `deepseq` ()
 
@@ -143,8 +142,7 @@ instance NFData s => NFData (Outline s) where
   rnf (Outline ps) = ps `deepseq` ()
 
 instance Hashable a => Hashable (V.Vector a) where
-  hashWithSalt s vector = (V.foldl hashWithSalt s vector)
-
+  hashWithSalt s vector = V.foldl hashWithSalt s vector
 instance Hashable p => Hashable (CurvePair p) where
   hashWithSalt s (Cp v2) = s `hashWithSalt` v2
 instance Hashable s => Hashable (Outline s) where

@@ -1833,3 +1833,16 @@ void removeLastThreshold ( PMEM ThresholdState *tS
     adjustToExclude(tS, last);
     tS->numThresholds -= 1;
 }
+
+// when there are no shapes in the tile fill it with the background color.
+void fillOutBuffer ( PMEM TileState *tileS
+                   , GMEM      uint *out
+                   ,          COLOR  color
+                   ) {
+    uint pixel = colorToSolidPixel_Word32_BGRA(color);
+    int outPos = mul24(tileS->threadDelta.y, tileS->bitmapSize.x) + tileS->threadDelta.x;
+    for (int y = 0; y < tileS->intHeight; y++) {
+        out[outPos] = pixel;
+        outPos += tileS->bitmapSize.x;
+    }
+}
