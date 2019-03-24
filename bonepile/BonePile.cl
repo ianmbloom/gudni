@@ -1616,3 +1616,233 @@ void showContinuation(Continuation c) {
     printf ("   contInHorizontalPass %2i %i   \n" , (long) &c.contInHorizontalPass   - (long)&c, c.contInHorizontalPass   );
     printf (" contNeedHorizontalPass %2i %i   \n" , (long) &c.contNeedHorizontalPass - (long)&c, c.contNeedHorizontalPass );
 }
+
+
+float arbitraryIntersect( HEADER currentHeader
+                        , THRESHOLD current
+                        , HEADER nextHeader
+                        , THRESHOLD next
+                        ) {
+
+    float aC = tBottom(current)-tTop(current);
+    // B = x1-x2
+    float bC = tBottomX(currentHeader, current)-tTopX(currentHeader,current);
+
+    // A = y2-y1
+    float aN = tBottom(next)-tTop(next);
+    // B = x1-x2
+    float bN = tBottomX(nextHeader, next)-tTopX(nextHeader, next);
+    // det = A1*B2 - A2*B1
+    float det = aC*bN - aN*bC;
+    float intersectY = FLT_MAX; // will be clamped to bottom.
+    if(fabs(det) > 0.001){
+        // C = Ax1+By1
+        //float cC = aC * tBottomX(currentHeader, current) + bC * tTop(current);
+        // C = Ax1+By1
+        //float cN = aN * tBottomX(nextHeader, next) + bN * tTop(next);
+        intersectY = 999; //(aC*cN - aN*cC)/det;
+        //DEBUG_IF(printf("det %f intersectY %f slicePoint %f\n", det, intersectY, slicePoint);)
+    }
+    return clamp(intersectY, tTop(current),tBottom(current));
+}
+
+// value used to fudge geometry errors when comparing geometric values
+#define TOLERANCE 0.002
+// equality with the fudge factor
+inline bool eqT( float a, float b) {
+  return fabs(a - b) <= TOLERANCE;
+}
+
+inline void updateShapeStack(         SHAPEBIT  shapeBit
+                            , PMEM  SHAPESTACK *shapeStack
+                            );
+
+
+////////////////////////////////////////////////
+// ShapeStack testing Functions
+////////////////////////////////////////////////
+
+void fillShapeStack(SHAPESTACK *stack, SHAPESTACK value);
+
+void testShapeStack(void);
+void testIgnoreBits(void);
+void testDeleteBit(void);
+
+void testShapeStack(void) {
+    DEBUG_IF(printf("clz(0x8000000000000000) %i, clz(0x00000000) %i\n", clz((ulong)0x8000000000000000), clz((ulong)0x0));)
+    __private SHAPESTACK stack[SHAPESTACKSECTIONS];
+    for (int bit = MAXSHAPE; bit >= 0; bit -= 1) {
+        clearShapeStack(stack);
+        flipBit(bit,   stack);
+        //flipBit(bit+1, stack);
+        DEBUG_IF(printf(" bit: %i top: %i ", bit, findTop(stack, 512));showShapeStack(stack);printf("\n");)
+    }
+}
+
+void testIgnoreBits(void) {
+  for (int ignoreAbove = 512; ignoreAbove >= 0; ignoreAbove--) {
+      DEBUG_IF( int ignoreSection = ignoreAbove >> SHAPESTACKSECTIONSHIFT; \
+                int ignoreBits    = ignoreAbove & SHAPESTACKSECTIONBITS; \
+                printf("ignoreAbove: %i ignoreSection %i ignoreBits %i ",ignoreAbove,ignoreSection,ignoreBits); \
+                printf("(COMPLETE_MASK << ignoreBits) %016lX (~(COMPLETE_MASK << ignoreBits)) %016lX \n", (COMPLETE_MASK << ignoreBits), (~(COMPLETE_MASK << ignoreBits)) ); \
+      )
+  }
+}
+
+#define DELETEBITTESTVALUE 0xAAAAAAAAAAAAAAAA
+
+void fillShapeStack(SHAPESTACK *stack, SHAPESTACK value) {
+  for (int i = 0; i < SHAPESTACKSECTIONS; i ++) {
+    stack[i] = value;
+  }
+}
+
+void testDeleteBit(void) {
+  __private SHAPESTACK stack[SHAPESTACKSECTIONS];
+  for (int i = 0; i < MAXSHAPE + 2; i++) {
+    fillShapeStack(stack, DELETEBITTESTVALUE);
+    deleteBit(stack, i);
+    DEBUG_IF(printf("test deleteBit i %i ", i);)
+    for (int i = SHAPESTACKSECTIONS - 1; i >= 0; i--) {
+      DEBUG_IF(printf(" %016lX", stack[i]);)
+    }
+    DEBUG_IF(printf("\n");)
+  }
+}
+
+inline SHAPESTACK carryBitSet(SHAPESTACK carryBit) {
+    return carryBit << SHAPESTACKCARRYSHIFT;
+}
+
+inline SHAPESTACK shiftSection(SHAPESTACK carryBit, SHAPESTACK shapeStack) {
+  return carryBitSet(carryBit) | (shapeStack >> 1);
+}
+
+inline SHAPESTACK getCarryBit(SHAPESTACK section) {
+  return section & SHAPESTACKCARRYMASK;
+}
+
+inline SHAPESTACK deleteSectionBit(SHAPESTACK carryBit, SHAPESTACK shapeStack, SHAPEBIT shapeBit) {
+    SHAPESTACK breakMask = COMPLETE_MASK << shapeBit;
+    //DEBUG_IF(printf("shapeStack %lX shapeBit %i ----> !breakMask %lX (shapeStack >> 1) & (breakMask)) %lX shapeStack & !breakMask %lX\n", shapeStack, shapeBit, ~breakMask,(shapeStack >> 1) & breakMask, shapeStack & ~breakMask);)
+    return ((shiftSection(carryBit, shapeStack)) & breakMask) | (shapeStack & (~breakMask));
+}
+
+inline void deleteBit(PMEM SHAPESTACK *shapeStack, SHAPEBIT shapeBit) {
+    int section = shapeBit >> SHAPESTACKSECTIONSHIFT;
+    int bit     = shapeBit & SHAPESTACKSECTIONBITS;
+    SHAPESTACK carryBit = EMPTY_SHAPESTACK;
+    for (int i = SHAPESTACKSECTIONS - 1; i > section; i--) {
+      SHAPESTACK nextCarryBit = getCarryBit(shapeStack[i]);
+      shapeStack[i] = shiftSection(carryBit, shapeStack[i]);
+      carryBit = nextCarryBit;
+    }
+    shapeStack[section] = deleteSectionBit(carryBit, shapeStack[section], bit);
+}
+
+void removeLastShape( PMEM  ThresholdState *tS
+                    , PMEM      ShapeState *shS
+                    ,           GEO_ENTRY   shapeIndex
+                    ) {
+    SHAPEBIT removeBit = tS->numThresholds == 0 ? 0 : headerShapeBit(getHeader(tS, tS->numThresholds - 1));
+    int shiftAmount = 0;
+    for (int cursor = 0; cursor < tS->numThresholds; cursor ++) {
+        HEADER currentHeader = getHeader(tS, cursor);
+        THRESHOLD current = getThreshold(tS, cursor);
+        SHAPEBIT currentBit = headerShapeBit(currentHeader);
+        if (currentBit > removeBit) {
+            currentBit -= 1;
+        }
+        if (headerShapeBit(currentHeader) == removeBit)  {
+            shiftAmount += 1;
+            adjustToExclude(tS, current);
+        }
+        else {
+            setHeader(tS, cursor-shiftAmount, setShapeBit(currentHeader,currentBit));
+            setThreshold(tS, cursor-shiftAmount, current);
+        }
+    }
+    tS->numThresholds = max(0, tS->numThresholds - shiftAmount);
+    for (int i = removeBit; i < MAXSHAPE - 1; i++) {
+        shS->shapeIndices[i] = shS->shapeIndices[i+1];
+    }
+    //DEBUG_IF(printf("removeBit %i shapeBit %i\n", removeBit, shapeBit);)
+    //DEBUG_IF(printf("before deleteBit ");showShapeStack(shS->shapeStack);printf("\n");)
+    deleteBit(shS->shapeStack, removeBit);
+    //DEBUG_IF(printf("after  deleteBit ");showShapeStack(shS->shapeStack);printf("\n");)
+    if (removeBit < MAXSHAPE) {
+        shS->shapeIndices[shS->shapeBits] = shapeIndex;
+    }
+}
+
+
+            if (shS->shapeBits >= MAXSHAPE) {
+                shS->shapeBits -= 1;
+                removeLastShape(tS,shS,shapeIndex);
+            }
+            else {
+               shS->shapeIndices[shS->shapeBits] = shapeIndex;
+            }
+
+
+
+        //DEBUG_IF(printf("loop        renderStart  %v2f renderEnd  %v2f \n", pS->renderStart,  pS->renderEnd );)
+        if (pS->sectionEnd.x == RIGHTBORDER && pS->sectionEnd.y == RENDEREND) {
+                // If the section bottom is below the area we can properly render.
+                // Rebuild the threshold list and reset the processing state.
+                // TODO: This should really happen if ANY thread reaches the end of the render area. Otherwise different threads could trigger
+                // a rebuild out of sync.
+                //DEBUG_IF(printf("============== buildThresholdArray ===============\n");)
+
+                //DEBUG_TRACE_ITEM(shapeStateHs(*shS);)
+            pS->sectionStart.x = LEFTBORDER;
+            pS->sectionStart.y = RENDERSTART;
+            pS->sectionEnd.x = RIGHTBORDER;
+            pS->sectionEnd.y = RENDERSTART;
+
+        }
+        //done = true; // this is for debugging only.
+
+inline void adjustToExclude( PMEM ThresholdState *tS
+                           ,           THRESHOLD  threshold
+                           ) {
+    if (tBottom(threshold) > RENDERSTART) {
+        // We don't have enough space to store the threshold,
+        // so we need to trim the render area while ensuring
+        // that each buildRenderArray call, makes some progress
+        // (otherwise an infinite loop can occur).
+        SPACE top = tTop(threshold);
+        SPACE next;
+        if (top > RENDERSTART) { // top > RENDERSTART.y
+            // If top is greater than renderStart.y we can vertically trim the render area and still make progress.
+            // This is the most common occurance.
+            next = top;
+        }
+        else {
+            // prevent an infinite loop by skipping to the bottom.
+            next = tBottom(threshold);
+        }
+        //tS->renderEnd = min(tS->renderEnd, next);
+        //DEBUG_IF(printf("trim area nex %f \n", next);)
+    }
+}
+
+void removeLastThreshold ( PMEM ThresholdState *tS
+                         ) {
+    THRESHOLD last = getThreshold(tS, tS->numThresholds - 1);
+    adjustToExclude(tS, last);
+    tS->numThresholds -= 1;
+}
+
+// when there are no shapes in the tile fill it with the background color.
+void fillOutBuffer ( PMEM TileState *tileS
+                   , GMEM      uint *out
+                   ,          COLOR  color
+                   ) {
+    uint pixel = colorToSolidPixel_Word32_BGRA(color);
+    int outPos = mul24(tileS->threadDelta.y, tileS->bitmapSize.x) + tileS->threadDelta.x;
+    for (int y = 0; y < tileS->intHeight; y++) {
+        out[outPos] = pixel;
+        outPos += tileS->bitmapSize.x;
+    }
+}

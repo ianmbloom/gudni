@@ -16,7 +16,7 @@
 module Graphics.Gudni.Raster.Serialize
   ( GeometryPile(..)
   , GeometryState(..)
-  , geoCurveTable
+  , geoReorderTable
   , geoMaxStrandSize
   , geoGeometryPile
   , geoTileTree
@@ -48,7 +48,7 @@ import Graphics.Gudni.Raster.ShapeInfo
 import Graphics.Gudni.Raster.Types
 import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Raster.TraverseShapeTree
-import Graphics.Gudni.Raster.StrandLookupTable
+import Graphics.Gudni.Raster.ReorderTable
 import Graphics.Gudni.Raster.TileTree
 import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Util.Pile
@@ -102,7 +102,7 @@ excludeBox canvasSize box =
 
 -- | A constructor for holding the state of serializing the geometry from a scene.
 data GeometryState = GeometryState
-    { _geoCurveTable    :: CurveTable
+    { _geoReorderTable    :: ReorderTable
     , _geoMaxStrandSize :: Int
     , _geoGeometryPile  :: GeometryPile
     , _geoTileTree      :: TileTree
@@ -122,8 +122,8 @@ runGeometryMonad :: (MonadIO m)
                  -> m t
 runGeometryMonad randomField mf =
   do geometryPile <- liftIO (newPileSize iNITgEOMETRYpILEsIZE :: IO BytePile)
-     let curveTable = buildCurveTable mAXsECTIONsIZE
-     let geometryState = GeometryState curveTable mAXsECTIONsIZE geometryPile undefined undefined randomField
+     let reorderTable = buildReorderTable mAXsECTIONsIZE
+     let geometryState = GeometryState reorderTable mAXsECTIONsIZE geometryPile undefined undefined randomField
      evalStateT mf geometryState
 
 -- | Reuse the geometry monad without reallocating the geometry pile.
@@ -154,15 +154,15 @@ onShape wrapShape combineType transformer rawShape =
      if excludeBox canvasSize boundingBox
      then return ()
      else do -- Table used to convert strands of coordinates to trees.
-             curveTable  <- use geoCurveTable
+             reorderTable <- use geoReorderTable
              -- Maximum size of a strand.
              maxStrandSize <- use geoMaxStrandSize
              -- Build an enclosure from the outlines.
-             let enclosure = enclose curveTable maxStrandSize (unGroup transformedOutlines)
+             let enclosure = enclose reorderTable maxStrandSize (unGroup transformedOutlines)
              -- Get the geometry pile.
              geometryPile <- use geoGeometryPile
              -- Add the shape to the geometry pile.
-             (entry, geometryPile') <- liftIO $ runStateT (makeShapeEntry boundingBox enclosure) geometryPile
+             (entry, geometryPile') <- liftIO $ runStateT (makeShapeEntry boundingBox enclosure) $ geometryPile
              -- Put the geometry pile back in the monad.
              geoGeometryPile .= geometryPile'
              -- Get the tiletree.
@@ -254,20 +254,20 @@ buildOverScene :: (MonadIO m, Ord token)
                    => Scene token
                    -> SubstanceMonad token (GeometryMonad m) ()
 buildOverScene scene =
-  do -- Move the backgound color into the serializer state.
-     suBackgroundColor .= scene ^. sceneBackgroundColor
-     -- Serialize the shape tree.
-     traverseShapeTree (onSubstance onShape) $ scene ^. sceneShapeTree
+  do  -- Move the backgound color into the serializer state.
+      suBackgroundColor .= scene ^. sceneBackgroundColor
+      -- Serialize the shape tree.
+      traverseShapeTree (onSubstance onShape) $ scene ^. sceneShapeTree
 
 
 outputGeometryState :: GeometryState -> IO ()
 outputGeometryState state =
   do  putStrLn "---------------- geoGeometryPile -----------------------"
       putStr =<< fmap unlines (bytePileToGeometry . view geoGeometryPile $ state)
-      --putStrLn "---------------- curveTable --------------------------"
-      --putStrLn . show . view geoCurveTable     $ state
+      --putStrLn "---------------- ReorderTable --------------------------"
+      --putStrLn . show . view geoReorderTable     $ state
       --putStrLn . show . view geoMaxStrandSize $ state
-      putStrLn . show . view geoTileTree       $ state
+      --putStrLn . show . view geoTileTree       $ state
       --putStrLn . show . view geoCanvasSize     $ state
       --putStrLn . show . view geoRandomField    $ state
 

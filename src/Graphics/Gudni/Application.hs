@@ -67,7 +67,7 @@ import System.Info
 type SimpleTime = Double
 
 class Model s where
-  -- | Construct a ShapeTreeRoot from the state of type `s`
+  -- | Construct a Scene from the state of type `s`
   constructScene  :: s -> String -> GlyphMonad IO (Scene Int)
   -- | Update the state based on the elapsed time and a list of inputs
   updateModelState :: Monad m => Int -> SimpleTime -> [Input (Point2 PixelSpace)] -> s -> m s
@@ -80,6 +80,8 @@ class Model s where
   fontFile         :: s -> IO String
   -- | Bitmap texture data provided from the state for the rendered scene.
   providePictureData :: s -> IO (VS.Vector Word8, [PictureMemoryReference])
+  -- | Do something with the output of the rasterizer.
+  handleOutput :: s -> DrawTarget -> StateT InterfaceState IO s
 
 data ApplicationState s = AppState
     { -- | The state maintained specific to the interface type.
@@ -193,7 +195,7 @@ processState elapsedTime inputs =
         return shapeTree
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
-drawFrame :: (Model s) => CInt -> Scene Int -> ApplicationMonad s ()
+drawFrame :: (Model s) => CInt -> Scene Int -> ApplicationMonad s DrawTarget
 drawFrame frame scene =
     do  --appMessage "ResetJob"
         library <- use appOpenCLLibrary
@@ -203,10 +205,11 @@ drawFrame frame scene =
         let canvasSize = P (targetArea target)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
         lift (geoTileTree .= buildTileTree (fromIntegral <$> canvasSize))
+        markAppTime "Build TileTree"
         substanceState <- lift ( execSubstanceMonad pictureMemoryReferences $
                                  buildOverScene scene)
         --liftIO $ evaluate $ rnf (substances, boundedShapedEnclosures, substanceState)
-        markAppTime "Traverse Shape Tree"
+        markAppTime "Traverse ShapeTree"
         geometryState <- lift $ get
         --liftIO $ putStrLn $ "TileTree " ++ show (geometryState ^. geoTileTree)
         let rasterParams = RasterParams library
@@ -216,19 +219,19 @@ drawFrame frame scene =
                                         substanceState
         appMessage "===================== rasterStart ====================="
         jobs <- lift $ buildRasterJobs rasterParams
+        markAppTime "Build Raster Jobs"
         lift $ queueRasterJobs frame rasterParams jobs
         appMessage "===================== rasterDone ====================="
         markAppTime "Rasterize Threads"
-        withIO appBackend $ presentTarget target
-        markAppTime "Raster Frame"
         lift resetGeometryMonad
         liftIO $ freeRasterJobs jobs
         --liftIO $ threadDelay 3000000
+        return target
 
 -- Final phase of the event loop.
 endCycle :: SimpleTime -> ApplicationMonad s ()
 endCycle elapsedTime =
-    do  tk     <- use appTimeKeeper
+    do  tk         <- use appTimeKeeper
         cycleCount <- use appCycle
         let status = showTimes "Loop Cycle" True tk
                    -- ++ show job
@@ -266,8 +269,13 @@ loop  =
               beginCycle
               scene <- processState elapsedTime inputs
               frame <- fromIntegral <$> use appCycle
-              drawFrame frame scene
+              target <- drawFrame frame scene
+              state <- use appState
+              state' <- withIO appBackend $ handleOutput state target
+              appState .= state'
+              markAppTime "Raster Frame"
               endCycle elapsedTime
-              liftIO performMinorGC
+              liftIO performMinorGC -- the idea here is that if we perform garbage collection
+                                    -- on each frame we'll get a more consistent frame rate.
               continue <- shouldLoop <$> use appState
               when continue loop

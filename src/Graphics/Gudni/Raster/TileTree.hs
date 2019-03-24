@@ -208,9 +208,12 @@ traverseTileTreeV f (VTree _ top bottom) = do traverseTileTreeH f top
 traverseTileTreeV f (VLeaf tile) = f tile
 
 -- | Display the contents of a tile.
-showTile tile =   "Shapes " ++ show (tile ^. tileRep . tileShapeCount)
+showTile tile = " (" ++ show (widthBox $ tile ^. tileBox)
+              ++ "X" ++ show (heightBox $ tile ^. tileBox)
+              ++ ") Shapes " ++ show (tile ^. tileRep . tileShapeCount)
               ++ " Strands " ++ show (tile ^. tileRep . tileStrandCount)
-              ++ " Shapes " ++ show (map (view shapeBox . view shRep) $ tile ^. tileRep . tileShapes)
+
+              -- ++ " Shapes " ++ show (map (view shapeBox . view shRep) $ tile ^. tileRep . tileShapes)
 
 -- | Display a TileTree by converting it first to a data tree and drawing it.
 toDataTreeH (HLeaf tile) = Node (showTile tile) []

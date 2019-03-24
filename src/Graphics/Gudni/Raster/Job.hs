@@ -42,7 +42,7 @@ import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Raster.TileTree
 import Graphics.Gudni.Raster.Serialize
-import Graphics.Gudni.Raster.StrandLookupTable
+import Graphics.Gudni.Raster.ReorderTable
 import Graphics.Gudni.Raster.TraverseShapeTree
 import Graphics.Gudni.Raster.ShapeInfo
 

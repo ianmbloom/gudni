@@ -14,6 +14,7 @@
 
 module Graphics.Gudni.Interface.FontLibrary
   ( fontLibrary
+  , findDefaultFont
   )
 where
 
@@ -23,8 +24,12 @@ import Data.List
 
 import System.FilePath (addTrailingPathSeparator, normalise)
 import System.Directory (getHomeDirectory, getDirectoryContents)
-import Data.Maybe (fromJust)
+import Data.Maybe (fromJust, fromMaybe, listToMaybe)
 import Data.List (isPrefixOf)
+
+
+findDefaultFont :: IO String
+findDefaultFont = fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
 
 -- | Make a relative path absolute on MacOS.
 absolutizeMacPath :: String -> IO String

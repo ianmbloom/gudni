@@ -57,6 +57,7 @@ import Graphics.Gudni.Util.StorableM
 
 import System.Random
 import Control.Monad.Random
+import Linear
 
 -- | Group is just a newtype for "list of"
 newtype Group t = Group

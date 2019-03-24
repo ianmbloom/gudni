@@ -37,10 +37,9 @@ getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
     screenSize state = --FullScreen
-                       Window $ Point2 800
-                                       600
+                       Window $ Point2 1440 900
     shouldLoop _ = True
-    fontFile state = fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
+    fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =
         flip execStateT state $
             do  mapM_ processInput inputs
@@ -61,9 +60,12 @@ instance Model BenchmarkState where
             let tree = transformFromState testScene state
                 statusTree = statusDisplay state testName statusGlyphs
                 withStatus = if False then overlap [statusTree, tree] else tree
-            return (Scene gray withStatus)
+            return (Scene (light gray) withStatus)
     providePictureData state = return $ state ^. statePictures
+    handleOutput state target = do  presentTarget target
+                                    return state
 
+statusDisplay :: BenchmarkState -> [Glyph SubSpace] -> [[Glyph SubSpace]]  -> ShapeTree Int
 statusDisplay state testName status =
     sTranslateXY 1800 800 . --3200 2100 .
     sRotate (45 @@ deg) .
@@ -93,8 +95,8 @@ processInput input =
                 tests <- use stateTests
                 case inputKeyboard of
                     KeySymbol SymbolSpace  -> statePaused %= not
-                    KeyArrow ArrowUp       -> stateSpeed *=  1.25
-                    KeyArrow ArrowDown     -> stateSpeed //= 1.25
+                    KeyArrow  ArrowUp      -> stateSpeed *=  1.25
+                    KeyArrow  ArrowDown    -> stateSpeed //= 1.25
                     KeyLetter LetterW      -> stateDelta %= (^+^ Point2   0    (-pace))
                     KeyLetter LetterS      -> stateDelta %= (^+^ Point2   0      pace )
                     KeyLetter LetterA      -> stateDelta %= (^+^ Point2 (-pace)  0    )
@@ -102,8 +104,8 @@ processInput input =
                     KeyLetter LetterY      -> stateDirection %= not
                     KeyLetter LetterR      -> stateAngle %= normalizeAngle . (^+^ ((speed/30) @@ turn))
                     KeyLetter LetterT      -> stateAngle %= normalizeAngle . (^-^ ((speed/30) @@ turn))
-                    KeyArrow ArrowRight    -> whenM (uses stateCurrentTest (< (length tests - 1))) $ stateCurrentTest += 1
-                    KeyArrow ArrowLeft     -> whenM (uses stateCurrentTest (> 0)) $ stateCurrentTest -= 1
+                    KeyArrow  ArrowRight   -> whenM (uses stateCurrentTest (< (length tests - 1))) $ stateCurrentTest += 1
+                    KeyArrow  ArrowLeft    -> whenM (uses stateCurrentTest (> 0)) $ stateCurrentTest -= 1
                     KeySymbol SymbolComma  -> whenM (uses stateStep (> 0 {-arbitrary-})) $ stateStep -= 1
                     KeySymbol SymbolPeriod -> whenM (uses stateStep (< 1000)) $ stateStep += 1
                     KeySymbol SymbolRightBracket -> stateScale *=  1.1

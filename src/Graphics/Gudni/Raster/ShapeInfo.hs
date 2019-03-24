@@ -70,7 +70,7 @@ newtype ShapeTag = ShapeTag {unShapeTag :: ShapeTag_} deriving (Ord, Eq, Num, En
 
 -- | The max shapeId is determined by the maximum number of unique values that can be stored in the bottom
 -- 27 bits of the ShapeTag. Currently the max shapeId is 268,435,455
-mAXsHAPEID = sHAPEiDbITMASK - 1 :: CULong
+mAXsHAPEID = sHAPETAGsUBSTANCEIDbITMASK - 1 :: CULong
 
 -- | A shape header includes the id and tags.
 newtype SubstanceInfo = SubstanceInfo
@@ -96,7 +96,7 @@ makeShapeTag (ShapeInfo substance combine groupId) =
                           CompoundAdd          -> sHAPETAGcOMPOUNDtYPEaDD
                           CompoundSubtract     -> sHAPETAGcOMPOUNDtYPEsUBTRACT
   in  if unSubstanceId groupId <= mAXsHAPEID
-      then ShapeTag (substanceFlag .|. combineFlag .|. (unSubstanceId groupId .&. sHAPEiDbITMASK))
+      then ShapeTag (substanceFlag .|. combineFlag .|. (unSubstanceId groupId .&. sHAPETAGsUBSTANCEIDbITMASK))
       else error "shapeID out of bounds"
 
 -- | Extract the substancetype from a ShapeTag.
@@ -124,7 +124,7 @@ tagBitsToCompound tagBits
 
 -- | Extract the 'SubstanceId' from the 'ShapeTag'.
 tagToSubstanceId :: ShapeTag -> SubstanceId
-tagToSubstanceId tag = SubstanceId (unShapeTag tag .&. sHAPEiDbITMASK)
+tagToSubstanceId tag = SubstanceId (unShapeTag tag .&. sHAPETAGsUBSTANCEIDbITMASK)
 
 -- | Extract the 'ShapeInfo' from the 'ShapeTag'.
 extractShapeInfo :: ShapeTag -> ShapeInfo

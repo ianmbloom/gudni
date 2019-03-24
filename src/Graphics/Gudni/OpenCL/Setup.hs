@@ -33,17 +33,19 @@ setupOpenCL :: Bool -> Bool -> String -> IO OpenCLKernelLibrary
 setupOpenCL enableProfiling useCLGLInterop src =
   do
       -- List all platforms and all devices.
-      --queryOpenCL CL_DEVICE_TYPE_ALL
+      queryOpenCL CL_DEVICE_TYPE_ALL
       --let deviceCriteria = deviceNameContains "Iris Pro"  -- select the first Iris Pro GPU
       --let deviceCriteria = deviceNameContains "AMD"       -- select the first AMD GPU
       let deviceCriteria = return . const True -- select the first available GPU
+      putStrLn $ "Initializing OpenCL device."
       mState <- if useCLGLInterop
                then Just <$> initFromGL CL_DEVICE_TYPE_ALL -- initialize an OpenCL state for the device that is available for CL-GL-Interop
                else clDeviceSelect CL_DEVICE_TYPE_GPU deviceCriteria -- initialize an OpenCL state for the first GPU that meets the criteria.
       case mState of
-        Nothing -> error "could not initialize openCL device."
+        Nothing -> error "Could not initialize openCL device."
         Just state ->
           do -- Output all of the device information to the terminal.
+             putStrLn $ "Finished initializing OpenCL device."
              dumpOpenCLDeviceInfo . clDevice $ state
              -- Compiler options for OpenCL compiler.
              let options = [ CLFastRelaxedMath

@@ -16,6 +16,7 @@ module Graphics.Gudni.Figure.Picture
   , PictureMemoryReference(..)
   , PictureUsage(..)
   , makePictures
+  , noPictures
   )
 where
 
@@ -80,6 +81,7 @@ makePictures images =
          pictMems = zipWith PictureMemory dimensions (map (Ref . fromIntegral) offsets)
      return (pictData, pictMems)
 
+noPictures = makePictures []
 instance StorableM PictureMemoryReference where
   sizeOfM _ =
     do sizeOfM (undefined :: Point2 PixelSpace)

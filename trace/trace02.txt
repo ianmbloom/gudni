@@ -1,0 +1,419 @@
+[ListStart
+, ThresholdStateHs
+{ thresholds = [ThresholdHs
+{ thrIndex         = 0
+, thrTop           = 0.000000
+, thrBottom        = 0.500000
+, thrLeft          = 0.500000
+, thrRight         = 0.500000
+, thrPositiveSlope = 1
+, thrTopPersist    = 0
+, thrBottomPersist = 0
+, thrShapeIndex    = 0
+}
+
+,ThresholdHs
+{ thrIndex         = 1
+, thrTop           = 0.000000
+, thrBottom        = 0.500000
+, thrLeft          = 1.000000
+, thrRight         = 1.000000
+, thrPositiveSlope = 1
+, thrTopPersist    = 0
+, thrBottomPersist = 0
+, thrShapeIndex    = 1
+}
+
+,ThresholdHs
+{ thrIndex         = 2
+, thrTop           = 0.500000
+, thrBottom        = 0.500000
+, thrLeft          = 0.000000
+, thrRight         = 0.500000
+, thrPositiveSlope = 1
+, thrTopPersist    = 1
+, thrBottomPersist = 0
+, thrShapeIndex    = 0
+}
+
+,ThresholdHs
+{ thrIndex         = 3
+, thrTop           = 1.000000
+, thrBottom        = 1.000000
+, thrLeft          = 0.000000
+, thrRight         = 0.500000
+, thrPositiveSlope = 1
+, thrTopPersist    = 1
+, thrBottomPersist = 0
+, thrShapeIndex    = 2
+}
+
+,ThresholdHs
+{ thrIndex         = 4
+, thrTop           = 1.000000
+, thrBottom        = 1.500000
+, thrLeft          = 0.500000
+, thrRight         = 0.500000
+, thrPositiveSlope = 1
+, thrTopPersist    = 0
+, thrBottomPersist = 0
+, thrShapeIndex    = 2
+}
+
+,ThresholdHs
+{ thrIndex         = 5
+, thrTop           = 1.000000
+, thrBottom        = 1.500000
+, thrLeft          = 1.000000
+, thrRight         = 1.000000
+, thrPositiveSlope = 1
+, thrTopPersist    = 0
+, thrBottomPersist = 0
+, thrShapeIndex    = 3
+}
+
+,ThresholdHs
+{ thrIndex         = 6
+, thrTop           = 1.500000
+, thrBottom        = 1.500000
+, thrLeft          = 0.000000
+, thrRight         = 0.500000
+, thrPositiveSlope = 1
+, thrTopPersist    = 1
+, thrBottomPersist = 0
+, thrShapeIndex    = 2
+}
+
+,ThresholdHs
+{ thrIndex         = 7
+, thrTop           = 2.000000
+, thrBottom        = 2.000000
+, thrLeft          = 0.000000
+, thrRight         = 0.500000
+, thrPositiveSlope = 1
+, thrTopPersist    = 1
+, thrBottomPersist = 0
+, thrShapeIndex    = 4
+}
+
+,ThresholdHs
+{ thrIndex         = 8
+, thrTop           = 2.000000
+, thrBottom        = 2.500000
+, thrLeft          = 0.500000
+, thrRight         = 0.500000
+, thrPositiveSlope = 1
+, thrTopPersist    = 0
+, thrBottomPersist = 0
+, thrShapeIndex    = 4
+}
+
+,ThresholdHs
+{ thrIndex         = 9
+, thrTop           = 2.000000
+, thrBottom        = 2.500000
+, thrLeft          = 1.000000
+, thrRight         = 1.000000
+, thrPositiveSlope = 1
+, thrTopPersist    = 0
+, thrBottomPersist = 0
+, thrShapeIndex    = 5
+}
+
+,ThresholdHs
+{ thrIndex         = 10
+, thrTop           = 2.500000
+, thrBottom        = 2.500000
+, thrLeft          = 0.000000
+, thrRight         = 0.500000
+, thrPositiveSlope = 1
+, thrTopPersist    = 1
+, thrBottomPersist = 0
+, thrShapeIndex    = 4
+}
+
+,ThresholdHs
+{ thrIndex         = 11
+, thrTop           = 3.000000
+, thrBottom        = 3.000000
+, thrLeft          = 0.000000
+, thrRight         = 0.500000
+, thrPositiveSlope = 1
+, thrTopPersist    = 1
+, thrBottomPersist = 0
+, thrShapeIndex    = 6
+}
+
+,ThresholdHs
+{ thrIndex         = 12
+, thrTop           = 3.000000
+, thrBottom        = 3.500000
+, thrLeft          = 0.500000
+, thrRight         = 0.500000
+, thrPositiveSlope = 1
+, thrTopPersist    = 0
+, thrBottomPersist = 0
+, thrShapeIndex    = 6
+}
+
+,ThresholdHs
+{ thrIndex         = 13
+, thrTop           = 3.000000
+, thrBottom        = 3.500000
+, thrLeft          = 1.000000
+, thrRight         = 1.000000
+, thrPositiveSlope = 1
+, thrTopPersist    = 0
+, thrBottomPersist = 0
+, thrShapeIndex    = 7
+}
+
+,ThresholdHs
+{ thrIndex         = 14
+, thrTop           = 3.500000
+, thrBottom        = 3.500000
+, thrLeft          = 0.000000
+, thrRight         = 0.500000
+, thrPositiveSlope = 1
+, thrTopPersist    = 1
+, thrBottomPersist = 0
+, thrShapeIndex    = 6
+}
+
+]
+, thresholdStart = 497
+, numThresholds = 15
+, renderStart = (0.000000, 0.000000)
+, renderEnd = (1.000000, 4.000000)
+, needHorizontalPass = 0
+, inHorizontalPass = 0
+, thresholdWasAdded  = 0
+, slotThresholdCount = 15
+, addThresholdCount  = 2147483647
+}
+
+, ParseStateHs
+{ currentThreshold = 0
+, numActive = 2
+, sectionStart = (0.000000, 0.000000)
+, sectionEnd = (0.500000, 0.500000)
+, pixelY = 1.000000
+, accColorArea = (0.250000,0.250000,0.250000,0.250000,0.250000,0.250000,0.250000,0.250000)
+, sectionCount = 0
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 804
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 1
+, numActive = 2
+, sectionStart = (0.500000, 0.000000)
+, sectionEnd = (0.000000, 0.500000)
+, pixelY = 1.000000
+, accColorArea = (0.124510,0.124510,0.124510,0.000000,0.000000,0.000000,0.000000,0.000000)
+, sectionCount = 1
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 805
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 2
+, numActive = 2
+, sectionStart = (0.000000, 0.000000)
+, sectionEnd = (1.000000, 0.500000)
+, pixelY = 1.000000
+, accColorArea = (0.624510,0.624510,0.624510,0.500000,0.500000,0.500000,0.500000,0.500000)
+, sectionCount = 2
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 806
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 0
+, numActive = 0
+, sectionStart = (0.000000, 0.500000)
+, sectionEnd = (1.000000, 1.000000)
+, pixelY = 1.000000
+, accColorArea = (0.875490,0.875490,0.875490,1.000000,1.000000,1.000000,1.000000,1.000000)
+, sectionCount = 3
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 807
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 0
+, numActive = 2
+, sectionStart = (0.000000, 1.000000)
+, sectionEnd = (0.500000, 1.500000)
+, pixelY = 2.000000
+, accColorArea = (0.250000,0.250000,0.250000,0.250000,0.250000,0.250000,0.250000,0.250000)
+, sectionCount = 4
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 808
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 1
+, numActive = 2
+, sectionStart = (0.500000, 1.000000)
+, sectionEnd = (0.000000, 1.500000)
+, pixelY = 2.000000
+, accColorArea = (0.124510,0.124510,0.124510,0.000000,0.000000,0.000000,0.000000,0.000000)
+, sectionCount = 5
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 809
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 2
+, numActive = 2
+, sectionStart = (0.000000, 1.000000)
+, sectionEnd = (1.000000, 1.500000)
+, pixelY = 2.000000
+, accColorArea = (0.624510,0.624510,0.624510,0.500000,0.500000,0.500000,0.500000,0.500000)
+, sectionCount = 6
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 810
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 0
+, numActive = 0
+, sectionStart = (0.000000, 1.500000)
+, sectionEnd = (1.000000, 2.000000)
+, pixelY = 2.000000
+, accColorArea = (0.875490,0.875490,0.875490,1.000000,1.000000,1.000000,1.000000,1.000000)
+, sectionCount = 7
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 811
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 0
+, numActive = 2
+, sectionStart = (0.000000, 2.000000)
+, sectionEnd = (0.500000, 2.500000)
+, pixelY = 3.000000
+, accColorArea = (0.250000,0.250000,0.250000,0.250000,0.250000,0.250000,0.250000,0.250000)
+, sectionCount = 8
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 812
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 1
+, numActive = 2
+, sectionStart = (0.500000, 2.000000)
+, sectionEnd = (0.000000, 2.500000)
+, pixelY = 3.000000
+, accColorArea = (0.124510,0.124510,0.124510,0.000000,0.000000,0.000000,0.000000,0.000000)
+, sectionCount = 9
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 813
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 2
+, numActive = 2
+, sectionStart = (0.000000, 2.000000)
+, sectionEnd = (1.000000, 2.500000)
+, pixelY = 3.000000
+, accColorArea = (0.624510,0.624510,0.624510,0.500000,0.500000,0.500000,0.500000,0.500000)
+, sectionCount = 10
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 814
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 0
+, numActive = 0
+, sectionStart = (0.000000, 2.500000)
+, sectionEnd = (1.000000, 3.000000)
+, pixelY = 3.000000
+, accColorArea = (0.875490,0.875490,0.875490,1.000000,1.000000,1.000000,1.000000,1.000000)
+, sectionCount = 11
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 815
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 0
+, numActive = 2
+, sectionStart = (0.000000, 3.000000)
+, sectionEnd = (0.500000, 3.500000)
+, pixelY = 4.000000
+, accColorArea = (0.250000,0.250000,0.250000,0.250000,0.250000,0.250000,0.250000,0.250000)
+, sectionCount = 12
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 816
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 1
+, numActive = 2
+, sectionStart = (0.500000, 3.000000)
+, sectionEnd = (0.000000, 3.500000)
+, pixelY = 4.000000
+, accColorArea = (0.124510,0.124510,0.124510,0.000000,0.000000,0.000000,0.000000,0.000000)
+, sectionCount = 13
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 817
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 2
+, numActive = 2
+, sectionStart = (0.000000, 3.000000)
+, sectionEnd = (1.000000, 3.500000)
+, pixelY = 4.000000
+, accColorArea = (0.624510,0.624510,0.624510,0.500000,0.500000,0.500000,0.500000,0.500000)
+, sectionCount = 14
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 818
+, randomField = 141492480
+}
+
+, ParseStateHs
+{ currentThreshold = 0
+, numActive = 0
+, sectionStart = (0.000000, 3.500000)
+, sectionEnd = (1.000000, 4.000000)
+, pixelY = 4.000000
+, accColorArea = (0.875490,0.875490,0.875490,1.000000,1.000000,1.000000,1.000000,1.000000)
+, sectionCount = 15
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 819
+, randomField = 141492480
+}
+
+]

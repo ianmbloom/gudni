@@ -148,6 +148,14 @@ instance Boxable [BoundingBox] where
       then emptyBox
       else foldr1 unionBox list
 
+instance Boxable (VS.Vector BoundingBox) where
+  getBoundingBox vs =
+      let left   = VS.minimum (VS.map (view leftSide  ) vs)
+          top    = VS.minimum (VS.map (view topSide   ) vs)
+          right  = VS.maximum (VS.map (view rightSide ) vs)
+          bottom = VS.maximum (VS.map (view bottomSide) vs)
+      in makeBox left top right bottom
+
 instance Boxable (VS.Vector (Point2 SubSpace)) where
   getBoundingBox vs =
       let left   = VS.minimum (VS.map (view pX) vs)

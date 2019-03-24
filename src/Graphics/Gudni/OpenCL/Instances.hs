@@ -35,11 +35,11 @@ import Graphics.GL.Core31
 import Control.Monad (void)
 
 -- | Convert a pile to an OpenCL memory buffer.
-pileToBuffer :: forall t . (Storable t) => CLContext -> Pile t -> IO CLMem
+pileToBuffer :: forall t . (Storable t) => CLContext -> Pile t -> IO (CLBuffer t)
 pileToBuffer context (Pile cursor _ startPtr) =
     let vecSize = cursor * sizeOf (undefined :: t)
         adjustedVecSize = max 1 vecSize -- OpenCL will reject a memory buffer with size 0 so the minimum size is 1.
-    in  clCreateBuffer context [CL_MEM_READ_ONLY, CL_MEM_USE_HOST_PTR] (adjustedVecSize, castPtr startPtr)
+    in  CLBuffer vecSize <$> clCreateBuffer context [CL_MEM_READ_ONLY, CL_MEM_USE_HOST_PTR] (adjustedVecSize, castPtr startPtr)
 
 -- | Make a color into an individual kernel argument.
 instance KernelArgs s g w o r => KernelArgs s g w o (Color -> r) where
@@ -51,7 +51,7 @@ instance {-# OVERLAPPING #-} (KernelArgs s g w o r, Storable t) => KernelArgs s 
         where load cont = cont $ \s sz ->
                             do b <- pileToBuffer (clContext s) v
                                clSetKernelArgSto k arg b
-                               return (Just . FreeInput $ void (clReleaseMemObject b), sz)
+                               return (Just . FreeInput $ void (clReleaseMemObject $ bufferObject b), sz)
 
 
 -- | Allow an output that copies directly to an area of

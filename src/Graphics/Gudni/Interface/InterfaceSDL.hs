@@ -12,7 +12,6 @@
 --
 -- Functions for interfacing between the rasterizer and SDL2 interface library.
 
-
 module Graphics.Gudni.Interface.InterfaceSDL
   ( InterfaceState (..)
   , interfaceWindow
@@ -65,11 +64,11 @@ data InterfaceState = InterfaceState
   }
 makeLenses ''InterfaceState
 
--- | Convert an SDL point to a Gudni PixelSpace point.
+-- | Convert to an SDL point from a Gudni PixelSpace point.
 makeV2 :: Point2 PixelSpace -> V2 CInt
 makeV2 p = V2 (fromIntegral . view pX $ p) (fromIntegral . view pY $ p)
 
--- | Opwn a window
+-- | Open a window
 startInterface :: ScreenMode -> IO InterfaceState
 startInterface screenMode =
   do  SDL.initializeAll

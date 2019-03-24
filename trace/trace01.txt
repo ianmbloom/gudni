@@ -1,0 +1,114 @@
+[ListStart
+, ParseStateHs
+{ currentThreshold = 0
+, numActive = 2
+, sectionStart = (0.000000, 0.000000)
+, sectionEnd = (0.500000, 0.500000)
+, pixelY = 1.000000
+, accColorArea = (0.258993,0.258993,0.258993,0.258993,0.258993,0.258993,0.258993,0.258993)
+, sectionCount = 0
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 3645
+, randomField = 0
+}
+
+, ParseStateHs
+{ currentThreshold = 1
+, numActive = 2
+, sectionStart = (0.500000, 0.000000)
+, sectionEnd = (0.000000, 0.500000)
+, pixelY = 1.000000
+, accColorArea = (0.100263,0.100263,0.100263,-0.057226,-0.057226,-0.057226,-0.057226,-0.057226)
+, sectionCount = 1
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 3646
+, randomField = 0
+}
+
+, ParseStateHs
+{ currentThreshold = 2
+, numActive = 2
+, sectionStart = (0.000000, 0.000000)
+, sectionEnd = (1.000000, 0.500000)
+, pixelY = 1.000000
+, accColorArea = (0.620529,0.620529,0.620529,0.463040,0.463040,0.463040,0.463040,0.463040)
+, sectionCount = 2
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 3647
+, randomField = 0
+}
+
+, ParseStateHs
+{ currentThreshold = 0
+, numActive = 0
+, sectionStart = (0.000000, 0.500000)
+, sectionEnd = (1.000000, 1.000000)
+, pixelY = 1.000000
+, accColorArea = (0.921946,0.921946,0.921946,1.063519,1.063519,1.063519,1.063519,1.063519)
+, sectionCount = 3
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 3648
+, randomField = 0
+}
+
+, ParseStateHs
+{ currentThreshold = 0
+, numActive = 2
+, sectionStart = (0.000000, 1.000000)
+, sectionEnd = (0.500000, 1.500000)
+, pixelY = 2.000000
+, accColorArea = (0.274854,0.274854,0.274854,0.274854,0.274854,0.274854,0.274854,0.274854)
+, sectionCount = 4
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 3649
+, randomField = 0
+}
+
+, ParseStateHs
+{ currentThreshold = 1
+, numActive = 2
+, sectionStart = (0.500000, 1.000000)
+, sectionEnd = (0.000000, 1.500000)
+, pixelY = 2.000000
+, accColorArea = (0.140952,0.140952,0.140952,0.008096,0.008096,0.008096,0.008096,0.008096)
+, sectionCount = 5
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 3650
+, randomField = 0
+}
+
+, ParseStateHs
+{ currentThreshold = 2
+, numActive = 2
+, sectionStart = (0.000000, 1.000000)
+, sectionEnd = (1.000000, 1.500000)
+, pixelY = 2.000000
+, accColorArea = (0.764846,0.764846,0.764846,0.631990,0.631990,0.631990,0.631990,0.631990)
+, sectionCount = 6
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 3651
+, randomField = 0
+}
+
+, ParseStateHs
+{ currentThreshold = 0
+, numActive = 0
+, sectionStart = (0.000000, 1.500000)
+, sectionEnd = (1.000000, 2.000000)
+, pixelY = 2.000000
+, accColorArea = (1.022390,1.022390,1.022390,1.145064,1.145064,1.145064,1.145064,1.145064)
+, sectionCount = 7
+, frameNumber = 0
+, buildCount = 1
+, randomFieldCursor = 3652
+, randomField = 0
+}
+
+]
