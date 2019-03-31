@@ -8,7 +8,11 @@
 module Graphics.Gudni.Util.Scaffolding
   ( Alignment (..)
   , Align(..)
-  , alignBoxes
+  , align
+  , MyTree(..)
+  , myLeft
+  , myRight
+  , myLeaf
   )
 where
 
@@ -18,6 +22,8 @@ import Graphics.Gudni.Figure.Box
 import Linear
 import Data.List
 
+import Control.Lens
+
 data Alignment = AlignOver | AlignMin | AlignMax | AlignNext deriving (Show)
 
 data Align = Align
@@ -25,20 +31,20 @@ data Align = Align
   , alignVertical   :: Alignment
   }
 
-alignBoxes :: Align -> BoundingBox -> BoundingBox -> (Point2 SubSpace, Point2 SubSpace)
-alignBoxes (Align aH aV) boxOver boxUnder =
+align :: (Num (SpaceOf a), Ord (SpaceOf a), HasWidth a, HasHeight a) => Align -> a -> a -> (Point2 (SpaceOf a), Point2 (SpaceOf a))
+align (Align aH aV) over under =
         let (h0, h1) = case aH of
                   AlignOver -> (0,0)
-                  AlignMax  -> let maxWidth = max (widthBox boxOver) (widthBox boxUnder)
-                               in (maxWidth - widthBox boxOver, maxWidth - widthBox boxUnder)
+                  AlignMax  -> let maxWidth = max (widthOf over) (widthOf under)
+                               in (maxWidth - widthOf over, maxWidth - widthOf under)
                   AlignMin  -> (0,0)
-                  AlignNext -> (0, widthBox boxOver)
+                  AlignNext -> (0, widthOf over)
             (v0, v1) = case aV of
-                  AlignOver -> (0, 0)
-                  AlignMax  -> let maxHeight = max (heightBox boxOver) (heightBox boxUnder)
-                               in (maxHeight - heightBox boxOver, maxHeight - heightBox boxUnder)
+                  AlignOver -> (0,0)
+                  AlignMax  -> let maxHeight = max (heightOf over) (heightOf under)
+                               in (maxHeight - heightOf over, maxHeight - heightOf under)
                   AlignMin  -> (0,0)
-                  AlignNext -> (0, heightBox boxOver)
+                  AlignNext -> (0, heightOf over)
             trans0 = makePoint h0 v0
             trans1 = makePoint h1 v1
         in  (trans0, trans1)
@@ -113,34 +119,38 @@ newtype Scaffold a = Scaffold {unScaffold :: a}
 class Scaffoldable2 a where
   makeScaffold :: a -> Scaffold a
 
-class HasHeight a where
-  heightOf :: a -> SubSpace
-
-class HasWidth a where
-  widthOf :: a -> SubSpace
-
 class HasPort a where
   numPorts :: a -> Int
   getPort  :: a -> Point2 SubSpace
 
-data MyTree = Branch MyTree MyTree | Leaf Int
+data MyTree
+  = Branch
+  { _myLeft  :: MyTree
+  , _myRight :: MyTree
+  }
+  | Leaf
+  { _myLeaf :: Int
+  } deriving (Show)
+makeLenses ''MyTree
 
-instance HasHeight (Scaffold MyTree) where
-  heightOf (Scaffold myTree) = undefined
 
-instance HasWidth (Scaffold MyTree) where
-  widthOf (Scaffold myTree) = undefined
+
+--instance HasHeight (Scaffold MyTree) where
+--  heightOf (Scaffold myTree) = undefined
+--
+--instance HasWidth (Scaffold MyTree) where
+--  widthOf (Scaffold myTree) = undefined
 
 --stack :: HasHeight a => [a] -> ShapeTree
 
---class HasEnvelope a where
---  envelope :: a -> Point2 SubSpace -> V2 SubSpace -> SubSpace
+--class HasSpace a => HasEnvelope a where
+--  envelope :: a -> Point2 (SpaceOf a) -> V2 (SpaceOf a) -> SpaceOf a
 --
---class HasMaxTrace a where
---  maxTrace :: a -> Point2 SubSpace -> V2 SubSpace -> Maybe SubSpace
+--class HasSpace a => HasMaxTrace a where
+--  maxTrace :: a -> Point2 (SpaceOf a) -> V2 (SpaceOf a) -> Maybe (SpaceOf a)
 --
---class HasMinTrace a where
---  minTrace :: a -> Point2 SubSpace -> V2 SubSpace -> Maybe SubSpace
+--class HasSpace a => HasMinTrace a where
+--  minTrace :: a -> Point2 (SpaceOf a) -> V2 (SpaceOf a) -> Maybe (SpaceOf a)
 
 --stack :: HasHeight a => [a] -> a
 --stack xs = undefined

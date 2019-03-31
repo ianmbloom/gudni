@@ -68,6 +68,8 @@ newtype Box s = Bx {unBx :: V2 (Point2 s)} deriving (Eq)
 -- | Pattern for taking apart boxes
 pattern Box topLeft bottomRight = Bx (V2 topLeft bottomRight)
 
+instance HasSpace (Box s) where
+  type SpaceOf (Box s) = s
 -- | Type synonym for bounding boxes
 type BoundingBox = Box SubSpace
 

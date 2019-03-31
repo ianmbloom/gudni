@@ -20,7 +20,10 @@
 -- Wrappers for putting values into particular coordinate space.
 
 module Graphics.Gudni.Figure.Space
-  ( Ortho (..)
+  ( HasSpace (..)
+  , HasWidth (..)
+  , HasHeight(..)
+  , Ortho (..)
   , XDimension
   , YDimension
   , toXOrtho
@@ -67,6 +70,15 @@ newtype SubSpace = SubSpace {unSubSpace :: SubSpace_} deriving (Enum, RealFrac, 
 type PixelSpace_ = Int32
 -- | Pixel space is pixel boundary space. An integer value where one square unit refers to one pixel.
 newtype PixelSpace     = ISpace {unISpace :: PixelSpace_ } deriving (Integral, Enum, Ix, Real, Num, Ord, Eq)
+
+class HasSpace a where
+  type SpaceOf a
+
+class HasSpace a => HasWidth a where
+  widthOf :: a -> Ortho XDimension (SpaceOf a)
+
+class HasSpace a => HasHeight a where
+  heightOf :: a -> Ortho YDimension (SpaceOf a)
 
 -- ---- Iota -----------------
 -- Iota is an extremely small value used for "close enough" comparison.
