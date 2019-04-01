@@ -21,7 +21,6 @@
 
 module Graphics.Gudni.OpenCL.CallKernels
   ( raster
-  , OpenCLKernelLibrary(..)
   , RasterParams(..)
   , queueRasterJobs
   , buildRasterJobs
@@ -77,7 +76,7 @@ import Control.Monad.Morph
 import Data.Word
 
 data RasterParams token = RasterParams
-  { _rpLibrary         :: OpenCLKernelLibrary
+  { _rpDevice          :: RasterDevice
   , _rpPictData        :: VS.Vector Word8
   , _rpTarget          :: DrawTarget
   , _rpGeometryState   :: GeometryState
@@ -109,12 +108,12 @@ generateCall  :: (KernelArgs
 generateCall params bic job bitmapSize frame jobIndex target =
   do  let numTiles     = job ^. rJTilePile . pileSize
           -- ideal number of threads per tile
-          computeSize  = fromIntegral . clMaxGroupSize $ params ^. rpLibrary
+          threadsPerTile = fromIntegral $ params ^. rpDevice . clSpec . specThreadsPerTile
           -- adjusted log2 of the number of threads
-          computeDepth = adjustedLog computeSize :: CInt
+          computeDepth = adjustedLog threadsPerTile :: CInt
       --liftIO $ outputGeometryState (params ^. rpGeometryState)
       --liftIO $ outputSubstanceState(params ^. rpSubstanceState)
-      runKernel (multiTileRasterCL (params ^. rpLibrary))
+      runKernel (params ^. rpDevice . multiTileRasterCL)
                 (bicGeoBuffer  bic) -- (params ^. rpGeometryState  . geoGeometryPile)
                 (bicSubBuffer  bic) -- (params ^. rpSubstanceState . suSubstancePile)
                 (bicPictBuffer bic) -- (params ^. rpPictData)
@@ -128,8 +127,8 @@ generateCall params bic job bitmapSize frame jobIndex target =
                 frame
                 jobIndex
                 target
-                (Work2D numTiles (fromIntegral computeSize))
-                (WorkGroup [1, fromIntegral computeSize])
+                (Work2D numTiles (fromIntegral threadsPerTile))
+                (WorkGroup [1, fromIntegral threadsPerTile])
 
 -- | Rasterize a rasterJob inside the CLMonad
 raster :: Show token
@@ -175,7 +174,7 @@ queueRasterJobs :: (MonadIO m, Show token)
                 -> GeometryMonad m ()
 queueRasterJobs frame params jobs =
     liftIO $ do let -- Get the OpenCL state from the Library structure.
-                    state = clState (params ^. rpLibrary)
+                    state = params ^. rpDevice . clState
                     context = clContext state
                 geoBuffer  <- pileToBuffer context (params ^. rpGeometryState  . geoGeometryPile)
                 subBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suSubstancePile)
@@ -193,7 +192,7 @@ buildRasterJobs params =
   do  -- Get the tile tree from the geometryState
       tileTree <- use geoTileTree
       -- Determine the maximum number of tiles per RasterJob
-      let tilesPerCall = fromIntegral . clMaxGroupSize $ params ^. rpLibrary
+      let tilesPerCall = fromIntegral $ params ^. rpDevice . clSpec . specMaxTilesPerCall
       -- Build all of the RasterJobs by traversing the TileTree.
       jobs <- execBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall) tileTree)
       return $ trWith (show . length) "num jobs" $ jobs

@@ -91,7 +91,7 @@ data ApplicationState s = AppState
       -- | The start time of the application.
     , _appStartTime     :: TimeSpec
       -- | Constructor used to store the OpenCL state, compiled kernels and device metadata.
-    , _appOpenCLLibrary :: OpenCLKernelLibrary
+    , _appRasterDevice :: RasterDevice
       -- | A string representing information about the app. Usually timing data and other stuff for display.
     , _appStatus        :: String
      -- | The number of event loop cycles that have commenced from starting.
@@ -111,7 +111,7 @@ runApplicationMonad = flip evalStateT
 setupApplication :: Model s => s -> IO (ApplicationState s)
 setupApplication state  =
   do  -- Setup OpenCL state and kernels.
-      openCLLibrary <- setupOpenCL False False openCLSourceWithDefines
+      openCLLibrary <- setupOpenCL False False embeddedOpenCLSource
       -- Initialize the backend state.
       backendState <- startInterface (screenSize state)
       -- Start the timeKeeper
@@ -198,13 +198,14 @@ processState elapsedTime inputs =
 drawFrame :: (Model s) => CInt -> Scene Int -> ApplicationMonad s DrawTarget
 drawFrame frame scene =
     do  --appMessage "ResetJob"
-        library <- use appOpenCLLibrary
-        target <- withIO appBackend (prepareTarget (clUseGLInterop library))
+        library <- use appRasterDevice
+        target <- withIO appBackend (prepareTarget (library ^. clUseGLInterop))
         appS <- use appState
         (pictData, pictureMemoryReferences) <- liftIO $ providePictureData appS
         let canvasSize = P (targetArea target)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
-        lift (geoTileTree .= buildTileTree (fromIntegral <$> canvasSize))
+        let maxTileSize = library ^. clSpec . specMaxTileSize
+        lift (geoTileTree .= buildTileTree maxTileSize (fromIntegral <$> canvasSize))
         markAppTime "Build TileTree"
         substanceState <- lift ( execSubstanceMonad pictureMemoryReferences $
                                  buildOverScene scene)

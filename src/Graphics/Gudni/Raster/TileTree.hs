@@ -78,12 +78,8 @@ adjustedLog x = if x < 1 then 0 else ceiling . logBase 2 . fromIntegral $ x
 emptyTile :: Int -> Int -> Box PixelSpace -> Tile TileEntry
 emptyTile hDepth vDepth box = Tile box hDepth vDepth (TileEntry [] 0 0)
 
--- | Build an empty TileTree based on the canvas size
-buildTileTree :: Point2 PixelSpace -> TileTree
-buildTileTree = buildTileTree' (fromIntegral $ mAXtILEsIZE ^. pX)
-
-buildTileTree' :: PixelSpace -> Point2 PixelSpace -> TileTree
-buildTileTree' tileSize canvasSize = goV canvasDepth box
+buildTileTree :: PixelSpace -> Point2 PixelSpace -> TileTree
+buildTileTree tileSize canvasSize = goV canvasDepth box
     where
     -- Choose the largest dimension of the canvas as the square side dimension of the area covered by the tileTree.
     maxCanvasDimension = max (unOrtho $ canvasSize ^. pX) (unOrtho $ canvasSize ^. pY)

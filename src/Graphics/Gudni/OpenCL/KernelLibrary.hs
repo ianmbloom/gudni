@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Gudni.OpenCL.Instances
@@ -10,26 +11,47 @@
 --
 -- A constructor for storing an OpenCL state, compiled kernels (just one right now) and other metadata.
 
-module Graphics.Gudni.OpenCL.KernelLibrary where
+module Graphics.Gudni.OpenCL.KernelLibrary
+  ( RasterSpec(..)
+  , specMaxTileSize
+  , specThreadsPerTile
+  , specMaxTilesPerCall
+  , specMaxThresholds
+  , specMaxShapes
+  , RasterDevice(..)
+  , clState
+  , multiTileRasterCL
+  , clUseGLInterop
+  , clSpec
+  )
+where
 
+import Graphics.Gudni.Figure
 import Foreign.C.Types(CUInt, CSize)
 import CLUtil
+import Control.Lens
 
-data OpenCLKernelLibrary = CLLibrary
+data RasterSpec = RasterSpec
+    { -- | Determined proper square tile size for this device. Should be a power of two.
+      _specMaxTileSize  :: PixelSpace
+      -- | The number of threads to execute per tile. This must be >= specMaxTileSize and a power of two.
+    , _specThreadsPerTile :: Int
+      -- | Determined best number of tiles per kernel call for this device.
+    , _specMaxTilesPerCall :: Int
+      -- | Determined best maximum number of thresholds per thread for this device.
+    , _specMaxThresholds :: Int
+      -- | Determined best maximum number of shapes per thread for this device∘
+    , _specMaxShapes :: Int
+    }
+makeLenses ''RasterSpec
+
+data RasterDevice = RasterDevice
   { -- | The OpenCL state
-    clState :: OpenCLState
+    _clState :: OpenCLState
     -- | The main rasterizer kernel.
-  , multiTileRasterCL :: CLKernel
-    -- | Number of actual SIMD processors on the chip.
-  , clComputeUnits  :: CUInt
-    -- | Largest compute size for each dimension of a kernel.
-  , clMaxGroupSize  :: CSize
-    -- | Size of the local memory buffer.
-  , clLocalMemSize  :: CLulong
-    -- | Largest constant buffer size
-  , clMaxConstantBufferSize :: CLulong
+  , _multiTileRasterCL :: CLKernel
     -- | Flag for if OpenCL-OpenGL interop should be used to render the drawing target.
-  , clUseGLInterop :: Bool
-    -- | Largest global memory buffer size.
-  , clGlobalMemSize :: CLulong
+  , _clUseGLInterop :: Bool
+  , _clSpec :: RasterSpec
   }
+makeLenses ''RasterDevice
