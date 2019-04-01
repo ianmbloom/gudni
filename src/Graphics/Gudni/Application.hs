@@ -42,7 +42,7 @@ import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Interface.ScreenMode
 
 import Graphics.Gudni.OpenCL.Setup
-import Graphics.Gudni.OpenCL.KernelLibrary
+import Graphics.Gudni.OpenCL.Rasterizer
 import Graphics.Gudni.OpenCL.CallKernels
 
 import Graphics.Gudni.Raster.Types
@@ -186,11 +186,7 @@ processState elapsedTime inputs =
         if null inputs
         then appMessage $ show state
         else appMessage $ show state ++ show inputs
-
-        --shapeTree <- lift . evalRandIO $ fuzz 5000
         shapeTree <- lift . lift $ constructScene state status
-        --appMessage $ "ShapeTree " ++ show shapeTree
-        --lift . putStrLn $ textForm
         markAppTime "Build State"
         return shapeTree
 

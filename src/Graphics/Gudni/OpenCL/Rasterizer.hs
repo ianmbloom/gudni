@@ -11,7 +11,7 @@
 --
 -- A constructor for storing an OpenCL state, compiled kernels (just one right now) and other metadata.
 
-module Graphics.Gudni.OpenCL.KernelLibrary
+module Graphics.Gudni.OpenCL.Rasterizer
   ( RasterSpec(..)
   , specMaxTileSize
   , specThreadsPerTile

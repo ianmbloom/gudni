@@ -46,7 +46,7 @@ import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.RandomField
 
-import Graphics.Gudni.OpenCL.KernelLibrary
+import Graphics.Gudni.OpenCL.Rasterizer
 import Graphics.Gudni.OpenCL.DeviceQuery
 import Graphics.Gudni.OpenCL.Instances
 import Graphics.Gudni.Interface.GLInterop

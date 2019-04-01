@@ -91,7 +91,7 @@ library
                      , Graphics.Gudni.OpenCL.CallKernels
                      , Graphics.Gudni.OpenCL.CppDefines
                      , Graphics.Gudni.OpenCL.Instances
-                     , Graphics.Gudni.OpenCL.KernelLibrary
+                     , Graphics.Gudni.OpenCL.Rasterizer
                      , Graphics.Gudni.Raster.ShapeInfo
                      , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.Job

@@ -15,7 +15,7 @@ module Graphics.Gudni.OpenCL.Setup
   )
 where
 
-import Graphics.Gudni.OpenCL.KernelLibrary
+import Graphics.Gudni.OpenCL.Rasterizer
 import Graphics.Gudni.OpenCL.DeviceQuery
 import Graphics.Gudni.Interface.GLInterop
 import Graphics.Gudni.OpenCL.CppDefines
