@@ -91,7 +91,7 @@ data ApplicationState s = AppState
       -- | The start time of the application.
     , _appStartTime     :: TimeSpec
       -- | Constructor used to store the OpenCL state, compiled kernels and device metadata.
-    , _appRasterDevice :: RasterDevice
+    , _appRasterizer :: Rasterizer
       -- | A string representing information about the app. Usually timing data and other stuff for display.
     , _appStatus        :: String
      -- | The number of event loop cycles that have commenced from starting.
@@ -198,13 +198,13 @@ processState elapsedTime inputs =
 drawFrame :: (Model s) => CInt -> Scene Int -> ApplicationMonad s DrawTarget
 drawFrame frame scene =
     do  --appMessage "ResetJob"
-        library <- use appRasterDevice
-        target <- withIO appBackend (prepareTarget (library ^. clUseGLInterop))
+        rasterizer <- use appRasterizer
+        target <- withIO appBackend (prepareTarget (rasterizer ^. rasterUseGLInterop))
         appS <- use appState
         (pictData, pictureMemoryReferences) <- liftIO $ providePictureData appS
         let canvasSize = P (targetArea target)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
-        let maxTileSize = library ^. clSpec . specMaxTileSize
+        let maxTileSize = rasterizer ^. rasterSpec . specMaxTileSize
         lift (geoTileTree .= buildTileTree maxTileSize (fromIntegral <$> canvasSize))
         markAppTime "Build TileTree"
         substanceState <- lift ( execSubstanceMonad pictureMemoryReferences $
@@ -213,7 +213,7 @@ drawFrame frame scene =
         markAppTime "Traverse ShapeTree"
         geometryState <- lift $ get
         --liftIO $ putStrLn $ "TileTree " ++ show (geometryState ^. geoTileTree)
-        let rasterParams = RasterParams library
+        let rasterParams = RasterParams rasterizer
                                         pictData
                                         target
                                         geometryState

@@ -76,7 +76,7 @@ import Control.Monad.Morph
 import Data.Word
 
 data RasterParams token = RasterParams
-  { _rpDevice          :: RasterDevice
+  { _rpDevice          :: Rasterizer
   , _rpPictData        :: VS.Vector Word8
   , _rpTarget          :: DrawTarget
   , _rpGeometryState   :: GeometryState
@@ -108,12 +108,12 @@ generateCall  :: (KernelArgs
 generateCall params bic job bitmapSize frame jobIndex target =
   do  let numTiles     = job ^. rJTilePile . pileSize
           -- ideal number of threads per tile
-          threadsPerTile = fromIntegral $ params ^. rpDevice . clSpec . specThreadsPerTile
+          threadsPerTile = fromIntegral $ params ^. rpDevice . rasterSpec . specThreadsPerTile
           -- adjusted log2 of the number of threads
           computeDepth = adjustedLog threadsPerTile :: CInt
       --liftIO $ outputGeometryState (params ^. rpGeometryState)
       --liftIO $ outputSubstanceState(params ^. rpSubstanceState)
-      runKernel (params ^. rpDevice . multiTileRasterCL)
+      runKernel (params ^. rpDevice . rasterClKernel)
                 (bicGeoBuffer  bic) -- (params ^. rpGeometryState  . geoGeometryPile)
                 (bicSubBuffer  bic) -- (params ^. rpSubstanceState . suSubstancePile)
                 (bicPictBuffer bic) -- (params ^. rpPictData)
@@ -174,7 +174,7 @@ queueRasterJobs :: (MonadIO m, Show token)
                 -> GeometryMonad m ()
 queueRasterJobs frame params jobs =
     liftIO $ do let -- Get the OpenCL state from the Library structure.
-                    state = params ^. rpDevice . clState
+                    state = params ^. rpDevice . rasterClState
                     context = clContext state
                 geoBuffer  <- pileToBuffer context (params ^. rpGeometryState  . geoGeometryPile)
                 subBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suSubstancePile)
@@ -192,7 +192,7 @@ buildRasterJobs params =
   do  -- Get the tile tree from the geometryState
       tileTree <- use geoTileTree
       -- Determine the maximum number of tiles per RasterJob
-      let tilesPerCall = fromIntegral $ params ^. rpDevice . clSpec . specMaxTilesPerCall
+      let tilesPerCall = fromIntegral $ params ^. rpDevice . rasterSpec . specMaxTilesPerCall
       -- Build all of the RasterJobs by traversing the TileTree.
       jobs <- execBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall) tileTree)
       return $ trWith (show . length) "num jobs" $ jobs

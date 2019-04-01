@@ -74,7 +74,7 @@ determineRasterSpec device =
                         , _specMaxShapes       = mAXsHAPE
                         }
 
-setupOpenCL :: Bool -> Bool -> BS.ByteString -> IO RasterDevice
+setupOpenCL :: Bool -> Bool -> BS.ByteString -> IO Rasterizer
 setupOpenCL enableProfiling useCLGLInterop src =
   do
       -- List all platforms and all devices.
@@ -109,8 +109,8 @@ setupOpenCL enableProfiling useCLGLInterop src =
              rasterKernel <- program "multiTileRaster"
 
              -- Return a Library constructor with relevant information about the device for the rasterizer.
-             return RasterDevice { _clState = state
-                                 , _multiTileRasterCL = rasterKernel
-                                 , _clUseGLInterop = useCLGLInterop
-                                 , _clSpec = rasterSpec
-                                 }
+             return Rasterizer { _rasterClState  = state
+                               , _rasterClKernel = rasterKernel
+                               , _rasterUseGLInterop = useCLGLInterop
+                               , _rasterSpec = rasterSpec
+                               }

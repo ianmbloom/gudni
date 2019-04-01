@@ -18,11 +18,11 @@ module Graphics.Gudni.OpenCL.KernelLibrary
   , specMaxTilesPerCall
   , specMaxThresholds
   , specMaxShapes
-  , RasterDevice(..)
-  , clState
-  , multiTileRasterCL
-  , clUseGLInterop
-  , clSpec
+  , Rasterizer(..)
+  , rasterClState
+  , rasterClKernel
+  , rasterUseGLInterop
+  , rasterSpec
   )
 where
 
@@ -45,13 +45,13 @@ data RasterSpec = RasterSpec
     }
 makeLenses ''RasterSpec
 
-data RasterDevice = RasterDevice
+data Rasterizer = Rasterizer
   { -- | The OpenCL state
-    _clState :: OpenCLState
+    _rasterClState :: OpenCLState
     -- | The main rasterizer kernel.
-  , _multiTileRasterCL :: CLKernel
+  , _rasterClKernel :: CLKernel
     -- | Flag for if OpenCL-OpenGL interop should be used to render the drawing target.
-  , _clUseGLInterop :: Bool
-  , _clSpec :: RasterSpec
+  , _rasterUseGLInterop :: Bool
+  , _rasterSpec :: RasterSpec
   }
-makeLenses ''RasterDevice
+makeLenses ''Rasterizer
