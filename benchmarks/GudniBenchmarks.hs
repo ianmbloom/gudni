@@ -78,13 +78,13 @@ statusDisplay state testName status =
 
 transformFromState :: ShapeTree Int -> BenchmarkState -> ShapeTree Int
 transformFromState constructed state =
-  let sc    = view stateScale state
-      delta = view stateDelta state
-      angle = view stateAngle state
-  in  sTranslate delta .
-      sRotate angle .
-      sScale sc $
-      constructed
+    let sc    = view stateScale state
+        delta = view stateDelta state
+        angle = view stateAngle state
+    in  sTranslate delta .
+        sRotate angle .
+        sScale sc $
+        constructed
 
 processInput :: Monad m => Input (Point2 PixelSpace) -> StateT BenchmarkState m ()
 processInput input =

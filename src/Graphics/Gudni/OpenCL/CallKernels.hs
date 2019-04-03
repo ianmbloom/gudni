@@ -105,7 +105,7 @@ generateCall  :: (KernelArgs
               -> CInt
               -> a
               -> CL ()
-generateCall params bic job bitmapSize frame jobIndex target =
+generateCall params bic job bitmapSize frameCount jobIndex target =
   do  let numTiles     = job ^. rJTilePile . pileSize
           -- ideal number of threads per tile
           threadsPerTile = fromIntegral $ params ^. rpDevice . rasterSpec . specThreadsPerTile
@@ -124,7 +124,7 @@ generateCall params bic job bitmapSize frame jobIndex target =
                 (params ^. rpSubstanceState . suBackgroundColor)
                 bitmapSize
                 computeDepth
-                frame
+                frameCount
                 jobIndex
                 target
                 (Work2D numTiles (fromIntegral threadsPerTile))
@@ -138,19 +138,19 @@ raster :: Show token
        -> RasterJob
        -> CInt
        -> CL ()
-raster params bic frame job jobIndex =
+raster params bic frameCount job jobIndex =
     do  let -- width and height of the output buffer.
             bitmapSize   = P $ targetArea (params ^. rpTarget)
             -- total number of 32 bit words in the output buffer.
             outputSize   = fromIntegral $ pointArea bitmapSize
             -- get the actual target buffer we are writing to.
             buffer = targetBuffer (params ^. rpTarget)
-        liftIO $ putStrLn $ ">>> rasterCall jobIndex: "++ show jobIndex ++ " frame: " ++ show frame
+        liftIO $ putStrLn $ ">>> rasterCall jobIndex: "++ show jobIndex ++ " frameCount: " ++ show frameCount
         -- generate a kernel call for that buffer type.
         case buffer of
             HostBitmapTarget outputPtr ->
                 -- In this case the resulting bitmap will be stored in memory at outputPtr.
-                generateCall params bic job bitmapSize frame jobIndex (OutPtr outputPtr outputSize)
+                generateCall params bic job bitmapSize frameCount jobIndex (OutPtr outputPtr outputSize)
             GLTextureTarget textureName ->
                 -- In this case an identifier for a Texture object that stays on the GPU would be stored∘
                 -- But currently this isn't working, so throw an error.
@@ -172,7 +172,7 @@ queueRasterJobs :: (MonadIO m, Show token)
                 -> RasterParams token
                 -> [RasterJob]
                 -> GeometryMonad m ()
-queueRasterJobs frame params jobs =
+queueRasterJobs frameCount params jobs =
     liftIO $ do let -- Get the OpenCL state from the Library structure.
                     state = params ^. rpDevice . rasterClState
                     context = clContext state
@@ -183,7 +183,7 @@ queueRasterJobs frame params jobs =
                 randoms    <- vectorToBuffer context (params ^. rpGeometryState  . geoRandomField)
                 let bic = BIC geoBuffer subBuffer pictBuffer pictUsage randoms
                 -- Run the rasterizer over each rasterJob inside a CLMonad.
-                runCL state $ zipWithM_ (raster params bic frame) jobs [0..]
+                runCL state $ zipWithM_ (raster params bic frameCount) jobs [0..]
 
 buildRasterJobs :: (MonadIO m, Show token)
                 => RasterParams token

@@ -373,6 +373,7 @@ typedef struct ThresholdState {
                int  thresholdWasAdded;  // used to determine if a shape ever interacted with the column as it's being added.
                int  insertThresholdCount;
                int  addThresholdCount;
+               int  lastShape;
   } ThresholdState;
 
 inline int cycleLocation(int i) {
@@ -1544,6 +1545,7 @@ void buildThresholdArray ( PMEM       TileState *tileS
             }
             shS->shapeBits += 1;
         }
+        tS->lastShape  = n;
     }
 }
 
@@ -1953,6 +1955,155 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
     }
 }
 
+/*
+// the threshold state stores references to the threshold buffers and their size.
+typedef struct ThresholdState {
+    TMEM    HEADER  thresholdHeaders[MAXTHRESHOLDS]; // array of threshold header
+    TMEM THRESHOLD  thresholds[MAXTHRESHOLDS];       // array of threshold geometry
+               int  thresholdStart;                  // the position of the top of the stack.
+               int  numThresholds;                   // number of thresholds in buffers
+               int  thresholdWasAdded;  // used to determine if a shape ever interacted with the column as it's being added.
+               int  insertThresholdCount;
+               int  addThresholdCount;
+               int  lastShape;
+  } ThresholdState;
+
+typedef struct TileState {
+         GEO_ENTRY  tileShapeStart;
+               int  tileNumShapes;
+              int2  tileSize;
+              int2  bitmapSize;
+              int2  threadDelta;
+               int  tileIndex;
+               int  intHeight;
+             float  floatHeight;
+               int  threadUnique;
+               int  column;
+} TileState;
+*/
+/*
+void loadThresholds ( PMEM      TileState *tileS
+                    , PMEM ThresholdState *tS
+                    , GMEM            int *shapeCounts
+                    , GMEM         HEADER *saveThresholdHeaders
+                    , GMEM      THRESHOLD *saveThresholds
+                    , GMEM            int *saveNumThresholds
+                    , GMEM            int *saveShapeCounts
+                    ) {
+    for (int i = 0; i < MAXSHAPE; i++) {
+        int loc = (tileS->tileIndex * tileSize + column) * MAXSHAPE + i;
+        HEADER    header    = i < tS->numThresholds ? saveThresholdHeaders[loc] : 0;
+        THRESHOLD threshold = i < tS->numThresholds ? saveThresholds[loc] : 0;
+        tS->thresholdHeaders[i]  = header;
+        tS->thresholds[i] = threshold;
+    }
+    int loc = tileS->tileIndex * tileSize + column;
+    tS->numThresholds = saveNumThresholds[loc];
+    tS->lastShape = saveLastShape[loc];
+}
+
+void saveThresholds ( PMEM      TileState *tileS
+                    , PMEM ThresholdState *tS
+                    , GMEM            int *shapeCounts
+                    , GMEM         HEADER *saveThresholdHeaders
+                    , GMEM      THRESHOLD *saveThresholds
+                    , GMEM            int *saveLastShape
+                    ) {
+    for (int i = 0; i < MAXSHAPE; i++) {
+        int loc = (tileS->tileIndex * tileSize + column) * MAXSHAPE + i;
+        HEADER    header    = i < tS->numThresholds ? tS->thresholdHeaders[i] : 0;
+        THRESHOLD threshold = i < tS->numThresholds ? tS->thresholds[i] : 0;
+        saveThresholdHeaders[loc] = header;
+        saveThresholds[loc] = threshold;
+    }
+    int loc = tileS->tileIndex * tileSize + column;
+    saveNumThresholds[loc] = tS->numThresholds;
+    saveLastShape[loc] = tS->lastShape;
+}
+
+__kernel void thresholdKernel ( SMEM     float4 *geometryHeap
+                              , SMEM      Shape *shapeHeap
+                              , SMEM   TileInfo *tileHeap
+                              ,            int2  bitmapSize
+                              ,             int  computeDepth
+                              ,             int  frameNumber
+                              ,             int  jobIndex
+                              ) {
+    int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
+    int   column     = COLUMN;
+    TileState tileS;
+    bool threadActive = initTileState ( &tileS
+                                      ,  tileIndex
+                                      ,  tileHeap
+                                      ,  bitmapSize
+                                      ,  column
+                                      ,  jobIndex
+                                      ,  computeDepth
+                                      );
+    if (threadActive) {
+        DEBUG_TRACE_BEGIN
+        ThresholdState tS;
+        initThresholdState(&tS);
+        ShapeState shS;
+        initShapeState(&shS);
+        buildThresholdArray ( &tileS
+                            , &tS
+                            , &shS
+                            ,  geometryHeap
+                            ,  substances
+                            ,  shapeHeap
+                            ,  tileS.tileShapeStart
+                            ,  tileS.tileNumShapes
+                            ,  convert_float2(tileS.threadDelta)
+                            );
+        DEBUG_IF(showShapeStack(shS.shapeStack);)
+        DEBUG_IF(showThresholds(tS);)
+        DEBUG_TRACE_ITEM(thresholdStateHs(tS);)
+    }
+}
+
+__kernel void renderKernel ( SMEM     float4 *geometryHeap
+                           , SMEM  Substance *substances
+                           , GMEM      uchar *pictureData
+                           , CMEM PictureUse *pictureRefs
+                           , CMEM      float *randomField
+                           , SMEM      Shape *shapeHeap
+                           , SMEM   TileInfo *tileHeap
+                           ,           COLOR  backgroundColor
+                           ,            int2  bitmapSize
+                           ,             int  computeDepth
+                           ,             int  frameNumber
+                           ,             int  jobIndex
+                           , GMEM        uint *out
+                           ) {
+    int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
+    int   column     = COLUMN;
+    TileState tileS;
+    bool threadActive = initTileState ( &tileS
+                                      ,  tileIndex
+                                      ,  tileHeap
+                                      ,  bitmapSize
+                                      ,  column
+                                      ,  jobIndex
+                                      ,  computeDepth
+                                      );
+    if (threadActive) {
+        renderThresholdArray ( &tileS
+                             , &tS
+                             , &shS
+                             ,  geometryHeap
+                             ,  pictureData
+                             ,  pictureRefs
+                             ,  substances
+                             ,  shapeHeap
+                             ,  backgroundColor
+                             ,  frameNumber
+                             ,  out
+                             ,  randomField
+                             );
+    }
+}
+*/
 //////////////////////////////////////////////////////////////////////////////////////////////
 // Functions for Exporting Debugging Information in human readable forms.
 //////////////////////////////////////////////////////////////////////////////////////////////

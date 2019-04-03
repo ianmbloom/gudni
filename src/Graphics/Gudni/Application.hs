@@ -192,12 +192,12 @@ processState elapsedTime inputs =
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
 drawFrame :: (Model s) => CInt -> Scene Int -> ApplicationMonad s DrawTarget
-drawFrame frame scene =
+drawFrame frameCount scene =
     do  --appMessage "ResetJob"
         rasterizer <- use appRasterizer
         target <- withIO appBackend (prepareTarget (rasterizer ^. rasterUseGLInterop))
-        appS <- use appState
-        (pictData, pictureMemoryReferences) <- liftIO $ providePictureData appS
+        state <- use appState
+        (pictData, pictureMemoryReferences) <- liftIO $ providePictureData state
         let canvasSize = P (targetArea target)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
         let maxTileSize = rasterizer ^. rasterSpec . specMaxTileSize
@@ -217,7 +217,7 @@ drawFrame frame scene =
         appMessage "===================== rasterStart ====================="
         jobs <- lift $ buildRasterJobs rasterParams
         markAppTime "Build Raster Jobs"
-        lift $ queueRasterJobs frame rasterParams jobs
+        lift $ queueRasterJobs frameCount rasterParams jobs
         appMessage "===================== rasterDone ====================="
         markAppTime "Rasterize Threads"
         lift resetGeometryMonad
@@ -234,7 +234,7 @@ endCycle elapsedTime =
                    -- ++ show job
                    ++ "------ Cycle: "
                    ++ show cycleCount
-                   ++ "\n ------ Elapsed Time: "
+                   ++ "\n------ Elapsed Time: "
                    ++ showFlFixed' 2 1 elapsedTime ++ "\n"
         appStatus .= status
         when (os == "darwin") $ appMessage status
@@ -264,11 +264,11 @@ loop  =
       unless (any isQuit inputs) $
           do  elapsedTime <- getElapsedTime
               beginCycle
-              scene <- processState elapsedTime inputs
-              frame <- fromIntegral <$> use appCycle
-              target <- drawFrame frame scene
-              state <- use appState
-              state' <- withIO appBackend $ handleOutput state target
+              scene      <- processState elapsedTime inputs
+              frameCount <- fromIntegral <$> use appCycle
+              target     <- drawFrame frameCount scene
+              state      <- use appState
+              state'     <- withIO appBackend $ handleOutput state target
               appState .= state'
               markAppTime "Raster Frame"
               endCycle elapsedTime
