@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleContexts      #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -45,23 +46,23 @@ import Data.Either
 
 import System.Random
 
-class (Num s) => SimpleTransformable t s where
-  tTranslate :: Point2 s -> t s -> t s
-  tScale     :: s -> t s -> t s
+class (HasSpace t) => SimpleTransformable t where
+  tTranslate :: Point2 (SpaceOf t) -> t -> t
+  tScale     :: SpaceOf t -> t -> t
 
-class SimpleTransformable t s => Transformable t s where
-  tRotate    :: Angle s -> t s -> t s
+class SimpleTransformable t => Transformable t where
+  tRotate    :: Angle (SpaceOf t) -> t -> t
 
-tTranslateXY :: SimpleTransformable t s => s -> s -> t s -> t s
+tTranslateXY :: (HasSpace t, SimpleTransformable t) => (SpaceOf t) -> (SpaceOf t) -> t -> t
 tTranslateXY x y = tTranslate $ Point2 x y
 
 identityTransform :: Num s => Transformer s
 identityTransform = Translate (Point2 0 0)
 
-instance Num s => SimpleTransformable Point2 s where
+instance (Space s) => SimpleTransformable (Point2 s) where
     tTranslate = (^+^)
     tScale     = flip (^*)
-instance (Floating s, Num s) => Transformable Point2 s where
+instance (Space s) => Transformable (Point2 s) where
     tRotate    = rotate
 
 instance Num s => HasDefault (Transformer s) where
@@ -74,7 +75,7 @@ data Transformer s where
   CombineTransform :: Transformer s -> Transformer s -> Transformer s
   deriving (Show)
 
-applyTransformer :: Transformable t s => Transformer s -> t s -> t s
+applyTransformer :: Transformable t => Transformer (SpaceOf t) -> t -> t
 applyTransformer (Translate delta) = tTranslate delta
 applyTransformer (Scale scale)     = tScale scale
 applyTransformer (Rotate angle)    = tRotate angle

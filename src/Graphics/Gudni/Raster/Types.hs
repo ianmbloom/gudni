@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE TypeFamilies               #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -64,8 +65,11 @@ newtype Group t = Group
     { unGroup :: [t]
     } deriving (Show)
 
-instance Boxable t => Boxable (Group t) where
-  getBoundingBox (Group ts) = getBoundingBox $ map getBoundingBox ts
+instance HasSpace [t] => HasSpace (Group t) where
+  type SpaceOf (Group t) = SpaceOf t
+
+instance HasBox [t] => HasBox (Group t) where
+  boxOf (Group ts) = boxOf ts
 
 instance Functor Group where
   fmap f (Group vs) = Group (fmap f vs)

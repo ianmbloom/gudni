@@ -14,6 +14,7 @@ import Graphics.Gudni.Application
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Fuzzy
 import Graphics.Gudni.Util.Draw
+import Graphics.Gudni.Util.Scaffolding
 
 import Data.Word
 import Data.List(isInfixOf)
@@ -32,7 +33,7 @@ import System.IO.Silently
 
 import System.Info
 
-getTest :: BenchmarkState -> (String, BenchmarkState -> GlyphMonad IO (ShapeTree Int))
+getTest :: BenchmarkState -> (String, BenchmarkState -> GlyphMonad IO (Glyph (ShapeTree Int SubSpace)))
 getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
@@ -60,30 +61,30 @@ instance Model BenchmarkState where
             let tree = transformFromState testScene state
                 statusTree = statusDisplay state testName statusGlyphs
                 withStatus = if False then overlap [statusTree, tree] else tree
-            return (Scene (light gray) withStatus)
+            return (Scene (light gray) $ view glyphRep withStatus)
     providePictureData state = return $ state ^. statePictures
     handleOutput state target = do  presentTarget target
                                     return state
 
-statusDisplay :: BenchmarkState -> [Glyph SubSpace] -> [[Glyph SubSpace]]  -> ShapeTree Int
+statusDisplay :: BenchmarkState -> [Glyph (CompoundTree SubSpace)] -> [[Glyph (CompoundTree SubSpace)]]  -> Glyph (ShapeTree Int SubSpace)
 statusDisplay state testName status =
-    sTranslateXY 1800 800 . --3200 2100 .
-    sRotate (45 @@ deg) .
-    sTranslate (state ^. stateDelta) .
-    sScale 30 .
+    tTranslateXY 1800 800 . --3200 2100 .
+    mapGlyph (tRotate (45 @@ deg)) .
+    tTranslate (state ^. stateDelta) .
+    tScale 30 .
     solid (dark red) .
     paraGrid 1 $
     testName :
     status
 
-transformFromState :: ShapeTree Int -> BenchmarkState -> ShapeTree Int
+transformFromState :: Glyph (ShapeTree Int SubSpace) -> BenchmarkState -> Glyph (ShapeTree Int SubSpace)
 transformFromState constructed state =
     let sc    = view stateScale state
         delta = view stateDelta state
         angle = view stateAngle state
-    in  sTranslate delta .
-        sRotate angle .
-        sScale sc $
+    in  tTranslate delta .
+        mapGlyph (tRotate angle) .
+        tScale sc $
         constructed
 
 processInput :: Monad m => Input (Point2 PixelSpace) -> StateT BenchmarkState m ()

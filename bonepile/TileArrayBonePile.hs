@@ -206,14 +206,14 @@ freeTileArray tileArray = mapM_ (\ i -> do tile <- readArray (tileArray ^. tArr)
 
 
 {-# INLINE findTile #-}
-findTile :: Ortho XDimension IntSpace -> Ortho YDimension IntSpace -> Ortho XDimension IntSpace -> Int
+findTile :: X IntSpace -> Y IntSpace -> X IntSpace -> Int
 findTile offsetGridX offsetGridY gridSizeX = fromIntegral $ unOrtho offsetGridX + unOrtho offsetGridY * unOrtho gridSizeX
 
 addPrimToTileArray :: MonadIO m
-                   => Ortho XDimension IntSpace
+                   => X IntSpace
                    -> PrimId
-                   -> Ortho YDimension IntSpace
-                   -> Ortho XDimension IntSpace
+                   -> Y IntSpace
+                   -> X IntSpace
                    -> TileArrayMonad m ()
 addPrimToTileArray gridSizeX primId offsetGridY offsetGridX =
   do tileArray <- get

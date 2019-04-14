@@ -1,4 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -144,12 +145,11 @@ onShape :: MonadIO m
         => (Compound -> ShapeEntry -> Shape ShapeEntry)
         -> Compound
         -> Transformer SubSpace
-        -> RawShape
+        -> [Outline SubSpace]
         -> GeometryMonad m ()
-onShape wrapShape combineType transformer rawShape =
-  do let outlines = Group $ rawShapeToOutlines rawShape
-         transformedOutlines = fmap (applyTransformer transformer) outlines
-         boundingBox = getBoundingBox transformedOutlines
+onShape wrapShape combineType transformer outlines =
+  do let transformedOutlines = fmap (applyTransformer transformer) $ Group outlines
+         boundingBox = boxOf transformedOutlines
      canvasSize <- use geoCanvasSize
      if excludeBox canvasSize boundingBox
      then return ()
@@ -208,12 +208,14 @@ execSubstanceMonad pictureMems mf =
      execStateT mf (SubstanceState (SubstanceId 0) M.empty 0 pictUsagePile pictureMems clearBlack substancePile)
 
 -- | For each shape in the shapeTree add the serialize the substance metadata and serialize the compound subtree.
-onSubstance :: (MonadIO m, Ord token)
+onSubstance :: (Num (SpaceOf item),
+                MonadIO m,
+                Ord token)
             => ((Compound -> ShapeEntry -> Shape ShapeEntry)
-            -> Compound -> Transformer SubSpace -> item -> GeometryMonad m ())
+            -> Compound -> Transformer (SpaceOf item) -> item -> GeometryMonad m ())
             -> ()
-            -> Transformer SubSpace
-            -> SRep token (PictureUsage PictId) (STree Compound (Transformer SubSpace) item)
+            -> Transformer (SpaceOf item)
+            -> SRep token (PictureUsage PictId) (STree Compound item)
             -> SubstanceMonad token (GeometryMonad m) ()
 onSubstance onShape () transformer (SRep token substance subTree) =
     do  -- Get the current substanceId
@@ -251,14 +253,13 @@ onSubstance onShape () transformer (SRep token substance subTree) =
         lift $ traverseCompoundTree defaultValue transformer (onShape wrapShape) subTree
 
 buildOverScene :: (MonadIO m, Ord token)
-                   => Scene token
-                   -> SubstanceMonad token (GeometryMonad m) ()
+               => Scene token
+               -> SubstanceMonad token (GeometryMonad m) ()
 buildOverScene scene =
   do  -- Move the backgound color into the serializer state.
       suBackgroundColor .= scene ^. sceneBackgroundColor
       -- Serialize the shape tree.
       traverseShapeTree (onSubstance onShape) $ scene ^. sceneShapeTree
-
 
 outputGeometryState :: GeometryState -> IO ()
 outputGeometryState state =

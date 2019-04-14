@@ -1,5 +1,6 @@
 packages: ../CLUtil
           ../opencl
+          ../FontyFruity
           ./
 package sdl2
   extra-include-dirs: /Library/Frameworks/SDL2.framework/Versions/A/Headers/

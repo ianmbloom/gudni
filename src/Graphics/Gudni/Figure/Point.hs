@@ -58,19 +58,22 @@ import Control.Lens
 type Point2 = Point V2
 pattern Point2 x y = P (V2 x y)
 
+instance (SimpleSpace s) => HasSpace (Point2 s) where
+  type SpaceOf (Point2 s) = s
+
 zeroPoint :: Num s => Point2 s
 zeroPoint = Point2 0 0
 -- | Lens for the x element of a point.
-pX :: Lens' (Point2 s) (Ortho XDimension s)
+pX :: Lens' (Point2 s) (X s)
 pX elt_fn (Point2 x y) = (\x' -> Point2 (unOrtho x') y) <$> (elt_fn . Ortho $ x)
 
 -- | Lens for the y element of a point.
-pY :: Lens' (Point2 s) (Ortho YDimension s)
+pY :: Lens' (Point2 s) (Y s)
 pY elt_fn (Point2 x y) = (\y' -> Point2 x (unOrtho y')) <$> (elt_fn . Ortho $ y)
 
 {-# INLINE makePoint #-}
 -- | Make a point from two orthogonal dimensions.
-makePoint :: Ortho XDimension s -> Ortho YDimension s -> Point2 s
+makePoint :: X s -> Y s -> Point2 s
 makePoint (Ortho x) (Ortho y) = P (V2 x y)
 
 -- | Calculate the area of a box defined by the origin and this point.

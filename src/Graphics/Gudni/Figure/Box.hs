@@ -22,8 +22,10 @@
 
 module Graphics.Gudni.Figure.Box
   ( Box (..)
-  , Boxable(..)
   , BoundingBox(..)
+  , HasBox(..)
+  , widthOf
+  , heightOf
   , pattern Box
   , topRightBox
   , bottomLeftBox
@@ -34,11 +36,10 @@ module Graphics.Gudni.Figure.Box
   , rightSide
   , bottomSide
   , mapBox
-  , heightBox
-  , widthBox
   , sizeBox
   , areaBox
-  , unionBox
+  , minMaxBox
+  , minMaxBoxes
   , pointToBox
   , emptyBox
   , makeBox
@@ -68,10 +69,30 @@ newtype Box s = Bx {unBx :: V2 (Point2 s)} deriving (Eq)
 -- | Pattern for taking apart boxes
 pattern Box topLeft bottomRight = Bx (V2 topLeft bottomRight)
 
-instance HasSpace (Box s) where
+instance (SimpleSpace s) => HasSpace (Box s) where
   type SpaceOf (Box s) = s
+
 -- | Type synonym for bounding boxes
 type BoundingBox = Box SubSpace
+
+class HasSpace a => HasBox a where
+  boxOf :: a -> Box (SpaceOf a)
+
+instance (SimpleSpace s) => HasBox (Box s) where
+  boxOf box = box
+
+instance (SimpleSpace s) => HasBox (Point2 s) where
+  boxOf p = Box p p
+
+instance HasBox a => HasBox [a] where
+  boxOf = minMaxBoxes . map boxOf
+-- | Get the width of a box.
+widthOf :: (HasBox a) => a -> X (SpaceOf a)
+widthOf a = let box = boxOf a in box ^. rightSide - box ^. leftSide
+
+-- | Get the height of a box.
+heightOf :: (Num (SpaceOf a), HasBox a) => a -> Y (SpaceOf a)
+heightOf a = let box = boxOf a in box ^. bottomSide - box ^. topSide
 
 -----------------------------------------------------------------------------
 -- Box optics.
@@ -91,23 +112,23 @@ bottomLeftBox :: Lens' (Box s) (Point2 s)
 bottomLeftBox elt_fn (Box (Point2 left top) (Point2 right bottom)) =
   (\(Point2 left' bottom') -> Box (Point2 left' top) (Point2 right bottom')) <$> elt_fn (Point2 left bottom)
 -- | 'Lens' for the left side of a box.
-leftSide       :: Lens' (Box s) (Ortho XDimension s)
+leftSide       :: Lens' (Box s) (X s)
 leftSide = topLeftBox . pX
 -- | 'Lens' for the right side of a box.
-rightSide      :: Lens' (Box s) (Ortho XDimension s)
+rightSide      :: Lens' (Box s) (X s)
 rightSide = bottomRightBox . pX
 -- | 'Lens' for the top of a box.
-topSide         :: Lens' (Box s) (Ortho YDimension s)
+topSide         :: Lens' (Box s) (Y s)
 topSide  = topLeftBox . pY
 -- | 'Lens' for the bottom of a box.
-bottomSide      :: Lens' (Box s) (Ortho YDimension s)
+bottomSide      :: Lens' (Box s) (Y s)
 bottomSide = bottomRightBox . pY
 
 -----------------------------------------------------------------------------
 -- Functions for creating and manipulating boxes∘
 
 -- | Make a box from its four sides.
-makeBox        :: Ortho XDimension s -> Ortho YDimension s -> Ortho XDimension s -> Ortho YDimension s -> Box s
+makeBox        :: X s -> Y s -> X s -> Y s -> Box s
 makeBox l t r b = Box (makePoint l t) (makePoint r b)
 -- | Make a box from the origin to a point.
 pointToBox :: Num s => Point2 s -> Box s
@@ -119,65 +140,27 @@ emptyBox = Box zeroPoint zeroPoint
 mapBox :: (Point2 s -> Point2 s) -> Box s -> Box s
 mapBox f (Box tl br) = Box (f tl) (f br)
 
--- | Get the height of a box.
-heightBox :: Num s => Box s -> Ortho YDimension s
-heightBox box = box ^. bottomSide - box ^. topSide
--- | Get the width of a box.
-widthBox :: Num s => Box s -> Ortho XDimension s
-widthBox  box = box ^. rightSide - box ^. leftSide
 -- | True if the box has zero height and zero width.
-isZeroBox :: (Num s, Eq s) => Box s -> Bool
-isZeroBox b = (widthBox b == 0) && (heightBox b == 0)
+isZeroBox :: (HasBox (Box s), Num s, Eq s) => Box s -> Bool
+isZeroBox b = (widthOf b == 0) && (heightOf b == 0)
 -- | Get a point that represents the height and width of the box.
-sizeBox :: Num s => Box s -> Point2 s
-sizeBox   box = makePoint (widthBox box ) (heightBox box)
+sizeBox :: (HasBox (Box s), Num s) => Box s -> Point2 s
+sizeBox   box = makePoint (widthOf box ) (heightOf box)
 -- | Calculate the area of a box.
-areaBox :: Num s => Box s -> s
-areaBox   box = unOrtho (widthBox box) * unOrtho (heightBox box)
+areaBox :: (HasBox (Box s), Num s) => Box s -> s
+areaBox   box = unOrtho (widthOf box) * unOrtho (heightOf box)
 -- | Calculate the smallest box that contains two boxes.
-unionBox :: (Num s, Ord s) => Box s -> Box s -> Box s
-unionBox a b = makeBox (min (a ^. leftSide ) (b ^. leftSide )) (min (a ^. topSide   ) (b ^. topSide   ))
+minMaxBox :: (Num s, Ord s) => Box s -> Box s -> Box s
+minMaxBox a b = makeBox (min (a ^. leftSide ) (b ^. leftSide )) (min (a ^. topSide   ) (b ^. topSide   ))
                        (max (a ^. rightSide) (b ^. rightSide)) (max (a ^. bottomSide) (b ^. bottomSide))
 
------------------------------------------------------------------------------
--- | Typeclass for things that can calculate a bounding box.
-class Boxable t where
-  getBoundingBox :: t -> BoundingBox
-
-instance Boxable [BoundingBox] where
-  getBoundingBox list =
-      if null list
-      then emptyBox
-      else foldr1 unionBox list
-
-instance Boxable (VS.Vector BoundingBox) where
-  getBoundingBox vs =
-      let left   = VS.minimum (VS.map (view leftSide  ) vs)
-          top    = VS.minimum (VS.map (view topSide   ) vs)
-          right  = VS.maximum (VS.map (view rightSide ) vs)
-          bottom = VS.maximum (VS.map (view bottomSide) vs)
-      in makeBox left top right bottom
-
-instance Boxable (VS.Vector (Point2 SubSpace)) where
-  getBoundingBox vs =
-      let left   = VS.minimum (VS.map (view pX) vs)
-          top    = VS.minimum (VS.map (view pY) vs)
-          right  = VS.maximum (VS.map (view pX) vs)
-          bottom = VS.maximum (VS.map (view pY) vs)
-      in makeBox left top right bottom
-
-instance Boxable [Point2 SubSpace] where
-  getBoundingBox vs =
-      let left   = minimum (map (view pX) vs)
-          top    = minimum (map (view pY) vs)
-          right  = maximum (map (view pX) vs)
-          bottom = maximum (map (view pY) vs)
-      in if null vs
-         then emptyBox -- TODO make this a maybe
-         else makeBox left top right bottom
+minMaxBoxes :: (HasBox a, Functor t, Foldable t) => t a -> Box (SpaceOf a)
+minMaxBoxes = foldl minMaxBox (Box maxPoint minPoint) . fmap boxOf
+  where  minPoint = Point2 minBound minBound
+         maxPoint = Point2 maxBound maxBound
 
 -- Boxes have an instance for SimpleTransformable but no instance for Transformable.
-instance Num s => SimpleTransformable Box s where
+instance Space s => SimpleTransformable (Box s) where
   tTranslate p = mapBox (^+^ p)
   tScale     s = mapBox (^* s)
 

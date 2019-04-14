@@ -3,7 +3,7 @@ data Plot s where
   Plot        :: Curve s -> Plot s
   PlotJoin    :: Plot s -> Plot s -> Plot s
   PlotArc     :: s -> Angle s -> Plot s
-  PlotSegment :: Ortho XDimension s -> Plot s
+  PlotSegment :: X s -> Plot s
   PlotRotate  :: Angle s -> Plot s -> Plot s
   PlotScale   :: s -> Plot s -> Plot s
   PlotFlipH   :: Plot s -> Plot s

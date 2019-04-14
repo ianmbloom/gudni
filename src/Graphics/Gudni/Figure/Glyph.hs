@@ -2,6 +2,9 @@
 {-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE StandaloneDeriving   #-}
+{-# LANGUAGE ExplicitForAll       #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -18,13 +21,17 @@
 module Graphics.Gudni.Figure.Glyph
   ( CodePoint (..)
   , Glyph (..)
-  , glyphHeight
+  , mapGlyph
+  , glyphAdvance
+  , glyphRetreat
+  , glyphAscent
+  , glyphDescent
+  , glyphRep
   , GlyphCache (..)
   , emptyGlyphCache
   , GlyphMonad (..)
   , runGlyphMonad
   , getGlyph
-  , glyphString
   , addFont
   )
 where
@@ -32,6 +39,7 @@ where
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Outline
+import Graphics.Gudni.Figure.Transformer
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
@@ -69,30 +77,47 @@ instance Show CodePoint where
 -- | Glyph data structure
 data Glyph a =
   Glyph
-  { -- | Series of outlines for the glyph.
-    glyphVertices        :: [Outline a]
-    -- | The advance width of the glyph according to the font file.
-  , glyphAdvanceWidth    :: Ortho XDimension a
+  { -- | The advance width of the glyph according to the font file.
+    _glyphAdvance    :: X (SpaceOf a)
+    -- | The width that the glyph retreats behind the baseline. The opposite of advance. Always initially zero for truetype glyphs.
+  , _glyphRetreat    :: X (SpaceOf a)
     -- | The ascent height of the glyph according to the font file.
-  , glyphAscent          :: Ortho YDimension a
+  , _glyphAscent     :: Y (SpaceOf a)
     -- | The descent height of the glyph according to the font file.
-  , glyphDescent         :: Ortho YDimension a
-  } deriving (Show, Eq, Ord)
+  , _glyphDescent    :: Y (SpaceOf a)
+  -- | The actual representation of the glyph.
+  , _glyphRep        :: a
+  }
+makeLenses ''Glyph
 
--- | The total height of the glyph according to the font file.
-glyphHeight glyph = glyphAscent glyph + glyphDescent glyph
+deriving instance (Show (SpaceOf a), Show a) => Show (Glyph a)
+deriving instance (Eq   (SpaceOf a), Eq   a) => Eq   (Glyph a)
+deriving instance (Ord  (SpaceOf a), Ord  a) => Ord  (Glyph a)
 
-instance Hashable a => Hashable (Glyph a) where
-    hashWithSalt s (Glyph  a b c d) = s `hashWithSalt` a `hashWithSalt` b `hashWithSalt` c `hashWithSalt` d
+mapGlyph :: forall a b . (SpaceOf a ~ SpaceOf b) => (a->b) -> Glyph a -> Glyph b
+mapGlyph f (Glyph advance retreat ascent descent a) = Glyph advance retreat ascent descent (f a)
 
-instance NFData a => NFData (Glyph a) where
-  rnf (Glyph a b c d ) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()
+instance SimpleTransformable a => SimpleTransformable (Glyph a) where
+  tTranslate p = mapGlyph (tTranslate p)
+  tScale f (Glyph advance retreat ascent descent a) = Glyph (Ortho f * advance)
+                                                            (Ortho f * retreat)
+                                                            (Ortho f * ascent)
+                                                            (Ortho f * descent)
+                                                            (tScale f a)
+instance HasSpace a => HasSpace (Glyph a) where
+  type SpaceOf (Glyph a) = SpaceOf a
+
+instance (Hashable a, Hashable (SpaceOf a)) => Hashable (Glyph a) where
+    hashWithSalt s (Glyph a b c d e) = s `hashWithSalt` a `hashWithSalt` b `hashWithSalt` c `hashWithSalt` d
+
+instance (NFData a, NFData (SpaceOf a)) => NFData (Glyph a) where
+  rnf (Glyph a b c d e) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()
 
 -- | A cache of all glyphs that have been loaded from the font file so far and the font file itself.
 data GlyphCache =
   GlyphCache
   { -- | Map from CodePoints to cached glyphs.
-    _gCMap  :: M.Map CodePoint (Glyph SubSpace)
+    _gCMap  :: M.Map CodePoint (Glyph [Outline SubSpace])
     -- | Original font data structure. Contains an error message depending on how the font is loaded.
   , _gCFont :: Either String F.Font
   } deriving (Show)
@@ -123,16 +148,15 @@ pairToPoint (x,y) = Point2 x y
 flipY h (x,y) = (x, h + negate y)
 
 -- | Accessors into font internals.
-makeLenses ''F.Font
-makeLenses ''FI.HorizontalHeader
-makeLenses ''F.RawGlyph
+--makeLenses ''F.Font
+--makeLenses ''FI.HorizontalHeader
+--makeLenses ''F.RawGlyph
 
 rightOrError (Right t) = t
 rightOrError (Left err) = error err
 
-
 -- | Retrieve a glyph from the glyphCache, read it from the font file if necessary.
-getGlyph :: (MonadState GlyphCache m, Monad m) => CodePoint -> m (Glyph SubSpace)
+getGlyph :: (MonadState GlyphCache m, Monad m) => CodePoint -> m (Glyph [Outline SubSpace])
 getGlyph codepoint =
   do  -- the current map from codepoints to previously decoded glyphs.
       dict <- use gCMap
@@ -150,14 +174,14 @@ getGlyph codepoint =
                 glyphVector :: V.Vector F.RawGlyph
                 (advance, glyphVector) = F.getCharacterGlyphsAndMetrics font (chr . unCodePoint $ codepoint)
                 -- get the general metadata header for the font.
-                header = font ^. fontHorizontalHeader
+                header = font ^. F.fontHorizontalHeader
                 -- pull the acent and descent information for the header.
-                (FI.FWord ascent ) = (fromJust header) ^. hheaAscent
-                (FI.FWord descent) = (fromJust header) ^. hheaDescent
+                ascent  = (fromJust header) ^. FI.hheaAscent
+                descent = (fromJust header) ^. FI.hheaDescent
                 -- get the list of contours from first rawglyph.
                 contours :: [VU.Vector (Int16, Int16)]
                 contours = if V.length glyphVector > 0
-                           then (V.head glyphVector) ^. rawGlyphContour
+                           then (V.head glyphVector) ^. F.rawGlyphContour
                            else []
                 height = ascent + descent
                 vertices :: [[(Int16,Int16)]]
@@ -168,17 +192,14 @@ getGlyph codepoint =
                 outlines :: [Outline SubSpace]
                 outlines =  map (Outline . V.fromList . pairPoints . map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) vertices
                 -- build the Glyph constructor including the metadata and the outlines.
-                glyph :: Glyph SubSpace
-                glyph = Glyph { glyphVertices        = outlines
-                              , glyphAdvanceWidth    = Ortho $ realToFrac advance * fontScaleFactor
-                              , glyphAscent          = Ortho $ realToFrac ascent  * fontScaleFactor
-                              , glyphDescent         = Ortho $ realToFrac descent * fontScaleFactor
+                glyph :: Glyph [Outline SubSpace]
+                glyph = Glyph { _glyphAdvance    = Ortho $ realToFrac advance * fontScaleFactor
+                              , _glyphRetreat    = 0
+                              , _glyphAscent     = Ortho $ realToFrac ascent  * fontScaleFactor
+                              , _glyphDescent    = Ortho $ realToFrac descent * fontScaleFactor
+                              , _glyphRep        = outlines
                               }
             in  do  -- insert the new glyph into the cache.
                     gCMap .= M.insert codepoint glyph dict
                     -- return it as well.
                     return glyph
-
--- | Convert a string of characters to a list of glyphs in the GlyphMonad.
-glyphString :: (MonadState GlyphCache m, Monad m) => String -> m [Glyph SubSpace]
-glyphString = mapM (getGlyph . CodePoint . ord)

@@ -1,118 +1,146 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE ExplicitForAll        #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 -- Work in progress, top level datastructure for alignment and text layout.
 module Graphics.Gudni.Util.Scaffolding
   ( Alignment (..)
-  , Align(..)
-  , align
   , MyTree(..)
   , myLeft
   , myRight
   , myLeaf
+  , glyphString
+  , paragraph
+  , rack
+  , stack
+  , overlap
+  , combineGlyph
   )
 where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.ShapeTree
 import Graphics.Gudni.Figure.Box
+import Graphics.Gudni.Util.Debug
 import Linear
 import Data.List
+import Data.Char
 
 import Control.Lens
+import Control.Monad.State
 
-data Alignment = AlignOver | AlignMin | AlignMax | AlignNext deriving (Show)
+data TextState s = TextState
+  { _textAdvance   :: X s
+  , _textRetreat   :: X s
+  , _textAscent    :: Y s
+  , _textDescent   :: Y s
+  }
+makeLenses ''TextState
 
-data Align = Align
-  { alignHorizontal :: Alignment
-  , alignVertical   :: Alignment
+emptyTextState :: (Num s) => TextState s
+emptyTextState = TextState
+  { _textAdvance = 0
+  , _textRetreat = 0
+  , _textAscent  = 0
+  , _textDescent = 0
   }
 
-align :: (Num (SpaceOf a), Ord (SpaceOf a), HasWidth a, HasHeight a) => Align -> a -> a -> (Point2 (SpaceOf a), Point2 (SpaceOf a))
-align (Align aH aV) over under =
-        let (h0, h1) = case aH of
-                  AlignOver -> (0,0)
-                  AlignMax  -> let maxWidth = max (widthOf over) (widthOf under)
-                               in (maxWidth - widthOf over, maxWidth - widthOf under)
-                  AlignMin  -> (0,0)
-                  AlignNext -> (0, widthOf over)
-            (v0, v1) = case aV of
-                  AlignOver -> (0,0)
-                  AlignMax  -> let maxHeight = max (heightOf over) (heightOf under)
-                               in (maxHeight - heightOf over, maxHeight - heightOf under)
-                  AlignMin  -> (0,0)
-                  AlignNext -> (0, heightOf over)
-            trans0 = makePoint h0 v0
-            trans1 = makePoint h1 v1
-        in  (trans0, trans1)
+type TextMonad s = State (TextState s)
 
-type Label = String
+rack :: forall o t rep
+     .  (HasSpace rep, Ord (SpaceOf rep), Num (SpaceOf rep), HasDefault o)
+     => [Glyph (STree o rep)]
+     -> Glyph (STree o rep)
+rack row =
+  let (unalignedRow, state) = runState (go row) emptyTextState
+      go :: [Glyph (STree o rep)] -> TextMonad (SpaceOf rep) [X (SpaceOf rep)]
+      go (c:cs) =
+          do  currentRetreat <- use textRetreat
+              currentAdvance <- use textAdvance
+              textRetreat .= currentRetreat + currentAdvance + c ^. glyphRetreat
+              textAdvance .= c ^. glyphAdvance
+              textAscent  %= max (c ^. glyphAscent )
+              textDescent %= max (c ^. glyphDescent)
+              (currentRetreat:) <$> go cs
+      go [] = return []
+      align ascent c pos = mapGlyph (tTranslate (makePoint pos (ascent - c ^. glyphAscent))) c
+  in  overlap $ zipWith (align (state ^. textAscent)) row unalignedRow
 
-data Scaffolding a = Coupler
-                   | Brace (Point2 SubSpace) (Scaffolding a)
-                   | Joint [(Label,Scaffolding a)]
-                   | Transom (Transom a) (Scaffolding a)
+stack :: forall o t rep
+      .  (HasSpace rep, Ord (SpaceOf rep), Num (SpaceOf rep), HasDefault o)
+      => [Glyph (STree o rep)]
+      -> Glyph (STree o rep)
+stack column =
+  let (unalignedColumn, state) = runState (go column) emptyTextState
+      go :: [Glyph (STree o rep)] -> TextMonad (SpaceOf rep) [Y (SpaceOf rep)]
+      go (l:ls) =
+          do currentAscent  <- use textAscent
+             currentDescent <- use textDescent
+             textAscent  .= currentAscent + currentDescent + (l ^. glyphAscent)
+             textDescent .= l ^. glyphDescent
+             textAdvance %= max (l ^. glyphAdvance)
+             textRetreat %= max (l ^. glyphRetreat)
+             (currentAscent:) <$> go ls
+      go [] = return []
+      align retreat c pos = mapGlyph (tTranslate (makePoint (retreat - c ^. glyphRetreat) pos)) c
+  in  overlap $ zipWith (align (state ^. textRetreat)) column unalignedColumn
 
-data Transom a = Transom1 (   [Label]) (   (Point2 SubSpace) -> a)
-               | Transom2 (V2 [Label]) (V2 (Point2 SubSpace) -> a)
-               | Transom3 (V3 [Label]) (V3 (Point2 SubSpace) -> a)
-               | Transom4 (V4 [Label]) (V4 (Point2 SubSpace) -> a)
+betweenList :: (Glyph a -> Glyph a) -> [Glyph a] -> [Glyph a]
+betweenList f (a:as) = a : map f as
+betweenList f [] = []
 
-class Leafable t a => Scaffoldable t a where
-  buildScaffolding :: t -> Scaffolding a
+distributeRack :: HasSpace a => X (SpaceOf a) -> [Glyph a] -> [Glyph a]
+distributeRack gap = betweenList (over glyphRetreat (+gap))
 
-class Leafable t a where
-  makeLeaf :: t -> a
+distributeStack :: HasSpace a => Y (SpaceOf a) -> [Glyph a] -> [Glyph a]
+distributeStack gap = betweenList (over glyphAscent (+gap))
 
-{-
-putGlyph :: (Transformable a, Leafable (Glyph SubSpace) a) => Glyph SubSpace -> Point2 SubSpace -> a
-putGlyph glyph p = tTranslate p . makeLeaf $ glyph
+-- | Convert a string of characters to a list of glyphs in the GlyphMonad.
+glyphString :: (MonadState GlyphCache m, Monad m) => String -> m [Glyph (CompoundTree SubSpace)]
+glyphString = mapM (fmap (mapGlyph SLeaf) . getGlyph . CodePoint . ord)
 
-instance Leafable (Glyph SubSpace) CompoundTree where
-  makeLeaf glyph = SLeaf . RawGlyph $ glyph
+paragraph :: forall m . Monad m => X SubSpace -> Y SubSpace -> Alignment -> String -> GlyphMonad m (Glyph (CompoundTree SubSpace))
+paragraph gapX gapY alignment string =
+  do  let stringLines = lines string
+      glyphLines <- mapM glyphString stringLines
+      let glyphRacks = map (realignHorizontal alignment . rack . distributeRack gapX) glyphLines
+      return . stack . distributeStack gapY $ glyphRacks
 
-instance (Transformable a, Leafable (Glyph SubSpace) a) => Scaffoldable Glyph a where
-  buildScaffolding glyph = Transom (Transom1 ["base"] (putGlyph glyph))
-                                   (Joint [("base"  ,                                            Coupler)
-                                          ,("width" , Brace (makePoint (glyphAdvanceWidth glyph) 0) Coupler)
-                                          ,("height", Brace (makePoint 0 (glyphHeight glyph))       Coupler)]
-                                   )
--}
+data Alignment = AlignMin | AlignMax | AlignCenter
 
-findPoint :: Scaffolding t -> [Label] -> Point2 SubSpace
-findPoint scaffold [] =
-  case scaffold of
-    Coupler -> Point2 0 0
-    Brace p rest -> p + findPoint rest []
-    Transom _ rest -> findPoint rest []
-    Joint xs -> error "not enough labels to traverse scaffold"
-findPoint scaffold (l:ls) =
-  case scaffold of
-    Coupler -> error "too many labels to traverse scaffold"
-    Brace p rest -> p + findPoint rest (l:ls)
-    Transom _ rest -> findPoint rest (l:ls)
-    Joint xs -> case find ((==l) . fst) xs of
-                  Just (_, found) -> findPoint found ls
-                  Nothing -> error $ "label " ++ l ++ "does not match any in joint."
+realignHorizontal :: Fractional (SpaceOf a) => Alignment -> Glyph a -> Glyph a
+realignHorizontal alignment g =
+  let width = g ^. glyphAdvance + g ^. glyphRetreat
+  in case alignment of
+    AlignMin    -> set glyphRetreat 0 . set glyphAdvance width $ g
+    AlignMax    -> set glyphRetreat width . set glyphAdvance 0 $ g
+    AlignCenter -> set glyphAdvance (width / 2) . set glyphRetreat (width / 2) $ g
 
-connect :: Scaffolding a -> [Label] -> Scaffolding a -> [Label] -> Scaffolding a
-connect s0 ls0 s1 ls1 =
-  let p0 = findPoint s0 ls0
-      p1 = findPoint s1 ls1
-  in  Joint [("left",s0),("right",Brace (p1 - p0) s1)]
+realignVertical :: Fractional (SpaceOf a) => Alignment -> Glyph a -> Glyph a
+realignVertical alignment g =
+  let height = g ^. glyphAscent + g ^. glyphDescent
+  in case alignment of
+    AlignMin    -> set glyphAscent 0 . set glyphDescent height $ g
+    AlignMax    -> set glyphAscent height . set glyphDescent 0 $ g
+    AlignCenter -> set glyphAscent (height / 2) . set glyphDescent (height / 2) $ g
 
-stack :: Scaffoldable a t => [a] -> Scaffolding t
-stack xs = undefined -- let scaffolds = map buildScaffolding xs
-           --in undefined -- foldl1 (connect
+combineGlyph :: Ord (SpaceOf a) => (a -> a -> a) -> Glyph a -> Glyph a -> Glyph a
+combineGlyph op (Glyph advance0 retreat0 ascent0 descent0 a0)
+                (Glyph advance1 retreat1 ascent1 descent1 a1) =
+                  Glyph (max advance0 advance1)
+                        (max retreat0 retreat1)
+                        (max ascent0  ascent1 )
+                        (max descent0 descent1)
+                        (op a0 a1)
 
-rack :: Scaffoldable a t => [a] -> Scaffolding t
-rack = undefined -- foldl1 (\next -> Brace (makePoint 1 0)
+overlap :: (Ord (SpaceOf rep), HasDefault o) => [Glyph (STree o rep)] -> Glyph (STree o rep)
+overlap = foldl1 (combineGlyph (SMeld defaultValue))
 
---paragraph :: SubSpace -> SubSpace -> String -> CompoundTree
---paragraph = stack . map (rack . map glyph) . lines
 
 newtype Scaffold a = Scaffold {unScaffold :: a}
 
@@ -132,25 +160,3 @@ data MyTree
   { _myLeaf :: Int
   } deriving (Show)
 makeLenses ''MyTree
-
-
-
---instance HasHeight (Scaffold MyTree) where
---  heightOf (Scaffold myTree) = undefined
---
---instance HasWidth (Scaffold MyTree) where
---  widthOf (Scaffold myTree) = undefined
-
---stack :: HasHeight a => [a] -> ShapeTree
-
---class HasSpace a => HasEnvelope a where
---  envelope :: a -> Point2 (SpaceOf a) -> V2 (SpaceOf a) -> SpaceOf a
---
---class HasSpace a => HasMaxTrace a where
---  maxTrace :: a -> Point2 (SpaceOf a) -> V2 (SpaceOf a) -> Maybe (SpaceOf a)
---
---class HasSpace a => HasMinTrace a where
---  minTrace :: a -> Point2 (SpaceOf a) -> V2 (SpaceOf a) -> Maybe (SpaceOf a)
-
---stack :: HasHeight a => [a] -> a
---stack xs = undefined

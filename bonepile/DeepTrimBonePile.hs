@@ -39,7 +39,7 @@ attachEQ (         x:           xs) = (Nothing, x, Nothing):attachEQ   xs
 attachEQ []                         = []
 
 -- | Get the vertical value from a curve segment.
-vertical :: (Num s, Ord s, Iota s) => Maybe (Triple (Point2 s)) -> Ortho YDimension s
+vertical :: (Num s, Ord s, Iota s) => Maybe (Triple (Point2 s)) -> Y s
 vertical (Just (V3 a _ b)) = a ^. pY - b ^. pY
 vertical _                 = 0
 

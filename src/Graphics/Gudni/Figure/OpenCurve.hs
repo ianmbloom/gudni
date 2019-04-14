@@ -81,7 +81,7 @@ reverseCurve (OpenCurve segments terminator) =
   in  OpenCurve revCurve terminal
 
 -- | Connect two curves end to end by translating c1 so that the starting point of 'c1' is equal to the terminator of 'c0'
-(<^>) :: Num s => OpenCurve s -> OpenCurve s -> OpenCurve s
+(<^>) :: Space s => OpenCurve s -> OpenCurve s -> OpenCurve s
 (<^>) c0 c1 = let delta = c0 ^. terminator ^-^ c1 ^. outset
                   transC1 = overCurve (tTranslate delta) c1
               in  over curveSegments (c0 ^. curveSegments ++) transC1

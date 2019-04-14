@@ -42,13 +42,16 @@ traverseUnit :: () -> () -> ((), ())
 traverseUnit () () = ((),())
 
 -- | Traverse across an STree monadically collecting metadata from
-traverseTree :: (Monad m, HasDefault o, HasDefault t)
+traverseTree :: (Monad m, HasDefault o)
              => (o -> o -> (o, o))
-             -> (t -> t -> t)
+             -> (  Transformer (SpaceOf rep)
+                -> Transformer (SpaceOf rep)
+                -> Transformer (SpaceOf rep)
+                )
              -> o
-             -> t
-             -> (o -> t -> rep -> m ())
-             -> STree o t rep
+             -> Transformer (SpaceOf rep)
+             -> (o -> Transformer (SpaceOf rep) -> rep -> m ())
+             -> STree o rep
              -> m ()
 traverseTree combineOp transformOp c t f tree = go c t tree
     where go c t tree =
@@ -61,17 +64,17 @@ traverseTree combineOp transformOp c t f tree = go c t tree
                   STransform tOp child -> go c (transformOp tOp t) child
 
 -- | Traverse a compound shape tree
-traverseCompoundTree :: (Num s, Monad m)
+traverseCompoundTree :: (Num (SpaceOf rep), Monad m)
                      => Compound
-                     -> Transformer s
-                     -> (Compound -> Transformer s -> rep -> m ())
-                     -> STree Compound (Transformer s) rep
+                     -> Transformer (SpaceOf rep)
+                     -> (Compound -> Transformer (SpaceOf rep) -> rep -> m ())
+                     -> STree Compound rep
                      -> m ()
 traverseCompoundTree o t = traverseTree traverseCompound CombineTransform o t
 
 -- | Traverse an overlap shape tree
-traverseShapeTree :: (Num s, Monad m)
-                  => (() -> Transformer s -> rep -> m ())
-                  -> STree () (Transformer s) rep
+traverseShapeTree :: (Num (SpaceOf rep), Monad m)
+                  => (() -> Transformer (SpaceOf rep) -> rep -> m ())
+                  -> STree () rep
                   -> m ()
 traverseShapeTree = traverseTree traverseUnit CombineTransform () identityTransform

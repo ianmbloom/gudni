@@ -1,7 +1,7 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module Graphics.Gudni.Util.Draw
   ( lPath
-  , glyphR
-  , glyph
   , rectangle
   , unitSquare
   , openRectangle
@@ -20,6 +20,10 @@ module Graphics.Gudni.Util.Draw
   , textureWith
   , raw
   , rawCurve
+  , cAdd
+  , cSubtract
+  , cContinue
+  , wrapGlyph
   )
 where
 
@@ -27,79 +31,159 @@ import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Plot
+import Graphics.Gudni.Util.Scaffolding
 
 import Data.Char (ord)
 import Control.Lens
 
-lPath :: String -> CompoundTree
+-- | Combine two subtrees by adding them.
+cAdd :: (Ord (SpaceOf leaf))
+     => Glyph (STree Compound leaf)
+     -> Glyph (STree Compound leaf)
+     -> Glyph (STree Compound leaf)
+cAdd = combineGlyph (SMeld CompoundAdd)
+
+-- | Combine two subtrees by substracting the first from the second.
+cSubtract :: (Ord (SpaceOf leaf))
+          => Glyph (STree Compound leaf)
+          -> Glyph (STree Compound leaf)
+          -> Glyph (STree Compound leaf)
+cSubtract = combineGlyph (SMeld CompoundSubtract)
+
+-- | Combine two subtrees by nuetrally concatenating their component outlines.
+cContinue :: (Ord (SpaceOf leaf))
+          => Glyph (STree Compound leaf)
+          -> Glyph (STree Compound leaf)
+          -> Glyph (STree Compound leaf)
+cContinue = combineGlyph (SMeld CompoundContinue)
+
+lPath :: (Floating s, Real s, Fractional s, Bounded s)
+      => String
+      -> Glyph (CompoundTree s)
 lPath name =
   case curveLibrary name of
-    Just path -> SLeaf $ RawCurve path
-    Nothing -> rectangle (Point2 1 1)
+    Just path -> wrapGlyph $ closeOpenCurve path
+    Nothing -> unitSquare
 
-glyphR :: Angle SubSpace -> Point2 SubSpace -> Glyph SubSpace -> CompoundTree
-glyphR a p = sTranslate p . sRotate a . SLeaf . RawGlyph
+rectangle :: (Floating s, Real s, Fractional s)
+          => Point2 s
+          -> Glyph (CompoundTree s)
+rectangle v = Glyph 0 (v ^. pX) 0 (v ^. pY)
+            . SLeaf
+            . segmentsToOutline
+            $ [[ straight 0      0
+               , straight (v ^. pX) 0
+               , straight (v ^. pX) (v ^. pY)
+               , straight 0         (v ^. pY)
+               ]]
 
-glyph :: Glyph SubSpace -> CompoundTree
-glyph = SLeaf . RawGlyph
+unitSquare :: (Space s)
+           => Glyph (CompoundTree s)
+unitSquare = rectangle (Point2 1 1)
 
-rectangle :: Point2 SubSpace -> CompoundTree
-rectangle p = SLeaf $ RawRectangle p
-
-unitSquare :: CompoundTree
-unitSquare = SLeaf $ RawRectangle (Point2 1 1)
-
-openRectangle :: SubSpace -> Point2 SubSpace -> CompoundTree
+openRectangle :: (Space s)
+              => s
+              -> Point2 s
+              -> Glyph (CompoundTree s)
 openRectangle s p = let strokeDelta = Point2 s s in
                     cSubtract (rectangle p)
-                              (sTranslate strokeDelta $ rectangle (p ^-^ (strokeDelta ^* 2)))
+                              (mapGlyph (tTranslate strokeDelta) $ rectangle (p ^-^ (strokeDelta ^* 2)))
 
-diamond :: Point2 SubSpace -> CompoundTree
-diamond point = let box = Box zeroPoint point :: BoundingBox
+diamond :: (Space s)
+        => Point2 s
+        -> Glyph (CompoundTree s)
+diamond point = let box = Box zeroPoint point
                     t = lerp 0.5 (box ^. topLeftBox    ) (box ^. topRightBox   )
                     r = lerp 0.5 (box ^. topRightBox   ) (box ^. bottomRightBox)
                     b = lerp 0.5 (box ^. bottomRightBox) (box ^. bottomLeftBox )
                     l = lerp 0.5 (box ^. bottomLeftBox ) (box ^. topLeftBox    )
-                in raw  [Straight t, Straight r, Straight b, Straight l]
+                in  raw  [Straight t, Straight r, Straight b, Straight l]
 
-line :: SubSpace -> Point2 SubSpace -> Point2 SubSpace -> CompoundTree
-line s a b = SLeaf $ RawLine a b s
+line :: (Space s)
+     => s
+     -> Point2 s
+     -> Point2 s
+     -> Glyph (CompoundTree s)
+line stroke p0 p1 =
+      let vector = p0 ^-^ p1
+          normal = vector ^/ norm vector
+          leftNormal = rotate90 normal ^* stroke
+          rightNormal = rotate270 normal ^* stroke
+      in  wrapGlyph . segmentsToOutline $
+        [ [ Seg (p0 ^+^ rightNormal) Nothing
+          , Seg (p0 ^+^ leftNormal ) Nothing
+          , Seg (p1 ^+^ leftNormal ) Nothing
+          , Seg (p1 ^+^ rightNormal) Nothing
+          ]]
 
-makeRow :: Num s => s -> [STree o (Transformer s) rep] -> [STree o (Transformer s) rep]
-makeRow s = zipWith ($) (map sTranslate $ iterate (^+^ Point2 s 0) zeroPoint)
+makeRow :: HasSpace rep
+        => SpaceOf rep
+        -> [Glyph (STree o rep)]
+        -> [Glyph (STree o rep)]
+makeRow s = zipWith ($) (map (mapGlyph . tTranslate) $ iterate (^+^ Point2 s 0) zeroPoint)
 
-makeColumn :: Num s => s -> [STree o (Transformer s) rep] -> [STree o (Transformer s) rep]
-makeColumn s = zipWith ($) (map sTranslate $ iterate (^+^ Point2 0 s) zeroPoint)
+makeColumn :: HasSpace rep
+           => SpaceOf rep
+           -> [Glyph (STree o rep)]
+           -> [Glyph (STree o rep)]
+makeColumn s = zipWith ($) (map (mapGlyph . tTranslate) $ iterate (^+^ Point2 0 s) zeroPoint)
 
-makeGrid :: (HasDefault o, Num s) => s -> Int -> Int -> [STree o (Transformer s) rep] -> STree o (Transformer s) rep
+makeGrid :: (HasSpace rep, HasDefault o)
+         => SpaceOf rep
+         -> Int
+         -> Int
+         -> [Glyph (STree o rep)]
+         -> Glyph (STree o rep)
 makeGrid s width height = overlap . take height . makeColumn s . map (overlap . take width . makeRow s) . breakList width
 
 increasingAngles :: (Floating s, Num s) => [Angle s]
 increasingAngles = take 23 $ iterate ( ^+^ (15 @@ deg)) (15 @@ deg)
 
-arc :: Angle SubSpace -> CompoundTree
+arc :: (Floating s, Real s, Fractional s, Bounded s)
+    => Angle s
+    -> Glyph (CompoundTree s)
 arc = rawCurve . makeArc
 
-makeLine :: SubSpace -> [Glyph SubSpace]-> CompoundTree
-makeLine y = overlap . makeRow y . map glyph
+makeLine :: (SimpleSpace s)
+         => s
+         -> [Glyph (CompoundTree s)]
+         -> Glyph (CompoundTree s)
+makeLine y = overlap . makeRow y
 
-paraGrid :: SubSpace -> [[Glyph SubSpace]] -> CompoundTree
-paraGrid s = overlap . makeColumn s . map (overlap . makeRow s . map glyph)
+paraGrid :: (SimpleSpace s)
+         => s
+         -> [[Glyph (CompoundTree s)]]
+         -> Glyph (CompoundTree s)
+paraGrid s = overlap . makeColumn s . map (overlap . makeRow s)
 
-overlap :: HasDefault o => [STree o t rep] -> STree o t rep
-overlap = foldl1 (SMeld defaultValue)
+circle :: (Floating s, Real s, Fractional s, Bounded s)
+       => Glyph (CompoundTree s)
+circle = overlap [ openRectangle 0.1 (Point2 1 1)
+                 , mapGlyph (tTranslateXY 0.0 (-0.5)) $ arc fullTurn
+                 ]
 
-circle :: CompoundTree
-circle = sTranslateXY 0.0 (-0.5) $ arc fullTurn
+solid :: Color
+      -> Glyph (CompoundTree s)
+      -> Glyph (ShapeTree Int s)
+solid color = mapGlyph (SLeaf . SRep 0 (Solid color))
 
-solid :: Color -> CompoundTree -> ShapeTree Int
-solid color = SLeaf . SRep 0 (Solid color)
+textureWith :: PictureUsage PictId
+            -> Glyph (CompoundTree s )
+            -> Glyph (ShapeTree Int s)
+textureWith pict = mapGlyph (SLeaf . SRep 0 (Texture pict))
 
-textureWith :: PictureUsage PictId -> CompoundTree -> ShapeTree Int
-textureWith pict = SLeaf . SRep 0 (Texture pict)
+raw :: (Floating s, Real s, Fractional s, Bounded s)
+    => [Segment s] -> Glyph (CompoundTree s)
+raw = wrapGlyph . segmentsToOutline . pure
 
-raw :: [Segment SubSpace] -> CompoundTree
-raw = SLeaf . Raw
+rawCurve :: (Space s)
+         => OpenCurve s
+         -> Glyph (CompoundTree s)
+rawCurve = wrapGlyph . closeOpenCurve
 
-rawCurve :: OpenCurve SubSpace -> CompoundTree
-rawCurve = SLeaf . RawCurve
+wrapGlyph :: (SimpleSpace s)
+          => [Outline s]
+          -> Glyph (CompoundTree s)
+wrapGlyph outlines =
+  let box = boxOf outlines
+  in  Glyph 0 (widthOf box) 0 (heightOf box) $ SLeaf outlines

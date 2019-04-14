@@ -5,6 +5,8 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE AllowAmbiguousTypes        #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -110,29 +112,25 @@ closeOpenCurve curve =
 
 -- * Instances
 
-instance Boxable (CurvePair SubSpace) where
-  getBoundingBox (CurvePair a b) =
-      let left   = min (a ^. pX) (b ^. pX)
-          top    = min (a ^. pY) (b ^. pY)
-          right  = max (a ^. pX) (b ^. pX)
-          bottom = max (a ^. pY) (b ^. pY)
-      in  makeBox left top right bottom
+instance (Bounded s, Ord s, Num s) => HasSpace (CurvePair s) where
+  type SpaceOf (CurvePair s) = s
 
-instance Boxable (V.Vector BoundingBox) where
-  getBoundingBox vs =
-      let left   = V.minimum (V.map (view leftSide  ) vs)
-          top    = V.minimum (V.map (view topSide   ) vs)
-          right  = V.maximum (V.map (view rightSide ) vs)
-          bottom = V.maximum (V.map (view bottomSide) vs)
-      in makeBox left top right bottom
+instance (Bounded s, Ord s, Num s) => HasBox (CurvePair s) where
+  boxOf (CurvePair c o) = minMaxBox (boxOf c) (boxOf o)
 
-instance Boxable (Outline SubSpace) where
-  getBoundingBox (Outline vs) = getBoundingBox . V.map getBoundingBox $ vs
+instance (Bounded s, Ord s, Num s) => HasSpace (Outline s) where
+  type SpaceOf (Outline s) = s
 
-instance (Num s) => SimpleTransformable Outline s where
+--instance (Bounded s, Ord s, Num s) => HasSpace (V.Vector (CurvePair s)) where
+--  type SpaceOf (V.Vector (CurvePair s)) = s
+
+instance (Bounded (SpaceOf (Outline s)), Ord (SpaceOf (Outline s)), Num (SpaceOf (Outline s))) => HasBox (Outline s) where
+  boxOf (Outline vs) = minMaxBoxes . fmap boxOf $ vs
+
+instance (Space s) => SimpleTransformable (Outline s) where
   tTranslate p = mapOutline (tTranslate p)
   tScale     s = mapOutline (tScale s)
-instance (Floating s, Num s) => Transformable Outline s where
+instance (Space s) => Transformable (Outline s) where
   tRotate    a = mapOutline (tRotate a)
 
 instance NFData s => NFData (CurvePair s) where

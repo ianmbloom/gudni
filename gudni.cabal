@@ -64,6 +64,7 @@ library
                      , Graphics.Gudni.Util.Draw
                      , Graphics.Gudni.Util.Plot
                      , Graphics.Gudni.OpenCL.DeviceQuery
+                     , Graphics.Gudni.Util.Scaffolding
 
   -- Modules included in this library but not exported.
   other-modules:       Graphics.Gudni.Figure.HasDefault
@@ -74,7 +75,6 @@ library
                      , Graphics.Gudni.Figure.Outline
                      , Graphics.Gudni.Figure.Point
                      , Graphics.Gudni.Figure.Angle
-                     , Graphics.Gudni.Figure.RawShape
                      , Graphics.Gudni.Figure.Segment
                      , Graphics.Gudni.Figure.Space
                      , Graphics.Gudni.Figure.Transformer
@@ -107,7 +107,6 @@ library
                      , Graphics.Gudni.Util.Util
                      , Graphics.Gudni.Util.Pile
                      , Graphics.Gudni.Util.RandomField
-                     , Graphics.Gudni.Util.Scaffolding
 
   -- LANGUAGE extensions used by modules in this package.
   other-extensions:    FlexibleContexts
@@ -211,6 +210,25 @@ executable gudni-benchmarks
                -- -fprof-auto
                -- "-with-rtsopts=-N -p -s -h -i0.1"
 
+executable gudni-scaffolding
+   -- other-modules:
+  if flag(benchmarks)
+    build-depends:   gudni
+                   , base
+                   , lens
+                   , vector
+                   , mtl
+                   , IfElse
+  else
+    buildable: False
+  hs-source-dirs: ./benchmarks
+  main-is: GudniScaffolding.hs
+  default-language: Haskell2010
+  ghc-options: -main-is GudniScaffolding
+               -O3
+               -threaded
+               -- -fprof-auto
+               -- "-with-rtsopts=-N -p -s -h -i0.1"
 executable gudni-trace-visualizer
   if flag(trace)
     build-depends:   gudni

@@ -7,6 +7,8 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE StandaloneDeriving    #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -24,10 +26,10 @@
 module Graphics.Gudni.Figure.ShapeTree
   ( STree(..)
   , SRep(..)
-  , sTranslate
-  , sTranslateXY
-  , sScale
-  , sRotate
+  , tTranslate
+  , tTranslateXY
+  , tScale
+  , tRotate
   , shapeSubstanceType
   , shapeToken
   , shapeCompoundTree
@@ -40,9 +42,6 @@ module Graphics.Gudni.Figure.ShapeTree
   , sceneShapeTree
   , HasDefault(..)
   , invertCompound
-  , cAdd
-  , cSubtract
-  , cContinue
   )
 where
 
@@ -55,7 +54,7 @@ import Graphics.Gudni.Figure.Glyph
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Color
 import Graphics.Gudni.Figure.Picture
-import Graphics.Gudni.Figure.RawShape
+import Graphics.Gudni.Figure.Outline
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
@@ -78,12 +77,15 @@ import Foreign.Storable
 -- the trans type defines transformations that can be applied across to subtree and the leaf type the component elements of
 -- a tree. The ShapeTree type is an STree that melds with Overlap whose component type is an SRep which itself contains
 -- an STree that melds with Compound, and whose component type is RawShape.
-data STree meld trans leaf where
-  STransform :: trans -> STree meld trans leaf -> STree meld trans leaf
-  SMeld      :: meld -> STree meld trans leaf -> STree meld trans leaf -> STree meld trans leaf
-  SLeaf      :: leaf -> STree meld trans leaf
-  deriving (Show)
+data STree meld leaf where
+  STransform :: Transformer (SpaceOf leaf) -> STree meld leaf -> STree meld leaf
+  SMeld      :: meld -> STree meld leaf -> STree meld leaf -> STree meld leaf
+  SLeaf      :: leaf -> STree meld leaf
 
+deriving instance (Show meld, Show leaf, Show (SpaceOf leaf)) => Show (STree meld leaf)
+
+instance HasSpace leaf => HasSpace (STree meld leaf) where
+  type SpaceOf (STree meld leaf) = SpaceOf leaf
 -- | Type of melding of compound shapes.
 data Compound
         -- | Neutral combination of outlines.
@@ -114,21 +116,15 @@ data SRep token substance rep = SRep
   } deriving (Show)
 makeLenses ''SRep
 
--- | Add a translate node to a tree.
-sTranslate :: Point2 s -> STree o (Transformer s) leaf -> STree o (Transformer s) leaf
-sTranslate delta = STransform (Translate delta)
+instance HasSpace rep => HasSpace (SRep token substance rep) where
+  type SpaceOf (SRep token substance rep) = SpaceOf rep
 
--- | Convenience function to make a translation node from the component dimensions.
-sTranslateXY :: Ortho XDimension s -> Ortho YDimension s -> STree o (Transformer s) leaf -> STree o (Transformer s) leaf
-sTranslateXY x y = sTranslate (makePoint x y)
+instance (HasSpace leaf) => SimpleTransformable (STree o leaf) where
+  tTranslate delta = STransform (Translate delta)
+  tScale factor    = STransform (Scale factor)
 
--- | Add a scale node to a tree
-sScale :: s -> STree o (Transformer s) leaf -> STree o (Transformer s) leaf
-sScale     scale = STransform (Scale scale)
-
--- | Add a rotate node to a tree
-sRotate :: Angle s -> STree o (Transformer s) leaf -> STree o (Transformer s) leaf
-sRotate    angle = STransform (Rotate angle)
+instance (HasSpace leaf) => Transformable (STree o leaf) where
+  tRotate angle = STransform (Rotate angle)
 
 instance Functor (SRep token substance) where
   fmap f (SRep token substance rep) = SRep token substance (f rep)
@@ -137,13 +133,13 @@ instance NFData r => NFData (Substance r) where
   rnf (Solid color) = color `deepseq` ()
   rnf (Texture pict) = pict `deepseq` ()
 
-type CompoundTree  = STree Compound (Transformer SubSpace) RawShape
-type ShapeTree token = STree () (Transformer SubSpace) (SRep token (PictureUsage PictId) CompoundTree)
+type CompoundTree s = STree Compound [Outline s]
+type ShapeTree token s = STree () (SRep token (PictureUsage PictId) (CompoundTree s))
 
 -- | A container for a ShapeTree that indicates the background color.
 data Scene token = Scene
-  { _SceneBackgroundColor :: Color
-  , _SceneShapeTree       :: ShapeTree token
+  { _sceneBackgroundColor :: Color
+  , _sceneShapeTree       :: ShapeTree token SubSpace
   } deriving (Show)
 makeLenses ''Scene
 
@@ -158,25 +154,14 @@ invertCompound combineType =
         CompoundSubtract -> CompoundAdd
         CompoundContinue -> CompoundContinue
 
--- | Combine two subtrees by adding them.
-cAdd      :: STree Compound o t -> STree Compound o t -> STree Compound o t
-cAdd      = SMeld CompoundAdd
-
--- | Combine two subtrees by substracting the first from the second.
-cSubtract :: STree Compound o t -> STree Compound o t -> STree Compound o t
-cSubtract = SMeld CompoundSubtract
-
--- | Combine two subtrees by nuetrally concatenating their component outlines.
-cContinue :: STree Compound o t -> STree Compound o t -> STree Compound o t
-cContinue = SMeld CompoundContinue
-
+{-
 ---------------------------- Instances -------------------------------------
-instance Functor (STree overlap trans) where
+instance (SpaceOf a Functor (STree overlap) where
   fmap f (SLeaf child)                 = SLeaf $ f child
   fmap f (STransform t child)           = STransform t  $ fmap f child
   fmap f (SMeld overlap above below) = SMeld overlap (fmap f above) (fmap f below)
 
-instance Foldable (STree overlap trans) where
+instance Foldable (STree overlap) where
   foldr f item (SLeaf child)  = f child item
   foldr f item (STransform t child)   = foldr f item child
   foldr f item (SMeld overlap above below) = foldr f (foldr f item above) below
@@ -184,10 +169,11 @@ instance Foldable (STree overlap trans) where
   foldMap f (STransform t child)   = foldMap f child
   foldMap f (SMeld overlap above below) = foldMap f above `mappend` foldMap f below
 
-instance Traversable (STree overlap trans) where
+instance Traversable (STree overlap) where
   traverse f (SLeaf child)  = fmap SLeaf (f child)
   traverse f (STransform t child)   = fmap (STransform t) (traverse f child)
   traverse f (SMeld overlap above below) = liftA2 (SMeld overlap) (traverse f above) (traverse f below)
   sequenceA (SLeaf child)  = fmap SLeaf child
   sequenceA (STransform t child)   = fmap (STransform t ) (sequenceA child)
   sequenceA (SMeld overlap above below) = liftA2 (SMeld overlap) (sequenceA above) (sequenceA below)
+-}
