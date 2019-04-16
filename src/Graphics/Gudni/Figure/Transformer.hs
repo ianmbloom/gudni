@@ -53,13 +53,13 @@ class (HasSpace t) => SimpleTransformable t where
 class SimpleTransformable t => Transformable t where
   tRotate    :: Angle (SpaceOf t) -> t -> t
 
-tTranslateXY :: (HasSpace t, SimpleTransformable t) => (SpaceOf t) -> (SpaceOf t) -> t -> t
-tTranslateXY x y = tTranslate $ Point2 x y
+tTranslateXY :: (HasSpace t, SimpleTransformable t) => X (SpaceOf t) -> Y (SpaceOf t) -> t -> t
+tTranslateXY x y = tTranslate $ makePoint x y
 
 identityTransform :: Num s => Transformer s
 identityTransform = Translate (Point2 0 0)
 
-instance (Space s) => SimpleTransformable (Point2 s) where
+instance (SimpleSpace s) => SimpleTransformable (Point2 s) where
     tTranslate = (^+^)
     tScale     = flip (^*)
 instance (Space s) => Transformable (Point2 s) where

@@ -64,7 +64,7 @@ initialModel =
 
 instance Model ScaffoldState where
     screenSize state = --FullScreen
-                       Window $ Point2 1440 900
+                       Window $ Point2 1024 900
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =
@@ -81,8 +81,8 @@ instance Model ScaffoldState where
                             dt = realToFrac timeDelta * realToFrac speed
                         statePlayhead %= (`f` dt)
     constructScene state status =
-        do  para <- paragraph 1 0.5 AlignMin mobyDick
-            let testScene = solid black . rack $ [para, circle]
+        do  para <- paragraph 0.1 0.1 AlignMin AlignMin mobyDick
+            let testScene = solid black . rack AlignMin $ distributeRack 1 $ [para, circle]
             testName <- glyphString "Test Paragraph"
             statusGlyphs <- mapM glyphString . lines $ status
             let tree = transformFromState testScene state

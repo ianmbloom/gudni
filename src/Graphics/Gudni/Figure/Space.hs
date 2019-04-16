@@ -67,7 +67,7 @@ import Linear.Epsilon
 
 showBin i = printf "The value of %d in hex is: 0x%08x and binary is: %b\n" i i i
 
-type SimpleSpace s = (Num s, Eq s, Ord s, Bounded s)
+type SimpleSpace s = (Num s, Eq s, Ord s, Bounded s, Show s)
 type Space s = (SimpleSpace s, Floating s, Real s, Fractional s)
 
 type SubSpace_ = Float

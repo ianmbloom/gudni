@@ -37,27 +37,27 @@ import Data.Char (ord)
 import Control.Lens
 
 -- | Combine two subtrees by adding them.
-cAdd :: (Ord (SpaceOf leaf))
+cAdd :: HasSpace leaf
      => Glyph (STree Compound leaf)
      -> Glyph (STree Compound leaf)
      -> Glyph (STree Compound leaf)
 cAdd = combineGlyph (SMeld CompoundAdd)
 
 -- | Combine two subtrees by substracting the first from the second.
-cSubtract :: (Ord (SpaceOf leaf))
+cSubtract :: HasSpace leaf
           => Glyph (STree Compound leaf)
           -> Glyph (STree Compound leaf)
           -> Glyph (STree Compound leaf)
 cSubtract = combineGlyph (SMeld CompoundSubtract)
 
 -- | Combine two subtrees by nuetrally concatenating their component outlines.
-cContinue :: (Ord (SpaceOf leaf))
+cContinue :: HasSpace leaf
           => Glyph (STree Compound leaf)
           -> Glyph (STree Compound leaf)
           -> Glyph (STree Compound leaf)
 cContinue = combineGlyph (SMeld CompoundContinue)
 
-lPath :: (Floating s, Real s, Fractional s, Bounded s)
+lPath :: (Space s)
       => String
       -> Glyph (CompoundTree s)
 lPath name =
@@ -68,7 +68,7 @@ lPath name =
 rectangle :: (Floating s, Real s, Fractional s)
           => Point2 s
           -> Glyph (CompoundTree s)
-rectangle v = Glyph 0 (v ^. pX) 0 (v ^. pY)
+rectangle v = Glyph v
             . SLeaf
             . segmentsToOutline
             $ [[ straight 0      0
@@ -139,7 +139,7 @@ makeGrid s width height = overlap . take height . makeColumn s . map (overlap . 
 increasingAngles :: (Floating s, Num s) => [Angle s]
 increasingAngles = take 23 $ iterate ( ^+^ (15 @@ deg)) (15 @@ deg)
 
-arc :: (Floating s, Real s, Fractional s, Bounded s)
+arc :: (Space s)
     => Angle s
     -> Glyph (CompoundTree s)
 arc = rawCurve . makeArc
@@ -156,10 +156,10 @@ paraGrid :: (SimpleSpace s)
          -> Glyph (CompoundTree s)
 paraGrid s = overlap . makeColumn s . map (overlap . makeRow s)
 
-circle :: (Floating s, Real s, Fractional s, Bounded s)
+circle :: (Space s)
        => Glyph (CompoundTree s)
-circle = overlap [ openRectangle 0.1 (Point2 1 1)
-                 , mapGlyph (tTranslateXY 0.0 (-0.5)) $ arc fullTurn
+circle = overlap [ openRectangle 0.025 (Point2 1 1)
+                 , tScale 0.5 $ mapGlyph (tTranslateXY 1 (1)) $ arc fullTurn
                  ]
 
 solid :: Color
@@ -172,7 +172,7 @@ textureWith :: PictureUsage PictId
             -> Glyph (ShapeTree Int s)
 textureWith pict = mapGlyph (SLeaf . SRep 0 (Texture pict))
 
-raw :: (Floating s, Real s, Fractional s, Bounded s)
+raw :: (Space s)
     => [Segment s] -> Glyph (CompoundTree s)
 raw = wrapGlyph . segmentsToOutline . pure
 
@@ -186,4 +186,5 @@ wrapGlyph :: (SimpleSpace s)
           -> Glyph (CompoundTree s)
 wrapGlyph outlines =
   let box = boxOf outlines
-  in  Glyph 0 (widthOf box) 0 (heightOf box) $ SLeaf outlines
+  in  Glyph (makePoint (widthOf box) (heightOf box)) $
+      SLeaf outlines

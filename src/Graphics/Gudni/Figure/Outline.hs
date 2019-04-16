@@ -52,9 +52,12 @@ import Control.DeepSeq
 -- The control point is called offCurve and in the case of a straight segment the point just colinear with
 -- the onCurve points before and after it. This is just internal, user defined outlines should be specified as
 -- sequences of Segments.
-newtype CurvePair s = Cp {_unCp :: V2 (Point2 s)} deriving (Eq, Ord, Show, Num)
+newtype CurvePair s = Cp {_unCp :: V2 (Point2 s)} deriving (Eq, Ord, Num)
 makeLenses ''CurvePair
 pattern CurvePair a b = Cp (V2 a b)
+
+instance Show s => Show (CurvePair s) where
+  show (CurvePair a b) = " O(" ++ show (a ^. pX) ++ "," ++ show (a ^. pY) ++ ") X(" ++ show (b ^. pX) ++ "," ++ show (b ^. pY) ++ ")"
 
 -- | Lens for the anchor or on-curve point.
 onCurve :: Lens' (CurvePair s) (Point2 s)
@@ -76,8 +79,10 @@ pairPoints [v0] = []
 -- | An outline is just a wrapper for a list of CurvePairs. It represents one curve loop∘
 -- A shape is defined by a list of outlines.
 newtype Outline s = Outline (V.Vector (CurvePair s))
-               deriving (Eq, Ord, Show)
+               deriving (Eq, Ord)
 
+instance Show (Outline s) where
+  show _ = "Outline"
 -- | Map over every point in an outline.
 mapOutline :: (Point2 s -> Point2 z) -> Outline s -> Outline z
 mapOutline f (Outline ps) = Outline (V.map (mapCurvePair f) ps)
@@ -112,19 +117,19 @@ closeOpenCurve curve =
 
 -- * Instances
 
-instance (Bounded s, Ord s, Num s) => HasSpace (CurvePair s) where
+instance (SimpleSpace s) => HasSpace (CurvePair s) where
   type SpaceOf (CurvePair s) = s
 
-instance (Bounded s, Ord s, Num s) => HasBox (CurvePair s) where
+instance (SimpleSpace s) => HasBox (CurvePair s) where
   boxOf (CurvePair c o) = minMaxBox (boxOf c) (boxOf o)
 
-instance (Bounded s, Ord s, Num s) => HasSpace (Outline s) where
+instance (SimpleSpace s) => HasSpace (Outline s) where
   type SpaceOf (Outline s) = s
 
 --instance (Bounded s, Ord s, Num s) => HasSpace (V.Vector (CurvePair s)) where
 --  type SpaceOf (V.Vector (CurvePair s)) = s
 
-instance (Bounded (SpaceOf (Outline s)), Ord (SpaceOf (Outline s)), Num (SpaceOf (Outline s))) => HasBox (Outline s) where
+instance (SimpleSpace s) => HasBox (Outline s) where
   boxOf (Outline vs) = minMaxBoxes . fmap boxOf $ vs
 
 instance (Space s) => SimpleTransformable (Outline s) where

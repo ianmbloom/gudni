@@ -50,7 +50,7 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Box
-import Graphics.Gudni.Figure.Glyph
+--import Graphics.Gudni.Figure.Glyph
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Color
 import Graphics.Gudni.Figure.Picture

@@ -16,6 +16,8 @@ module Graphics.Gudni.Util.Scaffolding
   , myLeaf
   , glyphString
   , paragraph
+  , distributeRack
+  , distributeStack
   , rack
   , stack
   , overlap
@@ -34,113 +36,115 @@ import Data.Char
 import Control.Lens
 import Control.Monad.State
 
-data TextState s = TextState
-  { _textAdvance   :: X s
-  , _textRetreat   :: X s
-  , _textAscent    :: Y s
-  , _textDescent   :: Y s
-  }
-makeLenses ''TextState
+data Alignment = AlignMin | AlignMax | AlignCenter
 
-emptyTextState :: (Num s) => TextState s
-emptyTextState = TextState
-  { _textAdvance = 0
-  , _textRetreat = 0
-  , _textAscent  = 0
-  , _textDescent = 0
-  }
+alignHorizontal :: (Show (SpaceOf rep), HasSpace rep, Fractional (SpaceOf rep))
+                => Alignment
+                -> Glyph (STree o rep)
+                -> Glyph (STree o rep)
+                -> (Glyph (STree o rep), Glyph (STree o rep))
+alignHorizontal alignment a b =
+  let aWidth = a ^. glyphBox . pX
+      bWidth = b ^. glyphBox . pX
+      width  = max aWidth bWidth
+      offsetA = case alignment of
+                  AlignMin    -> 0
+                  AlignMax    -> width - aWidth
+                  AlignCenter -> (width - aWidth) / 2
+      newA = set (glyphBox . pX) width . mapGlyph (tTranslateXY offsetA 0) $ a
+      offsetB = case alignment of
+                  AlignMin    -> 0
+                  AlignMax    -> width - bWidth
+                  AlignCenter -> (width - bWidth) / 2
+      newB = set (glyphBox . pX) width . mapGlyph (tTranslateXY offsetB 0) $ b
+  in  (newA, newB)
 
-type TextMonad s = State (TextState s)
+alignVertical :: (Show (SpaceOf rep), HasSpace rep, Fractional (SpaceOf rep))
+              => Alignment
+              -> Glyph (STree o rep)
+              -> Glyph (STree o rep)
+              -> (Glyph (STree o rep), Glyph (STree o rep))
+alignVertical alignment a b =
+  let aHeight = a ^. glyphBox . pY
+      bHeight = b ^. glyphBox . pY
+      height  = max aHeight bHeight
+      offsetA = case alignment of
+                  AlignMin    -> 0
+                  AlignMax    -> height - aHeight
+                  AlignCenter -> (height - aHeight) / 2
+      newA = set (glyphBox . pY) height . mapGlyph (tTranslateXY 0 offsetA) $ a
+      offsetB = case alignment of
+                  AlignMin    -> 0
+                  AlignMax    -> height - bHeight
+                  AlignCenter -> (height - bHeight) / 2
+      newB = set (glyphBox . pY) height . mapGlyph (tTranslateXY 0 offsetB) $ b
+  in  (newA, newB)
 
-rack :: forall o t rep
-     .  (HasSpace rep, Ord (SpaceOf rep), Num (SpaceOf rep), HasDefault o)
-     => [Glyph (STree o rep)]
+nextToHorizontal :: (Show (SpaceOf rep), HasSpace rep) => Glyph (STree o rep) -> Glyph (STree o rep) -> (Glyph (STree o rep), Glyph (STree o rep))
+nextToHorizontal a b =
+    let newB = set (glyphBox . pX) (a ^. glyphBox . pX + b ^. glyphBox . pX) .
+               mapGlyph (tTranslateXY (a ^. glyphBox . pX) 0) $
+               b
+    in (a, newB)
+
+nextToVertical :: (Show (SpaceOf rep), HasSpace rep) => Glyph (STree o rep) -> Glyph (STree o rep) -> (Glyph (STree o rep), Glyph (STree o rep))
+nextToVertical a b =
+    let newB = set (glyphBox . pY) (a ^. glyphBox . pY + b ^. glyphBox . pY) .
+               mapGlyph (tTranslateXY 0 (a ^. glyphBox . pY)) $
+               b
+    in (a, newB)
+
+combineGlyph :: HasSpace rep
+             => (STree o rep -> STree o rep -> STree o rep)
+             -> Glyph (STree o rep)
+             -> Glyph (STree o rep)
+             -> Glyph (STree o rep)
+combineGlyph op a b =
+  set (glyphBox . pX) (max (a ^. glyphBox . pX) (b ^. glyphBox . pX)) .
+  set (glyphBox . pY) (max (a ^. glyphBox . pY) (b ^. glyphBox . pY)) .
+  set glyphRep (op (a ^. glyphRep) (b ^. glyphRep)) $ a
+
+betweenList :: a -> [a] -> [a]
+betweenList b [a]    = [a]
+betweenList b (a:as) = a : b : betweenList b as
+betweenList b []     = []
+
+distributeRack :: SimpleSpace s => X s -> [Glyph (CompoundTree s)] -> [Glyph (CompoundTree s)]
+distributeRack gap = betweenList (Glyph (makePoint gap 0) (SLeaf []))
+
+distributeStack :: SimpleSpace s => Y s -> [Glyph (CompoundTree s)] -> [Glyph (CompoundTree s)]
+distributeStack gap = betweenList (Glyph (makePoint 0 gap) (SLeaf []))
+
+overlap :: (HasSpace rep, HasDefault o) => [Glyph (STree o rep)] -> Glyph (STree o rep)
+overlap = foldl1 (combineGlyph (SMeld defaultValue))
+
+rack :: forall o rep
+     .  (Show rep, Show (SpaceOf rep), Show o,
+         HasSpace rep, Fractional (SpaceOf rep), HasDefault o)
+     => Alignment
+     -> [Glyph (STree o rep)]
      -> Glyph (STree o rep)
-rack row =
-  let (unalignedRow, state) = runState (go row) emptyTextState
-      go :: [Glyph (STree o rep)] -> TextMonad (SpaceOf rep) [X (SpaceOf rep)]
-      go (c:cs) =
-          do  currentRetreat <- use textRetreat
-              currentAdvance <- use textAdvance
-              textRetreat .= currentRetreat + currentAdvance + c ^. glyphRetreat
-              textAdvance .= c ^. glyphAdvance
-              textAscent  %= max (c ^. glyphAscent )
-              textDescent %= max (c ^. glyphDescent)
-              (currentRetreat:) <$> go cs
-      go [] = return []
-      align ascent c pos = mapGlyph (tTranslate (makePoint pos (ascent - c ^. glyphAscent))) c
-  in  overlap $ zipWith (align (state ^. textAscent)) row unalignedRow
+rack alignment = foldl1 (\ a b -> uncurry (combineGlyph (SMeld defaultValue)) . uncurry nextToHorizontal $ alignVertical alignment a b)
 
-stack :: forall o t rep
-      .  (HasSpace rep, Ord (SpaceOf rep), Num (SpaceOf rep), HasDefault o)
-      => [Glyph (STree o rep)]
+stack :: forall o rep
+      .  (Show rep, Show (SpaceOf rep), Show o,
+          HasSpace rep, Fractional (SpaceOf rep), HasDefault o)
+      => Alignment
+      -> [Glyph (STree o rep)]
       -> Glyph (STree o rep)
-stack column =
-  let (unalignedColumn, state) = runState (go column) emptyTextState
-      go :: [Glyph (STree o rep)] -> TextMonad (SpaceOf rep) [Y (SpaceOf rep)]
-      go (l:ls) =
-          do currentAscent  <- use textAscent
-             currentDescent <- use textDescent
-             textAscent  .= currentAscent + currentDescent + (l ^. glyphAscent)
-             textDescent .= l ^. glyphDescent
-             textAdvance %= max (l ^. glyphAdvance)
-             textRetreat %= max (l ^. glyphRetreat)
-             (currentAscent:) <$> go ls
-      go [] = return []
-      align retreat c pos = mapGlyph (tTranslate (makePoint (retreat - c ^. glyphRetreat) pos)) c
-  in  overlap $ zipWith (align (state ^. textRetreat)) column unalignedColumn
-
-betweenList :: (Glyph a -> Glyph a) -> [Glyph a] -> [Glyph a]
-betweenList f (a:as) = a : map f as
-betweenList f [] = []
-
-distributeRack :: HasSpace a => X (SpaceOf a) -> [Glyph a] -> [Glyph a]
-distributeRack gap = betweenList (over glyphRetreat (+gap))
-
-distributeStack :: HasSpace a => Y (SpaceOf a) -> [Glyph a] -> [Glyph a]
-distributeStack gap = betweenList (over glyphAscent (+gap))
+stack alignment = foldl1 (\ a b -> uncurry (combineGlyph (SMeld defaultValue)) . uncurry nextToVertical $ alignHorizontal alignment a b)
 
 -- | Convert a string of characters to a list of glyphs in the GlyphMonad.
 glyphString :: (MonadState GlyphCache m, Monad m) => String -> m [Glyph (CompoundTree SubSpace)]
-glyphString = mapM (fmap (mapGlyph SLeaf) . getGlyph . CodePoint . ord)
+glyphString = mapM (getGlyph . CodePoint . ord)
 
-paragraph :: forall m . Monad m => X SubSpace -> Y SubSpace -> Alignment -> String -> GlyphMonad m (Glyph (CompoundTree SubSpace))
-paragraph gapX gapY alignment string =
+paragraph :: forall m . (MonadState GlyphCache m, Monad m)
+          => X SubSpace -> Y SubSpace -> Alignment -> Alignment -> String -> m (Glyph (CompoundTree SubSpace))
+paragraph gapX gapY alignX alignY string =
   do  let stringLines = lines string
       glyphLines <- mapM glyphString stringLines
-      let glyphRacks = map (realignHorizontal alignment . rack . distributeRack gapX) glyphLines
-      return . stack . distributeStack gapY $ glyphRacks
-
-data Alignment = AlignMin | AlignMax | AlignCenter
-
-realignHorizontal :: Fractional (SpaceOf a) => Alignment -> Glyph a -> Glyph a
-realignHorizontal alignment g =
-  let width = g ^. glyphAdvance + g ^. glyphRetreat
-  in case alignment of
-    AlignMin    -> set glyphRetreat 0 . set glyphAdvance width $ g
-    AlignMax    -> set glyphRetreat width . set glyphAdvance 0 $ g
-    AlignCenter -> set glyphAdvance (width / 2) . set glyphRetreat (width / 2) $ g
-
-realignVertical :: Fractional (SpaceOf a) => Alignment -> Glyph a -> Glyph a
-realignVertical alignment g =
-  let height = g ^. glyphAscent + g ^. glyphDescent
-  in case alignment of
-    AlignMin    -> set glyphAscent 0 . set glyphDescent height $ g
-    AlignMax    -> set glyphAscent height . set glyphDescent 0 $ g
-    AlignCenter -> set glyphAscent (height / 2) . set glyphDescent (height / 2) $ g
-
-combineGlyph :: Ord (SpaceOf a) => (a -> a -> a) -> Glyph a -> Glyph a -> Glyph a
-combineGlyph op (Glyph advance0 retreat0 ascent0 descent0 a0)
-                (Glyph advance1 retreat1 ascent1 descent1 a1) =
-                  Glyph (max advance0 advance1)
-                        (max retreat0 retreat1)
-                        (max ascent0  ascent1 )
-                        (max descent0 descent1)
-                        (op a0 a1)
-
-overlap :: (Ord (SpaceOf rep), HasDefault o) => [Glyph (STree o rep)] -> Glyph (STree o rep)
-overlap = foldl1 (combineGlyph (SMeld defaultValue))
-
+      let glyphRacks = map (rack alignY . distributeRack gapX) glyphLines
+      return . stack alignX . distributeStack gapY $ glyphRacks
 
 newtype Scaffold a = Scaffold {unScaffold :: a}
 
