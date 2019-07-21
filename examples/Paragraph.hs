@@ -2,25 +2,17 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module GudniScaffolding
+module Paragraph
   ( main
   )
 where
 
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Figure
-
+import Graphics.Gudni.Layout
 import Graphics.Gudni.Application
-import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.Draw
-import Graphics.Gudni.Util.Scaffolding
 
-
-import Data.Word
-import Data.List(isInfixOf)
-import Data.Maybe(listToMaybe, fromMaybe)
-import qualified Data.Vector.Storable as VS
-
+import Data.Maybe(listToMaybe, fromMaybe, fromJust)
 import Control.Lens
 import Control.Monad
 import Control.Monad.State
@@ -28,10 +20,9 @@ import Control.Monad.IfElse
 
 import System.Info
 
-data ScaffoldState = ScaffoldState
+data ParagraphState = ParagraphState
   { _stateScale       :: SubSpace
   , _stateDelta       :: Point2 SubSpace
-  , _stateCircleDelta :: Point2 SubSpace
   , _stateAngle       :: Angle  SubSpace
   , _statePaused      :: Bool
   , _stateSpeed       :: SubSpace
@@ -43,13 +34,12 @@ data ScaffoldState = ScaffoldState
   , _stateStep        :: Int
   , _stateFrameNumber :: Int
   } deriving (Show)
-makeLenses ''ScaffoldState
+makeLenses ''ParagraphState
 
 initialModel =
-    ScaffoldState
+    ParagraphState
     { _stateScale       = 30
     , _stateDelta       = Point2 0 0
-    , _stateCircleDelta = Point2 0 0
     , _stateAngle       = 0 @@ deg -- 0.02094 @@ rad -- 0 @@ turn-- quarterTurn
     , _statePaused      = True
     , _stateSpeed       = 0.1
@@ -62,7 +52,7 @@ initialModel =
     , _stateFrameNumber = 0
     }
 
-instance Model ScaffoldState where
+instance Model ParagraphState where
     screenSize state = --FullScreen
                        Window $ Point2 1024 900
     shouldLoop _ = True
@@ -81,40 +71,37 @@ instance Model ScaffoldState where
                             dt = realToFrac timeDelta * realToFrac speed
                         statePlayhead %= (`f` dt)
     constructScene state status =
-        do  para <- paragraph 0.1 0.1 AlignMin AlignMin mobyDick
-            let testScene = solid black . rack AlignMin $ distributeRack 1 $ [para, circle]
-            testName <- glyphString "Test Paragraph"
-            statusGlyphs <- mapM glyphString . lines $ status
+        do  para <- paragraph 0.2 0.2 AlignCenter AlignCenter mobyDick
+            let testScene = solid black . rack AlignMin $ distributeRack 0 $ [para, tScale 10 circle]
+            statusTree <- statusDisplay state "Test Paragraph" (lines status)
             let tree = transformFromState testScene state
-                statusTree = statusDisplay state testName statusGlyphs
                 withStatus = if False then overlap [statusTree, tree] else tree
-            return (Scene (light gray) $ view glyphRep withStatus)
+            return (Scene (light gray) $ fromJust $ withStatus ^. unBoxed)
     providePictureData _ = noPictures
     handleOutput state target = do  presentTarget target
                                     return state
 
-statusDisplay :: ScaffoldState -> [Glyph (CompoundTree SubSpace)] -> [[Glyph (CompoundTree SubSpace)]] -> Glyph (ShapeTree Int SubSpace)
+statusDisplay :: Monad m => ParagraphState -> String -> [String] -> GlyphMonad m (Boxed (ShapeTree Int SubSpace))
 statusDisplay state testName status =
     tTranslateXY 1800 800 .
-    mapGlyph (tRotate (45 @@ deg)) .
+    fmap (mapBoxed (tRotate (45 @@ deg))) .
     tTranslate (state ^. stateDelta) .
     tScale 30 .
-    solid (dark red) .
-    paraGrid 1 $
-    testName : status
+    fmap (solid (dark red)) .
+    paragraph 0 0 AlignMin AlignMin $
+    unlines $ testName : status
 
-transformFromState :: Glyph (ShapeTree Int SubSpace) -> ScaffoldState -> Glyph (ShapeTree Int SubSpace)
+transformFromState :: Boxed (ShapeTree Int SubSpace) -> ParagraphState -> Boxed (ShapeTree Int SubSpace)
 transformFromState constructed state =
-    let sc    = view stateScale state
-        delta = view stateDelta state
-        angle = view stateAngle state
-    in  mapGlyph (
-        tTranslate delta .
-        tRotate angle .
-        tScale sc)
+    let sc    = state ^. stateScale
+        delta = state ^. stateDelta
+        angle = state ^. stateAngle
+    in  tTranslate delta .
+        mapBoxed (tRotate angle) .
+        tScale sc $
         constructed
 
-processInput :: Monad m => Input (Point2 PixelSpace) -> StateT ScaffoldState m ()
+processInput :: Monad m => Input (Point2 PixelSpace) -> StateT ParagraphState m ()
 processInput input =
     case input of
         (InputKey Pressed _ inputKeyboard) ->
@@ -145,11 +132,13 @@ processInput input =
 main :: IO ()
 main = --silence $
        do putStrLn "Started"
-          runApplication (initialModel :: ScaffoldState)
+          runApplication (initialModel :: ParagraphState)
 
 -- | Sample text paragraph.
 mobyDick :: String
-mobyDick
+mobyDick = --"01234\n12345\n23456\n34567\n45678\n"
+           "0\n01\n012\n0123\n01234\n"
+{-
   =  "Call me Ishmael. Some years ago--never mind how long precisely--having little\n"
   ++ "or no money in my purse, and nothing particular to interest me on shore, I thought\n"
   ++ "I would sail about a little and see the watery part of the world. It is a way I have of\n"
@@ -180,3 +169,4 @@ mobyDick
   ++ "water as they possibly can without falling in. And there they stand--miles of them--leagues. Inlanders all,\n"
   ++ "they come from lanes and alleys, streets and avenues--north, east, south, and west. Yet here they all unite.\n"
   ++ "Tell me, does the magnetic virtue of the needles of tcompasses of all those ships attract them thither?\n"
+-}

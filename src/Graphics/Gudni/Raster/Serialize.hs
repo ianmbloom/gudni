@@ -259,7 +259,7 @@ buildOverScene scene =
   do  -- Move the backgound color into the serializer state.
       suBackgroundColor .= scene ^. sceneBackgroundColor
       -- Serialize the shape tree.
-      traverseShapeTree (onSubstance onShape) $ scene ^. sceneShapeTree
+      traverseShapeTree (onSubstance onShape) $ fromJust $ scene ^. sceneShapeTree
 
 outputGeometryState :: GeometryState -> IO ()
 outputGeometryState state =

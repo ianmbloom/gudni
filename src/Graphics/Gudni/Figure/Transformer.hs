@@ -5,6 +5,7 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -62,8 +63,23 @@ identityTransform = Translate (Point2 0 0)
 instance (SimpleSpace s) => SimpleTransformable (Point2 s) where
     tTranslate = (^+^)
     tScale     = flip (^*)
+
 instance (Space s) => Transformable (Point2 s) where
     tRotate    = rotate
+
+instance (SimpleTransformable a) => SimpleTransformable [a] where
+    tTranslate v = map (tTranslate v)
+    tScale s = map (tScale s)
+
+instance (Transformable a) => Transformable [a] where
+    tRotate a = map (tRotate a)
+
+instance {-# Overlappable #-} (HasSpace a, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Functor f, SimpleTransformable a) => SimpleTransformable (f a) where
+    tTranslate v = fmap (tTranslate v)
+    tScale s = fmap (tScale s)
+
+instance {-# Overlappable #-} (HasSpace a, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Functor f, Transformable a) => Transformable (f a) where
+    tRotate a = fmap (tRotate a)
 
 instance Num s => HasDefault (Transformer s) where
     defaultValue = Translate (Point2 0 0)

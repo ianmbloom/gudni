@@ -46,7 +46,6 @@ data PictureMemoryReference = PictureMemory
     pictSize      :: Point2 PixelSpace
     -- | The offset of the picture data within the combined buffer of all source pictures.
   , pictMemOffset :: MemOffset_
-
   } deriving (Show)
 
 instance NFData PictureMemoryReference where

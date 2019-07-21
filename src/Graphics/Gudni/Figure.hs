@@ -2,7 +2,6 @@ module Graphics.Gudni.Figure
   ( module Graphics.Gudni.Figure.Angle
   , module Graphics.Gudni.Figure.Box
   , module Graphics.Gudni.Figure.Color
-  , module Graphics.Gudni.Figure.Glyph
   , module Graphics.Gudni.Figure.OpenCurve
   , module Graphics.Gudni.Figure.Outline
   , module Graphics.Gudni.Figure.Picture
@@ -17,7 +16,6 @@ where
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Color
-import Graphics.Gudni.Figure.Glyph
 import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Outline
 import Graphics.Gudni.Figure.Picture

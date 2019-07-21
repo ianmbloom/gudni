@@ -61,16 +61,14 @@ library
                      , Graphics.Gudni.Interface
                      , Graphics.Gudni.Util.Debug
                      , Graphics.Gudni.Util.Fuzzy
-                     , Graphics.Gudni.Util.Draw
                      , Graphics.Gudni.Util.Plot
                      , Graphics.Gudni.OpenCL.DeviceQuery
-                     , Graphics.Gudni.Util.Scaffolding
+                     , Graphics.Gudni.Layout
 
   -- Modules included in this library but not exported.
   other-modules:       Graphics.Gudni.Figure.HasDefault
                      , Graphics.Gudni.Figure.Box
                      , Graphics.Gudni.Figure.Color
-                     , Graphics.Gudni.Figure.Glyph
                      , Graphics.Gudni.Figure.OpenCurve
                      , Graphics.Gudni.Figure.Outline
                      , Graphics.Gudni.Figure.Point
@@ -103,6 +101,11 @@ library
                      , Graphics.Gudni.Raster.TraverseShapeTree
                      , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.Types
+                     , Graphics.Gudni.Layout.Boxed
+                     , Graphics.Gudni.Layout.Draw
+                     , Graphics.Gudni.Layout.Grid
+                     , Graphics.Gudni.Layout.Glyph
+                     , Graphics.Gudni.Layout.Scaffolding
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util
                      , Graphics.Gudni.Util.Pile
@@ -210,25 +213,6 @@ executable gudni-benchmarks
                -- -fprof-auto
                -- "-with-rtsopts=-N -p -s -h -i0.1"
 
-executable gudni-scaffolding
-   -- other-modules:
-  if flag(benchmarks)
-    build-depends:   gudni
-                   , base
-                   , lens
-                   , vector
-                   , mtl
-                   , IfElse
-  else
-    buildable: False
-  hs-source-dirs: ./benchmarks
-  main-is: GudniScaffolding.hs
-  default-language: Haskell2010
-  ghc-options: -main-is GudniScaffolding
-               -O3
-               -threaded
-               -- -fprof-auto
-               -- "-with-rtsopts=-N -p -s -h -i0.1"
 executable gudni-trace-visualizer
   if flag(trace)
     build-depends:   gudni
@@ -263,6 +247,46 @@ executable square-example
   main-is: Square.hs
   default-language: Haskell2010
   ghc-options: -main-is Square
+               -O3
+               -threaded
+               -- -fprof-auto
+               -- "-with-rtsopts=-N -p -s -h -i0.1"
+
+executable plot-example
+   -- other-modules:
+  if flag(benchmarks)
+    build-depends:   gudni
+                   , base
+                   , lens
+                   , vector
+                   , mtl
+                   , IfElse
+  else
+    buildable: False
+  hs-source-dirs: ./examples
+  main-is: Plot.hs
+  default-language: Haskell2010
+  ghc-options: -main-is Plot
+               -O3
+               -threaded
+               -- -fprof-auto
+               -- "-with-rtsopts=-N -p -s -h -i0.1"
+
+executable paragraph-example
+   -- other-modules:
+  if flag(benchmarks)
+    build-depends:   gudni
+                   , base
+                   , lens
+                   , vector
+                   , mtl
+                   , IfElse
+  else
+    buildable: False
+  hs-source-dirs: ./examples
+  main-is: Paragraph.hs
+  default-language: Haskell2010
+  ghc-options: -main-is Paragraph
                -O3
                -threaded
                -- -fprof-auto

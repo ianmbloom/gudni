@@ -55,6 +55,7 @@ import Graphics.Gudni.Raster.Job
 import Graphics.Gudni.Raster.TraverseShapeTree
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Layout
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util

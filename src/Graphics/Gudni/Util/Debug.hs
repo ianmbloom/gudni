@@ -54,9 +54,9 @@ instance Monad DebugIdentity where
 assert message cond x = if cond  then x else trace ("ASSERT " ++ message ++ show x) x
 assertError message cond x = if cond then x else error ("ASSERTERROR " ++ message) x
 
-showFl :: Float -> String
+showFl :: (RealFloat a) => a -> String
 showFl = showFl' 3
-showFl' numOfDecimals floatNum  = showFFloat (Just numOfDecimals) floatNum ""
+showFl' numOfDecimals floatNum  = showFFloat (Just numOfDecimals) (realToFrac floatNum) ""
 
 showFlFixed :: Float -> String
 showFlFixed = showFlFixed' 3 3
@@ -71,13 +71,14 @@ trWith f m x = trace (m++":"++f x) x
 tr :: (Show a) => String -> a -> a
 tr = trWith show
 trM m = fmap (tr m)
+trF :: (Show a, RealFloat a) => String -> a -> a
 trF = trWith (showFl' 3)
 trHex :: (Integral a) => String -> a -> a
 trHex = trWith (\t -> showHex (fromIntegral t) "")
 
 tcWith :: (a -> String) -> String -> a -> a
-tcWith f m x = trace (m++"-->") $
-                  trace ("-->"++m++"   "++(f x)) x
+tcWith f m x = trace ("START"++m) $
+                  trace ("END"++m++"   "++(f x)++"DONE") x
 
 tc :: Show a => String -> a -> a
 tc = tcWith show

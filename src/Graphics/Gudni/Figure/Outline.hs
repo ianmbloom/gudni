@@ -57,7 +57,7 @@ makeLenses ''CurvePair
 pattern CurvePair a b = Cp (V2 a b)
 
 instance Show s => Show (CurvePair s) where
-  show (CurvePair a b) = " O(" ++ show (a ^. pX) ++ "," ++ show (a ^. pY) ++ ") X(" ++ show (b ^. pX) ++ "," ++ show (b ^. pY) ++ ")"
+  show (CurvePair a b) = " O(" ++ show (a ^. pX) ++ "," ++ show (a ^. pY) ++ ")" -- ++" X(" ++ show (b ^. pX) ++ "," ++ show (b ^. pY) ++ ")"
 
 -- | Lens for the anchor or on-curve point.
 onCurve :: Lens' (CurvePair s) (Point2 s)
@@ -81,8 +81,9 @@ pairPoints [v0] = []
 newtype Outline s = Outline (V.Vector (CurvePair s))
                deriving (Eq, Ord)
 
-instance Show (Outline s) where
-  show _ = "Outline"
+instance Show s => Show (Outline s) where
+  show (Outline vs) = "Outline" ++ show vs
+
 -- | Map over every point in an outline.
 mapOutline :: (Point2 s -> Point2 z) -> Outline s -> Outline z
 mapOutline f (Outline ps) = Outline (V.map (mapCurvePair f) ps)
@@ -108,12 +109,12 @@ segmentsToOutline = map (Outline . V.fromList . segmentsToCurvePairs)
 
 -- | Close an open curve and convert it to an outline. An additional straight segment is added if the outset and the terminator of
 -- the curve are not the same.
-closeOpenCurve :: (Fractional s, Eq s) => OpenCurve s -> [Outline s]
+closeOpenCurve :: (Fractional s, Eq s) => OpenCurve s -> [Segment s]
 closeOpenCurve curve =
   let segments = if curve ^. terminator == curve ^. outset
                  then curve ^. curveSegments -- if the beggining of the curve is the same as the end, ignore the end
                  else Straight (curve ^. terminator) : curve ^. curveSegments -- else insert a straight segment from the end to the beggining.
-  in segmentsToOutline [segments]
+  in  segments
 
 -- * Instances
 

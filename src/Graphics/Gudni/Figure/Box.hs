@@ -5,6 +5,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE PatternSynonyms       #-}
+{-# LANGUAGE IncoherentInstances   #-}
 -- {-# LANGUAGE TemplateHaskell       #-}
 -- {-# LANGUAGE DatatypeContexts      #-}
 
@@ -35,6 +36,8 @@ module Graphics.Gudni.Figure.Box
   , topSide
   , rightSide
   , bottomSide
+  , widthBox
+  , heightBox
   , mapBox
   , sizeBox
   , areaBox
@@ -61,11 +64,13 @@ import Control.Lens
 
 --import Data.ShapeInfo.SIMD
 import Data.Traversable
+import Data.Hashable
+import Control.DeepSeq
 import qualified Data.Vector.Storable as VS
 import Linear.V2
 
 -- | Newtype wrapper for box types.
-newtype Box s = Bx {unBx :: V2 (Point2 s)} deriving (Eq)
+newtype Box s = Bx {unBx :: V2 (Point2 s)} deriving (Eq, Ord)
 -- | Pattern for taking apart boxes
 pattern Box topLeft bottomRight = Bx (V2 topLeft bottomRight)
 
@@ -86,6 +91,7 @@ instance (SimpleSpace s) => HasBox (Point2 s) where
 
 instance HasBox a => HasBox [a] where
   boxOf = minMaxBoxes . map boxOf
+
 -- | Get the width of a box.
 widthOf :: (HasBox a) => a -> X (SpaceOf a)
 widthOf a = let box = boxOf a in box ^. rightSide - box ^. leftSide
@@ -111,6 +117,14 @@ topRightBox   elt_fn (Box (Point2 left top) (Point2 right bottom)) =
 bottomLeftBox :: Lens' (Box s) (Point2 s)
 bottomLeftBox elt_fn (Box (Point2 left top) (Point2 right bottom)) =
   (\(Point2 left' bottom') -> Box (Point2 left' top) (Point2 right bottom')) <$> elt_fn (Point2 left bottom)
+
+widthBox :: Num s => Lens' (Box s) (X s)
+widthBox elt_fn (Box (Point2 left top) (Point2 right bottom)) =
+  (\width -> Box (Point2 left top) (Point2 (left + unOrtho width) bottom)) <$> (elt_fn . Ortho) (right - left)
+
+heightBox :: Num s => Lens' (Box s) (Y s)
+heightBox elt_fn (Box (Point2 left top) (Point2 right bottom)) =
+  (\height -> Box (Point2 left top) (Point2 right (top + unOrtho height))) <$> (elt_fn . Ortho) (bottom - top)
 -- | 'Lens' for the left side of a box.
 leftSide       :: Lens' (Box s) (X s)
 leftSide = topLeftBox . pX
@@ -152,7 +166,7 @@ areaBox   box = unOrtho (widthOf box) * unOrtho (heightOf box)
 -- | Calculate the smallest box that contains two boxes.
 minMaxBox :: (Num s, Ord s) => Box s -> Box s -> Box s
 minMaxBox a b = makeBox (min (a ^. leftSide ) (b ^. leftSide )) (min (a ^. topSide   ) (b ^. topSide   ))
-                       (max (a ^. rightSide) (b ^. rightSide)) (max (a ^. bottomSide) (b ^. bottomSide))
+                        (max (a ^. rightSide) (b ^. rightSide)) (max (a ^. bottomSide) (b ^. bottomSide))
 
 minMaxBoxes :: (HasBox a, Functor t, Foldable t) => t a -> Box (SpaceOf a)
 minMaxBoxes = foldl minMaxBox (Box maxPoint minPoint) . fmap boxOf
@@ -160,9 +174,12 @@ minMaxBoxes = foldl minMaxBox (Box maxPoint minPoint) . fmap boxOf
          maxPoint = Point2 maxBound maxBound
 
 -- Boxes have an instance for SimpleTransformable but no instance for Transformable.
-instance Space s => SimpleTransformable (Box s) where
+instance SimpleSpace s => SimpleTransformable (Box s) where
   tTranslate p = mapBox (^+^ p)
   tScale     s = mapBox (^* s)
+
+instance (Hashable s) => Hashable (Box s) where
+    hashWithSalt s (Box tl br) = s `hashWithSalt` tl `hashWithSalt` br
 
 instance NFData s => NFData (Box s) where
   rnf (Box a b) = a `deepseq` b `deepseq` ()
@@ -187,8 +204,9 @@ instance (Storable s) => Storable (Box s) where
   poke = pokeV
 
 sd = showFl . realToFrac
-instance Show BoundingBox where
-  show (Box (Point2 left top) (Point2 right bottom)) = "Bx " ++ sd left ++ ", " ++ sd top ++ ", " ++ sd right ++ ", " ++ sd bottom
 
-instance Show (Box PixelSpace) where
+instance Show s => Show (Box s) where
   show (Box (Point2 left top) (Point2 right bottom)) = "Bx " ++ show left ++ ", " ++ show top ++ ", " ++ show right ++ ", " ++ show bottom
+
+instance {-# OVERLAPS #-} Show BoundingBox where
+  show (Box (Point2 left top) (Point2 right bottom)) = "Bx " ++ sd left ++ ", " ++ sd top ++ ", " ++ sd right ++ ", " ++ sd bottom

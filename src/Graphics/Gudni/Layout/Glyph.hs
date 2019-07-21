@@ -1,10 +1,13 @@
 {-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE ExplicitForAll       #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+
 
 -----------------------------------------------------------------------------
 -- |
@@ -18,26 +21,26 @@
 --
 -- Functions for accessing glyphs from a font file, storing them in a cache and converting them to outlines.
 
-module Graphics.Gudni.Figure.Glyph
+module Graphics.Gudni.Layout.Glyph
   ( CodePoint (..)
-  , Glyph (..)
-  , mapGlyph
-  , glyphBox
-  , glyphRep
   , GlyphCache (..)
   , emptyGlyphCache
   , GlyphMonad (..)
   , runGlyphMonad
-  , getGlyph
+  , HasGlyph(..)
+  , glyphString
   , addFont
   )
 where
 
 import Graphics.Gudni.Figure.Space
+import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Outline
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.ShapeTree
+
+import Graphics.Gudni.Layout.Boxed
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
@@ -72,41 +75,11 @@ instance Hashable CodePoint where
 instance Show CodePoint where
   show (CodePoint x) = "CodePoint "++show (chr x) ++ "->" ++ show x
 
--- | Glyph data structure
-data Glyph a =
-  Glyph
-  { -- | A user defined box that determines how the glyph can be juxtaposed with other glyphs.
-    _glyphBox       :: Point2 (SpaceOf a)
-  -- | The actual representation of the glyph.
-  , _glyphRep        :: a
-  }
-makeLenses ''Glyph
-
-deriving instance (Show (SpaceOf a), Show a) => Show (Glyph a)
-deriving instance (Eq   (SpaceOf a), Eq   a) => Eq   (Glyph a)
-deriving instance (Ord  (SpaceOf a), Ord  a) => Ord  (Glyph a)
-
-mapGlyph :: forall a b . (SpaceOf a ~ SpaceOf b) => (a->b) -> Glyph a -> Glyph b
-mapGlyph f (Glyph box a) = Glyph box (f a)
-
-instance SimpleTransformable a => SimpleTransformable (Glyph a) where
-  tTranslate p = mapGlyph (tTranslate p)
-  tScale f (Glyph box a) = Glyph (tScale f box) (tScale f a)
-
-instance HasSpace a => HasSpace (Glyph a) where
-  type SpaceOf (Glyph a) = SpaceOf a
-
-instance (Hashable a, Hashable (SpaceOf a)) => Hashable (Glyph a) where
-    hashWithSalt s (Glyph a b) = s `hashWithSalt` a `hashWithSalt` b
-
-instance (NFData a, NFData (SpaceOf a)) => NFData (Glyph a) where
-  rnf (Glyph a b) = a `deepseq` b `deepseq` ()
-
 -- | A cache of all glyphs that have been loaded from the font file so far and the font file itself.
 data GlyphCache =
   GlyphCache
   { -- | Map from CodePoints to cached glyphs.
-    _gCMap  :: M.Map CodePoint (Glyph (CompoundTree SubSpace))
+    _gCMap  :: M.Map CodePoint (Boxed (CompoundTree SubSpace))
     -- | Original font data structure. Contains an error message depending on how the font is loaded.
   , _gCFont :: Either String F.Font
   } deriving (Show)
@@ -121,6 +94,9 @@ type GlyphMonad m = StateT GlyphCache m
 -- | Evaluate a 'GlyphMonad'.
 runGlyphMonad :: (Monad m) => GlyphMonad m a -> m a
 runGlyphMonad mf = evalStateT mf emptyGlyphCache
+
+instance HasSpace a => HasSpace (GlyphMonad m a) where
+  type SpaceOf (GlyphMonad m a) = SpaceOf a
 
 -- | Add a fontfile to the GlyphMonad.
 addFont :: String -> GlyphMonad IO ()
@@ -145,7 +121,7 @@ rightOrError (Right t) = t
 rightOrError (Left err) = error err
 
 -- | Retrieve a glyph from the glyphCache, read it from the font file if necessary.
-getGlyph :: (MonadState GlyphCache m, Monad m) => CodePoint -> m (Glyph (CompoundTree SubSpace))
+getGlyph :: (MonadState GlyphCache m, Monad m) => CodePoint -> m (Boxed (CompoundTree SubSpace))
 getGlyph codepoint =
   do  -- the current map from codepoints to previously decoded glyphs.
       dict <- use gCMap
@@ -181,12 +157,26 @@ getGlyph codepoint =
                 outlines :: [Outline SubSpace]
                 outlines =  map (Outline . V.fromList . pairPoints . map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) vertices
                 -- build the Glyph constructor including the metadata and the outlines.
-                glyph :: Glyph (CompoundTree SubSpace)
-                glyph = Glyph { _glyphBox     = Point2 (realToFrac advance * fontScaleFactor)
-                                                       (realToFrac (ascent + descent) * fontScaleFactor)
-                              , _glyphRep     = SLeaf outlines
+                glyph :: Boxed (CompoundTree SubSpace)
+                glyph = Boxed { _boxAround = Box zeroPoint (Point2 (realToFrac advance * fontScaleFactor) (realToFrac (ascent + descent) * fontScaleFactor))
+                              , _unBoxed   = Just $ SLeaf outlines
                               }
             in  do  -- insert the new glyph into the cache.
                     gCMap .= M.insert codepoint glyph dict
                     -- return it as well.
                     return glyph
+
+class HasGlyph a where
+  glyph :: (MonadState GlyphCache m, Monad m) => CodePoint -> m a
+
+instance HasGlyph (CompoundTree SubSpace) where
+  glyph = fmap (fromJust . view unBoxed) . getGlyph
+
+instance HasGlyph (Boxed (CompoundTree SubSpace)) where
+  glyph = getGlyph
+
+-- | Convert a string of characters to a list of glyphs in the GlyphMonad.
+glyphString :: (MonadState GlyphCache m, Monad m, HasGlyph a)
+            => String
+            -> m [a]
+glyphString = mapM (glyph . CodePoint . ord)

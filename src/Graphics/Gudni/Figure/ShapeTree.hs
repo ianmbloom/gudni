@@ -120,11 +120,11 @@ instance HasSpace rep => HasSpace (SRep token substance rep) where
   type SpaceOf (SRep token substance rep) = SpaceOf rep
 
 instance (HasSpace leaf) => SimpleTransformable (STree o leaf) where
-  tTranslate delta = STransform (Translate delta)
-  tScale factor    = STransform (Scale factor)
+  tTranslate delta tree = if delta == zeroPoint then tree else STransform (Translate delta) tree
+  tScale factor tree = if factor == 1 then tree else STransform (Scale factor) tree
 
 instance (HasSpace leaf) => Transformable (STree o leaf) where
-  tRotate angle = STransform (Rotate angle)
+  tRotate angle tree = if angle == (0 @@ rad) then tree else STransform (Rotate angle) tree
 
 instance Functor (SRep token substance) where
   fmap f (SRep token substance rep) = SRep token substance (f rep)
@@ -139,7 +139,7 @@ type ShapeTree token s = STree () (SRep token (PictureUsage PictId) (CompoundTre
 -- | A container for a ShapeTree that indicates the background color.
 data Scene token = Scene
   { _sceneBackgroundColor :: Color
-  , _sceneShapeTree       :: ShapeTree token SubSpace
+  , _sceneShapeTree       :: Maybe (ShapeTree token SubSpace)
   } deriving (Show)
 makeLenses ''Scene
 

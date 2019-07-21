@@ -9,11 +9,11 @@ where
 
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Layout
 
 import Graphics.Gudni.Application
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Fuzzy
-import Graphics.Gudni.Util.Draw
 
 import Data.Word
 import Data.List
@@ -202,6 +202,7 @@ colorAreaToColor :: (Float, Float, Float, Float, Float, Float, Float, Float)
                  -> (Color, Float)
 colorAreaToColor (r,g,b,a,area,_,_,_) = (rgbaColor r g b a, area)
 
+buildThresholdHs :: ThresholdHs -> Boxed (ShapeTree Int SubSpace)
 buildThresholdHs threshold =
   let
   -- thrIndex         threshold -- :: Int
@@ -226,7 +227,7 @@ buildThresholdHs threshold =
   color      = black  -- if shapeIndex == 0
                       -- then colorModifier $ colors !! shapeIndex
                       -- else transparent 0.01 $ black
-  in  overlap [solid color $ line adjustedStroke startPoint endPoint
+  in  overlap [(solid color :: Boxed (CompoundTree SubSpace) -> Boxed (ShapeTree Int SubSpace)) $ line adjustedStroke startPoint endPoint
               --,tTranslate (Point2 (DSpace . realToFrac . thrLeft  $ threshold) (DSpace . realToFrac . thrTop $ threshold)) .
               -- SLeaf (Left $ transparent 0.25 $ light blue) 0 $
               -- rectangle (Point2 ((DSpace . realToFrac . thrRight  $ threshold) - (DSpace . realToFrac . thrLeft $ threshold))
@@ -234,14 +235,14 @@ buildThresholdHs threshold =
               --           )
               ]
 
-buildTileInfoHs :: Action -> ShapeTree Int
+buildTileInfoHs :: Action -> Boxed (ShapeTree Int SubSpace)
 buildTileInfoHs action = undefined
   -- tileBox :: (Int, Int, Int, Int)
   -- tileHDepth :: Int
   -- tileVDepth :: Int
   -- tileShapeSlice :: Slice
 
-buildColorStateHs :: Action -> ShapeTree Int
+buildColorStateHs :: Action -> Boxed (ShapeTree Int SubSpace)
 buildColorStateHs action = undefined
    -- csBackgroundColor action
    -- csPictureData     action
@@ -249,7 +250,7 @@ buildColorStateHs action = undefined
    -- csIsConstant      action
    -- absolutePosition  action
 
-buildThresholdStateHs :: Action -> ShapeTree Int
+buildThresholdStateHs :: Action -> Boxed (ShapeTree Int SubSpace)
 buildThresholdStateHs action =
     let
         ts     = thresholds     action -- [ThresholdHs]
@@ -265,13 +266,13 @@ buildThresholdStateHs action =
     in  overlap $ map buildThresholdHs ts
 
 
-buildShapeStateHs :: Action -> ShapeTree Int
+buildShapeStateHs :: Action -> Boxed (ShapeTree Int SubSpace)
 buildShapeStateHs action = undefined
     -- shapeBits    action -- Int
     -- shapeIndices action -- [(Int,Int)]
     -- shapeStack   action -- [Word32]
 
-buildParseStateHs :: Action -> ShapeTree Int
+buildParseStateHs :: Action -> Boxed (ShapeTree Int SubSpace)
 buildParseStateHs action =
     let
     --  currentThreshold  action -- Int
@@ -285,9 +286,9 @@ buildParseStateHs action =
     --  buildCount        action -- Int
     --  randomFieldCursor action -- Int
     --  randomField       action -- Int
-    in sTranslate start . solid color . rectangle $ end - start
+    in tTranslate start . solid color . rectangle $ end - start
 
-buildTileStateHs :: Action -> ShapeTree Int
+buildTileStateHs :: Action -> Boxed (ShapeTree Int SubSpace)
 buildTileStateHs action = undefined
     -- tileShapeStart -- Int
     -- tileNumShapes  -- Int
@@ -300,15 +301,15 @@ buildTileStateHs action = undefined
     -- threadUnique   -- Int
     -- column         -- Int
 
-buildTraversalHs :: Action -> ShapeTree Int
+buildTraversalHs :: Action -> Boxed (ShapeTree Int SubSpace)
 buildTraversalHs action = undefined
     -- travLeftControl -- (Float, Float, Float, Float)
     -- travRight       -- (Float, Float)
     -- travXPos        -- Float
     -- travIndex       -- Int
 
-buildActionState :: ActionState -> ShapeTree Int
-buildActionState state = overlap . catMaybes $
+buildActionState :: ActionState -> Boxed (ShapeTree Int SubSpace)
+buildActionState state = overlap $ catMaybes
     [ fmap buildTileInfoHs       (tsTileInfo       state)
     , fmap buildColorStateHs     (tsColorState     state)
     , fmap buildThresholdStateHs (tsThresholdState state)
@@ -338,31 +339,32 @@ instance Model TraceState where
                             dt = realToFrac timeDelta * realToFrac speed
                         statePlayhead %= (`f` dt)
     constructScene state status =
-        do  statusGlyphs <- mapM glyphString $ lines status
+        do  statusTree <- statusDisplay state status
             let tree = transformFromState state $ constructFromState state
-                statusTree = statusDisplay state statusGlyphs
                 withStatus = if True  then overlap [statusTree, tree] else tree
-            return $ Scene (light gray) withStatus
+            return $ Scene (light gray) $ view unBoxed $ withStatus
     providePictureData state = noPictures
+    handleOutput state target = do  presentTarget target
+                                    return state
 
-statusDisplay :: TraceState -> [[Glyph SubSpace]] -> ShapeTree Int
+statusDisplay :: Monad m => TraceState -> String -> GlyphMonad m (Boxed (ShapeTree Int SubSpace))
 statusDisplay state status =
-    sTranslateXY 3100 2000 .
-    sScale 24 .
-    solid (redish $ dark gray) .
-    paraGrid 1 $
+    tTranslateXY 3100 2000 .
+    tScale 24 .
+    fmap (solid (redish $ dark gray)) .
+    paragraph 0.1 0.1 AlignMin AlignMin $
     status
 
-transformFromState :: TraceState -> ShapeTree Int -> ShapeTree Int
+transformFromState :: TraceState -> Boxed (ShapeTree Int SubSpace) -> Boxed (ShapeTree Int SubSpace)
 transformFromState state =
   let sc    = view stateScale state
       delta = view stateDelta state
       angle = view stateAngle state
-  in  sTranslate delta .
-      sRotate angle .
-      sScale sc
+  in  tTranslate delta .
+      mapBoxed (tRotate angle) .
+      tScale sc
 
-constructFromState :: TraceState -> ShapeTree Int
+constructFromState :: TraceState -> Boxed (ShapeTree Int SubSpace)
 constructFromState state =
   let steps   = view stateStep  state
       actions = take (steps + 2) $ view stateActions state
@@ -389,8 +391,6 @@ processInput input =
                     KeySymbol SymbolPeriod -> whenM (uses stateStep (< 1000)) $ stateStep += 1
                     KeyLetter LetterR   -> stateAngle %= normalizeAngle . (^+^ (speed @@ turn))
                     KeyLetter LetterT   -> stateAngle %= normalizeAngle . (^-^ (speed @@ turn))
-                    -- KeyArrow ArrowRight -> whenM (uses stateCurrentTest (< (length tests - 1))) $ stateCurrentTest += 1
-                    -- KeyArrow ArrowLeft  -> whenM (uses stateCurrentTest (> 0)) $ stateCurrentTest -= 1
                     _                   -> return ()
         (InputMouse detection modifier clicks positionInfo) ->
             case detection of

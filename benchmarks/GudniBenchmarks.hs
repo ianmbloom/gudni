@@ -9,12 +9,12 @@ where
 
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Layout
 
 import Graphics.Gudni.Application
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Fuzzy
-import Graphics.Gudni.Util.Draw
-import Graphics.Gudni.Util.Scaffolding
+
 
 import Data.Word
 import Data.List(isInfixOf)
@@ -32,8 +32,9 @@ import GudniTests
 import System.IO.Silently
 
 import System.Info
+import Data.Maybe
 
-getTest :: BenchmarkState -> (String, BenchmarkState -> GlyphMonad IO (Glyph (ShapeTree Int SubSpace)))
+getTest :: BenchmarkState -> (String, BenchmarkState -> GlyphMonad IO (ShapeTree Int SubSpace))
 getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
@@ -56,34 +57,32 @@ instance Model BenchmarkState where
                         statePlayhead %= (`f` dt)
     constructScene state status =
         do  testScene <- (snd $ getTest state) state
-            testName <- glyphString (fst $ getTest state)
-            statusGlyphs <- mapM glyphString $ lines status
+            let testName = (fst $ getTest state)
+            statusTree <- fromJust . view unBoxed <$> statusDisplay state testName (lines status)
             let tree = transformFromState testScene state
-                statusTree = statusDisplay state testName statusGlyphs
                 withStatus = if False then overlap [statusTree, tree] else tree
-            return (Scene (light gray) $ view glyphRep withStatus)
+            return . Scene (light gray) $ Just $ withStatus
     providePictureData state = return $ state ^. statePictures
     handleOutput state target = do  presentTarget target
                                     return state
 
-statusDisplay :: BenchmarkState -> [Glyph (CompoundTree SubSpace)] -> [[Glyph (CompoundTree SubSpace)]]  -> Glyph (ShapeTree Int SubSpace)
+statusDisplay :: Monad m => BenchmarkState -> String -> [String] -> GlyphMonad m (Boxed (ShapeTree Int SubSpace))
 statusDisplay state testName status =
     tTranslateXY 1800 800 . --3200 2100 .
-    mapGlyph (tRotate (45 @@ deg)) .
     tTranslate (state ^. stateDelta) .
     tScale 30 .
-    solid (dark red) .
-    paraGrid 1 $
-    testName :
-    status
+    fmap (solid (dark red)) .
+    paragraph 0.1 0.1 AlignMin AlignMin $
+    unlines (testName :
+    status)
 
-transformFromState :: Glyph (ShapeTree Int SubSpace) -> BenchmarkState -> Glyph (ShapeTree Int SubSpace)
+transformFromState :: ShapeTree Int SubSpace -> BenchmarkState -> ShapeTree Int SubSpace
 transformFromState constructed state =
     let sc    = view stateScale state
         delta = view stateDelta state
         angle = view stateAngle state
     in  tTranslate delta .
-        mapGlyph (tRotate angle) .
+        tRotate angle .
         tScale sc $
         constructed
 
