@@ -171,7 +171,7 @@ onShape wrapShape combineType transformer outlines =
              geoTileTree .= addShapeToTree tileTree (wrapShape combineType entry)
 
 -- | Constructor for holding the state of serializing substance information from the scene.
-data SubstanceState token = SubstanceState
+data SubstanceState token s = SubstanceState
     { -- | The current substance id incremented  with each new substance.
       _suSubstanceId       :: SubstanceId
       -- | A map from tokens to substance id for later identification of shapes.
@@ -180,7 +180,7 @@ data SubstanceState token = SubstanceState
       -- | A the latest id for a usage of a picture source, incremented with each new usage of a picture by a new substance from the scene.
     , _suCurrentPictureUsage :: Int
       -- | A list of picture references collected from the scene.
-    , _suPictureUsages     :: Pile (PictureUsage PictureMemoryReference)
+    , _suPictureUsages     :: Pile (PictureUsage PictureMemoryReference s)
       -- | The picture memory objects for the scene.
     , _suPictureMems       :: [PictureMemoryReference]
       -- | The background color for the scene.
@@ -190,33 +190,34 @@ data SubstanceState token = SubstanceState
     }
 makeLenses ''SubstanceState
 
-instance NFData token => NFData (SubstanceState token) where
+instance (NFData token, NFData s) => NFData (SubstanceState token s) where
   rnf (SubstanceState a b c d e f g) =
       a `deepseq` b `deepseq` c `deepseq` d `deepseq` e `deepseq` f `deepseq` g `deepseq` ()
 
 -- | A monad for serializing substance data from a scene.
-type SubstanceMonad token m = StateT (SubstanceState token) m
+type SubstanceMonad token s m = StateT (SubstanceState token s) m
 
 -- | Function for executing a new SubstanceMonad
-execSubstanceMonad :: MonadIO m
+execSubstanceMonad :: (MonadIO m, Storable (PictureUsage PictureMemoryReference s))
                   => [PictureMemoryReference]
-                  -> SubstanceMonad token m a
-                  -> m (SubstanceState token)
+                  -> SubstanceMonad token s m a
+                  -> m (SubstanceState token s)
 execSubstanceMonad pictureMems mf =
   do substancePile <- liftIO $ newPile
      pictUsagePile <- liftIO $ newPile
      execStateT mf (SubstanceState (SubstanceId 0) M.empty 0 pictUsagePile pictureMems clearBlack substancePile)
 
 -- | For each shape in the shapeTree add the serialize the substance metadata and serialize the compound subtree.
-onSubstance :: (Num (SpaceOf item),
+onSubstance :: (Storable (PictureUsage PictureMemoryReference (SpaceOf item)),
+                Space (SpaceOf item),
                 MonadIO m,
                 Ord token)
             => ((Compound -> ShapeEntry -> Shape ShapeEntry)
             -> Compound -> Transformer (SpaceOf item) -> item -> GeometryMonad m ())
             -> ()
             -> Transformer (SpaceOf item)
-            -> SRep token (PictureUsage PictId) (STree Compound item)
-            -> SubstanceMonad token (GeometryMonad m) ()
+            -> SRep token (PictureUsage PictId (SpaceOf item)) (STree Compound item)
+            -> SubstanceMonad token (SpaceOf item) (GeometryMonad m) ()
 onSubstance onShape () transformer (SRep token substance subTree) =
     do  -- Get the current substanceId
         substanceId  <- use suSubstanceId
@@ -234,8 +235,12 @@ onSubstance onShape () transformer (SRep token substance subTree) =
                    mems <- use suPictureMems
                    -- This would be a good point to put the transformation information from the shape into the texture reference.
                    let pictId = pictSource pictureRef
-                       newUsage = pictureRef { pictSource = mems !! fromIntegral pictId
+                       newUsage = tr "pictureRef (((((((((((((((((" $
+                                  applyTransformer transformer $
+                                  pictureRef { pictSource = mems !! fromIntegral pictId
+                                             , pictScale = 1
                                              , pictTranslate = zeroPoint}
+
                    -- Add the new usage of the picture to the pile.
                    addToPileState suPictureUsages newUsage
                    -- Get the current usage id.
@@ -254,7 +259,7 @@ onSubstance onShape () transformer (SRep token substance subTree) =
 
 buildOverScene :: (MonadIO m, Ord token)
                => Scene token
-               -> SubstanceMonad token (GeometryMonad m) ()
+               -> SubstanceMonad token SubSpace (GeometryMonad m) ()
 buildOverScene scene =
   do  -- Move the backgound color into the serializer state.
       suBackgroundColor .= scene ^. sceneBackgroundColor
@@ -272,7 +277,8 @@ outputGeometryState state =
       --putStrLn . show . view geoCanvasSize     $ state
       --putStrLn . show . view geoRandomField    $ state
 
-outputSubstanceState :: Show token => SubstanceState token -> IO ()
+outputSubstanceState :: (Show s, Storable (PictureUsage PictureMemoryReference s), Show token)
+                     => SubstanceState token s -> IO ()
 outputSubstanceState state =
   do  putStrLn $ "suSubstanceId      " ++ (show . view suSubstanceId         $ state)
       putStrLn $ "suTokenMap         " ++ (show . view suTokenMap            $ state)

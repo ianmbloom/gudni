@@ -73,7 +73,7 @@ initialModel pictures =
     , _stateCursor      = Point2 63 1376
     , _statePictures    = pictures
     , _stateTests       = testList
-    , _stateCurrentTest = 4
+    , _stateCurrentTest = 7
     , _stateStep        = 69
     , _stateFrameNumber = 0
     }
@@ -116,7 +116,7 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
 solid :: Color -> CompoundTree s -> ShapeTree Int s
 solid = solid
 -}
-textureWithC :: PictureUsage PictId -> CompoundTree s -> ShapeTree Int s
+textureWithC :: PictureUsage PictId s -> CompoundTree s -> ShapeTree Int s
 textureWithC = textureWith
 
 maxThresholdTest :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int SubSpace)
@@ -294,7 +294,7 @@ hourGlass state = return $
 -- | Test for loading a texture.
 testPict :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int SubSpace)
 testPict state = return $
-        overlap [ textureWithC (PictureUsage (Point2 0 0) 0) $ tTranslateXY 100 100 (cSubtract (tScale 200 circle) (tScale 100 circle))
+        overlap [ textureWithC (PictureUsage (Point2 0 0) 1 0) $ tTranslateXY 100 100 (cSubtract (tScale 200 circle) (tScale 100 circle))
                 , tTranslateXY 50 50 $ solid (transparent 0.2 blue) $ rectangle (Point2 40 2000)]
 
 -- | Simple stack of squares.

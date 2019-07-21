@@ -347,9 +347,10 @@ typedef struct Substance
 
 // A picture reference is a reference to bitmap data that can be the substance of a shape.
 typedef struct PictureUse
-  { int2 pictTranslate; // translation vector in pixel units
+  { float2 pictTranslate; // translation vector in subspace units
     int2 pictSize;      // size of the bitmap
     int  pictMemOffset; // starting point of the pixel data in the memory buffer
+    float pictScale;    // scale factor for image
   } PictureUse;
 
 // The color state structure tracks the current color information during a scan through thresholds
@@ -723,6 +724,7 @@ void showPixelBuffer(__local uint *pixelBuffer, int sectionWidth, int height);
 void showTileSliceAlignment (int tileIndex, SMEM Slice *tileHeap);
 void showShape (Shape shape);
 void showSubstance(Substance substance);
+void showPictUsage(CMEM PictureUse *use, int i);
 void showShapeIndices(ShapeState *shS, int numShapes);
 void showShapeColors(     ShapeState *shS
                    , SMEM  Substance *substances
@@ -730,6 +732,7 @@ void showShapeColors(     ShapeState *shS
                    ,             int  numShapes
                    );
 void showSubstances(SMEM Substance *substances, int numSubstances);
+void showPictUsages(CMEM PictureUse *uses, int numPicts);
 void showShapeRefs(SMEM REF *shapeRefs, int numShapes);
 void showShapes (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *substances, int numShapes);
 void showShapeStack(SHAPESTACK *shapeStack);
@@ -811,7 +814,7 @@ inline COLOR loadPixel_Word32_RGBA(uchar4 pixel) {
 
 inline COLOR getPicturePixel(GMEM uchar *pictData, int w, int x, int y) {
      GMEM uchar4 *pixelPointer = ((GMEM uchar4 *)pictData) + mul24(y, w) + x;
-     DEBUG_IF(printf("getPicturePixel x %i y %i w %i \n", x, y, w);)
+     //DEBUG_IF(printf("getPicturePixel x %i y %i w %i \n", x, y, w);)
      return loadPixel_Word32_RGBA(*pixelPointer);
 }
 
@@ -1379,7 +1382,10 @@ COLOR readColor ( PMEM ColorState *cS
     } else { // its a picture reference
         uint pictId = (as_uint4(substance.substanceColor)).x;
         PictureUse pRef = cS->csPictureRefs[pictId];
-        int2 relativePosition = cS->absolutePosition - pRef.pictTranslate;
+        float scale = pRef.pictScale;
+        scale = scale < 0.0000001 ? 0.0000001 : scale;
+        //DEBUG_IF(printf("scale %f \n", scale);)
+        int2 relativePosition = convert_int2((convert_float2(cS->absolutePosition) - pRef.pictTranslate) / scale);
         //DEBUG_IF(printf("pictId %i pRef.pictSize %v2i pRef.memOffset %i relativePosition %v2i \n", pictId, pRef.pictSize, pRef.pictMemOffset, relativePosition);)
         if (relativePosition.x >= 0 &&
             relativePosition.y >= 0 &&
@@ -1798,7 +1804,7 @@ void calculatePixel ( PMEM      TileState *tileS
                     ) {
     //DEBUG_IF(printf("                                              pixelY: %f \n", pS->pixelY);)
     while (((pS->sectionEnd.x < RIGHTBORDER) || (pS->sectionEnd.y < pS->pixelY))/*&& count > 0*/) { // process all sections that do not reach the bottom of the pixel.
-        DEBUG_IF(printf("loop        sectionStart %v2f sectionEnd %v2f \n", pS->sectionStart, pS->sectionEnd);)
+        //DEBUG_IF(printf("loop        sectionStart %v2f sectionEnd %v2f \n", pS->sectionStart, pS->sectionEnd);)
         //DEBUG_IF(printf("beforeV cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
         verticalAdvance(tS, tileS, pS, shS);
         //DEBUG_IF(printf("afterV  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
@@ -1812,7 +1818,7 @@ void calculatePixel ( PMEM      TileState *tileS
                                        , tileS->tileShapeStart
                                        );
         pS->accColorArea += colorArea;
-        DEBUG_IF(printf("accColor %v8f", pS->accColorArea);)
+        //DEBUG_IF(printf("accColor %v8f", pS->accColorArea);)
         DEBUG_TRACE_ITEM(parseStateHs(*pS);)
         if (pS->currentThreshold < pS->numActive) {
             //DEBUG_IF(printf("pass %i %i\n",pS->currentThreshold,headerShapeBit(getHeader(tS, pS->currentThreshold)));)
@@ -1917,6 +1923,7 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                                       ,  jobIndex
                                       ,  computeDepth
                                       );
+    //DEBUG_IF(showPictUsages(pictureRefs, 1);)
     //testShapeStack();
     //testDeleteBit();
     //DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeStart, substances, tileS.tileNumShapes);)
@@ -1936,8 +1943,8 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                             ,  tileS.tileNumShapes
                             ,  convert_float2(tileS.threadDelta)
                             );
-        DEBUG_IF(showShapeStack(shS.shapeStack);)
-        DEBUG_IF(showThresholds(tS);)
+        //DEBUG_IF(showShapeStack(shS.shapeStack);)
+        //DEBUG_IF(showThresholds(tS);)
         DEBUG_TRACE_ITEM(thresholdStateHs(tS);)
         renderThresholdArray ( &tileS
                              , &tS
@@ -2204,6 +2211,14 @@ void showSubstance(Substance substance) {
     printf ("     substanceColor %2i  %2.2v4f \n", (long) &substance.substanceColor - (long)&substance, substance.substanceColor);
 }
 
+void showPictUsage(CMEM PictureUse *uses, int i) {
+    printf (" pictTranslate %2i  %2.2v2f \n", (long)&uses[i].pictTranslate - (long)&uses[i], uses[i].pictTranslate);
+    printf ("      pictSize %2i  %v2i    \n", (long)&uses[i].pictSize      - (long)&uses[i], uses[i].pictSize     );
+    printf (" pictMemOffset %2i  %i      \n", (long)&uses[i].pictMemOffset - (long)&uses[i], uses[i].pictMemOffset);
+    printf ("     pictScale %2i  %f      \n", (long)&uses[i].pictScale     - (long)&uses[i], uses[i].pictScale    );
+    printf ("     alignment %2i          \n", (long)&uses[i+1]             - (long)&uses[i]);
+}
+
 void showShapeIndices( ShapeState *shS
                      ,        int  numShapes
                      ) {
@@ -2238,6 +2253,13 @@ void showSubstances(SMEM Substance *substances, int numSubstances) {
     printf(" %i\n", n);
     showSubstance(substances[n]);
     //printf ("      alignment %2i \n", (long) &substances[n+1] - (long)&substances[n]);
+  }
+}
+
+void showPictUsages(CMEM PictureUse *uses, int numPicts) {
+  printf("pictUsages: num = %i\n", numPicts);
+  for (int n = 0; n < numPicts; n++) {
+    showPictUsage(uses, n);
   }
 }
 

@@ -80,7 +80,7 @@ data RasterParams token = RasterParams
   , _rpPictData        :: VS.Vector Word8
   , _rpTarget          :: DrawTarget
   , _rpGeometryState   :: GeometryState
-  , _rpSubstanceState  :: SubstanceState token
+  , _rpSubstanceState  :: SubstanceState token SubSpace
 
   }
 makeLenses ''RasterParams
@@ -161,7 +161,7 @@ data BuffersInCommon = BIC
   { bicGeoBuffer :: CLBuffer CChar
   , bicSubBuffer :: CLBuffer SubstanceInfo
   , bicPictBuffer:: CLBuffer Word8
-  , bicPictUsage :: CLBuffer (PictureUsage PictureMemoryReference)
+  , bicPictUsage :: CLBuffer (PictureUsage PictureMemoryReference SubSpace)
   , bicRandoms   :: CLBuffer CFloat
   }
 

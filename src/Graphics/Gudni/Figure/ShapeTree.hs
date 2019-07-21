@@ -134,7 +134,7 @@ instance NFData r => NFData (Substance r) where
   rnf (Texture pict) = pict `deepseq` ()
 
 type CompoundTree s = STree Compound [Outline s]
-type ShapeTree token s = STree () (SRep token (PictureUsage PictId) (CompoundTree s))
+type ShapeTree token s = STree () (SRep token (PictureUsage PictId s) (CompoundTree s))
 
 -- | A container for a ShapeTree that indicates the background color.
 data Scene token = Scene

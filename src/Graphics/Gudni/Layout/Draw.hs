@@ -140,7 +140,7 @@ instance Space s => HasFromSegments (Boxed (CompoundTree s)) where
 
 class CanFill a b | b -> a where
     solid :: Color -> a -> b
-    textureWith :: PictureUsage PictId -> a -> b
+    textureWith :: PictureUsage PictId (SpaceOf a) -> a -> b
 
 instance CanFill (CompoundTree s) (ShapeTree Int s) where
     solid color      = SLeaf . SRep 0 (Solid color)
@@ -150,11 +150,11 @@ instance CanFill (Boxed (CompoundTree s)) (Boxed (ShapeTree Int s)) where
     solid color      = mapBoxed (solid color)
     textureWith pict = mapBoxed (textureWith pict)
 
-instance {-# Overlappable #-} (Functor f) => CanFill (f (CompoundTree s)) (f (ShapeTree Int s)) where
+instance {-# Overlappable #-} (Functor f, SpaceOf (f (CompoundTree s)) ~ s) => CanFill (f (CompoundTree s)) (f (ShapeTree Int s)) where
     solid color      = fmap (solid color)
     textureWith pict = fmap (textureWith pict)
 
-instance {-# Overlappable #-} (Functor f) => CanFill (f (Boxed (CompoundTree s))) (f (Boxed (ShapeTree Int s))) where
+instance {-# Overlappable #-} (Functor f, SpaceOf (f (Boxed (CompoundTree s))) ~ s) => CanFill (f (Boxed (CompoundTree s))) (f (Boxed (ShapeTree Int s))) where
     solid color      = fmap (solid color)
     textureWith pict = fmap (textureWith pict)
 
