@@ -81,9 +81,9 @@ instance NFData SubstanceInfo where
   rnf (SubstanceInfo a) = rnf a
 
 -- | Get the substancetype flag from a substance.
-substanceToSubstanceType :: Substance a -> SubstanceType
-substanceToSubstanceType (Solid  _ ) = SubstanceSolidColor
-substanceToSubstanceType (Texture _) = SubstancePicture
+substanceToSubstanceType :: Substance n -> SubstanceType
+substanceToSubstanceType (Solid   {}) = SubstanceSolidColor
+substanceToSubstanceType (Texture {}) = SubstancePicture
 
 -- | Make a shapeTag
 makeShapeTag :: ShapeInfo -> ShapeTag
@@ -146,7 +146,7 @@ instance StorableM SubstanceInfo where
   pokeM (SubstanceInfo substance) =
         case substance of
                Solid color -> pokeM (color :: Color)
-               Texture ref -> do pokeM (ref :: PictId)
+               Texture ref -> do pokeM (tr "ref" ref :: PictId)
                                  pokeM (0   :: CUInt ) -- padding
 
 instance Storable SubstanceInfo where

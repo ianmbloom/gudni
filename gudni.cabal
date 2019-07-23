@@ -158,6 +158,7 @@ library
                      , loop
                      , lens
                      , monad-memo
+
                      , mmorph
                      , parallel
                      , parallel-io
@@ -178,6 +179,7 @@ library
                      , FontyFruity
                      , JuicyPixels
                      , colour
+                     , monadlist
 
 
   -- Directories containing source files.

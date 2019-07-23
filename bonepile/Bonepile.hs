@@ -268,3 +268,17 @@ pairsToPoints (Range f len) =
                then
                else part i . f . (`div` 2) $ i
   in Range g (len * 2 + 1)
+
+      do let rgba8s  = map convertPictures images
+
+             imageAllocation img = imageWidth img * imageHeight img * 4
+             allocSizes :: [Int]
+             allocSizes = map imageAllocation rgba8s
+             offsets :: [Int]
+             total :: Int
+             (total, offsets) = mapAccumL (\ a b -> (a + b, a)) 0 allocSizes
+             dimensions   = zipWith Point2 (map (fromIntegral . imageWidth ) rgba8s)
+                                           (map (fromIntegral . imageHeight) rgba8s)
+             pictMems = zipWith PictureMemory dimensions (map (Ref . fromIntegral) offsets)
+
+         foldl

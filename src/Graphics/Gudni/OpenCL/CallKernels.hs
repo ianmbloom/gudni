@@ -77,7 +77,6 @@ import Data.Word
 
 data RasterParams token = RasterParams
   { _rpDevice          :: Rasterizer
-  , _rpPictData        :: VS.Vector Word8
   , _rpTarget          :: DrawTarget
   , _rpGeometryState   :: GeometryState
   , _rpSubstanceState  :: SubstanceState token SubSpace
@@ -173,15 +172,18 @@ queueRasterJobs :: (MonadIO m, Show token)
                 -> [RasterJob]
                 -> GeometryMonad m ()
 queueRasterJobs frameCount params jobs =
-    liftIO $ do let -- Get the OpenCL state from the Library structure.
+    liftIO $ do
+                let -- Get the OpenCL state from the Library structure.
                     state = params ^. rpDevice . rasterClState
                     context = clContext state
                 geoBuffer  <- pileToBuffer context (params ^. rpGeometryState  . geoGeometryPile)
                 subBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suSubstancePile)
-                pictBuffer <- vectorToBuffer context (params ^. rpPictData)
-                pictUsage  <- pileToBuffer context (params ^. rpSubstanceState . suPictureUsages)
+                (pictDataPile, pictUsagePile) <- makePictData (params ^. rpSubstanceState . suPictureMapping) (params ^. rpSubstanceState . suPictureUsages)
+                pictBuffer <- pileToBuffer context pictDataPile
+                putStrList =<< (pileToList pictUsagePile)
+                pictUsageBuffer <- pileToBuffer context pictUsagePile
                 randoms    <- vectorToBuffer context (params ^. rpGeometryState  . geoRandomField)
-                let bic = BIC geoBuffer subBuffer pictBuffer pictUsage randoms
+                let bic = BIC geoBuffer subBuffer pictBuffer pictUsageBuffer randoms
                 -- Run the rasterizer over each rasterJob inside a CLMonad.
                 runCL state $ zipWithM_ (raster params bic frameCount) jobs [0..]
 

@@ -12,7 +12,7 @@ module GudniTests
  , stateDirection
  , statePlayhead
  , stateCursor
- , statePictures
+ , statePictureMap
  , stateTests
  , stateCurrentTest
  , stateStep
@@ -51,7 +51,7 @@ data BenchmarkState = BenchmarkState
   , _stateDirection   :: Bool
   , _statePlayhead    :: SubSpace
   , _stateCursor      :: Point2 PixelSpace
-  , _statePictures    :: (VS.Vector Word8, [PictureMemoryReference])
+  , _statePictureMap  :: PictureMap
   , _stateTests       :: [(String, BenchmarkState -> GlyphMonad IO (ShapeTree Int SubSpace))]
   , _stateCurrentTest :: Int
   , _stateStep        :: Int
@@ -59,7 +59,7 @@ data BenchmarkState = BenchmarkState
   }
 makeLenses ''BenchmarkState
 
-initialModel pictures =
+initialModel pictureMap =
     BenchmarkState
     { _stateScale       = 1
     , _stateDelta       = Point2 0 0
@@ -71,7 +71,7 @@ initialModel pictures =
     , _stateDirection   = True
     , _statePlayhead    = 0
     , _stateCursor      = Point2 63 1376
-    , _statePictures    = pictures
+    , _statePictureMap  = pictureMap
     , _stateTests       = testList
     , _stateCurrentTest = 7
     , _stateStep        = 69
@@ -112,12 +112,6 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("fullRectangle"     , fullRectangle       ) -- 31 -
            , ("1 Million Circles" , millionFuzzyCircles ) -- 32 -
            ]
-{-
-solid :: Color -> CompoundTree s -> ShapeTree Int s
-solid = solid
--}
-textureWithC :: PictureUsage PictId s -> CompoundTree s -> ShapeTree Int s
-textureWithC = textureWith
 
 maxThresholdTest :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int SubSpace)
 maxThresholdTest state =
@@ -293,9 +287,16 @@ hourGlass state = return $
 
 -- | Test for loading a texture.
 testPict :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int SubSpace)
-testPict state = return $
-        overlap [ textureWithC (PictureUsage (Point2 0 0) 1 0) $ tTranslateXY 100 100 (cSubtract (tScale 200 circle) (tScale 100 circle))
-                , tTranslateXY 50 50 $ solid (transparent 0.2 blue) $ rectangle (Point2 40 2000)]
+testPict state =
+    let w = 200
+        h = 200
+        f (Point2 x y) = hslColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
+        size = Point2 w h
+    in  return $
+        overlap [ tTranslateXY 100 50 $ textureWith (NewTexture "gradient" (PictureFunction f size)) $ tTranslateXY 0 0 $ (tScale 200 circle)
+                , tTranslateXY 100 50 $ textureWith (SharedTexture "flowers") $ cSubtract (tScale 200 circle) (cAdd (tTranslateXY 100 100 $ tScale 100 circle) (tScale 100 circle))
+                , tTranslateXY 100 50 $ solid (transparent 0.2 blue) $ rectangle (Point2 40 2000)
+                ]
 
 -- | Simple stack of squares.
 stackOfSquares :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int SubSpace)

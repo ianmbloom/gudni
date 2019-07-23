@@ -42,6 +42,9 @@ module Graphics.Gudni.Figure.ShapeTree
   , sceneShapeTree
   , HasDefault(..)
   , invertCompound
+  , PictureName(..)
+  , Picture(..)
+  , NamedTexture(..)
   )
 where
 
@@ -105,19 +108,35 @@ instance HasDefault Compound where
 instance HasDefault Overlap where
   defaultValue = ()
 
+data NamedTexture
+  = NewTexture PictureName Picture
+  | SharedTexture PictureName
+
+instance Show NamedTexture where
+    show (NewTexture name pict)  = "NewTexture "    ++ name ++ " " ++ show pict
+    show (SharedTexture name) = "SharedTexture " ++ name
+
+instance NFData NamedTexture where
+    rnf (NewTexture name _  ) = name `deepseq` ()
+    rnf (SharedTexture name ) = name `deepseq` ()
+
 -- | Type of filling for overlapping shapes.
-data Substance r = Solid Color | Texture r deriving (Show)
+data Substance n = Solid Color | Texture n
+
+instance Show n => Show (Substance n) where
+  show (Solid color) = "Solid " ++ show color
+  show (Texture name) = "Texture " ++ show name
 
 -- | An SRep defines an individual shape and it's metadata.
-data SRep token substance rep = SRep
+data SRep token rep = SRep
   { _shapeToken         :: token
-  , _shapeSubstanceType :: Substance substance
+  , _shapeSubstanceType :: Substance NamedTexture
   , _shapeCompoundTree  :: rep
   } deriving (Show)
 makeLenses ''SRep
 
-instance HasSpace rep => HasSpace (SRep token substance rep) where
-  type SpaceOf (SRep token substance rep) = SpaceOf rep
+instance HasSpace rep => HasSpace (SRep token rep) where
+  type SpaceOf (SRep token rep) = SpaceOf rep
 
 instance (HasSpace leaf) => SimpleTransformable (STree o leaf) where
   tTranslate delta tree = if delta == zeroPoint then tree else STransform (Translate delta) tree
@@ -126,15 +145,15 @@ instance (HasSpace leaf) => SimpleTransformable (STree o leaf) where
 instance (HasSpace leaf) => Transformable (STree o leaf) where
   tRotate angle tree = if angle == (0 @@ rad) then tree else STransform (Rotate angle) tree
 
-instance Functor (SRep token substance) where
+instance Functor (SRep token) where
   fmap f (SRep token substance rep) = SRep token substance (f rep)
 
-instance NFData r => NFData (Substance r) where
+instance NFData n => NFData (Substance n) where
   rnf (Solid color) = color `deepseq` ()
-  rnf (Texture pict) = pict `deepseq` ()
+  rnf (Texture texture) = texture `deepseq` ()
 
 type CompoundTree s = STree Compound [Outline s]
-type ShapeTree token s = STree () (SRep token (PictureUsage PictId s) (CompoundTree s))
+type ShapeTree token s = STree () (SRep token (CompoundTree s))
 
 -- | A container for a ShapeTree that indicates the background color.
 data Scene token = Scene

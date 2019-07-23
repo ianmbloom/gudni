@@ -80,7 +80,7 @@ class Model s where
   -- | Path to the Truetype font file that is initially loaded.
   fontFile         :: s -> IO String
   -- | Bitmap texture data provided from the state for the rendered scene.
-  providePictureData :: s -> IO (VS.Vector Word8, [PictureMemoryReference])
+  providePictureMap :: s -> IO PictureMap
   -- | Do something with the output of the rasterizer.
   handleOutput :: s -> DrawTarget -> StateT InterfaceState IO s
 
@@ -198,20 +198,19 @@ drawFrame frameCount scene =
         rasterizer <- use appRasterizer
         target <- withIO appBackend (prepareTarget (rasterizer ^. rasterUseGLInterop))
         state <- use appState
-        (pictData, pictureMemoryReferences) <- liftIO $ providePictureData state
+        pictureMap <- liftIO $ providePictureMap state
         let canvasSize = P (targetArea target)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
         let maxTileSize = rasterizer ^. rasterSpec . specMaxTileSize
         lift (geoTileTree .= buildTileTree maxTileSize (fromIntegral <$> canvasSize))
         markAppTime "Build TileTree"
-        substanceState <- lift ( execSubstanceMonad pictureMemoryReferences $
+        substanceState <- lift ( execSubstanceMonad pictureMap $
                                  buildOverScene scene)
         --liftIO $ evaluate $ rnf (substances, boundedShapedEnclosures, substanceState)
         markAppTime "Traverse ShapeTree"
         geometryState <- lift $ get
         --liftIO $ putStrLn $ "TileTree " ++ show (geometryState ^. geoTileTree)
         let rasterParams = RasterParams rasterizer
-                                        pictData
                                         target
                                         geometryState
                                         substanceState

@@ -37,6 +37,7 @@ module Graphics.Gudni.Figure.Color
   , mixColor
 
   , redish, orangeish, yellowish, greenish, blueish, purpleish
+  , colorToRGBA8
   )
 where
 
@@ -59,6 +60,7 @@ import qualified Data.Map.Strict as M
 import Foreign.Storable
 import Foreign.C.Types
 import qualified Foreign as F
+import Linear.V4
 
 import System.Random
 import qualified Data.Colour as C
@@ -204,3 +206,14 @@ instance Storable Color where
 
 instance NFData Color where
   rnf color = ()
+
+mAXcHANNELfLOAT :: Float
+mAXcHANNELfLOAT = 255.0
+
+colorToRGBA8 :: Color -> V4 Word8
+colorToRGBA8 (Color colour a) =
+    let rgb = C.toSRGB colour
+    in V4 (round (C.channelRed   rgb * mAXcHANNELfLOAT) :: Word8)
+          (round (C.channelGreen rgb * mAXcHANNELfLOAT) :: Word8)
+          (round (C.channelBlue  rgb * mAXcHANNELfLOAT) :: Word8)
+          (round (               a   * mAXcHANNELfLOAT) :: Word8)

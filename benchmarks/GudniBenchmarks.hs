@@ -62,7 +62,7 @@ instance Model BenchmarkState where
             let tree = transformFromState testScene state
                 withStatus = if False then overlap [statusTree, tree] else tree
             return . Scene (light gray) $ Just $ withStatus
-    providePictureData state = return $ state ^. statePictures
+    providePictureMap state = return $ state ^. statePictureMap
     handleOutput state target = do  presentTarget target
                                     return state
 
@@ -123,5 +123,5 @@ main = --silence $
           jpeg <- readJpeg "image/hero-yellow-flowers.jpg"
           case jpeg of
             Left message -> putStrLn message
-            Right pict   -> do picts <- makePictures [pict]
+            Right pict   -> do let picts = makePictureMap [("flowers",pict)]
                                runApplication (initialModel picts :: BenchmarkState)
