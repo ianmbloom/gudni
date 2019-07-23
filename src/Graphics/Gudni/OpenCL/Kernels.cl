@@ -1385,7 +1385,7 @@ COLOR readColor ( PMEM ColorState *cS
         float scale = pRef.pictScale;
         scale = scale < 0.0000001 ? 0.0000001 : scale;
         //DEBUG_IF(printf("scale %f \n", scale);)
-        int2 relativePosition = convert_int2((convert_float2(cS->absolutePosition) - pRef.pictTranslate) / scale);
+        int2 relativePosition = convert_int2((convert_float2(cS->absolutePosition) / scale) - pRef.pictTranslate);
         //DEBUG_IF(printf("pictId %i pRef.pictSize %v2i pRef.memOffset %i relativePosition %v2i \n", pictId, pRef.pictSize, pRef.pictMemOffset, relativePosition);)
         if (relativePosition.x >= 0 &&
             relativePosition.y >= 0 &&
@@ -1923,10 +1923,10 @@ __kernel void multiTileRaster ( SMEM     float4 *geometryHeap
                                       ,  jobIndex
                                       ,  computeDepth
                                       );
-    DEBUG_IF(showPictUsages(pictureRefs, 1);)
+    //DEBUG_IF(showPictUsages(pictureRefs, 1);)
     //testShapeStack();
     //testDeleteBit();
-    DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeStart, substances, tileS.tileNumShapes);)
+    //DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeStart, substances, tileS.tileNumShapes);)
     if (threadActive) {
         DEBUG_TRACE_BEGIN
         ThresholdState tS;

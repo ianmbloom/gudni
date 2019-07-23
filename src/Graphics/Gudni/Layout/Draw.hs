@@ -42,7 +42,7 @@ class Compoundable a where
 
 instance Compoundable (STree Compound leaf) where
   cAdd      = SMeld CompoundAdd
-  cSubtract = SMeld CompoundSubtract
+  cSubtract = flip (SMeld CompoundSubtract) -- the subtracted shape must be above what is being subtracted in the stack.
   cContinue = SMeld CompoundContinue
 
 instance HasSpace leaf => Compoundable (Boxed (STree Compound leaf)) where

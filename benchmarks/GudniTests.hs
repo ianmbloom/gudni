@@ -73,7 +73,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 7
+    , _stateCurrentTest = 12
     , _stateStep        = 69
     , _stateFrameNumber = 0
     }
@@ -293,8 +293,8 @@ testPict state =
         f (Point2 x y) = hslColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
         size = Point2 w h
     in  return $
-        overlap [ tTranslateXY 100 50 $ textureWith (NewTexture "gradient" (PictureFunction f size)) $ tTranslateXY 0 0 $ (tScale 200 circle)
-                , tTranslateXY 100 50 $ textureWith (SharedTexture "flowers") $ cSubtract (tScale 200 circle) (cAdd (tTranslateXY 100 100 $ tScale 100 circle) (tScale 100 circle))
+        overlap [ tTranslateXY 100 50 $ textureWith (SharedTexture "flowers") $ cSubtract (tScale 200 circle) (cAdd (tTranslateXY 100 100 $ tScale 100 circle) (tScale 100 circle))
+                , tTranslateXY 100 50 $ textureWith (NewTexture "gradient" (PictureFunction f size)) $ tTranslateXY 0 0 $ (tScale 200 circle)
                 , tTranslateXY 100 50 $ solid (transparent 0.2 blue) $ rectangle (Point2 40 2000)
                 ]
 
@@ -318,7 +318,7 @@ openSquare state = return $
 -- | Basic test for shape subtraction and transparency.
 openSquareOverlap2 :: Monad m => BenchmarkState -> GlyphMonad m (ShapeTree Int SubSpace)
 openSquareOverlap2 state = return $
-        tScale 0.25 $
+        tScale 20 $
         overlap [ (tTranslateXY 0 0 . solid (transparent 0.25 blue  ) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
                 , (tTranslateXY 8 8 . solid (transparent 1.0  orange) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
                 ]

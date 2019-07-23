@@ -56,7 +56,7 @@ cppDefines spec =
   ,Cpp "SHAPETAG_COMPOUNDTYPE_SUBTRACT"    (CppHex64 sHAPETAGcOMPOUNDtYPEsUBTRACT    )
   ,Cpp "SHAPETAG_COMPOUNDTYPE_SHIFT"       (CppInt   sHAPETAGcOMPOUNDtYPEsHIFT       )
   ,Cpp "SHAPETAG_SUBSTANCEID_BITMASK"      (CppHex64 sHAPETAGsUBSTANCEIDbITMASK      )
-  ,Cpp "DEBUG_OUTPUT"                      (CppNothing) -- uncomment this to turn on simple debugging output
+  --,Cpp "DEBUG_OUTPUT"                      (CppNothing) -- uncomment this to turn on simple debugging output
   --,Cpp "DEBUG_TRACE"                       (CppNothing) -- uncomment this to turn on parsable debugging output
   ]
 
