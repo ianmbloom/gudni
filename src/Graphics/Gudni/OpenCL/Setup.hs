@@ -9,6 +9,7 @@
 -- Portability :  portable
 --
 -- Functions for setting up an OpenCL platform to run the rasterizer kernel.
+-- Including macro definitions that are implanted into OpenCL source code.
 
 module Graphics.Gudni.OpenCL.Setup
   ( setupOpenCL

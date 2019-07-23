@@ -16,7 +16,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Functions for traversing a ShapeTree while accumulating metadata from the
+-- Functions for traversing a ShapeTree while accumulating information from the
 -- transform and meld nodes along the way.
 
 module Graphics.Gudni.Raster.TraverseShapeTree

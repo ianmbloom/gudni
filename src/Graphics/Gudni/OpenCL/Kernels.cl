@@ -2,7 +2,7 @@
 // 2 So the line numbers are correct
 // 3  -----------------------------------------------------------------------------
 // 4  -- |
-// 5  -- Module      :  Graphics.Gudni.OpenCL.CallKernel
+// 5  -- Module      :  Graphics.Gudni.OpenCL.Kernel.cl
 // 6  -- Copyright   :  (c) Ian Bloom 2019
 // 7  -- License     :  BSD-style (see the file libraries/base/LICENSE)
 // 8  --

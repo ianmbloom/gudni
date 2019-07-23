@@ -6,6 +6,18 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE IncoherentInstances  #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Layout.Boxed
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Functions for bounding box based layouts.
+
 module Graphics.Gudni.Layout.Boxed
   ( Boxed(..)
   , boxAround

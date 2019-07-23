@@ -13,7 +13,8 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Instances for extending the types of kernel arguments that can be sent to an OpenCL kernel.
+-- Instances for extending the types of kernel arguments that can be sent to an OpenCL kernel
+-- by adding instances of CLUtil KernelArgs.
 
 module Graphics.Gudni.OpenCL.Instances
 where

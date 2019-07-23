@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.OpenCL.Instances
+-- Module      :  Graphics.Gudni.OpenCL.Rasterizer
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --

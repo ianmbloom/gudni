@@ -1,5 +1,18 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Raster.Constants
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Functions for removing "knobs" which are vertical curves that cannot be easily
+-- rasterized.
+
 module Graphics.Gudni.Raster.Deknob
   ( Triple (..)
   , Range  (..)

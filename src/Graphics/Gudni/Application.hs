@@ -1,4 +1,17 @@
 {-# LANGUAGE TemplateHaskell, ScopedTypeVariables, FlexibleContexts #-}
+
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Application
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Definitions for defining an application that uses Gudni as a backend.
+
 module Graphics.Gudni.Application
   ( runApplication
   , Model(..)

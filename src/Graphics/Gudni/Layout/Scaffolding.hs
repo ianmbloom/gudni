@@ -7,7 +7,18 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 
--- Work in progress, top level datastructure for alignment and text layout.
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Layout.Scaffolding
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Top level functions for creating bounding box based layouts.
+
 module Graphics.Gudni.Layout.Scaffolding
   ( Alignment (..)
   , glyphString

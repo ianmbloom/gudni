@@ -11,8 +11,8 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Serializing a scene into data buffers that can be parsed by the rasterizer kernel and building
--- a partitioned tree of tiles.
+-- Functions used by TraverseShapeTree to serialize a scene into data buffers that can be parsed by
+-- the rasterizer kernel and building a partitioned tree of tiles.
 
 module Graphics.Gudni.Raster.Serialize
   ( GeometryPile(..)
