@@ -248,7 +248,7 @@ onSubstance onShape () transformer (SRep token substance subTree) =
                    -- Increment for the next usage.
                    suCurrentPictureUsage += 1
                    -- return a Substance with the right usage id.
-                   return . Texture . fromIntegral $ tr ("current" ++ name) $ current
+                   return . Texture . fromIntegral $ current
                Solid color -> return . Solid $ color
         -- Add the new substance to the pile.
         addToPileState suSubstancePile (SubstanceInfo colorOrPicture)

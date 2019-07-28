@@ -82,7 +82,7 @@ type SimpleTime = Double
 
 class Model s where
   -- | Construct a Scene from the state of type `s`
-  constructScene  :: s -> String -> GlyphMonad IO (Scene Int)
+  constructScene  :: s -> String -> FontMonad IO (Scene Int)
   -- | Update the state based on the elapsed time and a list of inputs
   updateModelState :: Monad m => Int -> SimpleTime -> [Input (Point2 PixelSpace)] -> s -> m s
   -- | Set the initial display to FullScreen or a specific window size in pixels.
@@ -116,9 +116,9 @@ data ApplicationState s = AppState
 makeLenses ''ApplicationState
 
 -- | Monad Stack for the event loop.
-type ApplicationMonad s = StateT (ApplicationState s) (GeometryMonad (GlyphMonad IO))
+type ApplicationMonad s = StateT (ApplicationState s) (GeometryMonad (FontMonad IO))
 
-runApplicationMonad :: ApplicationState s -> ApplicationMonad s a -> GeometryMonad (GlyphMonad IO) a
+runApplicationMonad :: ApplicationState s -> ApplicationMonad s a -> GeometryMonad (FontMonad IO) a
 runApplicationMonad = flip evalStateT
 
 -- | Initializes openCL, frontend interface, timekeeper, randomfield data and returns the initial `ApplicationState`
@@ -143,7 +143,7 @@ runApplication state =
     do  -- Initialize the application and get the initial state.
         appState <- setupApplication state
         -- Start the glyph monad.
-        runGlyphMonad $
+        runFontMonad $
             do  -- Load a font file.
                 mFontFile <- liftIO $ fontFile state
                 -- Add the font file to the glyph monad.

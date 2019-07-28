@@ -101,10 +101,10 @@ library
                      , Graphics.Gudni.Raster.TraverseShapeTree
                      , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.Types
-                     , Graphics.Gudni.Layout.Boxed
+                     , Graphics.Gudni.Layout.Glyph
                      , Graphics.Gudni.Layout.Draw
                      , Graphics.Gudni.Layout.Grid
-                     , Graphics.Gudni.Layout.Glyph
+                     , Graphics.Gudni.Layout.Font
                      , Graphics.Gudni.Layout.Scaffolding
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util

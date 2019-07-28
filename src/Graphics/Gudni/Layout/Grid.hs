@@ -22,7 +22,7 @@ module Graphics.Gudni.Layout.Grid
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Layout.Boxed
+import Graphics.Gudni.Layout.Glyph
 import Graphics.Gudni.Layout.Scaffolding
 import Graphics.Gudni.Util.Util
 

@@ -180,7 +180,7 @@ queueRasterJobs frameCount params jobs =
                 subBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suSubstancePile)
                 (pictDataPile, pictUsagePile) <- makePictData (params ^. rpSubstanceState . suPictureMapping) (params ^. rpSubstanceState . suPictureUsages)
                 pictBuffer <- pileToBuffer context pictDataPile
-                putStrList =<< (pileToList pictUsagePile)
+                --putStrList =<< (pileToList pictUsagePile)
                 pictUsageBuffer <- pileToBuffer context pictUsagePile
                 randoms    <- vectorToBuffer context (params ^. rpGeometryState  . geoRandomField)
                 let bic = BIC geoBuffer subBuffer pictBuffer pictUsageBuffer randoms

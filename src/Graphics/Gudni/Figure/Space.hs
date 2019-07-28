@@ -78,7 +78,7 @@ instance Bounded SubSpace where { minBound = SubSpace (-1/0); maxBound = SubSpac
 
 type PixelSpace_ = Int32
 -- | Pixel space is pixel boundary space. An integer value where one square unit refers to one pixel.
-newtype PixelSpace     = ISpace {unISpace :: PixelSpace_ } deriving (Bounded, Integral, Enum, Ix, Real, Num, Ord, Eq)
+newtype PixelSpace     = PSpace {unPSpace :: PixelSpace_ } deriving (Bounded, Integral, Enum, Ix, Real, Num, Ord, Eq)
 
 class (SimpleSpace (SpaceOf a)) => HasSpace a where
   type SpaceOf a
@@ -102,7 +102,7 @@ instance Iota SubSpace where
   iota = SubSpace 0.0001
 
 instance Iota PixelSpace where
-  iota = ISpace 1
+  iota = PSpace 1
 
 --------------------- Random -----------------
 instance Random SubSpace where
@@ -149,7 +149,7 @@ instance Show SubSpace where
   show (SubSpace x) = showFl' 5 x --showFl' 2 x ++ "d"
 
 instance Show PixelSpace where
-  show (ISpace x) = show x
+  show (PSpace x) = show x
 
 ------------------ Storable ------------------------
 
@@ -168,8 +168,8 @@ instance Storable SubSpace where
 instance Storable PixelSpace where
     sizeOf   _          = sizeOf    (undefined :: PixelSpace_)
     alignment _         = alignment (undefined :: PixelSpace_)
-    peek ptr            = ISpace . fromIntegral <$> (peek (castPtr ptr) :: IO CInt)
-    poke ptr (ISpace x) = poke (castPtr ptr) (fromIntegral x :: CInt)
+    peek ptr            = PSpace . fromIntegral <$> (peek (castPtr ptr) :: IO CInt)
+    poke ptr (PSpace x) = poke (castPtr ptr) (fromIntegral x :: CInt)
 
 ----------- DeepSeq --------------------------------
 
@@ -180,7 +180,7 @@ instance NFData SubSpace where
   rnf (SubSpace x) = x `deepseq` ()
 
 instance NFData PixelSpace where
-  rnf (ISpace x) = x `deepseq` ()
+  rnf (PSpace x) = x `deepseq` ()
 
 instance NFData XDim where
   rnf x = ()

@@ -129,8 +129,8 @@ makePictureMap images =
          rgba8s  = map (over _2 convertRGBA8) images
      in  foldl (\m (name, image) -> M.insert name (PictureImage image) m) M.empty rgba8s
 
-noPictures :: PictureMap
-noPictures = M.empty
+noPictures :: IO PictureMap
+noPictures = return M.empty
 
 findPicture ::  (M.Map PictureName (Either Picture PictureMemoryReference), Pile Word8) -> PictureUsage PictureName s
             ->  IO ((M.Map PictureName (Either Picture PictureMemoryReference), Pile Word8), PictureUsage PictureMemoryReference s)
@@ -145,7 +145,7 @@ findPicture (mapping, pictPile) usage =
                       return ((mapping, pictPile), usage {pictSource = foundReference})
                 Left picture ->
                   do  let size = pictureSize picture
-                          memory = tr ("memory" ++ name) $ PictureMemory size (pictPile ^. pileCursor)
+                          memory = PictureMemory size (pictPile ^. pileCursor)
                           pVector = pictureData picture
                       (pictPile', _) <- addVectorToPile pictPile pVector
                       let mapping' = M.insert name (Right memory) mapping
@@ -162,7 +162,7 @@ makePictData :: (Show s, Storable (PictureUsage PictureMemoryReference s))
              -> IO (Pile Word8, Pile (PictureUsage PictureMemoryReference s))
 makePictData mapping usages =
   do  dataPile <- newPile
-      ((_, pictDataPile), usages') <- mapAccumM findPicture (M.map Left mapping, dataPile) $ tr "usages" $ usages
+      ((_, pictDataPile), usages') <- mapAccumM findPicture (M.map Left mapping, dataPile) usages
       usagePile <- listToPile usages'
       return (pictDataPile, usagePile)
 

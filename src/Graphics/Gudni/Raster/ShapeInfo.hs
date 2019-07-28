@@ -146,7 +146,7 @@ instance StorableM SubstanceInfo where
   pokeM (SubstanceInfo substance) =
         case substance of
                Solid color -> pokeM (color :: Color)
-               Texture ref -> do pokeM (tr "ref" ref :: PictId)
+               Texture ref -> do pokeM (ref :: PictId)
                                  pokeM (0   :: CUInt ) -- padding
 
 instance Storable SubstanceInfo where

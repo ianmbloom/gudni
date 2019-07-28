@@ -28,13 +28,13 @@ module Graphics.Gudni.Layout.Scaffolding
   , rack
   , stack
   , overlap
-  , combineBoxed
+  , combineGlyph
   )
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Layout.Boxed
 import Graphics.Gudni.Layout.Glyph
+import Graphics.Gudni.Layout.Font
 import Graphics.Gudni.Util.Debug
 import Linear
 import Data.List
@@ -48,59 +48,59 @@ data Alignment = AlignMin | AlignMax | AlignCenter
 
 alignHorizontal :: (Show (SpaceOf rep), HasSpace rep, Fractional (SpaceOf rep))
                 => Alignment
-                -> Boxed (STree o rep)
-                -> Boxed (STree o rep)
-                -> (Boxed (STree o rep), Boxed (STree o rep))
+                -> Glyph (STree o rep)
+                -> Glyph (STree o rep)
+                -> (Glyph (STree o rep), Glyph (STree o rep))
 alignHorizontal alignment a b =
-  let aWidth = a ^. boxAround . widthBox
-      bWidth = b ^. boxAround . widthBox
+  let aWidth = a ^. glyphBox . widthBox
+      bWidth = b ^. glyphBox . widthBox
       width  = max aWidth bWidth
       offsetA = case alignment of
                   AlignMin    -> 0
                   AlignMax    -> width - aWidth
                   AlignCenter -> (width - aWidth) / 2
-      newA = {-set (boxAround . widthBox) width .-} tTranslateXY offsetA 0 $ a
+      newA = {-set (glyphBox . widthBox) width .-} tTranslateXY offsetA 0 $ a
       offsetB = case alignment of
                   AlignMin    -> 0
                   AlignMax    -> width - bWidth
                   AlignCenter -> (width - bWidth) / 2
-      newB = {-set (boxAround . widthBox) width .-} tTranslateXY offsetB 0 $ b
+      newB = {-set (glyphBox . widthBox) width .-} tTranslateXY offsetB 0 $ b
   in  (newA, newB)
 
 alignVertical :: (Show (SpaceOf rep), HasSpace rep, Fractional (SpaceOf rep))
               => Alignment
-              -> Boxed (STree o rep)
-              -> Boxed (STree o rep)
-              -> (Boxed (STree o rep), Boxed (STree o rep))
+              -> Glyph (STree o rep)
+              -> Glyph (STree o rep)
+              -> (Glyph (STree o rep), Glyph (STree o rep))
 alignVertical alignment a b =
-  let aHeight = a ^. boxAround . heightBox
-      bHeight = b ^. boxAround . heightBox
+  let aHeight = a ^. glyphBox . heightBox
+      bHeight = b ^. glyphBox . heightBox
       height  = max aHeight bHeight
       offsetA = case alignment of
                   AlignMin    -> 0
                   AlignMax    -> height - aHeight
                   AlignCenter -> (height - aHeight) / 2
-      newA = set (boxAround . heightBox) height . mapBoxed (tTranslateXY 0 offsetA) $ a
+      newA = set (glyphBox . heightBox) height . mapGlyph (tTranslateXY 0 offsetA) $ a
       offsetB = case alignment of
                   AlignMin    -> 0
                   AlignMax    -> height - bHeight
                   AlignCenter -> (height - bHeight) / 2
-      newB = set (boxAround . heightBox) height . mapBoxed (tTranslateXY 0 offsetB) $ b
+      newB = set (glyphBox . heightBox) height . mapGlyph (tTranslateXY 0 offsetB) $ b
   in  (newA, newB)
 
-nextToHorizontal :: (Show (SpaceOf rep), HasSpace rep) => Boxed (STree o rep) -> Boxed (STree o rep) -> (Boxed (STree o rep), Boxed (STree o rep))
+nextToHorizontal :: (Show (SpaceOf rep), HasSpace rep) => Glyph (STree o rep) -> Glyph (STree o rep) -> (Glyph (STree o rep), Glyph (STree o rep))
 nextToHorizontal a b =
-    let newB = set (boxAround . widthBox) (b ^. boxAround . widthBox ) .
-               set (boxAround . leftSide) (a ^. boxAround . rightSide) .
-               mapBoxed (tTranslateXY (a ^. boxAround . rightSide - b ^. boxAround . leftSide) 0) $
+    let newB = set (glyphBox . widthBox) (b ^. glyphBox . widthBox ) .
+               set (glyphBox . leftSide) (a ^. glyphBox . rightSide) .
+               mapGlyph (tTranslateXY (a ^. glyphBox . rightSide - b ^. glyphBox . leftSide) 0) $
                b
     in (a, newB)
 
-nextToVertical :: (Show (SpaceOf rep), HasSpace rep) => Boxed (STree o rep) -> Boxed (STree o rep) -> (Boxed (STree o rep), Boxed (STree o rep))
+nextToVertical :: (Show (SpaceOf rep), HasSpace rep) => Glyph (STree o rep) -> Glyph (STree o rep) -> (Glyph (STree o rep), Glyph (STree o rep))
 nextToVertical a b =
-    let newB = set (boxAround . heightBox) (b ^. boxAround . heightBox ) .
-               set (boxAround . topSide  ) (a ^. boxAround . bottomSide) .
-               mapBoxed (tTranslateXY 0 (a ^. boxAround . bottomSide - b ^. boxAround . topSide)) $
+    let newB = set (glyphBox . heightBox) (b ^. glyphBox . heightBox ) .
+               set (glyphBox . topSide  ) (a ^. glyphBox . bottomSide) .
+               mapGlyph (tTranslateXY 0 (a ^. glyphBox . bottomSide - b ^. glyphBox . topSide)) $
                b
     in (a, newB)
 
@@ -117,31 +117,31 @@ betweenList b []     = []
 
 distributeRack :: HasSpace rep
                => X (SpaceOf rep)
-               -> [Boxed rep]
-               -> [Boxed rep]
-distributeRack gap = betweenList (Boxed (Box zeroPoint (makePoint gap 0)) Nothing)
+               -> [Glyph rep]
+               -> [Glyph rep]
+distributeRack gap = betweenList (Glyph (Box zeroPoint (makePoint gap 0)) Nothing)
 
 distributeStack :: HasSpace rep
                 => Y (SpaceOf rep)
-                -> [Boxed rep]
-                -> [Boxed rep]
-distributeStack gap = betweenList (Boxed (Box zeroPoint (makePoint 0 gap)) Nothing)
+                -> [Glyph rep]
+                -> [Glyph rep]
+distributeStack gap = betweenList (Glyph (Box zeroPoint (makePoint 0 gap)) Nothing)
 
 class Overlappable a where
   combine :: a -> a -> a
 
-combineBoxed :: HasSpace rep
+combineGlyph :: HasSpace rep
              => (STree o rep -> STree o rep -> STree o rep)
-             -> Boxed (STree o rep)
-             -> Boxed (STree o rep)
-             -> Boxed (STree o rep)
-combineBoxed op a b =
-  let tl = minPoint (a ^. boxAround . topLeftBox    ) (b ^. boxAround . topLeftBox    )
-      br = maxPoint (a ^. boxAround . bottomRightBox) (b ^. boxAround . bottomRightBox)
-  in  Boxed (Box tl br) (combineMaybe op (a ^. unBoxed) (b ^. unBoxed))
+             -> Glyph (STree o rep)
+             -> Glyph (STree o rep)
+             -> Glyph (STree o rep)
+combineGlyph op a b =
+  let tl = minPoint (a ^. glyphBox . topLeftBox    ) (b ^. glyphBox . topLeftBox    )
+      br = maxPoint (a ^. glyphBox . bottomRightBox) (b ^. glyphBox . bottomRightBox)
+  in  Glyph (Box tl br) (combineMaybe op (a ^. unGlyph) (b ^. unGlyph))
 
-instance (HasSpace rep, HasDefault o) => Overlappable (Boxed (STree o rep)) where
-  combine = combineBoxed (SMeld defaultValue)
+instance (HasSpace rep, HasDefault o) => Overlappable (Glyph (STree o rep)) where
+  combine = combineGlyph (SMeld defaultValue)
 
 instance (HasDefault o) => Overlappable (STree o rep) where
   combine = SMeld defaultValue
@@ -161,25 +161,25 @@ rack :: forall o rep
      .  (Show rep, Show (SpaceOf rep), Show o,
          HasSpace rep, Fractional (SpaceOf rep), HasDefault o)
      => Alignment
-     -> [Boxed (STree o rep)]
-     -> Boxed (STree o rep)
-rack alignment = foldl1 (\ a b -> uncurry (combineBoxed (SMeld defaultValue)) . uncurry nextToHorizontal . uncurry (alignVertical alignment) $ (a, b))
+     -> [Glyph (STree o rep)]
+     -> Glyph (STree o rep)
+rack alignment = foldl1 (\ a b -> uncurry (combineGlyph (SMeld defaultValue)) . uncurry nextToHorizontal . uncurry (alignVertical alignment) $ (a, b))
 
 stack :: forall o rep
       .  (Show rep, Show (SpaceOf rep), Show o,
           HasSpace rep, Fractional (SpaceOf rep), HasDefault o)
       => Alignment
-      -> [Boxed (STree o rep)]
-      -> Boxed (STree o rep)
-stack alignment = foldl1 (\ a b -> uncurry (combineBoxed (SMeld defaultValue)) . uncurry nextToVertical . uncurry (alignHorizontal alignment) $ (a, b))
+      -> [Glyph (STree o rep)]
+      -> Glyph (STree o rep)
+stack alignment = foldl1 (\ a b -> uncurry (combineGlyph (SMeld defaultValue)) . uncurry nextToVertical . uncurry (alignHorizontal alignment) $ (a, b))
 
-paragraph :: forall m . (MonadState GlyphCache m, Monad m)
+paragraph :: forall m . (MonadState FontCache m, Monad m)
           => X SubSpace
           -> Y SubSpace
           -> Alignment
           -> Alignment
           -> String
-          -> m (Boxed (CompoundTree SubSpace))
+          -> m (Glyph (CompoundTree SubSpace))
 paragraph gapX gapY alignX alignY string =
   do  let stringLines = lines string
       glyphLines <- mapM glyphString stringLines

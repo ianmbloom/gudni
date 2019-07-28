@@ -8,7 +8,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Layout.Boxed
+-- Module      :  Graphics.Gudni.Layout.Draw
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -41,7 +41,7 @@ import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Plot
-import Graphics.Gudni.Layout.Boxed
+import Graphics.Gudni.Layout.Glyph
 import Graphics.Gudni.Layout.Scaffolding
 
 import Data.Char (ord)
@@ -57,10 +57,10 @@ instance Compoundable (STree Compound leaf) where
   cSubtract = flip (SMeld CompoundSubtract) -- the subtracted shape must be above what is being subtracted in the stack.
   cContinue = SMeld CompoundContinue
 
-instance HasSpace leaf => Compoundable (Boxed (STree Compound leaf)) where
-  cAdd      = combineBoxed cAdd
-  cSubtract = combineBoxed cSubtract
-  cContinue = combineBoxed cContinue
+instance HasSpace leaf => Compoundable (Glyph (STree Compound leaf)) where
+  cAdd      = combineGlyph cAdd
+  cSubtract = combineGlyph cSubtract
+  cContinue = combineGlyph cContinue
 
 class HasSpace a => HasRectangle a where
   rectangle :: Point2 (SpaceOf a) -> a
@@ -73,8 +73,8 @@ rectangleCurve v =
     , straight 0         (v ^. pY)
     ]
 
-instance Space s => HasRectangle (Boxed (CompoundTree s)) where
-    rectangle v = Boxed (Box zeroPoint v) . Just . rectangle $ v
+instance Space s => HasRectangle (Glyph (CompoundTree s)) where
+    rectangle v = Glyph (Box zeroPoint v) . Just . rectangle $ v
 
 instance Space s => HasRectangle (CompoundTree s) where
     rectangle v = SLeaf . segmentsToOutline . pure . rectangleCurve $ v
@@ -85,10 +85,10 @@ unitSquare = rectangle (Point2 1 1)
 openRectangle :: Space s
               => s
               -> Point2 s
-              -> Boxed (CompoundTree s)
+              -> Glyph (CompoundTree s)
 openRectangle s p = let strokeDelta = Point2 s s in
                     cSubtract (rectangle p)
-                              (mapBoxed (tTranslate strokeDelta) $ rectangle (p ^-^ (strokeDelta ^* 2)))
+                              (mapGlyph (tTranslate strokeDelta) $ rectangle (p ^-^ (strokeDelta ^* 2)))
 
 class HasLine a where
   line :: (SpaceOf a ~ s)
@@ -109,7 +109,7 @@ lineCurve stroke p0 p1 =
       , Seg (p1 ^+^ rightNormal) Nothing
       ]
 
-instance (Space s) => HasLine (Boxed (CompoundTree s)) where
+instance (Space s) => HasLine (Glyph (CompoundTree s)) where
   line stroke p0 p1 = boxedOutline . segmentsToOutline . pure $ lineCurve stroke p0 p1
 
 instance (Space s) => HasLine (CompoundTree s) where
@@ -118,9 +118,9 @@ instance (Space s) => HasLine (CompoundTree s) where
 class HasArc a where
   arc :: Angle (SpaceOf a) -> a
 
-instance Space s => HasArc (Boxed (CompoundTree s)) where
+instance Space s => HasArc (Glyph (CompoundTree s)) where
   arc angle = let curve = segmentsToOutline . pure . closeOpenCurve . makeArc $ angle
-              in  Boxed (boxOf curve) (Just . SLeaf $ curve)
+              in  Glyph (boxOf curve) (Just . SLeaf $ curve)
 
 instance Space s => HasArc (CompoundTree s) where
   arc = SLeaf . segmentsToOutline . pure . closeOpenCurve . makeArc
@@ -131,15 +131,15 @@ class HasArc a => HasCircle a where
 instance Space s => HasCircle (CompoundTree s) where
   circle = tTranslateXY 0.5 0.5 $ tScale 0.5 $ arc fullTurn
 
-instance Space s => HasCircle (Boxed (CompoundTree s)) where
+instance Space s => HasCircle (Glyph (CompoundTree s)) where
   circle = overlap [ openRectangle 0.025 (Point2 1 1)
                    , circle
                    ]
 
-boxedOutline :: Space s => [Outline s] -> Boxed (CompoundTree s)
+boxedOutline :: Space s => [Outline s] -> Glyph (CompoundTree s)
 boxedOutline outlines =
    let box = foldl1 minMaxBox $ map boxOf $ outlines
-   in  Boxed box (Just . SLeaf $ outlines)
+   in  Glyph box (Just . SLeaf $ outlines)
 
 class HasFromSegments a where
   fromSegments :: [Segment (SpaceOf a)] -> a
@@ -147,7 +147,7 @@ class HasFromSegments a where
 instance Space s => HasFromSegments (CompoundTree s) where
   fromSegments = SLeaf . segmentsToOutline . pure
 
-instance Space s => HasFromSegments (Boxed (CompoundTree s)) where
+instance Space s => HasFromSegments (Glyph (CompoundTree s)) where
   fromSegments = boxedOutline . segmentsToOutline . pure
 
 class CanFill a b | b -> a where
@@ -158,20 +158,20 @@ instance CanFill (CompoundTree s) (ShapeTree Int s) where
     solid color         = SLeaf . SRep 0 (Solid color)
     textureWith texture = SLeaf . SRep 0 (Texture texture)
 
-instance CanFill (Boxed (CompoundTree s)) (Boxed (ShapeTree Int s)) where
-    solid color         = mapBoxed (solid color)
-    textureWith texture = mapBoxed (textureWith texture)
+instance CanFill (Glyph (CompoundTree s)) (Glyph (ShapeTree Int s)) where
+    solid color         = mapGlyph (solid color)
+    textureWith texture = mapGlyph (textureWith texture)
 
 instance {-# Overlappable #-} (Functor f, SpaceOf (f (CompoundTree s)) ~ s) => CanFill (f (CompoundTree s)) (f (ShapeTree Int s)) where
     solid color         = fmap (solid color)
     textureWith texture = fmap (textureWith texture)
 
-instance {-# Overlappable #-} (Functor f, SpaceOf (f (Boxed (CompoundTree s))) ~ s) => CanFill (f (Boxed (CompoundTree s))) (f (Boxed (ShapeTree Int s))) where
+instance {-# Overlappable #-} (Functor f, SpaceOf (f (Glyph (CompoundTree s))) ~ s) => CanFill (f (Glyph (CompoundTree s))) (f (Glyph (ShapeTree Int s))) where
     solid color      = fmap (solid color)
     textureWith pict = fmap (textureWith pict)
 
 lPath :: String
-      -> Boxed (CompoundTree SubSpace)
+      -> Glyph (CompoundTree SubSpace)
 lPath name =
   case curveLibrary name of
     Just path -> boxedOutline . segmentsToOutline . pure . closeOpenCurve $ path

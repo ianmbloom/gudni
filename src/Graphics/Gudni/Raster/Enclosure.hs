@@ -14,7 +14,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Functions turning outlines into enclosed groups of horizontal strands that can
+-- Functions turning lists of outlines into enclosed lists of horizontal strands that can
 -- be sent to the rasterizer.
 
 module Graphics.Gudni.Raster.Enclosure
