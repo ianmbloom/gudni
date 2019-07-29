@@ -325,7 +325,7 @@ instance Model TraceState where
         Window $ Point2 1024
                         1024
     shouldLoop _ = True
-    fontFile state = fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
+    fontFile state = findDefaultFont
     updateModelState frame elapsedTime inputs state =
         flip execStateT state $
             do  mapM_ processInput inputs
