@@ -152,13 +152,20 @@ instance Space s => HasArc (Glyph (CompoundTree s)) where
 class HasArc a => HasCircle a where
   circle :: a
 
+-- | Basic circleCurve
+circleCurve :: Space s => [Outline s]
+circleCurve = arcCurve fullTurn
+centerCircle :: (Fractional (SpaceOf a), SimpleTransformable a) => a -> a
+centerCircle = tTranslateXY 0.5 0.5 . tScale 0.5
+
+
 -- | Basic instance of a circle.
 instance Space s => HasCircle (CompoundTree s) where
-  circle = tTranslateXY 0.5 0.5 $ tScale 0.5 $ arc fullTurn
+  circle = centerCircle . SLeaf $ circleCurve
 
 -- | Glyph wrapper around a circle.
 instance Space s => HasCircle (Glyph (CompoundTree s)) where
-  circle = circle
+  circle = centerCircle . glyphWrapOutline $ circleCurve
 
 -- | Typeclass for shape representations that can be created from a list of segments.
 class HasFromSegments a where

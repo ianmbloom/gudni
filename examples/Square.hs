@@ -47,15 +47,13 @@ instance Model SquareState where
     constructScene state status =
         return .
         Scene (light . greenish $ blue) .
-        fromJust .
-        view unBoxed .
+        Just .
         tTranslate (Point2 100 100) .
         tScale  (state ^. stateScale) .
-        mapBoxed (tRotate (state ^. stateAngle)) .
-        solid yellow .
-        rectangle $
-        Point2 1 1
-    providePictureData _ = noPictures
+        tRotate (state ^. stateAngle) .
+        solid yellow $
+        unitSquare
+    providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target
                                     return state
 

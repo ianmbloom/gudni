@@ -11,6 +11,7 @@ import Graphics.Gudni.Interface
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Application
+import Graphics.Gudni.Util.Debug
 
 import Data.Maybe(listToMaybe, fromMaybe, fromJust)
 import Control.Lens
@@ -76,28 +77,28 @@ instance Model ParagraphState where
             statusTree <- statusDisplay state "Test Paragraph" (lines status)
             let tree = transformFromState testScene state
                 withStatus = if False then overlap [statusTree, tree] else tree
-            return (Scene (light gray) $ fromJust $ withStatus ^. unBoxed)
-    providePictureData _ = noPictures
+            return $ (Scene (light gray) $ withStatus ^. unGlyph)
+    providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target
                                     return state
 
-statusDisplay :: Monad m => ParagraphState -> String -> [String] -> GlyphMonad m (Boxed (ShapeTree Int SubSpace))
+statusDisplay :: Monad m => ParagraphState -> String -> [String] -> FontMonad m (Glyph (ShapeTree Int SubSpace))
 statusDisplay state testName status =
     tTranslateXY 1800 800 .
-    fmap (mapBoxed (tRotate (45 @@ deg))) .
+    fmap (mapGlyph (tRotate (45 @@ deg))) .
     tTranslate (state ^. stateDelta) .
     tScale 30 .
     fmap (solid (dark red)) .
     paragraph 0 0 AlignMin AlignMin $
     unlines $ testName : status
 
-transformFromState :: Boxed (ShapeTree Int SubSpace) -> ParagraphState -> Boxed (ShapeTree Int SubSpace)
+transformFromState :: Glyph (ShapeTree Int SubSpace) -> ParagraphState -> Glyph (ShapeTree Int SubSpace)
 transformFromState constructed state =
     let sc    = state ^. stateScale
         delta = state ^. stateDelta
         angle = state ^. stateAngle
     in  tTranslate delta .
-        mapBoxed (tRotate angle) .
+        mapGlyph (tRotate angle) .
         tScale sc $
         constructed
 
@@ -136,9 +137,10 @@ main = --silence $
 
 -- | Sample text paragraph.
 mobyDick :: String
-mobyDick = --"01234\n12345\n23456\n34567\n45678\n"
-           "0\n01\n012\n0123\n01234\n"
-{-
+--mobyDick = "0" -- 1234\n12345\n23456\n34567\n45678\n"
+--            "0\n01\n012\n0123\n01234\n"
+
+mobyDick
   =  "Call me Ishmael. Some years ago--never mind how long precisely--having little\n"
   ++ "or no money in my purse, and nothing particular to interest me on shore, I thought\n"
   ++ "I would sail about a little and see the watery part of the world. It is a way I have of\n"
@@ -169,4 +171,3 @@ mobyDick = --"01234\n12345\n23456\n34567\n45678\n"
   ++ "water as they possibly can without falling in. And there they stand--miles of them--leagues. Inlanders all,\n"
   ++ "they come from lanes and alleys, streets and avenues--north, east, south, and west. Yet here they all unite.\n"
   ++ "Tell me, does the magnetic virtue of the needles of tcompasses of all those ships attract them thither?\n"
--}

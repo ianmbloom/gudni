@@ -89,6 +89,9 @@ deriving instance (Show meld, Show leaf, Show (SpaceOf leaf)) => Show (STree mel
 
 instance HasSpace leaf => HasSpace (STree meld leaf) where
   type SpaceOf (STree meld leaf) = SpaceOf leaf
+
+instance (HasSpace leaf) => HasSpace (Maybe (STree meld leaf)) where
+    type SpaceOf (Maybe (STree meld leaf)) = SpaceOf leaf
 -- | Type of melding of compound shapes.
 data Compound
     -- | Neutral combination of outlines.

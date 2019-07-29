@@ -37,7 +37,7 @@ data PlotState = PlotState
 makeLenses ''PlotState
 
 instance Model PlotState where
-    screenSize state = Window (Point2 100 100)
+    screenSize state = Window (Point2 1024 768)
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =
@@ -46,8 +46,8 @@ instance Model PlotState where
                 mapM_ processInput inputs
             ) state
     constructScene state status =
-        Scene (light . greenish $ blue) <$> plots state
-    providePictureData _ = noPictures
+        Scene (light . greenish $ blue) . Just <$> plots state
+    providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target
                                     return state
 
@@ -65,7 +65,7 @@ main = runApplication (PlotState (0 @@ turn) 50)
 
 
 -- | All the turtle plots from the plot module.
-plots :: Monad m => PlotState -> GlyphMonad m (ShapeTree Int SubSpace)
+plots :: Monad m => PlotState -> FontMonad m (ShapeTree Int SubSpace)
 plots state = return .
               tTranslateXY 100 100 .
               tScale 30 .
