@@ -367,8 +367,8 @@ typedef struct ColorState {
 
 // the threshold state stores references to the threshold buffers and their size.
 typedef struct ThresholdState {
-    TMEM    HEADER  thresholdHeaders[MAXTHRESHOLDS]; // array of threshold header
-    TMEM THRESHOLD  thresholds[MAXTHRESHOLDS];       // array of threshold geometry
+    HEADER  thresholdHeaders[MAXTHRESHOLDS]; // array of threshold header
+    THRESHOLD  thresholds[MAXTHRESHOLDS];       // array of threshold geometry
                int  thresholdStart;                  // the position of the top of the stack.
                int  numThresholds;                   // number of thresholds in buffers
                int  thresholdWasAdded;  // used to determine if a shape ever interacted with the column as it's being added.
@@ -420,7 +420,7 @@ inline void popTop(ThresholdState *tS) {
 
 typedef struct ShapeState {
                 SHAPEBIT  shapeBits;                 // the number of shapes assigned to a bit in the shapeStack.
-      LMEM   SUBSTANCEID  shapeIndices[MAXSHAPE];     // a mapping from shape bit positions in the shapeStacks to shapeIndices in the tile.
+      SUBSTANCEID  shapeIndices[MAXSHAPE];     // a mapping from shape bit positions in the shapeStacks to shapeIndices in the tile.
       PMEM SHAPESTACK shapeStack[SHAPESTACKSECTIONS]; // the current shape Stack. (Each bit represents the presence of a shape in the stack.)
 } ShapeState;
 

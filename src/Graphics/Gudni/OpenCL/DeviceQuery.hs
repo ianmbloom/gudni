@@ -85,11 +85,12 @@ module Graphics.Gudni.OpenCL.DeviceQuery
   )
 where
 
+import CLUtil.CL
+import Control.Exception (handle, throw)
 import Control.Monad
 import Control.Parallel.OpenCL
-import CLUtil.CL
-import Graphics.Gudni.Util.Util
 import Foreign.C.Types (CSize)
+import Graphics.Gudni.Util.Util
 
 import Data.List
 import Data.Maybe (catMaybes)
@@ -412,7 +413,11 @@ dumpDeviceDetail deviceDetail =
 queryOpenCL :: CLDeviceType -> IO [CLDeviceDetail]
 queryOpenCL deviceType =
   do  platformIDs <- clGetPlatformIDs
-      concat <$> mapM (\platformID ->
-          do deviceIDs <- clGetDeviceIDs platformID deviceType
-             deviceInfos <- mapM (initCLDeviceDetail platformID) deviceIDs
-             return deviceInfos) platformIDs
+      concat <$> mapM (\platformID -> do
+        platformName <- clGetPlatformInfo platformID CL_PLATFORM_NAME
+        putStrLn ("Found platform: " ++ platformName)
+        deviceIDs <- clGetDeviceIDs platformID deviceType
+            & handle (\err -> if err == CL_DEVICE_NOT_FOUND then return [] else throw err)
+        putStrLn ("Found " ++ show (length deviceIDs) ++ " devices")
+        deviceInfos <- mapM (initCLDeviceDetail platformID) deviceIDs
+        return deviceInfos) platformIDs
