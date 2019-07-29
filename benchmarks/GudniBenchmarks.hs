@@ -34,7 +34,7 @@ import System.IO.Silently
 import System.Info
 import Data.Maybe
 
-getTest :: BenchmarkState -> (String, BenchmarkState -> GlyphMonad IO (ShapeTree Int SubSpace))
+getTest :: BenchmarkState -> (String, BenchmarkState -> FontMonad IO (ShapeTree Int SubSpace))
 getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
@@ -58,7 +58,7 @@ instance Model BenchmarkState where
     constructScene state status =
         do  testScene <- (snd $ getTest state) state
             let testName = (fst $ getTest state)
-            statusTree <- fromJust . view unBoxed <$> statusDisplay state testName (lines status)
+            statusTree <- fromJust . view unGlyph <$> statusDisplay state testName (lines status)
             let tree = transformFromState testScene state
                 withStatus = if False then overlap [statusTree, tree] else tree
             return . Scene (light gray) $ Just $ withStatus
@@ -66,7 +66,7 @@ instance Model BenchmarkState where
     handleOutput state target = do  presentTarget target
                                     return state
 
-statusDisplay :: Monad m => BenchmarkState -> String -> [String] -> GlyphMonad m (Boxed (ShapeTree Int SubSpace))
+statusDisplay :: Monad m => BenchmarkState -> String -> [String] -> FontMonad m (Glyph (ShapeTree Int SubSpace))
 statusDisplay state testName status =
     tTranslateXY 1800 800 . --3200 2100 .
     tTranslate (state ^. stateDelta) .

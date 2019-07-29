@@ -91,13 +91,13 @@ instance HasSpace leaf => HasSpace (STree meld leaf) where
   type SpaceOf (STree meld leaf) = SpaceOf leaf
 -- | Type of melding of compound shapes.
 data Compound
-        -- | Neutral combination of outlines.
-        = CompoundContinue
-        -- | Addition of shapes.
-        | CompoundAdd
-        -- | Substraction of the first shape from the second.
-        | CompoundSubtract
-        deriving (Ord, Eq, Show)
+    -- | Neutral combination of outlines.
+    = CompoundContinue
+    -- | Addition of shapes.
+    | CompoundAdd
+    -- | Substraction of the first shape from the second.
+    | CompoundSubtract
+    deriving (Ord, Eq, Show)
 
 -- | Type of overlapping two seperate shapes.
 type Overlap = ()
