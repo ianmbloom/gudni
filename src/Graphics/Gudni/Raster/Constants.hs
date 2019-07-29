@@ -47,7 +47,9 @@ mAXsTRANDpERtILE = mAXtHRESHOLDS -- The maximum number of strands per tile, befo
 
 sTOCHASTICfACTOR = 0.3 :: Float -- relative amount of variability in an edge.
 mAXtHRESHOLDS    = 1024 :: Int -- the size of the threshold header and threshold geometry buffers (must be a power of 2)
-mAXsHAPE         = 511 :: Int -- total number of shapes per build. must be one less than the number of bits available.
+mAXsHAPEbITS     = 511 :: Int -- total number of shapes per build based on the number of bits in the stack must be one less than the number of bits available.
+sHAPElIMIT       = 127 :: Int -- a hard limit on the number of shapes based on the empirical testing of the timeout period of the GPU.
+mAXsHAPE         = min mAXsHAPEbITS sHAPElIMIT
 mAXtILEsIZE      = Point2 512 512 :: Point2 PixelSpace
 mINtILEsIZE      = Point2 16  16  :: Point2 PixelSpace
 mAXsECTIONsIZE   = 32   :: Int

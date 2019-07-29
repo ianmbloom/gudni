@@ -3,7 +3,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Figure.Angle
+-- Module      :  Graphics.Gudni.Figure.Segment
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -48,14 +48,14 @@ makeLenses ''Segment
 -- | Pattern synonym for a segment with no control point.
 pattern Straight p = Seg p Nothing
 -- | Make a straight segment from the component dimensions
-straight :: Ortho XDimension s -> Ortho YDimension s -> Segment s
+straight :: X s -> Y s -> Segment s
 straight x y = Seg (makePoint x y) Nothing
 
 -- | Pattern synonym for a segment with a control point.
 pattern Curved p c = Seg p (Just c)
 
 -- | Make a curved segment from the component dimensions.
-curved :: Ortho XDimension s -> Ortho YDimension s -> Ortho XDimension s -> Ortho YDimension s -> Segment s
+curved :: X s -> Y s -> X s -> Y s -> Segment s
 curved x y cx cy = Seg (makePoint x y) (Just (makePoint cx cy))
 
 -- | Map over the points of a segment.

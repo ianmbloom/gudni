@@ -21,7 +21,6 @@
 
 module Graphics.Gudni.OpenCL.CallKernels
   ( raster
-  , OpenCLKernelLibrary(..)
   , RasterParams(..)
   , queueRasterJobs
   , buildRasterJobs
@@ -47,7 +46,7 @@ import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.RandomField
 
-import Graphics.Gudni.OpenCL.KernelLibrary
+import Graphics.Gudni.OpenCL.Rasterizer
 import Graphics.Gudni.OpenCL.DeviceQuery
 import Graphics.Gudni.OpenCL.Instances
 import Graphics.Gudni.Interface.GLInterop
@@ -77,11 +76,10 @@ import Control.Monad.Morph
 import Data.Word
 
 data RasterParams token = RasterParams
-  { _rpLibrary         :: OpenCLKernelLibrary
-  , _rpPictData        :: VS.Vector Word8
+  { _rpDevice          :: Rasterizer
   , _rpTarget          :: DrawTarget
   , _rpGeometryState   :: GeometryState
-  , _rpSubstanceState  :: SubstanceState token
+  , _rpSubstanceState  :: SubstanceState token SubSpace
 
   }
 makeLenses ''RasterParams
@@ -106,15 +104,15 @@ generateCall  :: (KernelArgs
               -> CInt
               -> a
               -> CL ()
-generateCall params bic job bitmapSize frame jobIndex target =
+generateCall params bic job bitmapSize frameCount jobIndex target =
   do  let numTiles     = job ^. rJTilePile . pileSize
           -- ideal number of threads per tile
-          computeSize  = fromIntegral . clMaxGroupSize $ params ^. rpLibrary
+          threadsPerTile = fromIntegral $ params ^. rpDevice . rasterSpec . specThreadsPerTile
           -- adjusted log2 of the number of threads
-          computeDepth = adjustedLog computeSize :: CInt
+          computeDepth = adjustedLog threadsPerTile :: CInt
       --liftIO $ outputGeometryState (params ^. rpGeometryState)
       --liftIO $ outputSubstanceState(params ^. rpSubstanceState)
-      runKernel (multiTileRasterCL (params ^. rpLibrary))
+      runKernel (params ^. rpDevice . rasterClKernel)
                 (bicGeoBuffer  bic) -- (params ^. rpGeometryState  . geoGeometryPile)
                 (bicSubBuffer  bic) -- (params ^. rpSubstanceState . suSubstancePile)
                 (bicPictBuffer bic) -- (params ^. rpPictData)
@@ -125,11 +123,11 @@ generateCall params bic job bitmapSize frame jobIndex target =
                 (params ^. rpSubstanceState . suBackgroundColor)
                 bitmapSize
                 computeDepth
-                frame
+                frameCount
                 jobIndex
                 target
-                (Work2D numTiles (fromIntegral computeSize))
-                (WorkGroup [1, fromIntegral computeSize])
+                (Work2D numTiles (fromIntegral threadsPerTile))
+                (WorkGroup [1, fromIntegral threadsPerTile])
 
 -- | Rasterize a rasterJob inside the CLMonad
 raster :: Show token
@@ -139,19 +137,19 @@ raster :: Show token
        -> RasterJob
        -> CInt
        -> CL ()
-raster params bic frame job jobIndex =
+raster params bic frameCount job jobIndex =
     do  let -- width and height of the output buffer.
             bitmapSize   = P $ targetArea (params ^. rpTarget)
             -- total number of 32 bit words in the output buffer.
             outputSize   = fromIntegral $ pointArea bitmapSize
             -- get the actual target buffer we are writing to.
             buffer = targetBuffer (params ^. rpTarget)
-        liftIO $ putStrLn $ ">>> rasterCall jobIndex: "++ show jobIndex ++ " frame: " ++ show frame
+        liftIO $ putStrLn $ ">>> rasterCall jobIndex: "++ show jobIndex ++ " frameCount: " ++ show frameCount
         -- generate a kernel call for that buffer type.
         case buffer of
             HostBitmapTarget outputPtr ->
                 -- In this case the resulting bitmap will be stored in memory at outputPtr.
-                generateCall params bic job bitmapSize frame jobIndex (OutPtr outputPtr outputSize)
+                generateCall params bic job bitmapSize frameCount jobIndex (OutPtr outputPtr outputSize)
             GLTextureTarget textureName ->
                 -- In this case an identifier for a Texture object that stays on the GPU would be stored∘
                 -- But currently this isn't working, so throw an error.
@@ -162,7 +160,7 @@ data BuffersInCommon = BIC
   { bicGeoBuffer :: CLBuffer CChar
   , bicSubBuffer :: CLBuffer SubstanceInfo
   , bicPictBuffer:: CLBuffer Word8
-  , bicPictUsage :: CLBuffer (PictureUsage PictureMemoryReference)
+  , bicPictUsage :: CLBuffer (PictureUsage PictureMemoryReference SubSpace)
   , bicRandoms   :: CLBuffer CFloat
   }
 
@@ -173,18 +171,21 @@ queueRasterJobs :: (MonadIO m, Show token)
                 -> RasterParams token
                 -> [RasterJob]
                 -> GeometryMonad m ()
-queueRasterJobs frame params jobs =
-    liftIO $ do let -- Get the OpenCL state from the Library structure.
-                    state = clState (params ^. rpLibrary)
+queueRasterJobs frameCount params jobs =
+    liftIO $ do
+                let -- Get the OpenCL state from the Library structure.
+                    state = params ^. rpDevice . rasterClState
                     context = clContext state
                 geoBuffer  <- pileToBuffer context (params ^. rpGeometryState  . geoGeometryPile)
                 subBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suSubstancePile)
-                pictBuffer <- vectorToBuffer context (params ^. rpPictData)
-                pictUsage  <- pileToBuffer context (params ^. rpSubstanceState . suPictureUsages)
+                (pictDataPile, pictUsagePile) <- makePictData (params ^. rpSubstanceState . suPictureMapping) (params ^. rpSubstanceState . suPictureUsages)
+                pictBuffer <- pileToBuffer context pictDataPile
+                --putStrList =<< (pileToList pictUsagePile)
+                pictUsageBuffer <- pileToBuffer context pictUsagePile
                 randoms    <- vectorToBuffer context (params ^. rpGeometryState  . geoRandomField)
-                let bic = BIC geoBuffer subBuffer pictBuffer pictUsage randoms
+                let bic = BIC geoBuffer subBuffer pictBuffer pictUsageBuffer randoms
                 -- Run the rasterizer over each rasterJob inside a CLMonad.
-                runCL state $ zipWithM_ (raster params bic frame) jobs [0..]
+                runCL state $ zipWithM_ (raster params bic frameCount) jobs [0..]
 
 buildRasterJobs :: (MonadIO m, Show token)
                 => RasterParams token
@@ -193,7 +194,7 @@ buildRasterJobs params =
   do  -- Get the tile tree from the geometryState
       tileTree <- use geoTileTree
       -- Determine the maximum number of tiles per RasterJob
-      let tilesPerCall = fromIntegral . clMaxGroupSize $ params ^. rpLibrary
+      let tilesPerCall = fromIntegral $ params ^. rpDevice . rasterSpec . specMaxTilesPerCall
       -- Build all of the RasterJobs by traversing the TileTree.
       jobs <- execBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall) tileTree)
       return $ trWith (show . length) "num jobs" $ jobs

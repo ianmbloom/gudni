@@ -22,10 +22,12 @@ where
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
-import Graphics.Gudni.Util.Draw
+import Graphics.Gudni.Layout
 
 import Control.Lens
 import Control.Monad.State
+
+import Data.Maybe
 
 data SquareState = SquareState
   { _stateAngle :: Angle SubSpace
@@ -45,13 +47,15 @@ instance Model SquareState where
     constructScene state status =
         return .
         Scene (light . greenish $ blue) .
-        sTranslate (Point2 100 100) .
-        sScale  (state ^. stateScale) .
-        sRotate (state ^. stateAngle) .
-        solid yellow .
-        rectangle $
-        Point2 1 1
-    providePictureData _ = noPictures
+        Just .
+        tTranslate (Point2 100 100) .
+        tScale  (state ^. stateScale) .
+        tRotate (state ^. stateAngle) .
+        solid yellow $
+        unitSquare
+    providePictureMap _ = noPictures
+    handleOutput state target = do  presentTarget target
+                                    return state
 
 processInput input =
     case input of

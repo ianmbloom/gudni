@@ -14,7 +14,8 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Functions turning shapes into outlines.
+-- Functions turning lists of outlines into enclosed lists of horizontal strands that can
+-- be sent to the rasterizer.
 
 module Graphics.Gudni.Raster.Enclosure
   ( Enclosure  (..)
@@ -77,7 +78,7 @@ instance StorableM Enclosure where
   pokeM      (Enclosure _ items) = mapM_ pokeM items
 
 instance Storable Enclosure where
-  sizeOf    = sizeOfV    
+  sizeOf    = sizeOfV
   alignment = alignmentV
   peek      = peekV
   poke      = pokeV

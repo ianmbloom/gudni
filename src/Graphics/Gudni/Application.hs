@@ -1,4 +1,17 @@
 {-# LANGUAGE TemplateHaskell, ScopedTypeVariables, FlexibleContexts #-}
+
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Graphics.Gudni.Application
+-- Copyright   :  (c) Ian Bloom 2019
+-- License     :  BSD-style (see the file libraries/base/LICENSE)
+--
+-- Maintainer  :  Ian Bloom
+-- Stability   :  experimental
+-- Portability :  portable
+--
+-- Definitions for defining an application that uses Gudni as a backend.
+
 module Graphics.Gudni.Application
   ( runApplication
   , Model(..)
@@ -42,7 +55,7 @@ import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Interface.ScreenMode
 
 import Graphics.Gudni.OpenCL.Setup
-import Graphics.Gudni.OpenCL.KernelLibrary
+import Graphics.Gudni.OpenCL.Rasterizer
 import Graphics.Gudni.OpenCL.CallKernels
 
 import Graphics.Gudni.Raster.Types
@@ -55,6 +68,7 @@ import Graphics.Gudni.Raster.Job
 import Graphics.Gudni.Raster.TraverseShapeTree
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Layout
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
@@ -68,7 +82,7 @@ type SimpleTime = Double
 
 class Model s where
   -- | Construct a Scene from the state of type `s`
-  constructScene  :: s -> String -> GlyphMonad IO (Scene Int)
+  constructScene  :: s -> String -> FontMonad IO (Scene Int)
   -- | Update the state based on the elapsed time and a list of inputs
   updateModelState :: Monad m => Int -> SimpleTime -> [Input (Point2 PixelSpace)] -> s -> m s
   -- | Set the initial display to FullScreen or a specific window size in pixels.
@@ -79,7 +93,7 @@ class Model s where
   -- | Path to the Truetype font file that is initially loaded.
   fontFile         :: s -> IO String
   -- | Bitmap texture data provided from the state for the rendered scene.
-  providePictureData :: s -> IO (VS.Vector Word8, [PictureMemoryReference])
+  providePictureMap :: s -> IO PictureMap
   -- | Do something with the output of the rasterizer.
   handleOutput :: s -> DrawTarget -> StateT InterfaceState IO s
 
@@ -91,7 +105,7 @@ data ApplicationState s = AppState
       -- | The start time of the application.
     , _appStartTime     :: TimeSpec
       -- | Constructor used to store the OpenCL state, compiled kernels and device metadata.
-    , _appOpenCLLibrary :: OpenCLKernelLibrary
+    , _appRasterizer :: Rasterizer
       -- | A string representing information about the app. Usually timing data and other stuff for display.
     , _appStatus        :: String
      -- | The number of event loop cycles that have commenced from starting.
@@ -102,16 +116,16 @@ data ApplicationState s = AppState
 makeLenses ''ApplicationState
 
 -- | Monad Stack for the event loop.
-type ApplicationMonad s = StateT (ApplicationState s) (GeometryMonad (GlyphMonad IO))
+type ApplicationMonad s = StateT (ApplicationState s) (GeometryMonad (FontMonad IO))
 
-runApplicationMonad :: ApplicationState s -> ApplicationMonad s a -> GeometryMonad (GlyphMonad IO) a
+runApplicationMonad :: ApplicationState s -> ApplicationMonad s a -> GeometryMonad (FontMonad IO) a
 runApplicationMonad = flip evalStateT
 
 -- | Initializes openCL, frontend interface, timekeeper, randomfield data and returns the initial `ApplicationState`
 setupApplication :: Model s => s -> IO (ApplicationState s)
 setupApplication state  =
   do  -- Setup OpenCL state and kernels.
-      openCLLibrary <- setupOpenCL False False openCLSourceWithDefines
+      openCLLibrary <- setupOpenCL False False embeddedOpenCLSource
       -- Initialize the backend state.
       backendState <- startInterface (screenSize state)
       -- Start the timeKeeper
@@ -129,7 +143,7 @@ runApplication state =
     do  -- Initialize the application and get the initial state.
         appState <- setupApplication state
         -- Start the glyph monad.
-        runGlyphMonad $
+        runFontMonad $
             do  -- Load a font file.
                 mFontFile <- liftIO $ fontFile state
                 -- Add the font file to the glyph monad.
@@ -186,41 +200,37 @@ processState elapsedTime inputs =
         if null inputs
         then appMessage $ show state
         else appMessage $ show state ++ show inputs
-
-        --shapeTree <- lift . evalRandIO $ fuzz 5000
         shapeTree <- lift . lift $ constructScene state status
-        --appMessage $ "ShapeTree " ++ show shapeTree
-        --lift . putStrLn $ textForm
         markAppTime "Build State"
         return shapeTree
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
 drawFrame :: (Model s) => CInt -> Scene Int -> ApplicationMonad s DrawTarget
-drawFrame frame scene =
+drawFrame frameCount scene =
     do  --appMessage "ResetJob"
-        library <- use appOpenCLLibrary
-        target <- withIO appBackend (prepareTarget (clUseGLInterop library))
-        appS <- use appState
-        (pictData, pictureMemoryReferences) <- liftIO $ providePictureData appS
+        rasterizer <- use appRasterizer
+        target <- withIO appBackend (prepareTarget (rasterizer ^. rasterUseGLInterop))
+        state <- use appState
+        pictureMap <- liftIO $ providePictureMap state
         let canvasSize = P (targetArea target)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
-        lift (geoTileTree .= buildTileTree (fromIntegral <$> canvasSize))
+        let maxTileSize = rasterizer ^. rasterSpec . specMaxTileSize
+        lift (geoTileTree .= buildTileTree maxTileSize (fromIntegral <$> canvasSize))
         markAppTime "Build TileTree"
-        substanceState <- lift ( execSubstanceMonad pictureMemoryReferences $
+        substanceState <- lift ( execSubstanceMonad pictureMap $
                                  buildOverScene scene)
         --liftIO $ evaluate $ rnf (substances, boundedShapedEnclosures, substanceState)
         markAppTime "Traverse ShapeTree"
         geometryState <- lift $ get
         --liftIO $ putStrLn $ "TileTree " ++ show (geometryState ^. geoTileTree)
-        let rasterParams = RasterParams library
-                                        pictData
+        let rasterParams = RasterParams rasterizer
                                         target
                                         geometryState
                                         substanceState
         appMessage "===================== rasterStart ====================="
         jobs <- lift $ buildRasterJobs rasterParams
         markAppTime "Build Raster Jobs"
-        lift $ queueRasterJobs frame rasterParams jobs
+        lift $ queueRasterJobs frameCount rasterParams jobs
         appMessage "===================== rasterDone ====================="
         markAppTime "Rasterize Threads"
         lift resetGeometryMonad
@@ -237,7 +247,7 @@ endCycle elapsedTime =
                    -- ++ show job
                    ++ "------ Cycle: "
                    ++ show cycleCount
-                   ++ "\n ------ Elapsed Time: "
+                   ++ "\n------ Elapsed Time: "
                    ++ showFlFixed' 2 1 elapsedTime ++ "\n"
         appStatus .= status
         when (os == "darwin") $ appMessage status
@@ -267,11 +277,11 @@ loop  =
       unless (any isQuit inputs) $
           do  elapsedTime <- getElapsedTime
               beginCycle
-              scene <- processState elapsedTime inputs
-              frame <- fromIntegral <$> use appCycle
-              target <- drawFrame frame scene
-              state <- use appState
-              state' <- withIO appBackend $ handleOutput state target
+              scene      <- processState elapsedTime inputs
+              frameCount <- fromIntegral <$> use appCycle
+              target     <- drawFrame frameCount scene
+              state      <- use appState
+              state'     <- withIO appBackend $ handleOutput state target
               appState .= state'
               markAppTime "Raster Frame"
               endCycle elapsedTime

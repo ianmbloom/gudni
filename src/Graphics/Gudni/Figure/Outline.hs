@@ -5,10 +5,12 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE AllowAmbiguousTypes        #-}
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Figure.Angle
+-- Module      :  Graphics.Gudni.Figure.Outline
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -50,9 +52,12 @@ import Control.DeepSeq
 -- The control point is called offCurve and in the case of a straight segment the point just colinear with
 -- the onCurve points before and after it. This is just internal, user defined outlines should be specified as
 -- sequences of Segments.
-newtype CurvePair s = Cp {_unCp :: V2 (Point2 s)} deriving (Eq, Ord, Show, Num)
+newtype CurvePair s = Cp {_unCp :: V2 (Point2 s)} deriving (Eq, Ord, Num)
 makeLenses ''CurvePair
 pattern CurvePair a b = Cp (V2 a b)
+
+instance Show s => Show (CurvePair s) where
+  show (CurvePair a b) = " O(" ++ show (a ^. pX) ++ "," ++ show (a ^. pY) ++ ")" -- ++" X(" ++ show (b ^. pX) ++ "," ++ show (b ^. pY) ++ ")"
 
 -- | Lens for the anchor or on-curve point.
 onCurve :: Lens' (CurvePair s) (Point2 s)
@@ -74,7 +79,10 @@ pairPoints [v0] = []
 -- | An outline is just a wrapper for a list of CurvePairs. It represents one curve loop∘
 -- A shape is defined by a list of outlines.
 newtype Outline s = Outline (V.Vector (CurvePair s))
-               deriving (Eq, Ord, Show)
+               deriving (Eq, Ord)
+
+instance Show s => Show (Outline s) where
+  show (Outline vs) = "Outline" ++ show vs
 
 -- | Map over every point in an outline.
 mapOutline :: (Point2 s -> Point2 z) -> Outline s -> Outline z
@@ -101,38 +109,34 @@ segmentsToOutline = map (Outline . V.fromList . segmentsToCurvePairs)
 
 -- | Close an open curve and convert it to an outline. An additional straight segment is added if the outset and the terminator of
 -- the curve are not the same.
-closeOpenCurve :: (Fractional s, Eq s) => OpenCurve s -> [Outline s]
+closeOpenCurve :: (Fractional s, Eq s) => OpenCurve s -> [Segment s]
 closeOpenCurve curve =
   let segments = if curve ^. terminator == curve ^. outset
                  then curve ^. curveSegments -- if the beggining of the curve is the same as the end, ignore the end
                  else Straight (curve ^. terminator) : curve ^. curveSegments -- else insert a straight segment from the end to the beggining.
-  in segmentsToOutline [segments]
+  in  segments
 
 -- * Instances
 
-instance Boxable (CurvePair SubSpace) where
-  getBoundingBox (CurvePair a b) =
-      let left   = min (a ^. pX) (b ^. pX)
-          top    = min (a ^. pY) (b ^. pY)
-          right  = max (a ^. pX) (b ^. pX)
-          bottom = max (a ^. pY) (b ^. pY)
-      in  makeBox left top right bottom
+instance (SimpleSpace s) => HasSpace (CurvePair s) where
+  type SpaceOf (CurvePair s) = s
 
-instance Boxable (V.Vector BoundingBox) where
-  getBoundingBox vs =
-      let left   = V.minimum (V.map (view leftSide  ) vs)
-          top    = V.minimum (V.map (view topSide   ) vs)
-          right  = V.maximum (V.map (view rightSide ) vs)
-          bottom = V.maximum (V.map (view bottomSide) vs)
-      in makeBox left top right bottom
+instance (SimpleSpace s) => HasBox (CurvePair s) where
+  boxOf (CurvePair c o) = minMaxBox (boxOf c) (boxOf o)
 
-instance Boxable (Outline SubSpace) where
-  getBoundingBox (Outline vs) = getBoundingBox . V.map getBoundingBox $ vs
+instance (SimpleSpace s) => HasSpace (Outline s) where
+  type SpaceOf (Outline s) = s
 
-instance (Num s) => SimpleTransformable Outline s where
+--instance (Bounded s, Ord s, Num s) => HasSpace (V.Vector (CurvePair s)) where
+--  type SpaceOf (V.Vector (CurvePair s)) = s
+
+instance (SimpleSpace s) => HasBox (Outline s) where
+  boxOf (Outline vs) = minMaxBoxes . fmap boxOf $ vs
+
+instance (Space s) => SimpleTransformable (Outline s) where
   tTranslate p = mapOutline (tTranslate p)
   tScale     s = mapOutline (tScale s)
-instance (Floating s, Num s) => Transformable Outline s where
+instance (Space s) => Transformable (Outline s) where
   tRotate    a = mapOutline (tRotate a)
 
 instance NFData s => NFData (CurvePair s) where

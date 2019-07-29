@@ -9,11 +9,12 @@ where
 
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Layout
 
 import Graphics.Gudni.Application
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Fuzzy
-import Graphics.Gudni.Util.Draw
+
 
 import Data.Word
 import Data.List(isInfixOf)
@@ -31,8 +32,9 @@ import GudniTests
 import System.IO.Silently
 
 import System.Info
+import Data.Maybe
 
-getTest :: BenchmarkState -> (String, BenchmarkState -> GlyphMonad IO (ShapeTree Int))
+getTest :: BenchmarkState -> (String, BenchmarkState -> FontMonad IO (ShapeTree Int SubSpace))
 getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
@@ -55,36 +57,34 @@ instance Model BenchmarkState where
                         statePlayhead %= (`f` dt)
     constructScene state status =
         do  testScene <- (snd $ getTest state) state
-            testName <- glyphString (fst $ getTest state)
-            statusGlyphs <- mapM glyphString $ lines status
+            let testName = (fst $ getTest state)
+            statusTree <- fromJust . view unGlyph <$> statusDisplay state testName (lines status)
             let tree = transformFromState testScene state
-                statusTree = statusDisplay state testName statusGlyphs
                 withStatus = if False then overlap [statusTree, tree] else tree
-            return (Scene (light gray) withStatus)
-    providePictureData state = return $ state ^. statePictures
+            return . Scene (light gray) $ Just $ withStatus
+    providePictureMap state = return $ state ^. statePictureMap
     handleOutput state target = do  presentTarget target
                                     return state
 
-statusDisplay :: BenchmarkState -> [Glyph SubSpace] -> [[Glyph SubSpace]]  -> ShapeTree Int
+statusDisplay :: Monad m => BenchmarkState -> String -> [String] -> FontMonad m (Glyph (ShapeTree Int SubSpace))
 statusDisplay state testName status =
-    sTranslateXY 1800 800 . --3200 2100 .
-    sRotate (45 @@ deg) .
-    sTranslate (state ^. stateDelta) .
-    sScale 30 .
-    solid (dark red) .
-    paraGrid 1 $
-    testName :
-    status
+    tTranslateXY 1800 800 . --3200 2100 .
+    tTranslate (state ^. stateDelta) .
+    tScale 30 .
+    fmap (solid (dark red)) .
+    paragraph 0.1 0.1 AlignMin AlignMin $
+    unlines (testName :
+    status)
 
-transformFromState :: ShapeTree Int -> BenchmarkState -> ShapeTree Int
+transformFromState :: ShapeTree Int SubSpace -> BenchmarkState -> ShapeTree Int SubSpace
 transformFromState constructed state =
-  let sc    = view stateScale state
-      delta = view stateDelta state
-      angle = view stateAngle state
-  in  sTranslate delta .
-      sRotate angle .
-      sScale sc $
-      constructed
+    let sc    = view stateScale state
+        delta = view stateDelta state
+        angle = view stateAngle state
+    in  tTranslate delta .
+        tRotate angle .
+        tScale sc $
+        constructed
 
 processInput :: Monad m => Input (Point2 PixelSpace) -> StateT BenchmarkState m ()
 processInput input =
@@ -123,5 +123,5 @@ main = --silence $
           jpeg <- readJpeg "image/hero-yellow-flowers.jpg"
           case jpeg of
             Left message -> putStrLn message
-            Right pict   -> do picts <- makePictures [pict]
+            Right pict   -> do let picts = makePictureMap [("flowers",pict)]
                                runApplication (initialModel picts :: BenchmarkState)

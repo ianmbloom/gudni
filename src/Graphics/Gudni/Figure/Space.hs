@@ -6,10 +6,11 @@
 {-# LANGUAGE UndecidableInstances       #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE FlexibleContexts           #-}
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Figure.ShapeTree
+-- Module      :  Graphics.Gudni.Figure.Space
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -20,9 +21,14 @@
 -- Wrappers for putting values into particular coordinate space.
 
 module Graphics.Gudni.Figure.Space
-  ( Ortho (..)
-  , XDimension
-  , YDimension
+  ( SimpleSpace (..)
+  , Space (..)
+  , HasSpace (..)
+  , Ortho (..)
+  , XDim
+  , YDim
+  , X(..)
+  , Y(..)
   , toXOrtho
   , toYOrtho
   , orthoganal
@@ -41,6 +47,7 @@ import Data.Word
 import Data.Char
 import Data.Bits
 import Data.Hashable
+import qualified Data.Vector as V
 
 import GHC.Float (double2Float)
 
@@ -60,13 +67,27 @@ import Linear.Epsilon
 
 showBin i = printf "The value of %d in hex is: 0x%08x and binary is: %b\n" i i i
 
+type SimpleSpace s = (Num s, Eq s, Ord s, Bounded s, Show s)
+type Space s = (SimpleSpace s, Floating s, Real s, Fractional s)
+
 type SubSpace_ = Float
 -- | SubSpace is short for subpixel space. A floating point value where one square unit refers to one pixel.
 newtype SubSpace = SubSpace {unSubSpace :: SubSpace_} deriving (Enum, RealFrac, Fractional, Real, Num, Ord, Eq, RealFloat, Floating)
 
+instance Bounded SubSpace where { minBound = SubSpace (-1/0); maxBound = SubSpace(1/0) }
+
 type PixelSpace_ = Int32
 -- | Pixel space is pixel boundary space. An integer value where one square unit refers to one pixel.
-newtype PixelSpace     = ISpace {unISpace :: PixelSpace_ } deriving (Integral, Enum, Ix, Real, Num, Ord, Eq)
+newtype PixelSpace     = PSpace {unPSpace :: PixelSpace_ } deriving (Bounded, Integral, Enum, Ix, Real, Num, Ord, Eq)
+
+class (SimpleSpace (SpaceOf a)) => HasSpace a where
+  type SpaceOf a
+
+instance (HasSpace a) => HasSpace [a] where
+  type SpaceOf [a] = SpaceOf a
+
+instance (HasSpace a) => HasSpace (V.Vector a) where
+  type SpaceOf (V.Vector a) = SpaceOf a
 
 -- ---- Iota -----------------
 -- Iota is an extremely small value used for "close enough" comparison.
@@ -81,7 +102,7 @@ instance Iota SubSpace where
   iota = SubSpace 0.0001
 
 instance Iota PixelSpace where
-  iota = ISpace 1
+  iota = PSpace 1
 
 --------------------- Random -----------------
 instance Random SubSpace where
@@ -93,18 +114,21 @@ instance Random SubSpace where
 -- This is an easy way to prevent accidentally mixing up x and y values when working with points.
 
 -- | Phantom type for components in the x dimension.
-data XDimension = XDim
+data XDim = XDim
 -- | Phantom type for components in the y dimension.
-data YDimension = YDim
+data YDim = YDim
 
 -- | Newtype wrapper for values that are an orthagonal component of a vector.
 newtype Ortho d a = Ortho {unOrtho::a} deriving (Floating, RealFrac, Real, Fractional, Num, Ord, Eq, Ix, Enum, Integral)
 
+type X a = Ortho XDim a
+type Y a = Ortho YDim a
+
 -- | Make a value into an x component.
-toXOrtho :: a -> Ortho XDimension a
+toXOrtho :: a -> X a
 toXOrtho x = Ortho x
 -- | Make a value into a y component.
-toYOrtho :: a -> Ortho YDimension a
+toYOrtho :: a -> Y a
 toYOrtho y = Ortho y
 -- | Explicitly switch from one component type to the other.
 orthoganal :: Ortho d s -> Ortho d' s
@@ -115,17 +139,17 @@ instance Functor (Ortho d) where
 
 --------------------- Show --------------------------
 
-instance Show a => Show (Ortho XDimension a) where
+instance Show a => Show (X a) where
   show (Ortho x) = "x:"++show x
 
-instance Show a => Show (Ortho YDimension a) where
+instance Show a => Show (Y a) where
   show (Ortho y) = "y:"++show y
 
 instance Show SubSpace where
   show (SubSpace x) = showFl' 5 x --showFl' 2 x ++ "d"
 
 instance Show PixelSpace where
-  show (ISpace x) = show x
+  show (PSpace x) = show x
 
 ------------------ Storable ------------------------
 
@@ -144,8 +168,8 @@ instance Storable SubSpace where
 instance Storable PixelSpace where
     sizeOf   _          = sizeOf    (undefined :: PixelSpace_)
     alignment _         = alignment (undefined :: PixelSpace_)
-    peek ptr            = ISpace . fromIntegral <$> (peek (castPtr ptr) :: IO CInt)
-    poke ptr (ISpace x) = poke (castPtr ptr) (fromIntegral x :: CInt)
+    peek ptr            = PSpace . fromIntegral <$> (peek (castPtr ptr) :: IO CInt)
+    poke ptr (PSpace x) = poke (castPtr ptr) (fromIntegral x :: CInt)
 
 ----------- DeepSeq --------------------------------
 
@@ -156,12 +180,12 @@ instance NFData SubSpace where
   rnf (SubSpace x) = x `deepseq` ()
 
 instance NFData PixelSpace where
-  rnf (ISpace x) = x `deepseq` ()
+  rnf (PSpace x) = x `deepseq` ()
 
-instance NFData XDimension where
+instance NFData XDim where
   rnf x = ()
 
-instance NFData YDimension where
+instance NFData YDim where
   rnf x = ()
 
 ------------- Hashable --------------------

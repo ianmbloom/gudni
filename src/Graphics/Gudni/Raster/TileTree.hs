@@ -37,8 +37,8 @@ import Control.Lens
 
 import Data.Tree
 
-type Width  = Ortho XDimension SubSpace
-type Height = Ortho YDimension SubSpace
+type Width  = X SubSpace
+type Height = Y SubSpace
 type Size   = Int
 
 -- | A tile entry is the intermediate storage for the contents of a tile.
@@ -78,12 +78,8 @@ adjustedLog x = if x < 1 then 0 else ceiling . logBase 2 . fromIntegral $ x
 emptyTile :: Int -> Int -> Box PixelSpace -> Tile TileEntry
 emptyTile hDepth vDepth box = Tile box hDepth vDepth (TileEntry [] 0 0)
 
--- | Build an empty TileTree based on the canvas size
-buildTileTree :: Point2 PixelSpace -> TileTree
-buildTileTree = buildTileTree' (fromIntegral $ mAXtILEsIZE ^. pX)
-
-buildTileTree' :: PixelSpace -> Point2 PixelSpace -> TileTree
-buildTileTree' tileSize canvasSize = goV canvasDepth box
+buildTileTree :: PixelSpace -> Point2 PixelSpace -> TileTree
+buildTileTree tileSize canvasSize = goV canvasDepth box
     where
     -- Choose the largest dimension of the canvas as the square side dimension of the area covered by the tileTree.
     maxCanvasDimension = max (unOrtho $ canvasSize ^. pX) (unOrtho $ canvasSize ^. pY)
@@ -131,7 +127,7 @@ insertShapeH (HTree cut left right) shapeEntry =
     in  HTree cut left' right'
 insertShapeH (HLeaf tile) shapeEntry =
   if -- the tile has room for more shapes or its to small to be split again
-     checkTileSpace tile shapeEntry || widthBox (tile ^. tileBox) <= mINtILEsIZE ^. pX
+     checkTileSpace tile shapeEntry || widthOf (tile ^. tileBox) <= mINtILEsIZE ^. pX
   then -- then simple add it.
        HLeaf $ insertShapeTile tile shapeEntry
   else -- otherwise split the tile in half and then add the shape to the split tiles.
@@ -148,7 +144,7 @@ insertShapeV (VTree cut top bottom) shapeEntry =
     in  VTree cut top' bottom'
 insertShapeV (VLeaf tile) shapeEntry =
     if -- the tile has room for more shapes or its to small to be split again
-       checkTileSpace tile shapeEntry || heightBox (tile ^. tileBox) <= mINtILEsIZE ^. pY
+       checkTileSpace tile shapeEntry || heightOf (tile ^. tileBox) <= mINtILEsIZE ^. pY
     then -- then simple add it.
          VLeaf $ insertShapeTile tile shapeEntry
     else -- otherwise split the tile in half and then add the shape to the split tiles.
@@ -178,7 +174,7 @@ checkTileSpace tile shapeEntry =
 -- | Split a tile into two horizontal sections and put its contents into both sides in the proper order (reversed)
 hSplit :: Tile TileEntry -> HTree
 hSplit tile =
-  let cut = tile ^. tileBox . leftSide + (widthBox (tile ^. tileBox) `div` 2)
+  let cut = tile ^. tileBox . leftSide + (widthOf (tile ^. tileBox) `div` 2)
       lEmpty = emptyTile (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set rightSide cut (tile ^. tileBox))
       rEmpty = emptyTile (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set leftSide cut (tile ^. tileBox))
       hTree = HTree (fromIntegral cut) (VLeaf lEmpty) (VLeaf rEmpty)
@@ -187,7 +183,7 @@ hSplit tile =
 -- | Split a tile into two vertical sections and put its contents into both sides in the proper order (reversed)
 vSplit :: Tile TileEntry -> VTree
 vSplit tile =
-  let cut = tile ^. tileBox . topSide + (heightBox (tile ^. tileBox) `div` 2)
+  let cut = tile ^. tileBox . topSide + (heightOf (tile ^. tileBox) `div` 2)
       tEmpty = emptyTile (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set bottomSide cut (tile ^. tileBox))
       bEmpty = emptyTile (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set topSide    cut (tile ^. tileBox))
       vTree = VTree (fromIntegral cut) (HLeaf tEmpty) (HLeaf bEmpty)
@@ -208,8 +204,8 @@ traverseTileTreeV f (VTree _ top bottom) = do traverseTileTreeH f top
 traverseTileTreeV f (VLeaf tile) = f tile
 
 -- | Display the contents of a tile.
-showTile tile = " (" ++ show (widthBox $ tile ^. tileBox)
-              ++ "X" ++ show (heightBox $ tile ^. tileBox)
+showTile tile = " (" ++ show (widthOf $ tile ^. tileBox)
+              ++ "X" ++ show (heightOf $ tile ^. tileBox)
               ++ ") Shapes " ++ show (tile ^. tileRep . tileShapeCount)
               ++ " Strands " ++ show (tile ^. tileRep . tileStrandCount)
 
