@@ -19,9 +19,11 @@ module Graphics.Gudni.Interface.FontLibrary
 where
 
 import System.Info
+import System.Exit
 import Control.Monad
 import Data.List
 
+import Data.Foldable
 import System.FilePath (addTrailingPathSeparator, normalise)
 import System.Directory (getHomeDirectory, getDirectoryContents)
 import Data.Maybe (fromJust, fromMaybe, listToMaybe)
@@ -35,28 +37,16 @@ findDefaultFont = do
     cache <- buildCache
     -- Try several families in order of preference
     let roman family = FontDescriptor family (FontStyle False False)
-    return $ fromMaybe "Times New Roman.ttf" $ getFirst $ foldMap First $
-        [findFontInCache cache (roman family) | family <- [ "Times New Roman", "Liberation Serif" ] ]
-
--- | Make a relative path absolute on MacOS.
-absolutizeMacPath :: String -> IO String
-absolutizeMacPath aPath
-    | "~" `isPrefixOf` aPath = do
-        homePath <- getHomeDirectory
-        return $ normalise $ addTrailingPathSeparator homePath
-                             ++ tail aPath
-    | otherwise = return aPath
-
--- | Get the default font director based on the host operating system.
-fontDirectories =
-  case os of
-    "darwin" -> mapM absolutizeMacPath ["~/Library/Fonts/", "/Library/Fonts/"]
-    _        -> return ["C:\\windows\\fonts\\"]
-
--- | Get the absolute contents of a director.
-absoluteDirectoryContents dir =
-  do files <- getDirectoryContents dir
-     return $ map (addTrailingPathSeparator dir ++) files
+    let m_font = getFirst $ foldMap First $
+            [findFontInCache cache (roman family) | family <- [ "Times New Roman", "Liberation Serif" ] ]
+    case m_font of
+        Just font -> return font
+        Nothing -> case enumerateFonts cache of
+            [] -> die "could not find any fonts"
+            all@(first : _) -> do
+                putStrLn "Did not find known font.  Picking first from available fonts:"
+                traverse_ print all
+                return (fromJust (findFontInCache cache first))
 
 -- | Return a list of loadable font files on the system.
 fontLibrary :: IO [String]
