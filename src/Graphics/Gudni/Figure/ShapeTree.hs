@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-} -- Show (SpaceOf leaf)
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE Rank2Types            #-}
