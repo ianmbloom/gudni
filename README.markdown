@@ -72,6 +72,7 @@ GudniTraceVisualizer can read an output extracted from the opencl kernel and dra
 
 cabal new-run gudni-trace-visualizer
 
+## How the Code is Organized
 
 The source folders are organized as such:
 
