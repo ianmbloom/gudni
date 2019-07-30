@@ -80,6 +80,7 @@ import System.Info
 
 type SimpleTime = Double
 
+-- | The model typeclass is the primary interface to the application functions in Gudni
 class Model s where
   -- | Construct a Scene from the state of type `s`
   constructScene  :: s -> String -> FontMonad IO (Scene Int)
@@ -88,7 +89,7 @@ class Model s where
   -- | Set the initial display to FullScreen or a specific window size in pixels.
   screenSize       :: s -> ScreenMode
   -- | Determine if the application will enter the event loop.
-  -- for debugging purposes you can set this to False and render on frame and quit.
+  -- for debugging purposes you can set this to False and render one frame and quit.
   shouldLoop       :: s -> Bool
   -- | Path to the Truetype font file that is initially loaded.
   fontFile         :: s -> IO String
