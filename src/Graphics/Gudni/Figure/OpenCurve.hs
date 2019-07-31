@@ -77,7 +77,7 @@ reverseCurve :: OpenCurve s -> OpenCurve s
 reverseCurve (OpenCurve segments terminator) =
   let terminal = head segments ^. anchor
       extendSegments = segments ++ [Seg terminator Nothing]
-      revCurve = reverse . acrossPairs pullSegments $ segments
+      revCurve = reverse . acrossPairs pullSegments $ extendSegments
   in  OpenCurve revCurve terminal
 
 -- | Connect two curves end to end by translating c1 so that the starting point of 'c1' is equal to the terminator of 'c0'
