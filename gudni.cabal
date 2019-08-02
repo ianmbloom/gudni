@@ -58,6 +58,7 @@ library
   exposed-modules:     Graphics.Gudni.Application
                      , Graphics.Gudni.Figure.ShapeTree
                      , Graphics.Gudni.Figure
+                     , Graphics.Gudni.Figure.Bezier
                      , Graphics.Gudni.Interface
                      , Graphics.Gudni.Util.Debug
                      , Graphics.Gudni.Util.Fuzzy
@@ -154,6 +155,7 @@ library
                      , transformers
                      , time
                      , clock
+                     , intervals
                      , linear
                      , loop
                      , lens
