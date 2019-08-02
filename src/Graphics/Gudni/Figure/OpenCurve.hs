@@ -25,6 +25,8 @@ module Graphics.Gudni.Figure.OpenCurve
   , (<^>)
   , reverseCurve
   , overCurve
+  , bezierArcLength
+  , arcLength
   )
 where
 
@@ -36,6 +38,7 @@ import Graphics.Gudni.Figure.Transformer
 
 import Graphics.Gudni.Util.Debug
 
+import Linear
 import Data.Maybe
 import Data.Fixed
 import Data.Hashable
@@ -91,3 +94,61 @@ instance Hashable s => Hashable (OpenCurve s) where
 
 instance NFData s => NFData (OpenCurve s) where
     rnf (OpenCurve a b) = a `deepseq` b `deepseq` ()
+
+-- | Arc length of a single quadratic Bézier segment.
+-- From https://github.com/linebender/kurbo
+-- This computation is based on an analytical formula. Since that formula suffers
+-- from numerical instability when the curve is very close to a straight line, we
+-- detect that case and fall back to Legendre-Gauss quadrature.
+bezierArcLength :: (Floating s, Ord s) => Point2 s -> Point2 s -> Point2 s -> s
+bezierArcLength p0 p1 p2 = let
+    d2 = p0 - 2.0 * p1 + p2
+    a = quadrance d2
+    d1 = p1 - p0
+    c = quadrance d1
+    in if a < 5e-4 * c
+    then
+        -- This case happens for nearly straight Béziers.
+        --
+        -- Calculate arclength using Legendre-Gauss quadrature using formula from Behdad
+        -- in https:--github.com/Pomax/BezierInfo-2/issues/77
+        let
+            v0 = norm
+                (-0.492943519233745 *^ p0
+                + 0.430331482911935 *^ p1
+                + 0.0626120363218102 *^ p2)
+            v1 = norm ((p2 - p0) ^* 0.4444444444444444)
+            v2 = norm
+                (-0.0626120363218102 *^ p0
+                - 0.430331482911935 *^ p1
+                + 0.492943519233745 *^ p2)
+        in v0 + v1 + v2
+    else
+        let
+            b = 2.0 * dot d2 d1
+
+            sabc = sqrt (a + b + c)
+            a2 = a ** (-0.5)
+            a32 = a2 ^ 3
+            c2 = 2.0 * sqrt c
+            ba_c2 = b * a2 + c2
+
+            v0 = 0.25 * a2 * a2 * b * (2.0 * sabc - c2) + sabc
+        in if ba_c2 < 1e-13 -- TODO: justify and fine-tune this exact constant.
+            then v0 -- This case happens for Béziers with a sharp kink.
+            else
+            v0 + 0.25
+                * a32
+                * (4.0 * c * a - b * b)
+                * log (((2.0 * a + b) * a2 + 2.0 * sabc) / ba_c2)
+
+arcLength :: (Floating s, Ord s) => OpenCurve s -> s
+arcLength (OpenCurve [] _) = 0
+arcLength (OpenCurve (s0 : ss) terminator) =
+    length0 + arcLength (OpenCurve ss terminator) where
+        length0 = case s0 ^. control of
+            Nothing -> distance (s0 ^. anchor) p2
+            Just c -> bezierArcLength (s0 ^. anchor) c p2
+        p2 = case ss of
+            (Seg p2 _ : _) -> p2
+            [] -> terminator
