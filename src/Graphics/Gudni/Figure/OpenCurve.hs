@@ -100,6 +100,9 @@ instance NFData s => NFData (OpenCurve s) where
 -- This computation is based on an analytical formula. Since that formula suffers
 -- from numerical instability when the curve is very close to a straight line, we
 -- detect that case and fall back to Legendre-Gauss quadrature.
+{-# SPECIALIZE bezierArcLength :: Point2 Float -> Point2 Float -> Point2 Float -> Float #-}
+{-# SPECIALIZE bezierArcLength :: Point2 Double -> Point2 Double -> Point2 Double -> Double #-}
+-- bezierArcLength runtime increases ~50x without the SPECIALIZE
 bezierArcLength :: (Floating s, Ord s) => Point2 s -> Point2 s -> Point2 s -> s
 bezierArcLength p0 p1 p2 = let
     d2 = p0 - 2.0 * p1 + p2
@@ -142,6 +145,8 @@ bezierArcLength p0 p1 p2 = let
                 * (4.0 * c * a - b * b)
                 * log (((2.0 * a + b) * a2 + 2.0 * sabc) / ba_c2)
 
+{-# SPECIALIZE arcLength :: OpenCurve Float -> Float #-}
+{-# SPECIALIZE arcLength :: OpenCurve Double -> Double #-}
 arcLength :: (Floating s, Ord s) => OpenCurve s -> s
 arcLength (OpenCurve [] _) = 0
 arcLength (OpenCurve (s0 : ss) terminator) =
