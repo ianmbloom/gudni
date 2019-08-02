@@ -75,6 +75,8 @@ split (V3 p0 p1 p2) t = (V3 p0 c1 pm, V3 pm c2 p2) where
 -- | @inverseArcLength ε bz l@ returns a parameter @t@ such that the
 -- curve bz has length @l@ between its start point and @t@.  More
 -- precisely, the length is @ l ± ε@, for the specified accuracy.
+{-# SPECIALIZE inverseArcLength :: Float -> Bezier Float -> Float -> Float #-}
+{-# SPECIALIZE inverseArcLength :: Double -> Bezier Double -> Double -> Double #-}
 inverseArcLength :: (Floating s, RealFrac s, Ord s) => s -> Bezier s -> s -> s
 inverseArcLength accuracy bz goal_length = inverseBezierArcLength' max_steps (0...1) 0 where
     inverseBezierArcLength' n range last_length =

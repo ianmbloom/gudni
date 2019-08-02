@@ -96,6 +96,8 @@ instance NFData s => NFData (OpenCurve s) where
     rnf (OpenCurve a b) = a `deepseq` b `deepseq` ()
 
 -- | Returns a Bezier for each Segment in the input
+{-# SPECIALIZE segmentLengths :: OpenCurve Float -> [Float] #-}
+{-# SPECIALIZE segmentLengths :: OpenCurve Double -> [Double] #-}
 segmentLengths :: (Floating s, Ord s) => OpenCurve s -> [s]
 segmentLengths (OpenCurve [] _) = []
 segmentLengths (OpenCurve (s0 : ss) terminator) =
