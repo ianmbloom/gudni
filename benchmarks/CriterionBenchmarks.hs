@@ -12,6 +12,8 @@ import Criterion.Main
 main = defaultMain
     [ bench "length of single Bézier segment, analytical" $
         nf (bezierArcLength (P (V2 0 0)) (P (V2 0.5 0.5))) (P (V2 1 (0 :: Float)))
+    , bench "length of single Bézier segment, analytical, Double" $
+        nf (bezierArcLength (P (V2 0 0)) (P (V2 0.5 0.5))) (P (V2 1 (0 :: Double)))
     , bench "length of single Bézier segment, Legendre-Gauss" $
         nf (bezierArcLength  (P (V2 0 0)) (P (V2 0.5 0.001))) (P (V2 1 (0 :: Float)))
     , bench "length of OpenCurve with straight line" $
