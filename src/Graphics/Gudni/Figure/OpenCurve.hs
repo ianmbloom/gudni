@@ -39,6 +39,7 @@ import qualified Graphics.Gudni.Figure.Bezier as BZ
 import Graphics.Gudni.Util.Debug
 
 import Linear
+import Linear.Affine
 import Data.Maybe
 import Data.Fixed
 import Data.Hashable
@@ -95,27 +96,50 @@ instance Hashable s => Hashable (OpenCurve s) where
 instance NFData s => NFData (OpenCurve s) where
     rnf (OpenCurve a b) = a `deepseq` b `deepseq` ()
 
+{-# INLINE terminated #-}
+terminated :: OpenCurve s -> [(Segment s, Point2 s)]
+terminated (OpenCurve [] _) = []
+terminated (OpenCurve [s0] p2) = [(s0, p2)]
+terminated (OpenCurve (s0 : ss@(Seg p2 _ : _)) terminator) =
+    (s0, p2) : terminated (OpenCurve ss terminator)
+
 -- | Returns a Bezier for each Segment in the input
-{-# SPECIALIZE segmentLengths :: OpenCurve Float -> [Float] #-}
-{-# SPECIALIZE segmentLengths :: OpenCurve Double -> [Double] #-}
-segmentLengths :: (Floating s, Ord s) => OpenCurve s -> [s]
-segmentLengths (OpenCurve [] _) = []
-segmentLengths (OpenCurve (s0 : ss) terminator) =
-    length0 : segmentLengths (OpenCurve ss terminator) where
-        length0 = case s0 ^. control of
-            Nothing -> distance (s0 ^. anchor) p2
-            Just c -> BZ.arcLength (V3 (s0 ^. anchor) c p2)
-        p2 = case ss of
-            (Seg p2 _ : _) -> p2
-            [] -> terminator
+{-# INLINE segmentLength #-}
+segmentLength :: (Floating s, Ord s) => (Segment s, Point2 s) -> s
+segmentLength (seg, p2) = case seg ^. control of
+    Nothing -> distance (seg ^. anchor) p2
+    Just c -> BZ.arcLength (V3 (seg ^. anchor) c p2)
 
 {-# SPECIALIZE arcLength :: OpenCurve Float -> Float #-}
 {-# SPECIALIZE arcLength :: OpenCurve Double -> Double #-}
 arcLength :: (Floating s, Ord s) => OpenCurve s -> s
-arcLength = sum . segmentLengths
+arcLength = sum . map segmentLength . terminated
 
--- TODO inverseArcLength
-    -- find the segment containing the point we want
-    -- find the endpoint of the segment
-    -- if segment is a line, exact calculation
-    -- if if segment is a curve, call inverseBezierArcLength
+-- | returns Nothing if the parameter exceeds the length of @curve@.
+projectPoint :: (Floating s, RealFrac s, Ord s, Epsilon s) =>
+    s -> OpenCurve s -> Point2 s -> Maybe (Point2 s)
+projectPoint accuracy curve (P (V2 overall_length offset)) =
+    let
+        -- find the segment containing the point we want
+        segments = terminated curve
+        m_seg = pickSeg overall_length segments
+        pickSeg remaining [] = Nothing
+        pickSeg remaining (s : ss) =
+            let l = segmentLength s in
+                if l < remaining
+                then pickSeg (remaining - l) ss
+                else Just (remaining, s)
+    in case m_seg of
+        Nothing -> Nothing
+        Just (remaining_length, (Seg anchor m_control, endpoint)) -> case m_control of
+            -- if segment is a line, exact calculation
+            Nothing -> Just (onCurve .+^ (offset *^ normal)) where
+              t = remaining_length / distance anchor endpoint
+              onCurve = lerp t endpoint anchor
+              normal = normalize (perp (endpoint .-. anchor))
+            -- if if segment is a curve, call inverseBezierArcLength
+            Just c -> Just (onCurve .+^ (offset *^ normal)) where
+              bz = V3 anchor c endpoint
+              (_, V3 onCurve tangent _) = BZ.split bz
+                  (BZ.inverseArcLength accuracy bz remaining_length)
+              normal = normalize (perp (tangent .-. onCurve))
