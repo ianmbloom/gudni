@@ -49,6 +49,7 @@ import Control.Monad.State
 import Control.DeepSeq
 import Control.Applicative
 import Control.Lens
+import Data.Traversable
 
 -- | An (almost) typesafe representation of an open bezier curve.
 data OpenCurve s = OpenCurve
@@ -143,3 +144,12 @@ projectPoint accuracy curve (P (V2 overall_length offset)) =
               (_, V3 onCurve tangent _) = BZ.split bz
                   (BZ.inverseArcLength accuracy bz remaining_length)
               normal = normalize (perp (tangent .-. onCurve))
+
+-- | @project ε path curve@ returns Nothing if any control point of
+-- @curve@ has x-coördinate greater than the arc length of @path@.
+project :: (Floating s, RealFrac s, Ord s, Epsilon s) =>
+    s -> OpenCurve s -> OpenCurve s -> Maybe (OpenCurve s)
+project accuracy path (OpenCurve ss terminator)  =
+    OpenCurve <$> m_segments <*> proj terminator where
+  m_segments = for ss $ \(Seg p1 c) -> Seg <$> proj p1 <*> traverse proj c
+  proj = projectPoint accuracy path
