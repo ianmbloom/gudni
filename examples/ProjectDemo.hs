@@ -40,10 +40,10 @@ instance Model ProjectionState where
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState _frame _elapsedTime _inputs state = return state
-    constructScene _state _status = return . Scene clearBlack . Just $
+    constructScene _state _status = return . Scene gray . Just $
         overlap (byT ++ map (tTranslate (Point2 240 0)) byLength)
       where
-        bz = V3 (Point2 20 20) (Point2 170 70) (Point2 220 220)
+        bz = V3 (Point2 20 20) (Point2 220 120) (Point2 220 220)
         l = B.arcLength bz
         byT = map (marker blue . B.eval bz) [0, 0.1..1.0]
         byLength = map (marker red . B.eval bz . B.inverseArcLength 1e-6 bz) [0, 0.1*l .. l]
