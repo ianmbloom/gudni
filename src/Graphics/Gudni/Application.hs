@@ -98,9 +98,9 @@ class Model s where
   -- | Do something with the output of the rasterizer.
   handleOutput :: s -> DrawTarget -> StateT InterfaceState IO s
 
-data ApplicationState s = AppState
+data ApplicationState s i = AppState
     { -- | The state maintained specific to the interface type.
-      _appBackend       :: InterfaceState
+      _appBackend       :: i
       -- | Structure for marking time.
     , _appTimeKeeper    :: TimeKeeper
       -- | The start time of the application.

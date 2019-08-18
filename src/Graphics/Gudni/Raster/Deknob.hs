@@ -25,6 +25,7 @@ import Graphics.Gudni.Figure
 
 import Control.Lens
 import Control.Loop
+import qualified Data.Vector as V
 
 -- | A triple is just a convenient way to represent a complete quadratic curve section.
 type Triple s = V3 (Point2 s)
@@ -122,19 +123,12 @@ checkKnob (V3 a b c) =
             Nothing
 
 replaceKnob :: (Show s, Fractional s, Ord s, Num s, Iota s)
-            => Range (Triple s) -> Int -> Range (Triple s)
-replaceKnob (Range f len) i =
-  case checkKnob (f i) of
-    Nothing -> Range f len
-    Just (a,b) -> let g j = if j < i
-                            then f j
-                            else if j == i
-                                 then a
-                                 else if j == i + 1
-                                      then b
-                                      else f (j - 1)
-                  in  Range g (len + 1)
+            => Triple s -> V.Vector (Triple s)
+replaceKnob triple =
+  case checkKnob triple of
+    Nothing -> V.singleton triple
+    Just (a,b) -> V.fromList [a,b]
 
 replaceKnobs :: (Show s, Fractional s, Ord s, Num s, Iota s)
-             => Range (Triple s) -> Range (Triple s)
-replaceKnobs (Range f len) = numLoopFold 0 (len - 1) (Range f len) replaceKnob
+             => V.Vector (Triple s) -> V.Vector (Triple s)
+replaceKnobs outline = V.concatMap replaceKnob outline

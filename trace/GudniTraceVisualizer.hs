@@ -202,7 +202,7 @@ colorAreaToColor :: (Float, Float, Float, Float, Float, Float, Float, Float)
                  -> (Color, Float)
 colorAreaToColor (r,g,b,a,area,_,_,_) = (rgbaColor r g b a, area)
 
-buildThresholdHs :: ThresholdHs -> Boxed (ShapeTree Int SubSpace)
+buildThresholdHs :: ThresholdHs -> Glyph (ShapeTree Int SubSpace)
 buildThresholdHs threshold =
   let
   -- thrIndex         threshold -- :: Int
@@ -227,7 +227,7 @@ buildThresholdHs threshold =
   color      = black  -- if shapeIndex == 0
                       -- then colorModifier $ colors !! shapeIndex
                       -- else transparent 0.01 $ black
-  in  overlap [(solid color :: Boxed (CompoundTree SubSpace) -> Boxed (ShapeTree Int SubSpace)) $ line adjustedStroke startPoint endPoint
+  in  overlap [(solid color :: Glyph (CompoundTree SubSpace) -> Glyph (ShapeTree Int SubSpace)) $ line adjustedStroke startPoint endPoint
               --,tTranslate (Point2 (DSpace . realToFrac . thrLeft  $ threshold) (DSpace . realToFrac . thrTop $ threshold)) .
               -- SLeaf (Left $ transparent 0.25 $ light blue) 0 $
               -- rectangle (Point2 ((DSpace . realToFrac . thrRight  $ threshold) - (DSpace . realToFrac . thrLeft $ threshold))
@@ -235,14 +235,14 @@ buildThresholdHs threshold =
               --           )
               ]
 
-buildTileInfoHs :: Action -> Boxed (ShapeTree Int SubSpace)
+buildTileInfoHs :: Action -> Glyph (ShapeTree Int SubSpace)
 buildTileInfoHs action = undefined
   -- tileBox :: (Int, Int, Int, Int)
   -- tileHDepth :: Int
   -- tileVDepth :: Int
   -- tileShapeSlice :: Slice
 
-buildColorStateHs :: Action -> Boxed (ShapeTree Int SubSpace)
+buildColorStateHs :: Action -> Glyph (ShapeTree Int SubSpace)
 buildColorStateHs action = undefined
    -- csBackgroundColor action
    -- csPictureData     action
@@ -250,7 +250,7 @@ buildColorStateHs action = undefined
    -- csIsConstant      action
    -- absolutePosition  action
 
-buildThresholdStateHs :: Action -> Boxed (ShapeTree Int SubSpace)
+buildThresholdStateHs :: Action -> Glyph (ShapeTree Int SubSpace)
 buildThresholdStateHs action =
     let
         ts     = thresholds     action -- [ThresholdHs]
@@ -266,13 +266,13 @@ buildThresholdStateHs action =
     in  overlap $ map buildThresholdHs ts
 
 
-buildShapeStateHs :: Action -> Boxed (ShapeTree Int SubSpace)
+buildShapeStateHs :: Action -> Glyph (ShapeTree Int SubSpace)
 buildShapeStateHs action = undefined
     -- shapeBits    action -- Int
     -- shapeIndices action -- [(Int,Int)]
     -- shapeStack   action -- [Word32]
 
-buildParseStateHs :: Action -> Boxed (ShapeTree Int SubSpace)
+buildParseStateHs :: Action -> Glyph (ShapeTree Int SubSpace)
 buildParseStateHs action =
     let
     --  currentThreshold  action -- Int
@@ -288,7 +288,7 @@ buildParseStateHs action =
     --  randomField       action -- Int
     in tTranslate start . solid color . rectangle $ end - start
 
-buildTileStateHs :: Action -> Boxed (ShapeTree Int SubSpace)
+buildTileStateHs :: Action -> Glyph (ShapeTree Int SubSpace)
 buildTileStateHs action = undefined
     -- tileShapeStart -- Int
     -- tileNumShapes  -- Int
@@ -301,14 +301,14 @@ buildTileStateHs action = undefined
     -- threadUnique   -- Int
     -- column         -- Int
 
-buildTraversalHs :: Action -> Boxed (ShapeTree Int SubSpace)
+buildTraversalHs :: Action -> Glyph (ShapeTree Int SubSpace)
 buildTraversalHs action = undefined
     -- travLeftControl -- (Float, Float, Float, Float)
     -- travRight       -- (Float, Float)
     -- travXPos        -- Float
     -- travIndex       -- Int
 
-buildActionState :: ActionState -> Boxed (ShapeTree Int SubSpace)
+buildActionState :: ActionState -> Glyph (ShapeTree Int SubSpace)
 buildActionState state = overlap $ catMaybes
     [ fmap buildTileInfoHs       (tsTileInfo       state)
     , fmap buildColorStateHs     (tsColorState     state)
@@ -342,12 +342,12 @@ instance Model TraceState where
         do  statusTree <- statusDisplay state status
             let tree = transformFromState state $ constructFromState state
                 withStatus = if True  then overlap [statusTree, tree] else tree
-            return $ Scene (light gray) $ view unBoxed $ withStatus
-    providePictureData state = noPictures
+            return $ Scene (light gray) $ view unGlyph $ withStatus
+    providePictureMap state = noPictures
     handleOutput state target = do  presentTarget target
                                     return state
 
-statusDisplay :: Monad m => TraceState -> String -> GlyphMonad m (Boxed (ShapeTree Int SubSpace))
+statusDisplay :: Monad m => TraceState -> String -> FontMonad m (Glyph (ShapeTree Int SubSpace))
 statusDisplay state status =
     tTranslateXY 3100 2000 .
     tScale 24 .
@@ -355,16 +355,16 @@ statusDisplay state status =
     paragraph 0.1 0.1 AlignMin AlignMin $
     status
 
-transformFromState :: TraceState -> Boxed (ShapeTree Int SubSpace) -> Boxed (ShapeTree Int SubSpace)
+transformFromState :: TraceState -> Glyph (ShapeTree Int SubSpace) -> Glyph (ShapeTree Int SubSpace)
 transformFromState state =
   let sc    = view stateScale state
       delta = view stateDelta state
       angle = view stateAngle state
   in  tTranslate delta .
-      mapBoxed (tRotate angle) .
+      mapGlyph (tRotate angle) .
       tScale sc
 
-constructFromState :: TraceState -> Boxed (ShapeTree Int SubSpace)
+constructFromState :: TraceState -> Glyph (ShapeTree Int SubSpace)
 constructFromState state =
   let steps   = view stateStep  state
       actions = take (steps + 2) $ view stateActions state

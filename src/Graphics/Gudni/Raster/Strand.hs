@@ -23,6 +23,7 @@ module Graphics.Gudni.Raster.Strand
   )
 where
 
+import Prelude hiding ((!))
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.Outline
 
@@ -40,6 +41,7 @@ import Foreign.C.Types
 import Foreign.Storable
 import Foreign.Ptr
 import qualified Data.Vector as V
+import Data.Vector((!))
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.List (sortBy)
 
@@ -87,9 +89,6 @@ vectorToRange vs = Range ((V.!) vs) (V.length vs)
 composeRange :: (Int -> Int) -> Range a -> Range a
 composeRange g (Range f len) = Range (f . g) len
 
-(+>) :: Range a -> Int -> Range a
-r +> x = composeRange (+ x) r
-
 -- | Combine two ranges.
 combineRanges :: Range a -> Range a -> Range a
 combineRanges (Range a lenA) (Range b lenB) = Range a (lenA + lenB)
@@ -125,13 +124,14 @@ splitRanges maxLength (Range f rangeLength) = go 0 0
                else range : go (cursor + 1) (cursor + 1)
           else [range]
 
-pairsToTriples :: Range (CurvePair s) -> Range (Triple s)
-pairsToTriples (Range f len) =
-  let g i = V3 (f i ^. onCurve) (f i ^. offCurve) end
-        where end = if i < len - 1
-                    then f (i+1) ^. onCurve
-                    else f 0     ^. onCurve
-  in  Range g len
+pairsToTriples :: V.Vector (CurvePair s) -> V.Vector (Triple s)
+pairsToTriples f =
+  let len = V.length f
+      end i = if i < len - 1 then i+1 else 0
+      g = V.generate len (\ i -> V3 (f ! i ^. onCurve) (f ! i ^. offCurve) (f ! (end i) ^. onCurve))
+  in  g
+
+
 
 unTriple :: Show s => Range (Triple s) -> Range (Point2 s)
 unTriple (Range triples len) =
@@ -170,12 +170,13 @@ splitShape :: ReorderTable
            -> [Strand]
 splitShape table maxSectionSize curvePairs =
     let outlineRange =  replaceKnobs .
-                        pairsToTriples .
-                        vectorToRange $
+                        pairsToTriples $
                         curvePairs
-        ranges = splitRanges maxSectionSize outlineRange
+        ranges = splitRanges maxSectionSize .
+                 vectorToRange
+                 $ outlineRange
         reorderedRanges = map
-                       ( reorder
+                       ( reorder   -- reorder the vector into a binary tree
                        . unTriple
                        . flipIfBackwards
                        ) ranges

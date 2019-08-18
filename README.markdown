@@ -41,21 +41,21 @@ So for example the statement:
         return .                          -- Push the scene into the FontMonad
         Scene (light . greenish $ blue) . -- Wrap the ShapeTree in a scene with background color
         Just .                             
-        tTranslate (Point2 100 100) .     -- translate the child ShapeTree
-        tScale  (state ^. stateScale) .   -- scale the child ShapeTree based on the current state.
-        tRotate (state ^. stateAngle) .   -- rotate the child ShapeTree based on the current state.
-        solid yellow $                    -- create a leaf of the ShapeTree and fill the contained CompoundTree with a solid color.
-        unitSquare                        -- create new compoundTree with just one leaf that is the outline of a unit square.
+        tTranslate (Point2 100 100) .     -- Translate the child ShapeTree
+        tScale  (state ^. stateScale) .   -- Scale the child ShapeTree based on the current state.
+        tRotate (state ^. stateAngle) .   -- Rotate the child ShapeTree based on the current state.
+        solid yellow $                    -- Create a leaf of the ShapeTree and fill the contained CompoundTree with a solid color.
+        unitSquare                        -- Create new compoundTree with just one leaf that is the outline of a unit square.
 
-## Example 2: Plot
+### Example 2: Plot
 
 This program uses the turtle plotting functions defined in Graphics.Gudni.Util.Plot to make interesting shapes.
 
-## Example 3: Paragraph
+### Example 3: Paragraph
 
 A demostration of Gudni's bare bones layout capabilities.
 
-## Benchmarks Program
+### Benchmarks Program
 
 The folder benchmarks contains two programs that use Gudni as a library.
 GudniBenchmarks.hs has a series of drawings designed to test performance and find bugs. Run this with
@@ -66,7 +66,7 @@ keyboard responds to: "a", "w", "s", "d" translate drawing, "r", "t" rotate, "["
 
 Reports as to the performance of this program on your system are appreciated.
 
-## Trace Visualizer
+### Trace Visualizer
 
 GudniTraceVisualizer can read an output extracted from the opencl kernel and draw a diagram of the trace. I've been using this to find edge cases. (It's usually broken until it's needed again.)
 
@@ -105,3 +105,6 @@ To get it to compile on MacOSX Sierra I changed the following in my local OpenCL
     cc-options: "-U__BLOCKS__"
     Frameworks:  OpenCL
 ```
+
+SDL2:
+Various different methods of installing SDL2 on Mac put the includes in all kinds of different places. Try building the library from the source with "make install" or adjust the extra-include-dirs to find the SDL_headers.

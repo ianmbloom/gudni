@@ -77,10 +77,13 @@ library
                      , Graphics.Gudni.Figure.Space
                      , Graphics.Gudni.Figure.Transformer
                      , Graphics.Gudni.Figure.Picture
+                     , Graphics.Gudni.Interface.BackendClass
+                     , Graphics.Gudni.Interface.BackendGL
+                     , Graphics.Gudni.Interface.BackendVulkan
                      , Graphics.Gudni.Interface.DrawTarget
                      , Graphics.Gudni.Interface.FontLibrary
                      , Graphics.Gudni.Interface.Input
-                     , Graphics.Gudni.Interface.InterfaceSDL
+                     , Graphics.Gudni.Interface.SDL2
                      , Graphics.Gudni.Interface.GLInterop
                      , Graphics.Gudni.Interface.ScreenMode
                      , Graphics.Gudni.Raster.Constants
@@ -167,7 +170,7 @@ library
                      , filepath
                      , file-embed
 
-                     , sdl2 > 2
+                     , sdl2 >= 2.5
                      -- text only needed for window names
                      , text
                      , OpenGL
@@ -180,12 +183,14 @@ library
                      , JuicyPixels
                      , colour
                      , monadlist
+                     , vulkan-api
 
 
   -- Directories containing source files.
   hs-source-dirs:   src
   ghc-options:
-  ld-options:       -headerpad_max_install_names
+  -- ld-options:       -headerpad_max_install_names -- this might be needed for Windows?
+
 
   -- Base language which the package is written in.
   default-language:    Haskell2010

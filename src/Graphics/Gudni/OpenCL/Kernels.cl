@@ -125,11 +125,11 @@ inline  SUBSTANCEID shapeTagSubstanceId(SHAPETAG tag) {return (tag & SHAPETAG_SU
 
 // Memory Types
 
-#define TMEM __local   // memory type used to store threshold header and threshold buffers
+#define TMEM // __local   // memory type used to store threshold header and threshold buffers
 #define SMEM __global  // memory type used to store shape references and strandheap geometry etc.
 
 #define GMEM __global
-#define LMEM __local
+#define LMEM // __local
 #define PMEM __private
 #define CMEM __constant
 
