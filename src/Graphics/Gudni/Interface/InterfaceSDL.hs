@@ -89,7 +89,7 @@ startInterface screenMode =
                        , SDL.windowMode         = case screenMode  of
                                                     FullScreen -> SDL.FullscreenDesktop
                                                     Window _  -> SDL.Windowed
-                       , SDL.windowOpenGL       = Just glProfile
+                       , SDL.windowGraphicsContext = SDL.OpenGLContext glProfile
                        , SDL.windowPosition     = {-SDL.Absolute displayPosition -} SDL.Absolute . SDL.P $ V2 10 10
                        , SDL.windowResizable    = True
                        , SDL.windowInitialSize  = size

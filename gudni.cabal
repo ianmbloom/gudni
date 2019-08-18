@@ -167,7 +167,7 @@ library
                      , filepath
                      , file-embed
 
-                     , sdl2 > 2
+                     , sdl2 >= 2.5
                      -- text only needed for window names
                      , text
                      , OpenGL
