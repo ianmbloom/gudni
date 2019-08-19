@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE GADTs            #-}
 {-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, UndecidableInstances #-}
@@ -26,6 +28,7 @@ module Graphics.Gudni.Figure.OpenCurve
   , reverseCurve
   , overCurve
   , arcLength
+  , CanProject(..)
   )
 where
 
@@ -57,6 +60,9 @@ data OpenCurve s = OpenCurve
     , _terminator    :: (Point2 s)
     } deriving (Show, Eq, Ord)
 makeLenses ''OpenCurve
+
+instance (SimpleSpace s) => HasSpace (OpenCurve s) where
+    type SpaceOf (OpenCurve s) = s
 
 -- | The first point on the curve of an open curve or the terminator if it only has one point.
 outset :: Lens' (OpenCurve s) (Point2 s)
@@ -145,24 +151,30 @@ projectPoint max_steps m_accuracy curve (P (V2 overall_length offset)) =
                   (BZ.inverseArcLength max_steps m_accuracy bz remaining_length)
               normal = normalize (perp (tangent .-. onCurve))
 
--- | @project ε path curve@ returns Nothing if any control point of
--- @curve@ has x-coördinate greater than the arc length of @path@.
-projectWithStepsAccuracy :: (Floating s, RealFrac s, Ord s, Epsilon s) =>
-    Int -> Maybe s -> OpenCurve s -> OpenCurve s -> Maybe (OpenCurve s)
-projectWithStepsAccuracy max_steps m_accuracy path (OpenCurve ss terminator)  =
-    OpenCurve <$> m_segments <*> proj terminator where
-  m_segments = for ss $ \(Seg p1 c) -> Seg <$> proj p1 <*> traverse proj c
-  proj = projectPoint max_steps m_accuracy path
+-- | In most cases, it is sufficient to define
+-- @projectWithStepsAccuracy@, and use default implementations for the
+-- remaining functions.  You may also want to define a default
+-- accuracy by overriding @project@.
+class CanProject t where
+  project :: OpenCurve (SpaceOf t) -> t -> Maybe t
+  default project ::
+      (SpaceOf t ~ s, Floating s, RealFrac s) => OpenCurve (SpaceOf t) -> t -> Maybe t
+  project = projectWithAccuracy 1e-3
 
-projectWithSteps :: (Floating s, RealFrac s, Ord s, Epsilon s) =>
-    Int -> OpenCurve s -> OpenCurve s -> Maybe (OpenCurve s)
-projectWithSteps max_steps = projectWithStepsAccuracy max_steps Nothing
+  projectWithAccuracy :: SpaceOf t -> OpenCurve (SpaceOf t) -> t -> Maybe t
+  default projectWithAccuracy ::
+      (SpaceOf t ~ s, Floating s, RealFrac s) => SpaceOf t -> OpenCurve (SpaceOf t) -> t -> Maybe t
+  projectWithAccuracy accuracy =
+      projectWithStepsAccuracy (BZ.maxStepsFromAccuracy accuracy) (Just accuracy)
 
-projectWithAccuracy :: (Floating s, RealFrac s, Ord s, Epsilon s) =>
-    s -> OpenCurve s -> OpenCurve s -> Maybe (OpenCurve s)
-projectWithAccuracy accuracy =
-    projectWithStepsAccuracy (BZ.maxStepsFromAccuracy accuracy) (Just accuracy)
+  projectWithSteps :: Int -> OpenCurve (SpaceOf t) -> t -> Maybe t
+  projectWithSteps max_steps = projectWithStepsAccuracy max_steps Nothing
 
-project :: (Floating s, RealFrac s, Ord s, Epsilon s) =>
-    OpenCurve s -> OpenCurve s -> Maybe (OpenCurve s)
-project = projectWithAccuracy 1e-3
+  projectWithStepsAccuracy :: s ~ SpaceOf t => Int -> Maybe s -> OpenCurve s -> t -> Maybe t
+
+instance (SpaceOf (OpenCurve s) ~ s, Floating s, RealFrac s, Ord s, Epsilon s) =>
+    CanProject (OpenCurve s) where
+    projectWithStepsAccuracy max_steps m_accuracy path (OpenCurve ss terminator)  =
+        OpenCurve <$> m_segments <*> proj terminator where
+      m_segments = for ss $ \(Seg p1 c) -> Seg <$> proj p1 <*> traverse proj c
+      proj = projectPoint max_steps m_accuracy path
