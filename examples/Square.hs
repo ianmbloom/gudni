@@ -47,11 +47,7 @@ instance Model SquareState where
     constructScene state status =
         return .
         Scene (light . greenish $ blue) .
-<<<<<<< HEAD
         Just .
-=======
-        view unBoxed .
->>>>>>> 3924c894b8a6cb595c2462e0128e1e8543264e9e
         tTranslate (Point2 100 100) .
         tScale  (state ^. stateScale) .
         tRotate (state ^. stateAngle) .
