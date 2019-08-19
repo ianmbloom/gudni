@@ -118,8 +118,8 @@ arcLength = sum . map segmentLength . terminated
 
 -- | returns Nothing if the parameter exceeds the length of @curve@.
 projectPoint :: (Floating s, RealFrac s, Ord s, Epsilon s) =>
-    s -> OpenCurve s -> Point2 s -> Maybe (Point2 s)
-projectPoint accuracy curve (P (V2 overall_length offset)) =
+    Int -> Maybe s -> OpenCurve s -> Point2 s -> Maybe (Point2 s)
+projectPoint max_steps m_accuracy curve (P (V2 overall_length offset)) =
     let
         -- find the segment containing the point we want
         segments = terminated curve
@@ -142,14 +142,27 @@ projectPoint accuracy curve (P (V2 overall_length offset)) =
             Just c -> Just (onCurve .+^ (offset *^ normal)) where
               bz = V3 anchor c endpoint
               (_, V3 onCurve tangent _) = BZ.split bz
-                  (BZ.inverseArcLength accuracy bz remaining_length)
+                  (BZ.inverseArcLength max_steps m_accuracy bz remaining_length)
               normal = normalize (perp (tangent .-. onCurve))
 
 -- | @project ε path curve@ returns Nothing if any control point of
 -- @curve@ has x-coördinate greater than the arc length of @path@.
-project :: (Floating s, RealFrac s, Ord s, Epsilon s) =>
-    s -> OpenCurve s -> OpenCurve s -> Maybe (OpenCurve s)
-project accuracy path (OpenCurve ss terminator)  =
+projectWithStepsAccuracy :: (Floating s, RealFrac s, Ord s, Epsilon s) =>
+    Int -> Maybe s -> OpenCurve s -> OpenCurve s -> Maybe (OpenCurve s)
+projectWithStepsAccuracy max_steps m_accuracy path (OpenCurve ss terminator)  =
     OpenCurve <$> m_segments <*> proj terminator where
   m_segments = for ss $ \(Seg p1 c) -> Seg <$> proj p1 <*> traverse proj c
-  proj = projectPoint accuracy path
+  proj = projectPoint max_steps m_accuracy path
+
+projectWithSteps :: (Floating s, RealFrac s, Ord s, Epsilon s) =>
+    Int -> OpenCurve s -> OpenCurve s -> Maybe (OpenCurve s)
+projectWithSteps max_steps = projectWithStepsAccuracy max_steps Nothing
+
+projectWithAccuracy :: (Floating s, RealFrac s, Ord s, Epsilon s) =>
+    s -> OpenCurve s -> OpenCurve s -> Maybe (OpenCurve s)
+projectWithAccuracy accuracy =
+    projectWithStepsAccuracy (BZ.maxStepsFromAccuracy accuracy) (Just accuracy)
+
+project :: (Floating s, RealFrac s, Ord s, Epsilon s) =>
+    OpenCurve s -> OpenCurve s -> Maybe (OpenCurve s)
+project = projectWithAccuracy 1e-3
