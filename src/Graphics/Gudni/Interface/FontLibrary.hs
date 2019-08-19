@@ -32,6 +32,7 @@ import Data.List (isPrefixOf)
 import Data.Monoid (First(..))
 import Graphics.Text.TrueType (buildCache, enumerateFonts, findFontInCache, FontDescriptor(..), FontCache(..), FontStyle(..))
 
+{-
 findDefaultFont :: IO String
 findDefaultFont = fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
 
@@ -61,7 +62,8 @@ fontLibrary =
   do dirs <- fontDirectories
      files <- concat <$> mapM absoluteDirectoryContents dirs
      return $ filter (isSuffixOf "ttf") files
-{-
+-}
+
 findDefaultFont :: IO String
 findDefaultFont = do
     cache <- buildCache
@@ -82,4 +84,3 @@ fontLibrary :: IO [String]
 fontLibrary = do
     cache <- buildCache
     return $ map (fromJust . findFontInCache cache) (enumerateFonts cache)
--}
