@@ -80,6 +80,7 @@ connectable a b =
       hB = compareHorizontal b
   in  (hA == hB) && hA /= EQ
 
+-- | Accumulate strands if the are connectable.
 accumulateStrands :: Ord s
                   => (V.Vector (Triple s), V.Vector (V.Vector (Triple s)))
                   -> Triple s
@@ -91,64 +92,58 @@ accumulateStrands (acc, strands) triple =
        then (acc `V.snoc` triple, strands)
        else (V.singleton triple, strands `V.snoc` acc)
 
+-- | Assuming all horizontally bulging curves (knobs) have been removed.
+-- Divide a loop of curve sections into strands of horizontally adjacent curve sections that go
+-- in the same direction.
 splitIntoStrands :: Ord s
                  => V.Vector (Triple s) -> V.Vector (V.Vector (Triple s))
 splitIntoStrands vector =
   let (acc, strands) = V.foldl accumulateStrands (V.empty, V.empty) vector
   in acc `V.cons` strands
 
+-- | Split a vector into a list over vectors with a maximum size.
 splitTooLarge :: Int -> V.Vector a -> V.Vector (V.Vector a)
-splitTooLarge size vector = if V.length vector > size
-                            then let (first, rest) = V.splitAt size vector
-                                 in first `V.cons` splitTooLarge size rest
-                            else V.singleton vector
+splitTooLarge maxSize vector = if V.length vector > maxSize
+                               then let (first, rest) = V.splitAt maxSize vector
+                                    in first `V.cons` splitTooLarge maxSize rest
+                               else V.singleton vector
 
-
+-- Make a curve section from two adjacent curve pairs.
 makeTriple :: CurvePair s -> CurvePair s -> Triple s
 makeTriple a b = V3 (a ^. onCurve) (a ^. offCurve) (b ^. onCurve)
 
+-- | Reverse the direction of a curve section.
 reverseTriple :: Triple s -> Triple s
 reverseTriple (V3 a b c) = V3 c b a
 
+-- | Zip each element with its next neighbor or the first element.
 overNeighbors :: (a -> a -> b) -> V.Vector a -> V.Vector b
 overNeighbors f vector =
   let rotated = (V.++) (V.drop 1 vector) (V.take 1 vector)
   in  V.zipWith f vector rotated
 
+-- | Turn a sequence of curve pairs into a sequence of curve sections (called triples)
 pairsToTriples :: V.Vector (CurvePair s) -> V.Vector (Triple s)
 pairsToTriples  = overNeighbors makeTriple
-{-
-unTriple :: Show s => Range (Triple s) -> Range (Point2 s)
-unTriple (Range triples len) =
-  let div2     i = i `div` 2
-      part     i = if even i then view _x else view _y
-      newlen     = len * 2 + 1
-      dec      x = x -1
-      getPoint i = if i == newlen - 1
-                   then view _z . triples . div2 . dec $ i
-                   else part  i . triples . div2       $ i
-  in  Range getPoint newlen
--}
 
-unTriple :: V.Vector (Triple s) -> V.Vector (Point2 s)
-unTriple vector =
+-- | Turn a sequence of triples into a sequence of points
+triplesToPoints :: V.Vector (Triple s) -> V.Vector (Point2 s)
+triplesToPoints vector =
   let lastPoint = V.last vector ^. _z
       lastTwo triple = V.singleton (triple ^. _x) `V.snoc` (triple ^. _y)
   in  V.concatMap lastTwo vector `V.snoc` lastPoint
 
-flipIfBackwards :: Ord s => V.Vector (Triple s) -> V.Vector (Triple s)
-flipIfBackwards vector =
+-- | Reverse strands if neccessary so that they go from left to right.
+reverseIfBackwards :: Ord s => V.Vector (Triple s) -> V.Vector (Triple s)
+reverseIfBackwards vector =
     let startPoint = V.head vector ^. _x
-        endPoint = V.last vector ^. _z
-        hDirection = compare (startPoint ^. pX) (endPoint ^. pX)
-        vDirection = compare (startPoint ^. pY) (endPoint ^. pY)
-        direction = if hDirection /= EQ
-                    then hDirection
-                    else vDirection
-    in  if hDirection == GT
+        endPoint   = V.last vector ^. _z
+    in  if (startPoint ^. pX) > (endPoint ^. pX)
         then V.reverse . V.map reverseTriple $ vector
         else vector
 
+-- | Reorder a vector into a horizontally searchable tree based on a predermined lookup table
+-- of tree shapes.
 reorder :: Storable a => ReorderTable -> V.Vector a -> V.Vector a
 reorder table vector =
   let len = V.length vector
@@ -160,20 +155,17 @@ splitShape :: ReorderTable
            -> V.Vector (CurvePair SubSpace)
            -> V.Vector Strand
 splitShape table maxSectionSize curvePairs =
-    let outlineRange =  replaceKnobs .
-                        pairsToTriples $
-                        curvePairs
-        ranges = V.concatMap (splitTooLarge maxSectionSize) .
-                 splitIntoStrands $
-
-                 outlineRange
-        reorderedRanges = V.map
-                       ( Strand
-                       . reorder table
-                       . unTriple
-                       . flipIfBackwards
-                       ) ranges
-    in  reorderedRanges
+    -- read this composition from bottom to top
+    V.map ( Strand
+          . reorder table      -- use a lookup take to turn the strand into a horizontally searchable tree of points
+          . triplesToPoints    -- remove additional points making each strand into a list of points.
+          . reverseIfBackwards -- make each strands go in order from left to right.
+          ) .
+    V.concatMap (splitTooLarge maxSectionSize) . -- Divide any long strands into smaller sections.
+    splitIntoStrands . -- Divide curves into horizontal strands.
+    replaceKnobs .   -- Split curve sections that bulge in the x direction to two curve sections that do not bulge.
+    pairsToTriples $ -- convert each adjacent point pair to a curve section.
+    curvePairs
 
 -- | Build a list of strands from an outline.
 outlineToStrands :: ReorderTable

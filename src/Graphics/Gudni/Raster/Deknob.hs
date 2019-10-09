@@ -40,23 +40,24 @@ type Triple s = V3 (Point2 s)
 sPLIT :: (Fractional s, Num s) => s
 sPLIT = 1 / 2
 
--- | Find the point along the curve parameterized by t.
-midPoint :: Num s => s -> Point2 s -> Point2 s -> Point2 s
-midPoint t v0 v1 = (v0 ^* (1-t)) ^+^ (v1 ^* t)
+-- | Find the point along the line from v0 v1 with the distance proportional by t.
+between :: Num s => s -> Point2 s -> Point2 s -> Point2 s
+between t v0 v1 = (v0 ^* (1-t)) ^+^ (v1 ^* t)
 
--- | Given two onCurve points and a controlPoint. Find two control points and a midway on-curve point.
+-- | Given two onCurve points and a controlPoint. Find two control points and an on-curve point between them
+-- by bifercating according to the parameter t.
 curvePoint :: Num s => s -> Point2 s -> Point2 s -> Point2 s -> Triple s
 curvePoint t v0 control v1 =
-  let mid0     = midPoint t v0    control
-      mid1     = midPoint t control v1
-      onCurve  = midPoint t mid0 mid1
+  let mid0     = between t v0      control
+      mid1     = between t control v1
+      onCurve  = between t mid0    mid1
   in  (V3 mid0 onCurve mid1)
 
--- | Return true if a curve and its control point would be convex in the positive horizontal direction.
+-- | Return true if a is left of b in screen space.
 isLeftOf  :: (Show s, Num s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Bool
 a `isLeftOf` b  = a ^. pX < b ^. pX
 
--- | Return true if a curve and its a point would be convex in the negative horizontal direction.
+-- | Return true if a is right of b in screen space.
 isRightOf :: (Show s, Num s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Bool
 a `isRightOf` b = a ^. pX > b ^. pX
 
