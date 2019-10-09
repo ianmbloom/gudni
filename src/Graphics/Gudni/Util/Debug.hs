@@ -8,6 +8,7 @@ module Graphics.Gudni.Util.Debug
   , trM
   , trWith
   , trF
+  , trFl
   , tc
   , tcWith
   , trCList
@@ -73,6 +74,9 @@ tr = trWith show
 trM m = fmap (tr m)
 trF :: (Show a, RealFloat a) => String -> a -> a
 trF = trWith (showFl' 3)
+trFl :: (Show a, RealFloat a) => Int -> String -> a -> a
+trFl digits = trWith (showFl' digits)
+
 trHex :: (Integral a) => String -> a -> a
 trHex = trWith (\t -> showHex (fromIntegral t) "")
 

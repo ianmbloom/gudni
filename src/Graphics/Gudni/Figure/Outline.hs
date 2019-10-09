@@ -79,9 +79,8 @@ pairPoints [v0] = []
 -- | An outline is just a wrapper for a list of CurvePairs. It represents one curve loop∘
 -- A shape is defined by a list of outlines.
 newtype Outline s = Outline (V.Vector (CurvePair s))
-               deriving (Eq, Ord)
 
-instance Show s => Show (Outline s) where
+instance (Show s) => Show (Outline s) where
   show (Outline vs) = "Outline" ++ show vs
 
 -- | Map over every point in an outline.

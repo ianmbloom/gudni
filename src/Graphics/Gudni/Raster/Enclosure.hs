@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -35,6 +36,8 @@ import Foreign.Ptr
 import Foreign.C.Types
 import Foreign.Storable
 import Control.DeepSeq
+import qualified Data.Vector as V
+import qualified Data.Vector.Storable as VS
 
 type NumStrands_ = CUInt
 -- | Wrapper for the strand count.
@@ -52,7 +55,7 @@ instance Show NumStrands where
 -- enclosureNumStrands should be equivalent to length . enclosureEnclosureStrands
 data Enclosure = Enclosure
     { enclosureNumStrands   :: !NumStrands
-    , enclosureStrands      :: [Strand]
+    , enclosureStrands      :: V.Vector Strand
     } deriving (Show)
 
 -- | Convert a list of outlines into an enclosure.
@@ -62,9 +65,9 @@ enclose :: ReorderTable
         -> Enclosure
 enclose curveTable maxSectionSize outlines =
   let -- Convert the list of outlines into a list of strands.
-      strands = concatMap (outlineToStrands curveTable maxSectionSize) outlines
+      strands = V.concatMap (outlineToStrands curveTable maxSectionSize) $ V.fromList outlines
       -- Count the strands.
-      numStrands = length strands
+      numStrands = V.length strands :: Int
   in  Enclosure { enclosureNumStrands = fromIntegral numStrands
                 , enclosureStrands    = strands
                 }
@@ -72,10 +75,10 @@ enclose curveTable maxSectionSize outlines =
 ------------------ Instances --------------------------
 
 instance StorableM Enclosure where
-  sizeOfM    (Enclosure _ items) = mapM_ sizeOfM items
-  alignmentM (Enclosure _ items) = mapM_ alignmentM items
+  sizeOfM    (Enclosure _ items) = V.mapM_ sizeOfM items
+  alignmentM (Enclosure _ items) = V.mapM_ alignmentM items
   peekM                          = error "no peek for Enclosure"
-  pokeM      (Enclosure _ items) = mapM_ pokeM items
+  pokeM      (Enclosure _ items) = V.mapM_ pokeM items
 
 instance Storable Enclosure where
   sizeOf    = sizeOfV

@@ -47,7 +47,7 @@ import Data.Word
 import Data.Char
 import Data.Bits
 import Data.Hashable
-import qualified Data.Vector as V
+import qualified Data.Vector.Storable as V
 
 import GHC.Float (double2Float)
 

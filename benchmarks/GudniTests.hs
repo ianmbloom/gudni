@@ -73,7 +73,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 12
+    , _stateCurrentTest = 1
     , _stateStep        = 69
     , _stateFrameNumber = 0
     }

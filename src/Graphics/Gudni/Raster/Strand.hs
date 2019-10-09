@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE PatternSynonyms     #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -57,42 +58,11 @@ import Linear
 -- point of the sequence and it's control point. This allows the raster thread to quickly look at the horizontal range of the strand. These are followed by the middle points
 -- of the sequence ordered as a complete binary tree.
 
-newtype Strand =  Strand {unStrand :: Range (Point2 SubSpace)}
+newtype Strand =  Strand {unStrand :: V.Vector (Point2 SubSpace)}
+
 instance Show Strand where
   show = show . unStrand
 
-type Length = Int
-type Index = Int
-
--- | Get the first element of the range.
-rStart :: Range a -> a
-rStart (Range f len) = f 0
-
--- | Get the last element of the range.
-rEnd :: Range a -> a
-rEnd   (Range f len) = f (len - 1)
-
--- | Get the ith element of the range
-peekRange :: Range a -> Index -> a
-peekRange (Range f len) i = f i
-
--- | Get the length of the range.
-rLength :: Range a -> Length
-rLength (Range f len) = len
-
--- | Create a new range that covers and entire vector.
-vectorToRange :: V.Vector a -> Range a
-vectorToRange vs = Range ((V.!) vs) (V.length vs)
-
-composeRange :: (Int -> Int) -> Range a -> Range a
-composeRange g (Range f len) = Range (f . g) len
-
-(+>) :: Range a -> Int -> Range a
-r +> x = composeRange (+ x) r
-
--- | Combine two ranges.
-combineRanges :: Range a -> Range a -> Range a
-combineRanges (Range a lenA) (Range b lenB) = Range a (lenA + lenB)
 
 -- | Compare the begining and end of a triple, horizontally. (Assumes its not a knob).
 compareHorizontal :: Ord s => Triple s -> Ordering
@@ -102,7 +72,7 @@ compareVertical :: Ord s => Triple s -> Ordering
 compareVertical   (V3 a _ b) = compare (a ^. pY) (b ^. pY)
 
 -- | Determine if two adjacent triples will be part of the same strand.
--- if both have the same horizontal order but they are not vertical then combine them.
+-- If both have the same horizontal order but they are not vertical then combine them.
 -- Vertical segments are never combined even if they are adjacent.
 connectable :: Ord s => Triple s -> Triple s -> Bool
 connectable a b =
@@ -110,29 +80,44 @@ connectable a b =
       hB = compareHorizontal b
   in  (hA == hB) && hA /= EQ
 
-splitRanges  :: forall s . (Show s, Storable s, Ord s) => Int -> Range (Triple s) -> [Range (Triple s)]
-splitRanges maxLength (Range f rangeLength) = go 0 0
-  where
-  go :: Index -> Index -> [Range (Triple s)]
-  go start cursor =
-      let current = f cursor
-          next    = f (cursor + 1)
-          len     = (cursor - start) + 1
-          range   = Range (f . (+ start)) len
-      in  if cursor < rangeLength - 1
-          then if connectable current next && len < maxLength
-               then go start (cursor + 1)
-               else range : go (cursor + 1) (cursor + 1)
-          else [range]
+accumulateStrands :: Ord s
+                  => (V.Vector (Triple s), V.Vector (V.Vector (Triple s)))
+                  -> Triple s
+                  -> (V.Vector (Triple s), V.Vector (V.Vector (Triple s)))
+accumulateStrands (acc, strands) triple =
+  if V.null acc
+  then (V.singleton triple, strands)
+  else if connectable (V.last acc) triple
+       then (acc `V.snoc` triple, strands)
+       else (V.singleton triple, strands `V.snoc` acc)
 
-pairsToTriples :: Range (CurvePair s) -> Range (Triple s)
-pairsToTriples (Range f len) =
-  let g i = V3 (f i ^. onCurve) (f i ^. offCurve) end
-        where end = if i < len - 1
-                    then f (i+1) ^. onCurve
-                    else f 0     ^. onCurve
-  in  Range g len
+splitIntoStrands :: Ord s
+                 => V.Vector (Triple s) -> V.Vector (V.Vector (Triple s))
+splitIntoStrands vector =
+  let (acc, strands) = V.foldl accumulateStrands (V.empty, V.empty) vector
+  in acc `V.cons` strands
 
+splitTooLarge :: Int -> V.Vector a -> V.Vector (V.Vector a)
+splitTooLarge size vector = if V.length vector > size
+                            then let (first, rest) = V.splitAt size vector
+                                 in first `V.cons` splitTooLarge size rest
+                            else V.singleton vector
+
+
+makeTriple :: CurvePair s -> CurvePair s -> Triple s
+makeTriple a b = V3 (a ^. onCurve) (a ^. offCurve) (b ^. onCurve)
+
+reverseTriple :: Triple s -> Triple s
+reverseTriple (V3 a b c) = V3 c b a
+
+overNeighbors :: (a -> a -> b) -> V.Vector a -> V.Vector b
+overNeighbors f vector =
+  let rotated = (V.++) (V.drop 1 vector) (V.take 1 vector)
+  in  V.zipWith f vector rotated
+
+pairsToTriples :: V.Vector (CurvePair s) -> V.Vector (Triple s)
+pairsToTriples  = overNeighbors makeTriple
+{-
 unTriple :: Show s => Range (Triple s) -> Range (Point2 s)
 unTriple (Range triples len) =
   let div2     i = i `div` 2
@@ -143,57 +128,61 @@ unTriple (Range triples len) =
                    then view _z . triples . div2 . dec $ i
                    else part  i . triples . div2       $ i
   in  Range getPoint newlen
+-}
 
-reverseIndex :: Length -> Index -> Index
-reverseIndex len i = (len - 1) - i
+unTriple :: V.Vector (Triple s) -> V.Vector (Point2 s)
+unTriple vector =
+  let lastPoint = V.last vector ^. _z
+      lastTwo triple = V.singleton (triple ^. _x) `V.snoc` (triple ^. _y)
+  in  V.concatMap lastTwo vector `V.snoc` lastPoint
 
-reverseTriple :: Triple s -> Triple s
-reverseTriple (V3 a b c) = V3 c b a
-
-reverseRange :: Range (Triple s) -> Range (Triple s)
-reverseRange (Range f len) = Range (reverseTriple . f . reverseIndex len) len
-
-flipIfBackwards :: Ord s => Range (Triple s) -> Range (Triple s)
-flipIfBackwards range =
-    let hDirection = compare (rStart range ^. _x . pX) (rEnd range ^. _z . pX)
+flipIfBackwards :: Ord s => V.Vector (Triple s) -> V.Vector (Triple s)
+flipIfBackwards vector =
+    let startPoint = V.head vector ^. _x
+        endPoint = V.last vector ^. _z
+        hDirection = compare (startPoint ^. pX) (endPoint ^. pX)
+        vDirection = compare (startPoint ^. pY) (endPoint ^. pY)
         direction = if hDirection /= EQ
                     then hDirection
-                    else compare (rStart range ^. _x . pY) (rEnd range ^. _z . pY)
+                    else vDirection
     in  if hDirection == GT
-        then reverseRange range
-        else range
+        then V.reverse . V.map reverseTriple $ vector
+        else vector
+
+reorder :: Storable a => ReorderTable -> V.Vector a -> V.Vector a
+reorder table vector =
+  let len = V.length vector
+  in  V.generate len ((V.!) vector . fromReorderTable table len)
 
 -- | Split an outline into strands.
 splitShape :: ReorderTable
            -> Int
            -> V.Vector (CurvePair SubSpace)
-           -> [Strand]
+           -> V.Vector Strand
 splitShape table maxSectionSize curvePairs =
     let outlineRange =  replaceKnobs .
-                        pairsToTriples .
-                        vectorToRange $
+                        pairsToTriples $
                         curvePairs
-        ranges = splitRanges maxSectionSize outlineRange
-        reorderedRanges = map
-                       ( reorder
+        ranges = V.concatMap (splitTooLarge maxSectionSize) .
+                 splitIntoStrands $
+
+                 outlineRange
+        reorderedRanges = V.map
+                       ( Strand
+                       . reorder table
                        . unTriple
                        . flipIfBackwards
                        ) ranges
-        reorder range = Strand
-                        -- . tc "strand "
-                        . composeRange (fromReorderTable table (rLength range))
-                        -- . tr "untripled "
-                        $ range
     in  reorderedRanges
 
 -- | Build a list of strands from an outline.
 outlineToStrands :: ReorderTable
                  -> Int
                  -> Outline SubSpace
-                 -> [Strand]
+                 -> V.Vector Strand
 outlineToStrands table sectionSize (Outline ps) =
     if length ps < 2
-    then []
+    then V.empty
     else splitShape table (sectionSize `div` 2) ps
 
 --  SubSpace (Floating point) Strands are written to memory so that the each point aligns to 64 bit boundaries in GPU memory.
@@ -207,28 +196,36 @@ outlineToStrands table sectionSize (Outline ps) =
 --  | in 64bit pieces    |           | ending curve point| leftmost curve point and control        | complete binary tree of point control point pairs...
 
 instance StorableM Strand where
-  sizeOfM (Strand range) = do sizeOfM (undefined::CUShort) -- size
-                              sizeOfM (undefined::CUShort) -- unused
-                              sizeOfM (undefined::CUInt  ) -- unused
-                              sizeOfM range
+  sizeOfM (Strand vector) =
+    do sizeOfM (undefined::CUShort) -- size
+       sizeOfM (undefined::CUShort) -- unused
+       sizeOfM (undefined::CUInt  ) -- unused
+       sizeOfM vector
   alignmentM _  = do alignmentM (undefined::CUShort) -- size
                      alignmentM (undefined::CUShort) -- unused
                      alignmentM (undefined::CUInt  ) -- unused
                      --alignmentM range
   peekM = error "no peek for Strand."
-  pokeM strand@(Strand range) =
+  pokeM strand@(Strand vector) =
     do let size = (fromIntegral $ sizeOfV strand) `div` 8 :: CUShort
        pokeM size         -- size
        pokeM (0::CUShort) -- empty
        pokeM (0::CUInt)   -- empty
-       pokeM range
+       pokeM vector
 
-instance Storable a => StorableM (Range a) where
-  sizeOfM (Range _ len) = do modify (+(len * sizeOf (undefined :: a)))
-                             return ()
-  alignmentM _          = do alignmentM (undefined :: a)
-  peekM                 = error "peek not implemented for Range"
-  pokeM (Range f len)   = numLoop 0 (len-1) (\i -> pokeM (f i))
+instance Storable a => StorableM (V.Vector a) where
+  sizeOfM vector = do modify (+(V.length vector * sizeOf (undefined :: a)))
+                      return ()
+  alignmentM _   = do alignmentM (undefined :: a)
+  peekM          = error "peek not implemented for Range"
+  pokeM vector   = numLoop 0 (V.length vector - 1) (\i -> pokeM ((V.!) vector i))
+
+
+instance Storable Strand where
+  sizeOf    = sizeOfV
+  alignment = alignmentV
+  peek      = peekV
+  poke      = pokeV
 
 instance NFData Strand where
   rnf strand = ()
