@@ -100,7 +100,7 @@ setupOpenCL enableProfiling useCLGLInterop src =
       -- Create Detail Records for every available device.
       details <- queryOpenCL CL_DEVICE_TYPE_GPU
       -- List all platforms and all devices.
-      mapM (putStrLn . show) details
+      --mapM (putStrLn . show) details
       -- Filter function for qualified devices to select.
       --let deviceFilter = deviceNameContains "Iris Pro"  -- select the first Iris Pro GPU
       --let deviceFilter = deviceNameContains "Vega"        -- select the first AMD GPU

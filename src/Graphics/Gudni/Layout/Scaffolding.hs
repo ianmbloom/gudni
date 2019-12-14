@@ -1,11 +1,8 @@
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE UndecidableInstances  #-}
-{-# LANGUAGE ExplicitForAll        #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE GADTs                #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -18,170 +15,169 @@
 -- Portability :  portable
 --
 -- Top level functions for creating bounding box based layouts.
-
 module Graphics.Gudni.Layout.Scaffolding
-  ( Alignment (..)
-  , glyphString
-  , paragraph
-  , distributeRack
-  , distributeStack
-  , rack
-  , stack
-  , overlap
-  , combineGlyph
+  ( ScafName(..)
+  , PointRef(..)
+  , Scaf(..)
+  , Scaffold(..)
+  , buildScaffold
+  , scaffoldToSTree
   )
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Figure.ShapeTree
 import Graphics.Gudni.Layout.Glyph
-import Graphics.Gudni.Layout.Font
-import Graphics.Gudni.Util.Debug
-import Linear
-import Data.List
-import Data.Char
 
-import Control.Lens
-import Control.Applicative
-import Control.Monad.State
 
-data Alignment = AlignMin | AlignMax | AlignCenter
+import qualified Data.Map as M
 
-alignHorizontal :: (Show (SpaceOf rep), HasSpace rep, Fractional (SpaceOf rep))
-                => Alignment
-                -> Glyph (STree o rep)
-                -> Glyph (STree o rep)
-                -> (Glyph (STree o rep), Glyph (STree o rep))
-alignHorizontal alignment a b =
-  let aWidth = a ^. glyphBox . widthBox
-      bWidth = b ^. glyphBox . widthBox
-      width  = max aWidth bWidth
-      offsetA = case alignment of
-                  AlignMin    -> 0
-                  AlignMax    -> width - aWidth
-                  AlignCenter -> (width - aWidth) / 2
-      newA = {-set (glyphBox . widthBox) width .-} tTranslateXY offsetA 0 $ a
-      offsetB = case alignment of
-                  AlignMin    -> 0
-                  AlignMax    -> width - bWidth
-                  AlignCenter -> (width - bWidth) / 2
-      newB = {-set (glyphBox . widthBox) width .-} tTranslateXY offsetB 0 $ b
-  in  (newA, newB)
+type ScafName = String
 
-alignVertical :: (Show (SpaceOf rep), HasSpace rep, Fractional (SpaceOf rep))
-              => Alignment
-              -> Glyph (STree o rep)
-              -> Glyph (STree o rep)
-              -> (Glyph (STree o rep), Glyph (STree o rep))
-alignVertical alignment a b =
-  let aHeight = a ^. glyphBox . heightBox
-      bHeight = b ^. glyphBox . heightBox
-      height  = max aHeight bHeight
-      offsetA = case alignment of
-                  AlignMin    -> 0
-                  AlignMax    -> height - aHeight
-                  AlignCenter -> (height - aHeight) / 2
-      newA = set (glyphBox . heightBox) height . mapGlyph (tTranslateXY 0 offsetA) $ a
-      offsetB = case alignment of
-                  AlignMin    -> 0
-                  AlignMax    -> height - bHeight
-                  AlignCenter -> (height - bHeight) / 2
-      newB = set (glyphBox . heightBox) height . mapGlyph (tTranslateXY 0 offsetB) $ b
-  in  (newA, newB)
+data PointRef s where
+  From      :: [ScafName] -> PointRef s
+  Offset    :: Point2 s -> PointRef s
 
-nextToHorizontal :: (Show (SpaceOf rep), HasSpace rep) => Glyph (STree o rep) -> Glyph (STree o rep) -> (Glyph (STree o rep), Glyph (STree o rep))
-nextToHorizontal a b =
-    let newB = set (glyphBox . widthBox) (b ^. glyphBox . widthBox ) .
-               set (glyphBox . leftSide) (a ^. glyphBox . rightSide) .
-               mapGlyph (tTranslateXY (a ^. glyphBox . rightSide - b ^. glyphBox . leftSide) 0) $
-               b
-    in (a, newB)
+data Scaf m o t where
+  Named     :: ScafName
+            -> Scaffold m o t
+            -> Scaf m o t
+  Build     :: m (STree o t)
+            -> Scaf m o t
+  Build1    :: (Point2 (SpaceOf t) -> m (STree o t))
+            -> PointRef (SpaceOf t)
+            -> Scaf m o t
+  Build2    :: (Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> m (STree o t))
+            -> PointRef (SpaceOf t)
+            -> PointRef (SpaceOf t)
+            -> Scaf m o t
+  Build3    :: (Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> m (STree o t))
+            -> PointRef (SpaceOf t)
+            -> PointRef (SpaceOf t)
+            -> PointRef (SpaceOf t)
+            -> Scaf m o t
 
-nextToVertical :: (Show (SpaceOf rep), HasSpace rep) => Glyph (STree o rep) -> Glyph (STree o rep) -> (Glyph (STree o rep), Glyph (STree o rep))
-nextToVertical a b =
-    let newB = set (glyphBox . heightBox) (b ^. glyphBox . heightBox ) .
-               set (glyphBox . topSide  ) (a ^. glyphBox . bottomSide) .
-               mapGlyph (tTranslateXY 0 (a ^. glyphBox . bottomSide - b ^. glyphBox . topSide)) $
-               b
-    in (a, newB)
+instance HasSpace t => HasSpace (Scaf m o t) where
+  type SpaceOf (Scaf m o t) = SpaceOf t
 
-combineMaybe :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
-combineMaybe op (Just a) (Just b) = Just (op a b)
-combineMaybe op (Just a) Nothing  = Just a
-combineMaybe op Nothing  (Just b) = Just b
-combineMaybe op Nothing  Nothing  = Nothing
+type Scaffold m o t = STree o (Scaf m o t)
 
-betweenList :: a -> [a] -> [a]
-betweenList b [a]    = [a]
-betweenList b (a:as) = a : b : betweenList b as
-betweenList b []     = []
+data ScafPoint s = ScafPoint (Point2 s) | Ambiguous
 
-distributeRack :: HasSpace rep
-               => X (SpaceOf rep)
-               -> [Glyph rep]
-               -> [Glyph rep]
-distributeRack gap = betweenList (Glyph (Box zeroPoint (makePoint gap 0)) Nothing)
+instance Space s => HasSpace (ScafPoint s) where
+  type SpaceOf (ScafPoint s) = s
 
-distributeStack :: HasSpace rep
-                => Y (SpaceOf rep)
-                -> [Glyph rep]
-                -> [Glyph rep]
-distributeStack gap = betweenList (Glyph (Box zeroPoint (makePoint 0 gap)) Nothing)
+overScafPoint :: (Point2 s -> Point2 v) -> ScafPoint s -> ScafPoint v
+overScafPoint f (ScafPoint p) = ScafPoint (f p)
+overScafPoint f Ambiguous     = Ambiguous
 
-class Overlappable a where
-  combine :: a -> a -> a
+instance Space s => SimpleTransformable (ScafPoint s) where
+  tTranslate delta = overScafPoint (tTranslate delta)
+  tScale scale     = overScafPoint (tScale scale)
 
-combineGlyph :: HasSpace rep
-             => (STree o rep -> STree o rep -> STree o rep)
-             -> Glyph (STree o rep)
-             -> Glyph (STree o rep)
-             -> Glyph (STree o rep)
-combineGlyph op a b =
-  let tl = minPoint (a ^. glyphBox . topLeftBox    ) (b ^. glyphBox . topLeftBox    )
-      br = maxPoint (a ^. glyphBox . bottomRightBox) (b ^. glyphBox . bottomRightBox)
-  in  Glyph (Box tl br) (combineMaybe op (a ^. unGlyph) (b ^. unGlyph))
+instance Space s => Transformable (ScafPoint s) where
+  tRotate rotate = overScafPoint (tRotate rotate)
 
-instance (HasSpace rep, HasDefault o) => Overlappable (Glyph (STree o rep)) where
-  combine = combineGlyph (SMeld defaultValue)
+type NameMap s = M.Map [ScafName] (ScafPoint s)
 
-instance (HasDefault o) => Overlappable (STree o rep) where
-  combine = SMeld defaultValue
+scaffoldToSTree :: forall m o t
+                .  (HasSpace t, Space (SpaceOf t), Monad m)
+                => Scaffold m o t
+                -> m (STree o t)
+scaffoldToSTree scaf = buildScaffold mapping transformedScaf
+  where
+  (transformedScaf, mapping) = go scaf
+  go :: Scaffold m o t -> (Scaffold m o t, NameMap (SpaceOf t))
+  go scaffold =
+    case scaffold of
+       STransform transform tree ->
+         let (innerTree, innerMap) = go tree
+         in  (applyTransformer transform innerTree, M.map (applyTransformer transform) innerMap)
+       SMeld meld a b ->
+         let (a', aMap) = go a
+             (b', bMap) = go b
+         in  (SMeld meld a' b', combineMaps aMap bMap)
+       SLeaf scaf -> goScaf scaf
+       SEmpty -> (SEmpty, M.empty)
+  goScaf :: Scaf m o t -> (Scaffold m o t, NameMap (SpaceOf t))
+  goScaf scaf =
+      case scaf of
+        Named  name child -> let (child', childMap) = go child
+                             in  (child', M.insert [name] (ScafPoint zeroPoint) . M.mapKeys (name:) $ childMap)
+        _      -> (SLeaf scaf, M.empty)
 
-instance {-# Overlappable #-} (Applicative f, Overlappable a) => Overlappable (f a) where
-  combine = liftA2 (combine :: a -> a -> a)
 
-overlap :: (Overlappable a) => [a] -> a
-overlap = foldl1 combine
+lookupPoint :: NameMap s
+            -> PointRef s
+            -> Point2 s
+lookupPoint nameMap ref =
+    case ref of
+        From   name   -> let p = (M.!) nameMap name
+                         in case p of
+                               ScafPoint p -> p
+                               Ambiguous -> error $ "ambiguous name lookup in scaffolding " ++ show name
+        Offset p      -> p
 
-maxPoint :: Ord s => Point2 s -> Point2 s -> Point2 s
-minPoint :: Ord s => Point2 s -> Point2 s -> Point2 s
-maxPoint (Point2 x0 y0) (Point2 x1 y1) = Point2 (max x0 x1) (max y0 y1)
-minPoint (Point2 x0 y0) (Point2 x1 y1) = Point2 (min x0 x1) (min y0 y1)
+buildScaf :: Monad m
+          => NameMap (SpaceOf t)
+          -> Scaf m o t
+          -> m (STree o t)
+buildScaf mapping scaf =
+    case scaf of
+      Build   f       -> f
+      Build1  f x     -> let x' = lookupPoint mapping x
+                         in  f x'
+      Build2  f x y   -> let x' = lookupPoint mapping x
+                             y' = lookupPoint mapping y
+                         in  f x' y'
+      Build3  f x y z -> let x' = lookupPoint mapping x
+                             y' = lookupPoint mapping y
+                             z' = lookupPoint mapping z
+                         in  f x' y' z'
+      Named   named scaf -> error "Named areas should be removed before buildScaf."
 
-rack :: forall o rep
-     .  (Show rep, Show (SpaceOf rep), Show o,
-         HasSpace rep, Fractional (SpaceOf rep), HasDefault o)
-     => Alignment
-     -> [Glyph (STree o rep)]
-     -> Glyph (STree o rep)
-rack alignment = foldl1 (\ a b -> uncurry (combineGlyph (SMeld defaultValue)) . uncurry nextToHorizontal . uncurry (alignVertical alignment) $ (a, b))
+buildScaffold :: forall m o t . Monad m => NameMap (SpaceOf t) -> Scaffold m o t -> m (STree o t)
+buildScaffold nameMap tree = go tree
+  where
+  go :: Scaffold m o t -> m (STree o t)
+  go scaffold =
+     case scaffold of
+        STransform transform tree -> error "transforms should not be in traversed scaffold."
+        SMeld meld a b ->
+          do  a' <- go a
+              b' <- go b
+              return $ SMeld meld a' b'
+        SLeaf scaf -> buildScaf nameMap scaf
+        SEmpty -> return SEmpty
 
-stack :: forall o rep
-      .  (Show rep, Show (SpaceOf rep), Show o,
-          HasSpace rep, Fractional (SpaceOf rep), HasDefault o)
-      => Alignment
-      -> [Glyph (STree o rep)]
-      -> Glyph (STree o rep)
-stack alignment = foldl1 (\ a b -> uncurry (combineGlyph (SMeld defaultValue)) . uncurry nextToVertical . uncurry (alignHorizontal alignment) $ (a, b))
+combineMaps :: NameMap s -> NameMap s -> NameMap s
+combineMaps = M.unionWith (const (const Ambiguous))
 
-paragraph :: forall m . (MonadState FontCache m, Monad m)
-          => X SubSpace
-          -> Y SubSpace
-          -> Alignment
-          -> Alignment
-          -> String
-          -> m (Glyph (CompoundTree SubSpace))
-paragraph gapX gapY alignX alignY string =
-  do  let stringLines = lines string
-      glyphLines <- mapM glyphString stringLines
-      let glyphRacks = map (rack alignY . distributeRack gapX) glyphLines
-      return . stack alignX . distributeStack gapY $ glyphRacks
+mapPointRef :: (Point2 s -> Point2 v) -> PointRef s -> PointRef v
+mapPointRef f ref =
+    case ref of
+        From name       -> From name
+        Offset point    -> Offset (f point)
+
+mapScaffoldPoints :: (Point2 (SpaceOf t) -> Point2 (SpaceOf t)) -> Scaffold m o t -> Scaffold m o t
+mapScaffoldPoints f scaffold =
+     case scaffold of
+        STransform transform tree -> STransform transform (mapScaffoldPoints f tree)
+        SMeld meld a b -> SMeld meld (mapScaffoldPoints f a) (mapScaffoldPoints f b)
+        SLeaf scaf -> SLeaf $ mapScafPoints f scaf
+        SEmpty -> SEmpty
+
+mapScafPoints :: (Point2 (SpaceOf t) -> Point2 (SpaceOf t)) -> Scaf m o t -> Scaf m o t
+mapScafPoints f scaf =
+    case scaf of
+        Named name child -> Named name $ mapScaffoldPoints f child
+        Build    b     ->  Build  b
+        Build1   b x   ->  Build1 b (mapPointRef f x)
+        Build2   b x y ->  Build2 b (mapPointRef f x) (mapPointRef f y)
+
+instance (HasSpace t) => SimpleTransformable (Scaf m o t) where
+  tTranslate delta = mapScafPoints (tTranslate delta)
+  tScale scale = mapScafPoints (tScale scale)
+
+instance (Space (SpaceOf (Scaf m o t)), SimpleTransformable (Scaf m o t)) => Transformable (Scaf m o t) where
+  tRotate  angle = mapScafPoints (tRotate angle)

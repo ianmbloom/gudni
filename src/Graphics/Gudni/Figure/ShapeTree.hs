@@ -85,6 +85,7 @@ data STree meld leaf where
   STransform :: Transformer (SpaceOf leaf) -> STree meld leaf -> STree meld leaf
   SMeld      :: meld -> STree meld leaf -> STree meld leaf -> STree meld leaf
   SLeaf      :: leaf -> STree meld leaf
+  SEmpty     :: STree meld leaf
 
 deriving instance (Show meld, Show leaf, Show (SpaceOf leaf)) => Show (STree meld leaf)
 
@@ -176,27 +177,3 @@ invertCompound combineType =
         CompoundAdd      -> CompoundSubtract
         CompoundSubtract -> CompoundAdd
         CompoundContinue -> CompoundContinue
-
-{-
----------------------------- Instances -------------------------------------
-instance (SpaceOf a Functor (STree overlap) where
-  fmap f (SLeaf child)                 = SLeaf $ f child
-  fmap f (STransform t child)           = STransform t  $ fmap f child
-  fmap f (SMeld overlap above below) = SMeld overlap (fmap f above) (fmap f below)
-
-instance Foldable (STree overlap) where
-  foldr f item (SLeaf child)  = f child item
-  foldr f item (STransform t child)   = foldr f item child
-  foldr f item (SMeld overlap above below) = foldr f (foldr f item above) below
-  foldMap f (SLeaf child)  = f child
-  foldMap f (STransform t child)   = foldMap f child
-  foldMap f (SMeld overlap above below) = foldMap f above `mappend` foldMap f below
-
-instance Traversable (STree overlap) where
-  traverse f (SLeaf child)  = fmap SLeaf (f child)
-  traverse f (STransform t child)   = fmap (STransform t) (traverse f child)
-  traverse f (SMeld overlap above below) = liftA2 (SMeld overlap) (traverse f above) (traverse f below)
-  sequenceA (SLeaf child)  = fmap SLeaf child
-  sequenceA (STransform t child)   = fmap (STransform t ) (sequenceA child)
-  sequenceA (SMeld overlap above below) = liftA2 (SMeld overlap) (sequenceA above) (sequenceA below)
--}

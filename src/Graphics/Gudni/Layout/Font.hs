@@ -170,7 +170,11 @@ class HasGlyph a where
   glyph :: (MonadState FontCache m, Monad m) => CodePoint -> m a
 
 instance HasGlyph (CompoundTree SubSpace) where
-  glyph = fmap (fromJust . view unGlyph) . getGlyph
+  glyph codePoint = do g <- getGlyph codePoint
+                       case g of
+                           Glyph _ (Just a) -> return a
+                           Glyph _ Nothing  -> return SEmpty
+                           EmptyGlyph       -> return SEmpty
 
 instance HasGlyph (Glyph (CompoundTree SubSpace)) where
   glyph = getGlyph

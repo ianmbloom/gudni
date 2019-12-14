@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module GudniBenchmarks
   ( main
@@ -58,9 +59,9 @@ instance Model BenchmarkState where
     constructScene state status =
         do  testScene <- (snd $ getTest state) state
             let testName = (fst $ getTest state)
-            statusTree <- fromJust . view unGlyph <$> statusDisplay state testName (lines status)
-            let tree = transformFromState testScene state
-                withStatus = if False then overlap [statusTree, tree] else tree
+            (statusTree :: Maybe (ShapeTree Int SubSpace)) <- (^?! unGlyph) <$> statusDisplay state testName (lines status)
+            let tree = transformFromState state testScene
+                withStatus = if False then overlap [fromJust statusTree, tree] else tree
             return . Scene (light gray) $ Just $ withStatus
     providePictureMap state = return $ state ^. statePictureMap
     handleOutput state target = do  presentTarget target
@@ -76,8 +77,8 @@ statusDisplay state testName status =
     unlines (testName :
     status)
 
-transformFromState :: ShapeTree Int SubSpace -> BenchmarkState -> ShapeTree Int SubSpace
-transformFromState constructed state =
+transformFromState :: BenchmarkState -> ShapeTree Int SubSpace -> ShapeTree Int SubSpace
+transformFromState state constructed =
     let sc    = view stateScale state
         delta = view stateDelta state
         angle = view stateAngle state

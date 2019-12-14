@@ -42,7 +42,8 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Plot
 import Graphics.Gudni.Layout.Glyph
-import Graphics.Gudni.Layout.Scaffolding
+import Graphics.Gudni.Layout.Adjacent
+import Graphics.Gudni.Util.Debug
 
 import Data.Char (ord)
 import Control.Lens
@@ -156,7 +157,7 @@ class HasArc a => HasCircle a where
 circleCurve :: Space s => [Outline s]
 circleCurve = arcCurve fullTurn
 centerCircle :: (Fractional (SpaceOf a), SimpleTransformable a) => a -> a
-centerCircle = tTranslateXY 0.5 0.5 . tScale 0.5
+centerCircle = id -- tScale 0.5 . tTranslateXY 0.5 0.5 -- . tScale 0.5
 
 
 -- | Basic instance of a circle.

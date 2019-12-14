@@ -32,13 +32,14 @@ module Graphics.Gudni.Figure.Angle
   , rotate270
   , flipH
   , flipV
+  , angleBetween
   )
 where
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 
-import Diagrams.Angle (Angle, cosA, sinA, tanA, (@@), deg, rad, turn, fullTurn, halfTurn, quarterTurn, normalizeAngle)
+import Diagrams.Angle (Angle, cosA, sinA, tanA, (@@), deg, rad, turn, fullTurn, halfTurn, quarterTurn, normalizeAngle, angleBetween)
 import Data.Hashable
 import Control.DeepSeq
 import Control.Lens

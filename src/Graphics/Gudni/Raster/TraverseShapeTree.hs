@@ -62,6 +62,7 @@ traverseTree combineOp transformOp c t f tree = go c t tree
                         go a t above
                         go b t below
                   STransform tOp child -> go c (transformOp tOp t) child
+                  SEmpty -> return ()
 
 -- | Traverse a compound shape tree
 traverseCompoundTree :: (Num (SpaceOf rep), Monad m)

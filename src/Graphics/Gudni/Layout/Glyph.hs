@@ -37,7 +37,8 @@ import Control.Lens
 data Glyph a = Glyph
   { _glyphBox :: Box (SpaceOf a)
   , _unGlyph :: Maybe a
-  }
+  } |
+  EmptyGlyph
 makeLenses ''Glyph
 
 deriving instance (Show (SpaceOf a), Show a) => Show (Glyph a)
@@ -46,10 +47,13 @@ deriving instance (Ord  (SpaceOf a), Ord  a) => Ord  (Glyph a)
 
 mapGlyph :: forall a b . (SpaceOf a ~ SpaceOf b) => (a->b) -> Glyph a -> Glyph b
 mapGlyph f (Glyph box a) = Glyph box (fmap f a)
+mapGlyph f EmptyGlyph    = EmptyGlyph
 
 instance SimpleTransformable a => SimpleTransformable (Glyph a) where
   tTranslate p (Glyph box a) = Glyph (tTranslate p box) (fmap (tTranslate p) a)
+  tTranslate p EmptyGlyph    = EmptyGlyph
   tScale f (Glyph box a) = Glyph (tScale f box) (fmap (tScale f) a)
+  tScale f EmptyGlyph    = EmptyGlyph
 
 instance HasSpace a => HasSpace (Glyph a) where
   type SpaceOf (Glyph a) = SpaceOf a
@@ -61,4 +65,5 @@ instance (NFData a, NFData (SpaceOf a)) => NFData (Glyph a) where
   rnf (Glyph a b) = a `deepseq` b `deepseq` ()
 
 showGlyph :: (HasSpace t) => Glyph t -> [Char]
-showGlyph = show . view glyphBox
+showGlyph EmptyGlyph = "EmptyGlyph"
+showGlyph (Glyph box _) = show box

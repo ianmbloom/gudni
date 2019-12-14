@@ -85,7 +85,7 @@ class Model s where
   -- | Construct a Scene from the state of type `s`
   constructScene  :: s -> String -> FontMonad IO (Scene Int)
   -- | Update the state based on the elapsed time and a list of inputs
-  updateModelState :: Monad m => Int -> SimpleTime -> [Input (Point2 PixelSpace)] -> s -> m s
+  updateModelState :: MonadIO m => Int -> SimpleTime -> [Input (Point2 PixelSpace)] -> s -> m s
   -- | Set the initial display to FullScreen or a specific window size in pixels.
   screenSize       :: s -> ScreenMode
   -- | Determine if the application will enter the event loop.
