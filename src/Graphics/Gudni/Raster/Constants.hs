@@ -68,7 +68,7 @@ sHAPETAGsUBSTANCETYPEsHIFT      = 30 :: Int
 
 -- Bits 29 - 28
 sHAPETAGcOMPOUNDtYPEbITmASK   = 0x3000000000000000 :: CULong -- bit mask for isolating the compounding type of a shape in a shape tag.
-sHAPETAGcOMPOUNDtYPEcONTINUE  = 0x1000000000000000 :: CULong -- flag treating a shape as a nuetral concatenation of outlines to the previous shape.
+sHAPETAGcOMPOUNDtYPEcONTINUE  = 0x1000000000000000 :: CULong -- DEPRECATED: flag treating a shape as a nuetral concatenation of outlines to the previous shape.
 sHAPETAGcOMPOUNDtYPEaDD       = 0x2000000000000000 :: CULong -- flag for adding the shape to the shape below it.
 sHAPETAGcOMPOUNDtYPEsUBTRACT  = 0x3000000000000000 :: CULong -- flag for subtracting the shape from the shape below it.
 sHAPETAGcOMPOUNDtYPEsHIFT     = 28 :: Int

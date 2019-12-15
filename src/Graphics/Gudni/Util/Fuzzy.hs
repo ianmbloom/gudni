@@ -29,11 +29,10 @@ fuzzyBreak size = do b <- getRandomR (0,size)
                      return (b, size - b)
 
 instance Random Compound where
-  random = runRand $ do r :: Int <- getRandomR(0,2)
+  random = runRand $ do r :: Int <- getRandomR(0,1)
                         return $ case r of
-                                  0 -> CompoundContinue
-                                  1 -> CompoundAdd
-                                  2 -> CompoundSubtract
+                                  0 -> CompoundAdd
+                                  1 -> CompoundSubtract
   randomR _ = random
 
 instance Random Color where

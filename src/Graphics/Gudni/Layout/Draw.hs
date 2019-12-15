@@ -31,7 +31,6 @@ module Graphics.Gudni.Layout.Draw
   , fromSegments
   , cAdd
   , cSubtract
-  , cContinue
   , glyphWrapOutline
   , testPlot
   )
@@ -58,19 +57,16 @@ glyphWrapOutline outlines =
 class Compoundable a where
   cAdd      :: a -> a -> a
   cSubtract :: a -> a -> a
-  cContinue :: a -> a -> a
 
 -- | Instance for combining simple compound shapes.
 instance Compoundable (STree Compound leaf) where
   cAdd      = SMeld CompoundAdd
   cSubtract = flip (SMeld CompoundSubtract) -- the subtracted shape must be above what is being subtracted in the stack.
-  cContinue = SMeld CompoundContinue
 
 -- | Instance for combining with glyph wrapped compound shapes.
 instance HasSpace leaf => Compoundable (Glyph (STree Compound leaf)) where
   cAdd      = combineGlyph cAdd
   cSubtract = combineGlyph cSubtract
-  cContinue = combineGlyph cContinue
 
 -- | Create a series of segments based on the size of a rectangle.
 rectangleCurve :: Space s => Point2 s -> [Segment s]

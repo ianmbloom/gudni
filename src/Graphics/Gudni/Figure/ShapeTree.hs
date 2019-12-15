@@ -96,10 +96,8 @@ instance (HasSpace leaf) => HasSpace (Maybe (STree meld leaf)) where
     type SpaceOf (Maybe (STree meld leaf)) = SpaceOf leaf
 -- | Type of melding of compound shapes.
 data Compound
-    -- | Neutral combination of outlines.
-    = CompoundContinue
     -- | Addition of shapes.
-    | CompoundAdd
+    = CompoundAdd
     -- | Substraction of the first shape from the second.
     | CompoundSubtract
     deriving (Ord, Eq, Show)
@@ -176,4 +174,3 @@ invertCompound combineType =
     case combineType of
         CompoundAdd      -> CompoundSubtract
         CompoundSubtract -> CompoundAdd
-        CompoundContinue -> CompoundContinue

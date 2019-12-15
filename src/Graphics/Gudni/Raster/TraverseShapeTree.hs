@@ -35,7 +35,6 @@ import Control.Lens
 traverseCompound :: Compound -> Compound -> (Compound, Compound)
 traverseCompound CompoundAdd      current = (current, current)
 traverseCompound CompoundSubtract current = (invertCompound current, current)
-traverseCompound CompoundContinue current = (current, current)
 
 -- | Operate on an overlay junction.
 traverseUnit :: () -> () -> ((), ())
