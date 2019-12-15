@@ -56,6 +56,7 @@ flag trace
 library
   -- Modules exported by the library.
   exposed-modules:     Graphics.Gudni.Application
+                     , Graphics.Gudni.Interface.BasicSceneState
                      , Graphics.Gudni.Figure.ShapeTree
                      , Graphics.Gudni.Figure
                      , Graphics.Gudni.Interface
@@ -83,6 +84,7 @@ library
                      , Graphics.Gudni.Interface.InterfaceSDL
                      , Graphics.Gudni.Interface.GLInterop
                      , Graphics.Gudni.Interface.ScreenMode
+                     , Graphics.Gudni.Interface.Time
                      , Graphics.Gudni.Raster.Constants
                      , Graphics.Gudni.OpenCL.Setup
                      , Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
@@ -107,6 +109,7 @@ library
                      , Graphics.Gudni.Layout.Adjacent
                      , Graphics.Gudni.Layout.Font
                      , Graphics.Gudni.Layout.Scaffolding
+                     , Graphics.Gudni.Layout.Text
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util
                      , Graphics.Gudni.Util.Pile
@@ -181,6 +184,7 @@ library
                      , JuicyPixels
                      , colour
                      , monadlist
+                     , IfElse
 
 
   -- Directories containing source files.
@@ -200,11 +204,11 @@ executable gudni-benchmarks
                    , lens
                    , vector
                    , mtl
-                   , IfElse
                    , MonadRandom >=0.5 && <0.6
                    , random >=1.1 && <1.2
                    , JuicyPixels
                    , silently
+                   , IfElse
   else
     buildable: False
   hs-source-dirs: ./benchmarks
@@ -222,7 +226,6 @@ executable gudni-trace-visualizer
                    , base
                    , lens
                    , mtl
-                   , IfElse
                    , MonadRandom >=0.5 && <0.6
                    , random >=1.1 && <1.2
                    , JuicyPixels
@@ -263,7 +266,6 @@ executable plot-example
                    , lens
                    , vector
                    , mtl
-                   , IfElse
   else
     buildable: False
   hs-source-dirs: ./examples
@@ -283,7 +285,6 @@ executable paragraph-example
                    , lens
                    , vector
                    , mtl
-                   , IfElse
   else
     buildable: False
   hs-source-dirs: ./examples
@@ -303,7 +304,6 @@ executable tree-example
                    , lens
                    , vector
                    , mtl
-                   , IfElse
   else
     buildable: False
   hs-source-dirs: ./examples

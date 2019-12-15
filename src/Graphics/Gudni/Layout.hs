@@ -5,6 +5,7 @@ module Graphics.Gudni.Layout
   , module Graphics.Gudni.Layout.Adjacent
   , module Graphics.Gudni.Layout.Scaffolding
   , module Graphics.Gudni.Layout.Font
+  , module Graphics.Gudni.Layout.Text
   )
 where
 
@@ -14,3 +15,4 @@ import Graphics.Gudni.Layout.Grid
 import Graphics.Gudni.Layout.Adjacent
 import Graphics.Gudni.Layout.Scaffolding
 import Graphics.Gudni.Layout.Font
+import Graphics.Gudni.Layout.Text

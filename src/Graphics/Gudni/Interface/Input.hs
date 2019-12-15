@@ -29,11 +29,14 @@ module Graphics.Gudni.Interface.Input
   , keyModShift
   , keyModSys
   , noModifier
+  , HandlesInput (..)
   )
 where
 
 import Graphics.Gudni.Figure
 import Control.Lens
+import Control.Monad.State
+
 
 -- | Window Events
 data InputWindow
@@ -357,3 +360,7 @@ inputToString input =
                   SymbolUnderscore   -> "_"
                   SymbolBackquote    -> "`"
                   SymbolBar          -> "|"
+
+class HandlesInput s where
+    -- | Do something with incoming input before updating
+    processInput :: Input (Point2 PixelSpace) -> s -> s

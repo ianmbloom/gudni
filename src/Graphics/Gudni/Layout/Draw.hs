@@ -52,7 +52,7 @@ import Control.Lens
 glyphWrapOutline :: Space s => [Outline s] -> Glyph (CompoundTree s)
 glyphWrapOutline outlines =
    let box = foldl1 minMaxBox $ map boxOf $ outlines
-   in  Glyph box (Just . SLeaf $ outlines)
+   in  Glyph box (SLeaf $ outlines)
 
 -- | Typeclass of shape representations that can be combined with other shapes.
 class Compoundable a where
@@ -91,7 +91,7 @@ instance Space s => HasRectangle (CompoundTree s) where
 
 -- | Glyph wrapper instance around a rectangle.
 instance Space s => HasRectangle (Glyph (CompoundTree s)) where
-    rectangle v = Glyph (Box zeroPoint v) . Just . rectangle $ v
+    rectangle v = Glyph (Box zeroPoint v) . rectangle $ v
 
 -- | Unit square rectangle.
 unitSquare :: HasRectangle a => a

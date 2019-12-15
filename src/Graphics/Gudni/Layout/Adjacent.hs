@@ -24,8 +24,6 @@ module Graphics.Gudni.Layout.Adjacent
   ( Alignment (..)
   , Overlappable (..)
   , glyphString
-  , paragraph
-  , blurb
   , distributeRack
   , distributeStack
   , rack
@@ -55,24 +53,16 @@ class MaybeBoxed a where
             => (Box (SpaceOf a) -> f (Box (SpaceOf a)))
             -> a -> f a
    blank :: (Box (SpaceOf a)) -> a
-instance MaybeBoxed (Glyph a) where
+
+instance HasEmpty rep => MaybeBoxed (Glyph rep) where
    maybeBox = glyphBox
-   blank box = Glyph box Nothing
+   blank box = Glyph box emptyItem
 
 isBoxed :: MaybeBoxed a => a -> Bool
 isBoxed = isJust . (^? maybeBox)
 
 notBoxed :: MaybeBoxed a => a -> Bool
 notBoxed = not . isBoxed
-
-class HasEmpty a where
-  emptyItem :: a
-  isEmpty :: a -> Bool
-
-instance HasEmpty (Glyph (STree o rep)) where
-  emptyItem = EmptyGlyph
-  isEmpty EmptyGlyph = True
-  isEmpty _ = False
 
 instance HasEmpty (STree o rep) where
   emptyItem = SEmpty
@@ -167,13 +157,6 @@ nextToVertical a b =
                b
     in (a, newB)
 
-combineMaybe :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
-combineMaybe op (Just a) (Just b) = Just (op a b)
-combineMaybe op (Just a) Nothing  = Just a
-combineMaybe op Nothing  (Just b) = Just b
-combineMaybe op Nothing  Nothing  = Nothing
-
-
 distributeRack :: ( Show (SpaceOf rep)
                   , HasSpace rep
                   , SimpleTransformable rep
@@ -184,7 +167,8 @@ distributeRack :: ( Show (SpaceOf rep)
                -> [rep]
 distributeRack gap = intersperse (blank (Box zeroPoint (makePoint gap 0)))
 
-distributeStack :: HasSpace rep
+distributeStack :: ( HasSpace rep
+                   , HasEmpty rep)
                 => Y (SpaceOf rep)
                 -> [Glyph rep]
                 -> [Glyph rep]
@@ -192,22 +176,6 @@ distributeStack gap = intersperse (blank (Box zeroPoint (makePoint 0 gap)))
 
 class Overlappable a where
   combine :: a -> a -> a
-
-combineGlyph :: HasSpace rep
-             => (STree o rep -> STree o rep -> STree o rep)
-             -> Glyph (STree o rep)
-             -> Glyph (STree o rep)
-             -> Glyph (STree o rep)
-combineGlyph op a b =
-  if isEmpty a
-  then b
-  else
-  if isEmpty b
-  then a
-  else
-  let tl = minPoint (a ^?! glyphBox . topLeftBox    ) (b ^?! glyphBox . topLeftBox    )
-      br = maxPoint (a ^?! glyphBox . bottomRightBox) (b ^?! glyphBox . bottomRightBox)
-  in  Glyph (Box tl br) (combineMaybe op (join $ a ^? unGlyph) (join $ b ^? unGlyph))
 
 instance (HasSpace rep, HasDefault o) => Overlappable (Glyph (STree o rep)) where
   combine = combineGlyph (SMeld defaultValue)
@@ -220,11 +188,6 @@ instance {-# Overlappable #-} (Applicative f, Overlappable a) => Overlappable (f
 
 overlap :: (Overlappable a, HasEmpty a) => [a] -> a
 overlap = foldl combine emptyItem
-
-maxPoint :: Ord s => Point2 s -> Point2 s -> Point2 s
-minPoint :: Ord s => Point2 s -> Point2 s -> Point2 s
-maxPoint (Point2 x0 y0) (Point2 x1 y1) = Point2 (max x0 x1) (max y0 y1)
-minPoint (Point2 x0 y0) (Point2 x1 y1) = Point2 (min x0 x1) (min y0 y1)
 
 rack :: forall rep
      .  ( Show rep, Show (SpaceOf rep)
@@ -251,25 +214,3 @@ stack :: forall rep
       -> [rep]
       -> rep
 stack alignment = foldl (\ a b -> uncurry combine . uncurry nextToVertical . uncurry (alignHorizontal alignment) $ (a, b)) emptyItem
-
-paragraph :: forall m . (MonadState FontCache m, Monad m)
-          => X SubSpace
-          -> Y SubSpace
-          -> Alignment
-          -> Alignment
-          -> String
-          -> m (Glyph (CompoundTree SubSpace))
-paragraph gapX gapY alignX alignY string =
-  do  let stringLines = lines string
-      glyphLines <- mapM glyphString stringLines
-      let glyphRacks = map (rack alignY . distributeRack gapX) glyphLines
-      return . stack alignX . distributeStack gapY $ glyphRacks
-
-blurb :: forall m . (MonadState FontCache m, Monad m)
-      => X SubSpace
-      -> Alignment
-      -> String
-      -> m (Glyph (CompoundTree SubSpace))
-blurb gapX alignX string =
-  do  glyphs <- glyphString string
-      return $ rack alignX . distributeRack gapX $ glyphs

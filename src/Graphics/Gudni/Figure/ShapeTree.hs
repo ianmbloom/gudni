@@ -163,7 +163,7 @@ type ShapeTree token s = STree () (SRep token (CompoundTree s))
 -- | A container for a ShapeTree that indicates the background color.
 data Scene token = Scene
   { _sceneBackgroundColor :: Color
-  , _sceneShapeTree       :: Maybe (ShapeTree token SubSpace)
+  , _sceneShapeTree       :: ShapeTree token SubSpace
   } deriving (Show)
 makeLenses ''Scene
 

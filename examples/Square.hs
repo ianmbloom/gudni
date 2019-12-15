@@ -40,14 +40,14 @@ instance Model SquareState where
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =
-        execStateT (
+        execState (
             do  stateAngle .= (realToFrac elapsedTime / 2) @@ turn
-                mapM_ processInput inputs
-            ) state
+
+            ) $ foldl (flip processInput) state inputs
+    ioTask = return
     constructScene state status =
         return .                          -- Push the scene into the FontMonad
         Scene (light . greenish $ blue) . -- Wrap the ShapeTree in a scene with background color
-        Just .
         tTranslate (Point2 100 100) .     -- translate the child ShapeTree
         tScale  (state ^. stateScale) .   -- scale the child ShapeTree based on the current state.
         tRotate (state ^. stateAngle) .   -- rotate the child ShapeTree based on the current state.
@@ -57,14 +57,16 @@ instance Model SquareState where
     handleOutput state target = do  presentTarget target
                                     return state
 
-processInput input =
-    case input of
-        (InputKey Pressed _ inputKeyboard) ->
-             case inputKeyboard of
-                KeyArrow ArrowUp    -> stateScale *=  1.25
-                KeyArrow ArrowDown  -> stateScale //= 1.25
-                _                   -> return ()
-        _ -> return ()
+instance HandlesInput SquareState where
+     processInput input =
+         execState $
+         case input of
+             (InputKey Pressed _ inputKeyboard) ->
+                  case inputKeyboard of
+                     KeyArrow ArrowUp    -> stateScale *=  1.25
+                     KeyArrow ArrowDown  -> stateScale //= 1.25
+                     _                   -> return ()
+             _ -> return ()
 
 main :: IO ()
 main = runApplication (SquareState (0 @@ turn) 50)
