@@ -200,6 +200,9 @@ processState elapsedTime inputs =
         markAppTime "Advance State"
         state <- use appState
         appState .= updateModelState frame elapsedTime inputs state
+        state <- use appState
+        state' <- liftIO (ioTask state)
+        appState .= state'
         if null inputs
         then appMessage $ show state
         else appMessage $ show state ++ show inputs
@@ -269,7 +272,7 @@ isQuit :: Input a -> Bool
 isQuit input =
     case input of
         InputWindow WindowClosed -> True
-        InputKey Pressed (KeyModifier _ _ _ True) (KeyLetter LetterQ) -> True
+        InputKey Pressed (KeyModifier _ _ _ True) (Key LetterQ) -> True
         InputKey Pressed _ (KeyCommand CommandQuit) -> True
         _ -> False
 
