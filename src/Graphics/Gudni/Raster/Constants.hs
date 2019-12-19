@@ -50,7 +50,7 @@ mAXsHAPEbITS     = 511 :: Int -- total number of shapes per build based on the n
 sHAPElIMIT       = 127 :: Int -- a hard limit on the number of shapes based on the empirical testing of the timeout period of the GPU.
 mAXsHAPE         = min mAXsHAPEbITS sHAPElIMIT
 mAXtILEsIZE      = Point2 512 512 :: Point2 PixelSpace
-mINtILEsIZE      = Point2 16  16  :: Point2 PixelSpace
+mINtILEsIZE      = Point2 8  8  :: Point2 PixelSpace
 mAXsECTIONsIZE   = 32   :: Int
 rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
 

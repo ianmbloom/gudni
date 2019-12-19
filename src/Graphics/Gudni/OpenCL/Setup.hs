@@ -58,7 +58,7 @@ cppDefines spec =
   ,Cpp "SHAPETAG_COMPOUNDTYPE_SUBTRACT"    (CppHex64 sHAPETAGcOMPOUNDtYPEsUBTRACT    )
   ,Cpp "SHAPETAG_COMPOUNDTYPE_SHIFT"       (CppInt   sHAPETAGcOMPOUNDtYPEsHIFT       )
   ,Cpp "SHAPETAG_SUBSTANCEID_BITMASK"      (CppHex64 sHAPETAGsUBSTANCEIDbITMASK      )
-  --,Cpp "DEBUG_OUTPUT"                      (CppNothing) -- uncomment this to turn on simple debugging output
+  ,Cpp "DEBUG_OUTPUT"                      (CppNothing) -- uncomment this to turn on simple debugging output
   --,Cpp "DEBUG_TRACE"                       (CppNothing) -- uncomment this to turn on parsable debugging output
   ]
 
@@ -74,9 +74,9 @@ determineRasterSpec device =
       localMemSize  <- clGetDeviceLocalMemSize          device
       maxBufferSize <- clGetDeviceMaxConstantBufferSize device
       globalMemSize <- clGetDeviceGlobalMemSize         device
-      maxMemAllocSize <- clGetDeviceMaxMemAllocSize        device
+      maxMemAllocSize <- clGetDeviceMaxMemAllocSize     device
       -- The maximum number of threads that each tile can store is the maximum allocation size
-      let maxThresholds = fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize ^ 2) * 2 * sizeOf (undefined :: THRESHOLDTYPE))
+      let maxThresholds = fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize ^ 2) * sizeOf (undefined :: THRESHOLDTYPE))
       return RasterSpec { _specMaxTileSize     = fromIntegral maxGroupSize
                         , _specThreadsPerTile  = fromIntegral maxGroupSize
                         , _specMaxTilesPerCall = fromIntegral maxGroupSize

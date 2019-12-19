@@ -46,7 +46,7 @@
 
 #define MINCROP 0.2f
 // Debugging
-#define DEBUGCOLUMN 65 // Determines the column for DEBUG_IF macro
+#define DEBUGCOLUMN 0 // Determines the column for DEBUG_IF macro
 #define DEBUGINDEX  0 // Determines the index for DEBUG_IF macro
 #define INDEX get_global_id(0)
 #define COLUMN get_global_id(1)
@@ -382,7 +382,8 @@ typedef struct ThresholdState {
 } ThresholdState;
 
 inline int cycleLocation(int i) {
-  return (i + MAXTHRESHOLDS) & MAXTHRESHOLDMASK;
+  // return (i + MAXTHRESHOLDS) & MAXTHRESHOLDMASK;
+  return i > MAXTHRESHOLDS ? i - MAXTHRESHOLDS : i;
   // this makes the position cyclic if MAXTHRESHOLDS is a power of 2
   // and MAXTHRESHOLDMASK = MAXTHRESHOLDS - 1
 }
@@ -1169,7 +1170,7 @@ void addThreshold ( PMEM  ThresholdQueue *tQ
     //DEBUG_IF(printf("original ");showThreshold(newHeader, newThreshold);printf("\n");)
     // in the beggining the slot at position numThresholds is free, we are either at the end of the list or just picked up the top
     // threshold from the holding queue
-    DEBUG_IF(printf("addThreshold\n");showThreshold(newHeader, newThreshold);)
+    DEBUG_IF(printf("addThreshold  ");showThreshold(newHeader, newThreshold);)
     if (tKeep(newHeader, newThreshold)) {
         // horizontal thresholds that have no persistance can be ignored.
         *enclosedByStrand = *enclosedByStrand ||
