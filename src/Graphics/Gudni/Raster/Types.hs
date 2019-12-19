@@ -173,26 +173,31 @@ instance Storable (Shape GeoReference) where
   peek = peekV
   poke = pokeV
 
-instance StorableM (Tile (Slice (Shape GeoReference))) where
+instance StorableM (Tile (Slice (Shape GeoReference), Int)) where
   sizeOfM _ = do sizeOfM (undefined :: Box PixelSpace)
-                 sizeOfM (undefined :: CInt)
+                 sizeOfM (undefined :: CShort)
+                 sizeOfM (undefined :: CShort)
                  sizeOfM (undefined :: CInt)
                  sizeOfM (undefined :: Slice (Shape GeoReference))
   alignmentM _ = do alignmentM (undefined :: Box PixelSpace)
-                    alignmentM (undefined :: CInt)
+                    alignmentM (undefined :: CShort)
+                    alignmentM (undefined :: CShort)
                     alignmentM (undefined :: CInt)
                     alignmentM (undefined :: Slice (Shape GeoReference))
   peekM = do box    <- peekM
-             hDepth :: CInt <- peekM
-             vDepth :: CInt <- peekM
+             hDepth :: CShort <- peekM
+             vDepth :: CShort <- peekM
+             columnAllocation :: CInt <- peekM
              slice  <- peekM
-             return (Tile box (fromIntegral hDepth) (fromIntegral vDepth) slice)
-  pokeM (Tile box hDepth vDepth slice ) = do pokeM box
-                                             pokeM (fromIntegral hDepth :: CInt)
-                                             pokeM (fromIntegral vDepth :: CInt)
-                                             pokeM slice
+             return (Tile box (fromIntegral hDepth) (fromIntegral vDepth) (slice, fromIntegral columnAllocation))
+  pokeM (Tile box hDepth vDepth (slice, columnAllocation)) =
+          do pokeM box
+             pokeM (fromIntegral hDepth :: CShort)
+             pokeM (fromIntegral vDepth :: CShort)
+             pokeM (fromIntegral columnAllocation :: CInt)
+             pokeM slice
 
-instance Storable (Tile (Slice (Shape GeoReference))) where
+instance Storable (Tile (Slice (Shape GeoReference), Int)) where
   sizeOf = sizeOfV
   alignment = alignmentV
   peek = peekV

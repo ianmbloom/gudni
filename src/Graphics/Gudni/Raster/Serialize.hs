@@ -19,6 +19,7 @@ module Graphics.Gudni.Raster.Serialize
   , GeometryState(..)
   , geoReorderTable
   , geoMaxStrandSize
+  , geoMaxStrandsPerTile
   , geoGeometryPile
   , geoTileTree
   , geoCanvasSize
@@ -44,6 +45,7 @@ where
 
 import Graphics.Gudni.Figure
 
+import Graphics.Gudni.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.ShapeInfo
 import Graphics.Gudni.Raster.Types
@@ -103,8 +105,9 @@ excludeBox canvasSize box =
 
 -- | A constructor for holding the state of serializing the geometry from a scene.
 data GeometryState = GeometryState
-    { _geoReorderTable    :: ReorderTable
-    , _geoMaxStrandSize :: Int
+    { _geoReorderTable      :: ReorderTable
+    , _geoMaxStrandSize     :: Int
+    , _geoMaxStrandsPerTile :: NumStrands
     , _geoGeometryPile  :: GeometryPile
     , _geoTileTree      :: TileTree
     , _geoCanvasSize    :: Point2 SubSpace
@@ -118,13 +121,14 @@ type GeometryMonad m = StateT GeometryState m
 -- | Function for initializing the geometry monad and running a function inside of it∘
 -- The geoTileTree and geoCanvas size must be defined later.
 runGeometryMonad :: (MonadIO m)
-                 => RandomField
+                 => RasterSpec
+                 -> RandomField
                  -> StateT GeometryState m t
                  -> m t
-runGeometryMonad randomField mf =
+runGeometryMonad rasterSpec randomField mf =
   do geometryPile <- liftIO (newPileSize iNITgEOMETRYpILEsIZE :: IO BytePile)
      let reorderTable = buildReorderTable mAXsECTIONsIZE
-     let geometryState = GeometryState reorderTable mAXsECTIONsIZE geometryPile undefined undefined randomField
+     let geometryState = GeometryState reorderTable mAXsECTIONsIZE (NumStrands . fromIntegral $ rasterSpec ^. specMaxStrandsPerTile) geometryPile undefined undefined randomField
      evalStateT mf geometryState
 
 -- | Reuse the geometry monad without reallocating the geometry pile.
@@ -157,6 +161,8 @@ onShape wrapShape combineType transformer outlines =
              reorderTable <- use geoReorderTable
              -- Maximum size of a strand.
              maxStrandSize <- use geoMaxStrandSize
+             -- Maximum strands per tile
+             maxStrandsPerTile <- use geoMaxStrandsPerTile
              -- Build an enclosure from the outlines.
              let enclosure = enclose reorderTable maxStrandSize (unGroup transformedOutlines)
              -- Get the geometry pile.
@@ -168,7 +174,7 @@ onShape wrapShape combineType transformer outlines =
              -- Get the tiletree.
              tileTree <- use geoTileTree
              -- Add the shape to the tile tree.
-             geoTileTree .= addShapeToTree tileTree (wrapShape combineType entry)
+             geoTileTree .= addShapeToTree maxStrandsPerTile tileTree (wrapShape combineType entry)
 
 -- | Constructor for holding the state of serializing substance information from the scene.
 data SubstanceState token s = SubstanceState

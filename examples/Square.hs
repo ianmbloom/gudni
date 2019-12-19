@@ -42,7 +42,6 @@ instance Model SquareState where
     updateModelState frame elapsedTime inputs state =
         execState (
             do  stateAngle .= (realToFrac elapsedTime / 2) @@ turn
-
             ) $ foldl (flip processInput) state inputs
     ioTask = return
     constructScene state status =
@@ -63,8 +62,8 @@ instance HandlesInput SquareState where
          case input of
              (InputKey Pressed _ inputKeyboard) ->
                   case inputKeyboard of
-                     KeyArrow ArrowUp    -> stateScale *=  1.25
-                     KeyArrow ArrowDown  -> stateScale //= 1.25
+                     Key ArrowUp    -> stateScale *=  1.25
+                     Key ArrowDown  -> stateScale //= 1.25
                      _                   -> return ()
              _ -> return ()
 

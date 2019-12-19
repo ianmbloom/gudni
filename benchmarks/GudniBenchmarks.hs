@@ -41,7 +41,7 @@ getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance Model BenchmarkState where
     screenSize state = --FullScreen
-                       Window $ Point2 1440 900
+                       Window $ Point2 1024 1024
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =
@@ -66,8 +66,10 @@ instance HandlesInput BenchmarkState where
               (InputKey Pressed _ inputKeyboard) ->
                   do  tests <- use stateTests
                       case inputKeyboard of
-                          KeyArrow  ArrowRight -> whenM (uses stateCurrentTest (< (length tests - 1))) $ stateCurrentTest += 1
-                          KeyArrow  ArrowLeft  -> whenM (uses stateCurrentTest (> 0)) $ stateCurrentTest -= 1
+                          Key ArrowRight -> whenM (uses stateCurrentTest (< (length tests - 1))) $ stateCurrentTest += 1
+                          Key ArrowLeft  -> whenM (uses stateCurrentTest (> 0)) $ stateCurrentTest -= 1
+                          _ -> return ()
+              _ -> return ()
           )
 
 main :: IO ()

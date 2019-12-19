@@ -230,6 +230,7 @@ executable gudni-trace-visualizer
                    , random >=1.1 && <1.2
                    , JuicyPixels
                    , silently
+                   , IfElse
   else
     buildable: False
   hs-source-dirs: ./trace

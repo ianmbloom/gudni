@@ -34,6 +34,7 @@ import CLUtil.Initialization
 
 import Data.List
 import Data.Maybe
+import Foreign.Storable
 
 import qualified Data.ByteString.Char8 as BS
 
@@ -73,10 +74,14 @@ determineRasterSpec device =
       localMemSize  <- clGetDeviceLocalMemSize          device
       maxBufferSize <- clGetDeviceMaxConstantBufferSize device
       globalMemSize <- clGetDeviceGlobalMemSize         device
+      maxMemAllocSize <- clGetDeviceMaxMemAllocSize        device
+      -- The maximum number of threads that each tile can store is the maximum allocation size
+      let maxThresholds = fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize ^ 2) * 2 * sizeOf (undefined :: THRESHOLDTYPE))
       return RasterSpec { _specMaxTileSize     = fromIntegral maxGroupSize
                         , _specThreadsPerTile  = fromIntegral maxGroupSize
                         , _specMaxTilesPerCall = fromIntegral maxGroupSize
-                        , _specMaxThresholds   = mAXtHRESHOLDS
+                        , _specMaxThresholds   = tr "maxThresholds" $ maxThresholds
+                        , _specMaxStrandsPerTile = tr "maxStrandsPerTile" $ maxThresholds
                         , _specMaxShapes       = mAXsHAPE
                         }
 

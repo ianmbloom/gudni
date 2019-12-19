@@ -377,20 +377,20 @@ processInput input =
             do  speed <- use stateSpeed
                 pace  <- use statePace
                 case inputKeyboard of
-                    KeySymbol SymbolSpace -> statePaused %= not
-                    KeyArrow ArrowUp      -> stateSpeed *=  1.25
-                    KeyArrow ArrowDown    -> stateSpeed //= 1.25
-                    KeyLetter LetterW   -> stateDelta %= (^+^ Point2   0    (-pace))
-                    KeyLetter LetterS   -> stateDelta %= (^+^ Point2   0      pace )
-                    KeyLetter LetterA   -> stateDelta %= (^+^ Point2 (-pace)  0    )
-                    KeyLetter LetterD   -> stateDelta %= (^+^ Point2   pace   0    )
-                    KeyLetter LetterY   -> stateDirection %= not
-                    KeySymbol SymbolRightBracket -> stateScale *=  1.1
-                    KeySymbol SymbolLeftBracket  -> stateScale //= 1.1
-                    KeySymbol SymbolComma  -> whenM (uses stateStep (> 0 {-arbitrary-})) $ stateStep -= 1
-                    KeySymbol SymbolPeriod -> whenM (uses stateStep (< 1000)) $ stateStep += 1
-                    KeyLetter LetterR   -> stateAngle %= normalizeAngle . (^+^ (speed @@ turn))
-                    KeyLetter LetterT   -> stateAngle %= normalizeAngle . (^-^ (speed @@ turn))
+                    Key SymbolSpace -> statePaused %= not
+                    Key ArrowUp      -> stateSpeed *=  1.25
+                    Key ArrowDown    -> stateSpeed //= 1.25
+                    Key LetterW   -> stateDelta %= (^+^ Point2   0    (-pace))
+                    Key LetterS   -> stateDelta %= (^+^ Point2   0      pace )
+                    Key LetterA   -> stateDelta %= (^+^ Point2 (-pace)  0    )
+                    Key LetterD   -> stateDelta %= (^+^ Point2   pace   0    )
+                    Key LetterY   -> stateDirection %= not
+                    Key SymbolRightBracket -> stateScale *=  1.1
+                    Key SymbolLeftBracket  -> stateScale //= 1.1
+                    Key SymbolComma  -> whenM (uses stateStep (> 0 {-arbitrary-})) $ stateStep -= 1
+                    Key SymbolPeriod -> whenM (uses stateStep (< 1000)) $ stateStep += 1
+                    Key LetterR   -> stateAngle %= normalizeAngle . (^+^ (speed @@ turn))
+                    Key LetterT   -> stateAngle %= normalizeAngle . (^-^ (speed @@ turn))
                     _                   -> return ()
         (InputMouse detection modifier clicks positionInfo) ->
             case detection of

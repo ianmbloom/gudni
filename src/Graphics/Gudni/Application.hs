@@ -154,7 +154,7 @@ runApplication state =
                 -- Generate a random field for the stochastic aliasing of the rasterizer.
                 randomField <- liftIO $ makeRandomField rANDOMFIELDsIZE
                 -- Run the geometry serialization monad.
-                runGeometryMonad randomField $
+                runGeometryMonad (appState ^. appRasterizer . rasterSpec) randomField $
                     -- Run the application monad.
                     runApplicationMonad appState $
                         do  -- start the event loop.
@@ -222,6 +222,7 @@ drawFrame frameCount scene =
         let canvasSize = P (targetArea target)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
         let maxTileSize = rasterizer ^. rasterSpec . specMaxTileSize
+
         lift (geoTileTree .= buildTileTree maxTileSize (fromIntegral <$> canvasSize))
         markAppTime "Build TileTree"
         substanceState <- lift ( execSubstanceMonad pictureMap $
@@ -237,7 +238,7 @@ drawFrame frameCount scene =
         appMessage "===================== rasterStart ====================="
         jobs <- lift $ buildRasterJobs rasterParams
         markAppTime "Build Raster Jobs"
-        lift $ queueRasterJobs frameCount rasterParams jobs
+        lift $ queueRasterJobs frameCount rasterParams (tr "jobs" jobs)
         appMessage "===================== rasterDone ====================="
         markAppTime "Rasterize Threads"
         lift resetGeometryMonad
