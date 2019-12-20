@@ -372,13 +372,6 @@ typedef struct ThresholdQueue {
                         Slice  qSlice;       // slice, the position of the top of the queue.
 } ThresholdQueue;
 
-// the threshold state stores flags regarding threshold building.
-typedef struct ThresholdState {
-               int  thresholdWasAdded;  // used to determine if a shape ever interacted with the column as it's being added.
-               int  addThresholdCount;
-               // int  lastShape;
-} ThresholdState;
-
 inline int cycleLocation(int i) {
   // return (i + MAXTHRESHOLDS) & MAXTHRESHOLDMASK;
   return i > MAXTHRESHOLDS ? i - MAXTHRESHOLDS : i;
@@ -484,21 +477,21 @@ void bifurcateCurve( Traversal *t
                    );
 
 void addLineSegment ( PMEM  ThresholdQueue *tQ
-                    , PMEM  ThresholdState *tS
                     , PMEM       TileState *tileS
                     ,               float2  left
                     ,               float2  right
-                    ,              SHAPEBIT  shapeBit
+                    ,             SHAPEBIT  shapeBit
                     ,                  int  addType
+                    ,                 bool *thresholdWasAdded
                     ,                 bool *enclosedByStrand
                     );
 
 void addThreshold ( PMEM ThresholdQueue *tQ
-                  , PMEM ThresholdState *tS
                   , PMEM      TileState *tileS
                   ,              HEADER  newHeader
                   ,           THRESHOLD  newThreshold
                   ,                 int  addType
+                  ,                bool *thresholdWasAdded
                   ,                bool *enclosedByStrand
                   );
 
@@ -518,11 +511,11 @@ void searchTree(      Traversal *trav
                );
 
 void spawnThresholds ( PMEM  ThresholdQueue *tQ
-                     , PMEM  ThresholdState *tS
                      , PMEM       TileState *tileS
                      ,             SHAPEBIT  shapeBit
                      ,            Traversal *l
                      ,            Traversal *r
+                     ,                 bool *thresholdWasAdded
                      ,                 bool *enclosedByStrand
                      );
 
@@ -652,7 +645,6 @@ void writePixelGlobal ( PMEM TileState *tileS
 
 void buildThresholdArray ( PMEM       TileState *tileS
                          , PMEM  ThresholdQueue *tQ
-                         , PMEM  ThresholdState *tS
                          , PMEM      ShapeState *shS
                          , SMEM          float4 *geometryHeap
                          , SMEM           Shape *shapeHeap
@@ -676,8 +668,6 @@ void initThresholdQueue( PMEM ThresholdQueue  *tQ
                        , GMEM         HEADER  *headerHeap
                        ,               Slice   qSlice
                        );
-
-void initThresholdState(ThresholdState *tS);
 
 void initShapeState (PMEM    ShapeState *shS
                     );
@@ -1163,12 +1153,12 @@ inline HEADER lineToHeader ( SHAPEBIT shapeBit
 // if it's header information should be pre-parsed (because it's above the render area)
 // or if it should be ignored (below the render area, or a horizontal threshold that can be bypassed)
 void addLineSegment ( PMEM  ThresholdQueue *tQ
-                    , PMEM  ThresholdState *tS
                     , PMEM       TileState *tileS
                     ,               float2  left
                     ,               float2  right
                     ,             SHAPEBIT  shapeBit
                     ,                  int  addType
+                    ,                 bool *thresholdWasAdded
                     ,                 bool *enclosedByStrand
                     ) {
     //DEBUG_IF(printf("--------------- addLineSegment %i left: %v2f right: %v2f addType: %i\n", tS->addThresholdCount, left, right, addType);)
@@ -1179,15 +1169,15 @@ void addLineSegment ( PMEM  ThresholdQueue *tQ
                                    , left
                                    , right
                                    );
-    addThreshold(tQ, tS, tileS, newHeader, newThreshold, addType, enclosedByStrand);
+    addThreshold(tQ, tileS, newHeader, newThreshold, addType, thresholdWasAdded, enclosedByStrand);
 }
 
 void addThreshold ( PMEM  ThresholdQueue *tQ
-                  , PMEM  ThresholdState *tS
                   , PMEM       TileState *tileS
                   ,               HEADER  newHeader
                   ,            THRESHOLD  newThreshold
                   ,                  int  addType
+                  ,                 bool *thresholdWasAdded
                   ,                 bool *enclosedByStrand
                   ) {
     //DEBUG_IF(printf("beg add enclosed%i add %i ", *enclosedByStrand, addType);showThreshold(newHeader, newThreshold);printf("\n");)
@@ -1213,14 +1203,9 @@ void addThreshold ( PMEM  ThresholdQueue *tQ
                 // if the threshold is entirely below the bottom of the render area is can be ignored
                 // otherwise add it to the threshold array, and see if the bottom of the render area needs to be adjusted because the threshold array is not
                 // large enough.g
-                //if (tS->addThresholdCount > 0) {
-                  DEBUG_IF(printf("  ADD");)
-                  tS->thresholdWasAdded = true;
-                  pushThreshold(tQ, newHeader, newThreshold);
-                //}
-                //else {
-                //  DEBUG_IF(printf(" SKIP");)
-                //}
+                DEBUG_IF(printf("  ADD");)
+                *thresholdWasAdded = true;
+                pushThreshold(tQ, newHeader, newThreshold);
             }
         }
         else {
@@ -1277,15 +1262,15 @@ void bifurcateCurve( Traversal *t
 // This is generally on horizontal or angled threshold called the center,
 // and potentially two vertical thresholds called the wings
 void spawnThresholds ( PMEM  ThresholdQueue *tQ
-                     , PMEM  ThresholdState *tS
                      , PMEM       TileState *tileS
                      ,             SHAPEBIT  shapeBit
                      ,            Traversal *l
                      ,            Traversal *r
+                     ,                 bool *thresholdWasAdded
                      ,                 bool *enclosedByStrand
                      ) {
     float y_L; // this is the y value
-    //DEBUG_IF(printf("spawnThresholds len %i count %i \n", tQ->qSlice.sLength, tS->addThresholdCount);)
+    //DEBUG_IF(printf("spawnThresholds len %i count %i \n", tQ->qSlice.sLength);)
     if (l->travLeftX >= LEFTBORDER) { // if the left side is the left edge of the strand, don't bifurcate.
       y_L = l->travLeftY;
     }
@@ -1296,12 +1281,12 @@ void spawnThresholds ( PMEM  ThresholdQueue *tQ
     if ((l->travRightX < RIGHTBORDER) && (l->travRightX > LEFTBORDER)) {
         // add the threshold to the current state or buffer.
         addLineSegment (  tQ
-                       ,  tS
                        ,  tileS
                        ,  (float2) (l->travXPos, y_L)
                        ,  l->travRight
                        ,  shapeBit
                        ,  0
+                       ,  thresholdWasAdded
                        ,  enclosedByStrand
                        );
         leftWing = true;
@@ -1319,12 +1304,12 @@ void spawnThresholds ( PMEM  ThresholdQueue *tQ
     bool rightWing;
     if ((r->travLeftX > LEFTBORDER) && (r->travLeftX < RIGHTBORDER) && (l->travIndex != r->travIndex)) {
         addLineSegment (  tQ
-                       ,  tS
                        ,  tileS
                        ,  r->travLeft
                        ,  (float2) (r->travXPos, y_R)
                        ,  shapeBit
                        ,  1
+                       ,  thresholdWasAdded
                        ,  enclosedByStrand
                        );
         rightWing = true;
@@ -1336,12 +1321,12 @@ void spawnThresholds ( PMEM  ThresholdQueue *tQ
         float2 bridge_L = leftWing  || (l->travLeftX  == l->travRightX) ? l->travRight : (float2) (l->travXPos, y_L);
         float2 bridge_R = rightWing || (r->travLeftX  == r->travRightX) ? r->travLeft  : (float2) (r->travXPos, y_R);
         addLineSegment (  tQ
-                       ,  tS
                        ,  tileS
                        ,  bridge_L
                        ,  bridge_R
                        ,  shapeBit
                        ,  2
+                       ,  thresholdWasAdded
                        ,  enclosedByStrand
                        );
     }
@@ -1554,7 +1539,6 @@ inline void passHeaderBottom( PMEM ShapeState *shS
 // complete section if it doesn't.
 void buildThresholdArray ( PMEM       TileState *tileS
                          , PMEM  ThresholdQueue *tQ
-                         , PMEM  ThresholdState *tS
                          , PMEM      ShapeState *shS
                          , SMEM          float4 *geometryHeap
                          , SMEM           Shape *shapeHeap
@@ -1562,9 +1546,10 @@ void buildThresholdArray ( PMEM       TileState *tileS
                          ,            GEO_ENTRY  numShapes
                          ,               float2  threadDelta
                          ) {
-    for (GEO_ENTRY n = 0; n < numShapes && shS->shapeBits < MAXSHAPE; n++) { // iterate over every shape in the current shape.
+    bool thresholdWasAdded;
+    for (GEO_ENTRY n = 0; n < numShapes) && shS->shapeBits < MAXSHAPE; n++) { // iterate over every shape in the current shape.
         GEO_ENTRY shapeIndex = shapeStart + n;
-        tS->thresholdWasAdded = false;
+        thresholdWasAdded = false;
         Shape shape = shapeHeap[shapeIndex]; // get the current shape.
          // if you don't shift the shape to the tile size there will be accuracy errors with height floating point geometric values
         SMEM float2 *strandHeap = (SMEM float2 *)&geometryHeap[getGeometryStart(shape)];
@@ -1585,11 +1570,11 @@ void buildThresholdArray ( PMEM       TileState *tileS
                                        );
             if (inRange) {
                 spawnThresholds (  tQ
-                                ,  tS
                                 ,  tileS
                                 ,  shS->shapeBits
                                 , &left
                                 , &right
+                                , &thresholdWasAdded
                                 , &enclosedByStrand
                                 );
             }
@@ -1599,7 +1584,7 @@ void buildThresholdArray ( PMEM       TileState *tileS
         if (enclosedByShape) {
             passHeader(shS, shS->shapeBits);
         }
-        if (tS->thresholdWasAdded || enclosedByShape) {
+        if (thresholdWasAdded || enclosedByShape) {
             if (shS->shapeBits < MAXSHAPE) {
                shS->shapeIndices[shS->shapeBits] = shapeIndex;
             }
@@ -1643,11 +1628,6 @@ void initThresholdQueue( PMEM ThresholdQueue  *tQ
     tQ->thresholdHeaders = headerHeap    + (tileS->threadId * MAXTHRESHOLDS);
     tQ->thresholds       = thresholdHeap + (tileS->threadId * MAXTHRESHOLDS);
     tQ->qSlice           = qSlice;
-}
-
-void initThresholdState(ThresholdState *tS) {
-    tS->thresholdWasAdded = false;
-    tS->addThresholdCount = 0; // INT_MAX; // maximum thresholds to add before stopping (for debugging).
 }
 
 void initShapeState (PMEM    ShapeState *shS
@@ -2081,13 +2061,10 @@ __kernel void generateThresholds( SMEM     float4  *geometryHeap
         DEBUG_TRACE_BEGIN
         ThresholdQueue tQ;
         initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, initQueueSlice());
-        ThresholdState tS;
-        initThresholdState(&tS);
         ShapeState shS;
         initShapeState(&shS);
         buildThresholdArray ( &tileS
                             , &tQ
-                            , &tS
                             , &shS
                             ,  geometryHeap
                             ,  shapeHeap
@@ -2488,8 +2465,6 @@ void thresholdQueueHs (ThresholdQueue tQ) {
     printf("{ thresholds = "); thresholdListHs(tQ); printf("\n");
     //printf(", qSlice.sStart = %i\n", tQ.qSlice.sStart);
     //printf(", qSlice.sLength = %i\n", tQ.qSlice.sLength);
-    //printf(", thresholdWasAdded  = %i\n", tQ.thresholdWasAdded);
-    //printf(", addThresholdCount  = %i\n", tQ.addThresholdCount);
     printf("}\n");
 }
 
