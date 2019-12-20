@@ -57,7 +57,7 @@ instance Model TreeState where
         in  over stateBase (updateSceneState frame elapsedTime) state'
     ioTask = return
     constructScene state status =
-        do  let treeScaffold = scafTree (state ^. stateTree)
+        do  let treeScaffold = undefined -- scafTree (state ^. stateTree)
             testScene <- scaffoldToSTree treeScaffold
             statusTree <- (^?! unGlyph) <$> statusDisplay (state ^. stateBase) "Test Paragraph" (lines status)
             let tree = transformFromState (state ^. stateBase) testScene

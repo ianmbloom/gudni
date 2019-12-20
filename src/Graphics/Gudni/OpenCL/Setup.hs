@@ -46,8 +46,9 @@ cppDefines :: RasterSpec -> [CppDefinition]
 cppDefines spec =
   [Cpp "STOCHASTIC_FACTOR"                 (CppFloat sTOCHASTICfACTOR                )
   ,Cpp "RANDOMFIELDSIZE"                   (CppInt   rANDOMFIELDsIZE                 )
-  ,Cpp "MAXTHRESHOLDS"                     (CppInt   $ spec ^. specMaxThresholds   )
-  ,Cpp "MAXSHAPE"                          (CppInt   $ spec ^. specMaxShapes       )
+  ,Cpp "MAXTHRESHOLDS"                     (CppInt   $ spec ^. specMaxThresholds     )
+  ,Cpp "MAXSHAPE"                          (CppInt   $ spec ^. specMaxShapes         )
+  ,Cpp "SHAPESTACKSECTIONS"                (CppInt   $ sHAPEsTACKsECTIONS            )
   ,Cpp "SHAPETAG_SUBSTANCETYPE_BITMASK"    (CppHex64 sHAPETAGsUBSTANCEtYPEbITmASK    )
   ,Cpp "SHAPETAG_SUBSTANCETYPE_SOLIDCOLOR" (CppHex64 sHAPETAGsUBSTANCEtYPEsOLIDcOLOR )
   ,Cpp "SHAPETAG_SUBSTANCETYPE_PICTURE"    (CppHex64 sHAPETAGsUBSTANCEtYPEpICTURE    )
@@ -58,7 +59,7 @@ cppDefines spec =
   ,Cpp "SHAPETAG_COMPOUNDTYPE_SUBTRACT"    (CppHex64 sHAPETAGcOMPOUNDtYPEsUBTRACT    )
   ,Cpp "SHAPETAG_COMPOUNDTYPE_SHIFT"       (CppInt   sHAPETAGcOMPOUNDtYPEsHIFT       )
   ,Cpp "SHAPETAG_SUBSTANCEID_BITMASK"      (CppHex64 sHAPETAGsUBSTANCEIDbITMASK      )
-  ,Cpp "DEBUG_OUTPUT"                      (CppNothing) -- uncomment this to turn on simple debugging output
+  --,Cpp "DEBUG_OUTPUT"                      (CppNothing) -- uncomment this to turn on simple debugging output
   --,Cpp "DEBUG_TRACE"                       (CppNothing) -- uncomment this to turn on parsable debugging output
   ]
 
@@ -133,11 +134,12 @@ setupOpenCL enableProfiling useCLGLInterop src =
               program <- loadProgramWOptions options state modifiedSrc
               putStrLn $ "Finished OpenCL kernel compile"
               -- get the rasterizer kernel.
-              rasterKernel <- program "multiTileRaster"
-
+              generateThresholdsKernel <- program "generateThresholds"
+              renderThresholdsKernel   <- program "renderThresholds"
               -- Return a Library constructor with relevant information about the device for the rasterizer.
               return Rasterizer { _rasterClState  = state
-                                , _rasterClKernel = rasterKernel
+                                , _rasterGenerateThresholdsKernel = generateThresholdsKernel
+                                , _rasterRenderThresholdsKernel   = renderThresholdsKernel
                                 , _rasterUseGLInterop = useCLGLInterop
                                 , _rasterSpec = rasterSpec
                                 }

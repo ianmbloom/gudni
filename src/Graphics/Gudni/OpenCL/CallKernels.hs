@@ -85,15 +85,22 @@ data RasterParams token = RasterParams
 makeLenses ''RasterParams
 
 -- | Generate an call the rasterizer kernel. Polymorphic over the DrawTarget type.
-generateCall  :: (KernelArgs
-                 'KernelSync
-                 'NoWorkGroups
-                 'UnknownWorkItems
-                 'Z
-                 (a
-                 -> NumWorkItems
-                 -> WorkGroup
-                 -> CL ())
+generateCall  :: forall a b token .
+                 (  KernelArgs
+                   'KernelSync
+                   'NoWorkGroups
+                   'UnknownWorkItems
+                   'Z
+                   (a
+                   -> NumWorkItems
+                   -> WorkGroup
+                   -> CL ())
+                -- , KernelArgs
+                --  'KernelSync
+                --  'HasWorkGroups
+                --  'KnownWorkItems
+                --  'Z
+                --  (CL b)
                  , Show a, Show token
                  )
               => RasterParams token
@@ -114,12 +121,31 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
           computeDepth = adjustedLog threadsPerTile :: CInt
       --liftIO $ outputGeometryState (params ^. rpGeometryState)
       --liftIO $ outputSubstanceState(params ^. rpSubstanceState)
-      thresholdBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdBuffer" $ columnsToAlloc * maxThresholds) :: CL (CLBuffer THRESHOLDTYPE))
-      headerBuffer    <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize headerBuffer   " $ columnsToAlloc * maxThresholds) :: CL (CLBuffer HEADERTYPE   ))
-      runKernel (params ^. rpDevice . rasterClKernel)
+      thresholdBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdBuffer " $ columnsToAlloc * maxThresholds) :: CL (CLBuffer THRESHOLDTYPE))
+      headerBuffer    <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize headerBuffer    " $ columnsToAlloc * maxThresholds) :: CL (CLBuffer HEADERTYPE   ))
+      shapeStateBuffer<- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize shapeStateBuffer" $ columnsToAlloc * tr "sIZEoFsHAPEsTATE" sIZEoFsHAPEsTATE) :: CL (CLBuffer CChar))
+      thresholdQueueSliceBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdQueueBuffer" $ columnsToAlloc * 2) :: CL (CLBuffer (Slice Int)))
+      liftIO $ putStrLn ("rasterGenerateThresholdsKernel");
+      runKernel (params ^. rpDevice . rasterGenerateThresholdsKernel)
+               (bicGeoBuffer  bic) -- (params ^. rpGeometryState  . geoGeometryPile)
+               (job    ^. rJShapePile)
+               (job    ^. rJTilePile)
+               bitmapSize
+               computeDepth
+               frameCount
+               jobIndex
+               thresholdBuffer
+               headerBuffer
+               shapeStateBuffer
+               thresholdQueueSliceBuffer
+               (Work2D numTiles (fromIntegral threadsPerTile))
+               (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
+      liftIO $ putStrLn ("rasterRenderThresholdsKernel");
+      runKernel (params ^. rpDevice . rasterRenderThresholdsKernel)
                 thresholdBuffer
                 headerBuffer
-                (bicGeoBuffer  bic) -- (params ^. rpGeometryState  . geoGeometryPile)
+                shapeStateBuffer
+                thresholdQueueSliceBuffer
                 (bicSubBuffer  bic) -- (params ^. rpSubstanceState . suSubstancePile)
                 (bicPictBuffer bic) -- (params ^. rpPictData)
                 (bicPictUsage  bic) -- (params ^. rpSubstanceState . suPictureUsages)
@@ -133,7 +159,7 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
                 jobIndex
                 target
                 (Work2D numTiles (fromIntegral threadsPerTile))
-                (WorkGroup [1, fromIntegral threadsPerTile])
+                (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
 
 -- | Rasterize a rasterJob inside the CLMonad
 raster :: Show token

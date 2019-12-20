@@ -238,7 +238,7 @@ drawFrame frameCount scene =
         appMessage "===================== rasterStart ====================="
         jobs <- lift $ buildRasterJobs rasterParams
         markAppTime "Build Raster Jobs"
-        lift $ queueRasterJobs frameCount rasterParams (tr "jobs" jobs)
+        lift $ queueRasterJobs frameCount rasterParams jobs
         appMessage "===================== rasterDone ====================="
         markAppTime "Rasterize Threads"
         lift resetGeometryMonad

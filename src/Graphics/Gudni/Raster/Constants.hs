@@ -20,6 +20,8 @@ module Graphics.Gudni.Raster.Constants
     , mINtILEsIZE
     , mAXsECTIONsIZE
     , mAXsHAPE
+    , sIZEoFsHAPEsTATE
+    , sHAPEsTACKsECTIONS
     , rANDOMFIELDsIZE
     , sOURCEfILEpADDING
     , iNITgEOMETRYpILEsIZE
@@ -45,10 +47,21 @@ import Linear.V4
 type THRESHOLDTYPE = V4 CFloat
 type HEADERTYPE    = CUInt
 
+sIZEoFsHAPEbIT     = 4 :: Int -- sizof(uint)
+sHAPEsTACKsECTIONS = 8 :: Int
+sIZEoFsUBSTANCEiD  = 8 :: Int --sizeof(ulong)
+sIZEoFsHAPEsTACKsECTION = 8 :: Int -- sizeof(ulong)
 sTOCHASTICfACTOR = 0.3 :: Float -- relative amount of variability in an edge.
 mAXsHAPEbITS     = 511 :: Int -- total number of shapes per build based on the number of bits in the stack must be one less than the number of bits available.
 sHAPElIMIT       = 127 :: Int -- a hard limit on the number of shapes based on the empirical testing of the timeout period of the GPU.
+
 mAXsHAPE         = min mAXsHAPEbITS sHAPElIMIT
+
+sIZEoFsHAPEsTATE = mAXsHAPE * sIZEoFsUBSTANCEiD + --
+                   sHAPEsTACKsECTIONS * sIZEoFsHAPEsTACKsECTION +
+                   sIZEoFsHAPEbIT +
+                   4 -- padding
+
 mAXtILEsIZE      = Point2 512 512 :: Point2 PixelSpace
 mINtILEsIZE      = Point2 8  8  :: Point2 PixelSpace
 mAXsECTIONsIZE   = 32   :: Int

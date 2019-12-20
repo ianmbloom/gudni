@@ -21,7 +21,8 @@ module Graphics.Gudni.OpenCL.Rasterizer
   , specMaxShapes
   , Rasterizer(..)
   , rasterClState
-  , rasterClKernel
+  , rasterGenerateThresholdsKernel
+  , rasterRenderThresholdsKernel  
   , rasterUseGLInterop
   , rasterSpec
   )
@@ -51,8 +52,9 @@ makeLenses ''RasterSpec
 data Rasterizer = Rasterizer
   { -- | The OpenCL state
     _rasterClState :: OpenCLState
-    -- | The main rasterizer kernel.
-  , _rasterClKernel :: CLKernel
+    -- | The rasterizer kernels.
+  , _rasterGenerateThresholdsKernel :: CLKernel
+  , _rasterRenderThresholdsKernel   :: CLKernel
     -- | Flag for if OpenCL-OpenGL interop should be used to render the drawing target.
   , _rasterUseGLInterop :: Bool
   , _rasterSpec :: RasterSpec
