@@ -22,7 +22,8 @@ module Graphics.Gudni.OpenCL.Rasterizer
   , Rasterizer(..)
   , rasterClState
   , rasterGenerateThresholdsKernel
-  , rasterRenderThresholdsKernel  
+  , rasterSortThresholdsKernel
+  , rasterRenderThresholdsKernel
   , rasterUseGLInterop
   , rasterSpec
   )
@@ -54,6 +55,7 @@ data Rasterizer = Rasterizer
     _rasterClState :: OpenCLState
     -- | The rasterizer kernels.
   , _rasterGenerateThresholdsKernel :: CLKernel
+  , _rasterSortThresholdsKernel     :: CLKernel
   , _rasterRenderThresholdsKernel   :: CLKernel
     -- | Flag for if OpenCL-OpenGL interop should be used to render the drawing target.
   , _rasterUseGLInterop :: Bool

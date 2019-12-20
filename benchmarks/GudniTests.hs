@@ -44,8 +44,8 @@ makeLenses ''BenchmarkState
 initialModel pictureMap =
     BenchmarkState
     { _stateBase = BasicSceneState
-        { _stateScale       = 1.777
-        , _stateDelta       = Point2 (-1.7) 0
+        { _stateScale       = 1
+        , _stateDelta       = Point2 (-7.4) 0.1
         , _stateAngle       = 0 @@ deg -- 0.02094 @@ rad -- 0 @@ turn-- quarterTurn
         , _statePaused      = True
         , _stateSpeed       = 0.1
@@ -59,7 +59,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 10
+    , _stateCurrentTest = 4
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
@@ -258,9 +258,7 @@ simpleKnob state = return $
 hourGlass :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 hourGlass state = return $
   let step = fromIntegral $ state ^. stateBase . stateStep
-  in    tTranslateXY 0 0 .
-        tTranslateXY 0.5 0.52 .
-        tScale 8 .
+  in    tScale 8 .
         solid (transparent 1.0 (dark $ dark gray)) .
         fromSegments $
         [ straight 0 0

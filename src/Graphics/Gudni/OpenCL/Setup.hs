@@ -77,12 +77,12 @@ determineRasterSpec device =
       globalMemSize <- clGetDeviceGlobalMemSize         device
       maxMemAllocSize <- clGetDeviceMaxMemAllocSize     device
       -- The maximum number of threads that each tile can store is the maximum allocation size
-      let maxThresholds = fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize ^ 2) * sizeOf (undefined :: THRESHOLDTYPE))
+      let maxThresholds = fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize ^ 2) * 2 * sizeOf (undefined :: THRESHOLDTYPE))
       return RasterSpec { _specMaxTileSize     = fromIntegral maxGroupSize
                         , _specThreadsPerTile  = fromIntegral maxGroupSize
                         , _specMaxTilesPerCall = fromIntegral maxGroupSize
                         , _specMaxThresholds   = tr "maxThresholds" $ maxThresholds
-                        , _specMaxStrandsPerTile = tr "maxStrandsPerTile" $ maxThresholds
+                        , _specMaxStrandsPerTile = tr "maxStrandsPerTile" $ maxThresholds `div` 4
                         , _specMaxShapes       = mAXsHAPE
                         }
 
@@ -135,10 +135,12 @@ setupOpenCL enableProfiling useCLGLInterop src =
               putStrLn $ "Finished OpenCL kernel compile"
               -- get the rasterizer kernel.
               generateThresholdsKernel <- program "generateThresholds"
+              sortThresholdsKernel     <- program "sortThresholds"
               renderThresholdsKernel   <- program "renderThresholds"
               -- Return a Library constructor with relevant information about the device for the rasterizer.
               return Rasterizer { _rasterClState  = state
                                 , _rasterGenerateThresholdsKernel = generateThresholdsKernel
+                                , _rasterSortThresholdsKernel     = sortThresholdsKernel
                                 , _rasterRenderThresholdsKernel   = renderThresholdsKernel
                                 , _rasterUseGLInterop = useCLGLInterop
                                 , _rasterSpec = rasterSpec

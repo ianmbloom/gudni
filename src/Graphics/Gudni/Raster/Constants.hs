@@ -51,7 +51,7 @@ sIZEoFsHAPEbIT     = 4 :: Int -- sizof(uint)
 sHAPEsTACKsECTIONS = 8 :: Int
 sIZEoFsUBSTANCEiD  = 8 :: Int --sizeof(ulong)
 sIZEoFsHAPEsTACKsECTION = 8 :: Int -- sizeof(ulong)
-sTOCHASTICfACTOR = 0.3 :: Float -- relative amount of variability in an edge.
+sTOCHASTICfACTOR = 0.0 :: Float -- relative amount of variability in an edge.
 mAXsHAPEbITS     = 511 :: Int -- total number of shapes per build based on the number of bits in the stack must be one less than the number of bits available.
 sHAPElIMIT       = 127 :: Int -- a hard limit on the number of shapes based on the empirical testing of the timeout period of the GPU.
 

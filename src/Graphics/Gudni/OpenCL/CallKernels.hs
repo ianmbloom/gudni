@@ -125,22 +125,34 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
       headerBuffer    <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize headerBuffer    " $ columnsToAlloc * maxThresholds) :: CL (CLBuffer HEADERTYPE   ))
       shapeStateBuffer<- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize shapeStateBuffer" $ columnsToAlloc * tr "sIZEoFsHAPEsTATE" sIZEoFsHAPEsTATE) :: CL (CLBuffer CChar))
       thresholdQueueSliceBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdQueueBuffer" $ columnsToAlloc * 2) :: CL (CLBuffer (Slice Int)))
-      liftIO $ putStrLn ("rasterGenerateThresholdsKernel");
+      liftIO $ putStrLn ("rasterGenerateThresholdsKernel XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
       runKernel (params ^. rpDevice . rasterGenerateThresholdsKernel)
-               (bicGeoBuffer  bic) -- (params ^. rpGeometryState  . geoGeometryPile)
-               (job    ^. rJShapePile)
-               (job    ^. rJTilePile)
-               bitmapSize
-               computeDepth
-               frameCount
-               jobIndex
-               thresholdBuffer
-               headerBuffer
-               shapeStateBuffer
-               thresholdQueueSliceBuffer
-               (Work2D numTiles (fromIntegral threadsPerTile))
-               (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
-      liftIO $ putStrLn ("rasterRenderThresholdsKernel");
+                (bicGeoBuffer  bic) -- (params ^. rpGeometryState  . geoGeometryPile)
+                (job    ^. rJShapePile)
+                (job    ^. rJTilePile)
+                bitmapSize
+                computeDepth
+                frameCount
+                jobIndex
+                thresholdBuffer
+                headerBuffer
+                shapeStateBuffer
+                thresholdQueueSliceBuffer
+                (Work2D numTiles (fromIntegral threadsPerTile))
+                (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
+      liftIO $ putStrLn ("sortThresholdsKernel           XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
+      runKernel (params ^. rpDevice . rasterSortThresholdsKernel)
+                thresholdBuffer
+                headerBuffer
+                thresholdQueueSliceBuffer
+                (job     ^. rJTilePile)
+                bitmapSize
+                computeDepth
+                frameCount
+                jobIndex
+                (Work2D numTiles (fromIntegral threadsPerTile))
+                (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
+      liftIO $ putStrLn ("rasterRenderThresholdsKernel XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
       runKernel (params ^. rpDevice . rasterRenderThresholdsKernel)
                 thresholdBuffer
                 headerBuffer
