@@ -660,7 +660,7 @@ void initRandomField( ParseState *pS
 
 float getRandom(ParseState *pS);
 
-Slice initQueueSlice();
+inline Slice initQueueSlice();
 
 void initThresholdQueue( PMEM ThresholdQueue  *tQ
                        , PMEM       TileState *tileS
@@ -1547,7 +1547,7 @@ void buildThresholdArray ( PMEM       TileState *tileS
                          ,               float2  threadDelta
                          ) {
     bool thresholdWasAdded;
-    for (GEO_ENTRY n = 0; n < numShapes) && shS->shapeBits < MAXSHAPE; n++) { // iterate over every shape in the current shape.
+    for (GEO_ENTRY n = 0; n < numShapes && shS->shapeBits < MAXSHAPE; n++) { // iterate over every shape in the current shape.
         GEO_ENTRY shapeIndex = shapeStart + n;
         thresholdWasAdded = false;
         Shape shape = shapeHeap[shapeIndex]; // get the current shape.
@@ -1612,7 +1612,7 @@ float getRandom(ParseState *pS) {
     return random;
 }
 
-Slice initQueueSlice() {
+inline Slice initQueueSlice() {
     Slice qSlice;
     qSlice.sStart  = MAXTHRESHOLDS;
     qSlice.sLength = 0;

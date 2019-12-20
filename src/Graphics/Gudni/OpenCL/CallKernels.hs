@@ -172,6 +172,11 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
                 target
                 (Work2D numTiles (fromIntegral threadsPerTile))
                 (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
+      liftIO $ clReleaseMemObject . bufferObject $ thresholdBuffer
+      liftIO $ clReleaseMemObject . bufferObject $ headerBuffer
+      liftIO $ clReleaseMemObject . bufferObject $ shapeStateBuffer
+      liftIO $ clReleaseMemObject . bufferObject $ thresholdQueueSliceBuffer
+      return ()
 
 -- | Rasterize a rasterJob inside the CLMonad
 raster :: Show token
