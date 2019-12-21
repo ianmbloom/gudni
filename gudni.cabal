@@ -56,6 +56,7 @@ flag trace
 library
   -- Modules exported by the library.
   exposed-modules:     Graphics.Gudni.Application
+                     , Graphics.Gudni.Interface.BasicSceneState
                      , Graphics.Gudni.Figure.ShapeTree
                      , Graphics.Gudni.Figure
                      , Graphics.Gudni.Figure.Bezier
@@ -65,6 +66,7 @@ library
                      , Graphics.Gudni.Util.Plot
                      , Graphics.Gudni.OpenCL.DeviceQuery
                      , Graphics.Gudni.Layout
+                     , Graphics.Gudni.Figure.Angle
 
   -- Modules included in this library but not exported.
   other-modules:       Graphics.Gudni.Figure.HasDefault
@@ -73,7 +75,6 @@ library
                      , Graphics.Gudni.Figure.OpenCurve
                      , Graphics.Gudni.Figure.Outline
                      , Graphics.Gudni.Figure.Point
-                     , Graphics.Gudni.Figure.Angle
                      , Graphics.Gudni.Figure.Segment
                      , Graphics.Gudni.Figure.Space
                      , Graphics.Gudni.Figure.Transformer
@@ -84,6 +85,7 @@ library
                      , Graphics.Gudni.Interface.InterfaceSDL
                      , Graphics.Gudni.Interface.GLInterop
                      , Graphics.Gudni.Interface.ScreenMode
+                     , Graphics.Gudni.Interface.Time
                      , Graphics.Gudni.Raster.Constants
                      , Graphics.Gudni.OpenCL.Setup
                      , Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
@@ -105,8 +107,10 @@ library
                      , Graphics.Gudni.Layout.Glyph
                      , Graphics.Gudni.Layout.Draw
                      , Graphics.Gudni.Layout.Grid
+                     , Graphics.Gudni.Layout.Adjacent
                      , Graphics.Gudni.Layout.Font
                      , Graphics.Gudni.Layout.Scaffolding
+                     , Graphics.Gudni.Layout.Text
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util
                      , Graphics.Gudni.Util.Pile
@@ -182,6 +186,7 @@ library
                      , JuicyPixels
                      , colour
                      , monadlist
+                     , IfElse
 
 
   -- Directories containing source files.
@@ -201,11 +206,11 @@ executable gudni-benchmarks
                    , lens
                    , vector
                    , mtl
-                   , IfElse
                    , MonadRandom >=0.5 && <0.6
                    , random >=1.1 && <1.2
                    , JuicyPixels
                    , silently
+                   , IfElse
   else
     buildable: False
   hs-source-dirs: ./benchmarks
@@ -223,11 +228,11 @@ executable gudni-trace-visualizer
                    , base
                    , lens
                    , mtl
-                   , IfElse
                    , MonadRandom >=0.5 && <0.6
                    , random >=1.1 && <1.2
                    , JuicyPixels
                    , silently
+                   , IfElse
   else
     buildable: False
   hs-source-dirs: ./trace
@@ -280,7 +285,6 @@ executable plot-example
                    , lens
                    , vector
                    , mtl
-                   , IfElse
   else
     buildable: False
   hs-source-dirs: ./examples
@@ -300,11 +304,29 @@ executable paragraph-example
                    , lens
                    , vector
                    , mtl
-                   , IfElse
   else
     buildable: False
   hs-source-dirs: ./examples
   main-is: Paragraph.hs
+  default-language: Haskell2010
+  ghc-options: -main-is Paragraph
+               -O3
+               -threaded
+               -- -fprof-auto
+               -- "-with-rtsopts=-N -p -s -h -i0.1"
+
+executable tree-example
+   -- other-modules:
+  if flag(benchmarks)
+    build-depends:   gudni
+                   , base
+                   , lens
+                   , vector
+                   , mtl
+  else
+    buildable: False
+  hs-source-dirs: ./examples
+  main-is: ScaffoldTree.hs
   default-language: Haskell2010
   ghc-options: -main-is Paragraph
                -O3

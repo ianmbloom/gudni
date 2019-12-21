@@ -14,12 +14,9 @@
 
 module Graphics.Gudni.Interface.Input
   ( InputDetection (..)
-  , InputArrow (..)
   , InputCommand (..)
   , InputKeyboard (..)
-  , InputLetter (..)
-  , InputSymbol (..)
-  , InputNumber (..)
+  , InputKey (..)
   , InputWindow (..)
   , InputModifier (..)
   , Input (..)
@@ -29,11 +26,14 @@ module Graphics.Gudni.Interface.Input
   , keyModShift
   , keyModSys
   , noModifier
+  , HandlesInput (..)
   )
 where
 
 import Graphics.Gudni.Figure
 import Control.Lens
+import Control.Monad.State
+
 
 -- | Window Events
 data InputWindow
@@ -47,9 +47,6 @@ data InputWindow
 
 -- | Types of mouse input.
 data InputDetection = Pressed | Released | Motion deriving (Eq, Show)
-
--- | Keyboard Arrows
-data InputArrow = ArrowUp | ArrowDown | ArrowLeft | ArrowRight deriving (Eq, Show)
 
 -- | Keyboard Modifiers
 data InputKeyModifier = KeyModifier
@@ -68,17 +65,14 @@ isShift _ = False
 
 -- | Categories for different types of keyboard input.
 data InputKeyboard
-  = KeyLetter InputLetter
-  | KeyNumber InputNumber
-  | KeySymbol InputSymbol
-  | KeyArrow InputArrow
+  = Key InputKey
   | KeyCommand InputCommand
   | KeyMod InputModifier
   | KeyUnsupported
   deriving (Eq, Show)
 
--- | Letter keys
-data InputLetter
+
+data InputKey
   = LetterA
   | LetterB
   | LetterC
@@ -105,11 +99,7 @@ data InputLetter
   | LetterX
   | LetterY
   | LetterZ
-  deriving (Eq, Show)
-
--- | Number keys
-data InputNumber
-  = Number0
+  | Number0
   | Number1
   | Number2
   | Number3
@@ -119,11 +109,7 @@ data InputNumber
   | Number7
   | Number8
   | Number9
-  deriving (Eq, Show)
-
--- | Symbol Keys
-data InputSymbol
-  = SymbolPlus
+  | SymbolPlus
   | SymbolMinus
   | SymbolComma
   | SymbolPeriod
@@ -155,6 +141,10 @@ data InputSymbol
   | SymbolUnderscore
   | SymbolBackquote
   | SymbolBar
+  | ArrowUp
+  | ArrowDown
+  | ArrowLeft
+  | ArrowRight
   deriving (Eq, Show)
 
 -- | Keyboard Modifiers
@@ -203,7 +193,7 @@ inputToString input =
   case input of
     InputKey _ modifier keyboard ->
       case keyboard of
-        KeyLetter letter ->
+        Key letter ->
           if isShift modifier
           then
              case letter of
@@ -233,6 +223,48 @@ inputToString input =
                LetterX -> "X"
                LetterY -> "Y"
                LetterZ -> "Z"
+               Number0 -> ")"
+               Number1 -> "!"
+               Number2 -> "@"
+               Number3 -> "#"
+               Number4 -> "$"
+               Number5 -> "%"
+               Number6 -> "^"
+               Number7 -> "&"
+               Number8 -> "*"
+               Number9 -> "("
+               SymbolPlus         -> "+"
+               SymbolMinus        -> "_"
+               SymbolComma        -> "<"
+               SymbolPeriod       -> ">"
+               SymbolQuote        -> "\""
+               SymbolSlash        -> "?"
+               SymbolBackSlash    -> "|"
+               SymbolTilde        -> "~"
+               SymbolEqual        -> "+"
+               SymbolDash         -> "_"
+               SymbolSpace        -> " "
+               SymbolLeftBracket  -> "{"
+               SymbolRightBracket -> "}"
+               SymbolExclaim      -> "!"
+               SymbolQuoteDbl     -> "\""
+               SymbolHash         -> "#"
+               SymbolPercent      -> "%"
+               SymbolDollar       -> "$"
+               SymbolAmpersand    -> "@"
+               SymbolLeftParen    -> "("
+               SymbolRightParen   -> ")"
+               SymbolAsterisk     -> "*"
+               SymbolColon        -> ":"
+               SymbolSemiColon    -> ";"
+               SymbolLess         -> "<"
+               SymbolGreater      -> ">"
+               SymbolQuestion     -> "?"
+               SymbolAt           -> "@"
+               SymbolCaret        -> "^"
+               SymbolUnderscore   -> "_"
+               SymbolBackquote    -> "`"
+               SymbolBar          -> "|"
           else
              case letter of
                LetterA -> "a"
@@ -261,99 +293,49 @@ inputToString input =
                LetterX -> "x"
                LetterY -> "y"
                LetterZ -> "z"
-        KeyNumber number ->
-          if isShift modifier
-          then
-            case number of
-              Number0 -> ")"
-              Number1 -> "!"
-              Number2 -> "@"
-              Number3 -> "#"
-              Number4 -> "$"
-              Number5 -> "%"
-              Number6 -> "^"
-              Number7 -> "&"
-              Number8 -> "*"
-              Number9 -> "("
-          else
-            case number of
-              Number0 -> "0"
-              Number1 -> "1"
-              Number2 -> "2"
-              Number3 -> "3"
-              Number4 -> "4"
-              Number5 -> "5"
-              Number6 -> "6"
-              Number7 -> "7"
-              Number8 -> "8"
-              Number9 -> "9"
-        KeySymbol symbol ->
-            if isShift modifier
-            then
-              case symbol of
-                SymbolPlus         -> "+"
-                SymbolMinus        -> "_"
-                SymbolComma        -> "<"
-                SymbolPeriod       -> ">"
-                SymbolQuote        -> "\""
-                SymbolSlash        -> "?"
-                SymbolBackSlash    -> "|"
-                SymbolTilde        -> "~"
-                SymbolEqual        -> "+"
-                SymbolDash         -> "_"
-                SymbolSpace        -> " "
-                SymbolLeftBracket  -> "{"
-                SymbolRightBracket -> "}"
-                SymbolExclaim      -> "!"
-                SymbolQuoteDbl     -> "\""
-                SymbolHash         -> "#"
-                SymbolPercent      -> "%"
-                SymbolDollar       -> "$"
-                SymbolAmpersand    -> "@"
-                SymbolLeftParen    -> "("
-                SymbolRightParen   -> ")"
-                SymbolAsterisk     -> "*"
-                SymbolColon        -> ":"
-                SymbolSemiColon    -> ";"
-                SymbolLess         -> "<"
-                SymbolGreater      -> ">"
-                SymbolQuestion     -> "?"
-                SymbolAt           -> "@"
-                SymbolCaret        -> "^"
-                SymbolUnderscore   -> "_"
-                SymbolBackquote    -> "`"
-                SymbolBar          -> "|"
-            else
-                case symbol of
-                  SymbolPlus         -> "+"
-                  SymbolMinus        -> "-"
-                  SymbolComma        -> ","
-                  SymbolPeriod       -> "."
-                  SymbolQuote        -> "'"
-                  SymbolSlash        -> "/"
-                  SymbolBackSlash    -> "\\"
-                  SymbolTilde        -> "~"
-                  SymbolEqual        -> "="
-                  SymbolDash         -> "-"
-                  SymbolSpace        -> " "
-                  SymbolLeftBracket  -> "["
-                  SymbolRightBracket -> "]"
-                  SymbolExclaim      -> "!"
-                  SymbolQuoteDbl     -> "\""
-                  SymbolHash         -> "#"
-                  SymbolPercent      -> "%"
-                  SymbolDollar       -> "$"
-                  SymbolAmpersand    -> "@"
-                  SymbolLeftParen    -> "("
-                  SymbolRightParen   -> ")"
-                  SymbolAsterisk     -> "*"
-                  SymbolColon        -> ":"
-                  SymbolSemiColon    -> ";"
-                  SymbolLess         -> "<"
-                  SymbolGreater      -> ">"
-                  SymbolQuestion     -> "?"
-                  SymbolAt           -> "@"
-                  SymbolCaret        -> "^"
-                  SymbolUnderscore   -> "_"
-                  SymbolBackquote    -> "`"
-                  SymbolBar          -> "|"
+               Number0 -> "0"
+               Number1 -> "1"
+               Number2 -> "2"
+               Number3 -> "3"
+               Number4 -> "4"
+               Number5 -> "5"
+               Number6 -> "6"
+               Number7 -> "7"
+               Number8 -> "8"
+               Number9 -> "9"
+               SymbolPlus         -> "+"
+               SymbolMinus        -> "-"
+               SymbolComma        -> ","
+               SymbolPeriod       -> "."
+               SymbolQuote        -> "'"
+               SymbolSlash        -> "/"
+               SymbolBackSlash    -> "\\"
+               SymbolTilde        -> "~"
+               SymbolEqual        -> "="
+               SymbolDash         -> "-"
+               SymbolSpace        -> " "
+               SymbolLeftBracket  -> "["
+               SymbolRightBracket -> "]"
+               SymbolExclaim      -> "!"
+               SymbolQuoteDbl     -> "\""
+               SymbolHash         -> "#"
+               SymbolPercent      -> "%"
+               SymbolDollar       -> "$"
+               SymbolAmpersand    -> "@"
+               SymbolLeftParen    -> "("
+               SymbolRightParen   -> ")"
+               SymbolAsterisk     -> "*"
+               SymbolColon        -> ":"
+               SymbolSemiColon    -> ";"
+               SymbolLess         -> "<"
+               SymbolGreater      -> ">"
+               SymbolQuestion     -> "?"
+               SymbolAt           -> "@"
+               SymbolCaret        -> "^"
+               SymbolUnderscore   -> "_"
+               SymbolBackquote    -> "`"
+               SymbolBar          -> "|"
+
+class HandlesInput s where
+    -- | Do something with incoming input before updating
+    processInput :: Input (Point2 PixelSpace) -> s -> s

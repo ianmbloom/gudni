@@ -2,26 +2,18 @@
 module GudniTests
  ( BenchmarkState(..)
  , initialModel
- , stateScale
- , stateDelta
- , stateAngle
- , statePaused
- , stateSpeed
- , statePace
- , stateLastTime
- , stateDirection
- , statePlayhead
+ , stateBase
  , stateCursor
  , statePictureMap
  , stateTests
  , stateCurrentTest
- , stateStep
  , stateFrameNumber
  , testList
  )
 where
 
 import Graphics.Gudni.Interface
+import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
 
@@ -41,41 +33,33 @@ import Control.Monad.Random
 import System.Random
 
 data BenchmarkState = BenchmarkState
-  { _stateScale       :: SubSpace
-  , _stateDelta       :: Point2 SubSpace
-  , _stateAngle       :: Angle  SubSpace
-  , _statePaused      :: Bool
-  , _stateSpeed       :: SubSpace
-  , _statePace        :: SubSpace
-  , _stateLastTime    :: SimpleTime
-  , _stateDirection   :: Bool
-  , _statePlayhead    :: SubSpace
+  { _stateBase        :: BasicSceneState
   , _stateCursor      :: Point2 PixelSpace
   , _statePictureMap  :: PictureMap
   , _stateTests       :: [(String, BenchmarkState -> FontMonad IO (ShapeTree Int SubSpace))]
   , _stateCurrentTest :: Int
-  , _stateStep        :: Int
-  , _stateFrameNumber :: Int
   }
 makeLenses ''BenchmarkState
 
 initialModel pictureMap =
     BenchmarkState
-    { _stateScale       = 1
-    , _stateDelta       = Point2 0 0
-    , _stateAngle       = 0 @@ deg -- 0.02094 @@ rad -- 0 @@ turn-- quarterTurn
-    , _statePaused      = True
-    , _stateSpeed       = 0.1
-    , _statePace        = 0.1
-    , _stateLastTime    = 0
-    , _stateDirection   = True
-    , _statePlayhead    = 0
+    { _stateBase = BasicSceneState
+        { _stateScale       = 1
+        , _stateDelta       = Point2 (-7.4) 0.1
+        , _stateAngle       = 0 @@ deg -- 0.02094 @@ rad -- 0 @@ turn-- quarterTurn
+        , _statePaused      = True
+        , _stateSpeed       = 0.1
+        , _statePace        = 0.1
+        , _stateLastTime    = 0
+        , _stateDirection   = True
+        , _statePlayhead    = 0
+        , _stateFrameNumber = 0
+        , _stateStep        = 69
+        }
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 12
-    , _stateStep        = 69
-    , _stateFrameNumber = 0
+    , _stateCurrentTest = 4
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
@@ -132,7 +116,7 @@ maxShapeTest ::  Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpac
 maxShapeTest state =
     return .
     overlap .
-    makeGrid 1 1 (state ^. stateStep + 2000 + 1) .
+    makeGrid 1 1 (state ^. stateBase . stateStep + 2000 + 1) .
     concat .
     repeat $
         [ solid (transparent 1.0 (pureRed    )) $ rectangle (Point2 10000 1)
@@ -143,82 +127,82 @@ maxShapeTest state =
 -- | A fuzz test of random curves where the random points are all within a donut shape.
 fuzzyDonut :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyDonut state = return $
-               let time = view stateLastTime state
+               let time = view (stateBase . stateLastTime) state
                in  tTranslateXY 500 500 .
-                   overlap $ evalRand (sequence . replicate 16 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   overlap $ evalRand (sequence . replicate 16 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 -- | A basic fuzz test of random curves contained in a rectagular area.
 fuzzyBasic :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyBasic state = return $
-               let time = view stateLastTime state
+               let time = view (stateBase . stateLastTime) state
                in  tTranslateXY (100) (100) .
                    overlap $
-                   evalRand (sequence . replicate 16 $ fuzzyCurve (makePoint 1440 900) 10) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   evalRand (sequence . replicate 16 $ fuzzyCurve (makePoint 1440 900) 10) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 -- | A random field of transparent circles.
 fuzzyCircles :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyCircles state = return $
-               let time = view stateLastTime state
+               let time = view (stateBase . stateLastTime) state
                in  --tTranslateXY (100) (100) .
                    --tScale 0.5 .
                    overlap $
-                   evalRand (sequence . replicate 100000 $ fuzzyCircle (makePoint 5760 3600) 5 50) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
+                   evalRand (sequence . replicate 100000 $ fuzzyCircle (makePoint 5760 3600) 5 50) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
 
 -- | Smaller random field of transparent circles.
 fuzzyCircles2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyCircles2 state = return $
-               let time = view stateLastTime state
+               let time = view (stateBase . stateLastTime) state
                in  tTranslateXY 0 0 .
                    overlap $
-                   evalRand (sequence . replicate (state ^. stateStep) $ fuzzyCircle (makePoint 200 200) 5 10) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
+                   evalRand (sequence . replicate (state ^. stateBase . stateStep) $ fuzzyCircle (makePoint 200 200) 5 10) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
 
 -- | A random field of transparent circles.
 millionFuzzyCircles :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 millionFuzzyCircles state = return $
-               let time = view stateLastTime state
+               let time = view (stateBase . stateLastTime) state
                in  --tTranslateXY (100) (100) .
                    tScale 0.5 .
                    overlap $
-                   evalRand (sequence . replicate 1000000 $ fuzzyCircle (makePoint 5760 3600) 5 10) (mkStdGen $ (round $ state ^. statePlayhead * 2000))
+                   evalRand (sequence . replicate 1000000 $ fuzzyCircle (makePoint 5760 3600) 5 10) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
 
 -- | A random field of transparent squares.
 fuzzySquares :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzySquares state = return $
-               let time = view stateLastTime state
+               let time = view (stateBase . stateLastTime) state
                in  overlap $
-                   evalRand (sequence . replicate 5000 $ fuzzySquare (makePoint 1440 900) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   evalRand (sequence . replicate 5000 $ fuzzySquare (makePoint 1440 900) 10 60) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 -- | Smaller random field of transparent squares.
 fuzzySquares2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzySquares2 state = return $
-               let time = view stateLastTime state
+               let time = view (stateBase . stateLastTime) state
                in  overlap $
-                   evalRand (sequence . replicate 2000 $ fuzzySquare (makePoint 300 300) 10 60) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   evalRand (sequence . replicate 2000 $ fuzzySquare (makePoint 300 300) 10 60) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 fuzzyGlyphs :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyGlyphs state =
   do defaultGlyphs <- V.fromList <$> glyphString ['!'..'z']
      let len = length defaultGlyphs
-     return $  let time = view stateLastTime state
+     return $  let time = view (stateBase . stateLastTime) state
                in  overlap $
-                   evalRand (sequence . replicate 10000 $ fuzzyGlyph defaultGlyphs (makePoint 2880 1800) 10 300) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   evalRand (sequence . replicate 10000 $ fuzzyGlyph defaultGlyphs (makePoint 2880 1800) 10 300) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 fuzzyGlyphs2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyGlyphs2 state =
   do defaultGlyphs <- V.fromList <$> glyphString ['!'..'z']
      let len = length defaultGlyphs
-     return $  let time = view stateLastTime state
+     return $  let time = view (stateBase . stateLastTime) state
                in  tTranslateXY 200 200 .
                    overlap $
-                   evalRand (sequence . replicate 200 $ fuzzyGlyph defaultGlyphs (makePoint 200 200) 10 200) (mkStdGen $ (round $ state ^. statePlayhead * 2000) + (state ^. stateStep))
+                   evalRand (sequence . replicate 200 $ fuzzyGlyph defaultGlyphs (makePoint 200 200) 10 200) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 -- | A grid of rotating glyphs with overlapping subtracted glyphs
 benchmark1 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 benchmark1 state =
     do defaultGlyphs <- glyphString "***O***X" --"ALl WoRk AnD nO pLaY mAkEs JaCk A dUlL bOy" ++ ['a'..'z']++['A'..'Z']++['0'..'9']++"!@#$%^&*()_+-={}[]:;\"'<>,./?\\|"
        subtractorGlyphs <- glyphString "*"
-       let dSize         = state ^. stateScale
-           angle         = normalizeAngle ((((fromIntegral $ state ^. stateStep) / 100) + (state ^. statePlayhead)) @@ turn)
+       let dSize         = state ^. stateBase . stateScale
+           angle         = normalizeAngle ((((fromIntegral $ state ^. stateBase . stateStep) / 100) + (state ^. stateBase . statePlayhead)) @@ turn)
            defaultString = cycle $ defaultGlyphs
            angles        = {-repeat (0 @@ deg) -} map (normalizeAngle . (angle ^+^) . (^*0.5) . (@@ deg) ) [0..]
            textGrid  :: CompoundTree SubSpace
@@ -273,10 +257,8 @@ simpleKnob state = return $
 -- | Test shape for intersecting thresholds.
 hourGlass :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 hourGlass state = return $
-  let step = fromIntegral $ state ^. stateStep
-  in    tTranslateXY 0 0 .
-        tTranslateXY 0.5 0.52 .
-        tScale 8 .
+  let step = fromIntegral $ state ^. stateBase . stateStep
+  in    tScale 8 .
         solid (transparent 1.0 (dark $ dark gray)) .
         fromSegments $
         [ straight 0 0
@@ -326,7 +308,7 @@ openSquareOverlap2 state = return $
 -- | Basic test for shape subtraction and muliple transparency.
 openSquareOverlap3 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 openSquareOverlap3 state = return $
-    let angle = view statePlayhead state @@ turn
+    let angle = view (stateBase . statePlayhead) state @@ turn
     in  tTranslateXY 400 400 .
         tScale 50 $
         overlap [ (tTranslateXY 0 0 . tRotate angle        $ solid (transparent 0.5 blue   ) $ cSubtract (rectangle (Point2 16 16)) (tTranslate (Point2 4 4) $ rectangle (Point2 8 8) ) )
@@ -352,7 +334,7 @@ concentricSquares3 state = return $
 -- | Simple test one glyph.
 simpleGlyph :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 simpleGlyph state =
-     let character = chr $ state ^. stateStep in
+     let character = chr $ state ^. stateBase . stateStep in
      tTranslateXY 0 0 .
      tRotate (6.28248 @@ rad) .
      tScale 20 .
@@ -377,7 +359,7 @@ sixPointRectangle state = return $
 -- | Very tiny square with no rotation. Usually the first thing tested for a new build.
 tinySquare :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 tinySquare state = return $
-        tTranslateXY 0.3 0.3 .
+        tTranslateXY 0.1 0.1 .
         solid red $
         rectangle (Point2 2 2)
 
@@ -434,16 +416,6 @@ subtractDiamond state = return .
 instance Show BenchmarkState where
   show state =
      "BenchmarkState { " ++
-     show (state ^. stateScale      ) ++ ", " ++
-     show (state ^. stateDelta      ) ++ ", " ++
-     show (state ^. stateAngle      ) ++ ", " ++
-     show (state ^. statePaused     ) ++ ", " ++
-     show (state ^. stateSpeed      ) ++ ", " ++
-     show (state ^. statePace       ) ++ ", " ++
-     show (state ^. stateLastTime   ) ++ ", " ++
-     show (state ^. stateDirection  ) ++ ", " ++
-     show (state ^. statePlayhead   ) ++ ", " ++
+     show (state ^. stateBase       ) ++ ", " ++
      show (state ^. stateCursor     ) ++ ", " ++
-     show (state ^. stateCurrentTest) ++ ", " ++
-     show (state ^. stateStep       ) {-++ ", " ++
-     show (state ^. statePictures   )-} ++ " }"
+     show (state ^. stateCurrentTest) ++  " }"

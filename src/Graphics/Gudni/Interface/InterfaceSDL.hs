@@ -264,71 +264,71 @@ processKeycode keycode =
     SDL.KeycodeEscape            -> KeyCommand CommandEscape
     SDL.KeycodeBackspace         -> KeyCommand CommandBack
     SDL.KeycodeTab               -> KeyCommand CommandTab
-    SDL.KeycodeSpace             -> KeySymbol SymbolSpace
-    SDL.KeycodeExclaim           -> KeySymbol SymbolExclaim
-    SDL.KeycodeQuoteDbl          -> KeySymbol SymbolQuoteDbl
-    SDL.KeycodeHash              -> KeySymbol SymbolHash
-    SDL.KeycodePercent           -> KeySymbol SymbolPercent
-    SDL.KeycodeDollar            -> KeySymbol SymbolDollar
-    SDL.KeycodeAmpersand         -> KeySymbol SymbolAmpersand
-    SDL.KeycodeQuote             -> KeySymbol SymbolQuote
-    SDL.KeycodeLeftParen         -> KeySymbol SymbolLeftParen
-    SDL.KeycodeRightParen        -> KeySymbol SymbolRightParen
-    SDL.KeycodeAsterisk          -> KeySymbol SymbolAsterisk
-    SDL.KeycodePlus              -> KeySymbol SymbolPlus
-    SDL.KeycodeComma             -> KeySymbol SymbolComma
-    SDL.KeycodeMinus             -> KeySymbol SymbolMinus
-    SDL.KeycodePeriod            -> KeySymbol SymbolPeriod
-    SDL.KeycodeSlash             -> KeySymbol SymbolSlash
-    SDL.Keycode0                 -> KeyNumber Number0
-    SDL.Keycode1                 -> KeyNumber Number1
-    SDL.Keycode2                 -> KeyNumber Number2
-    SDL.Keycode3                 -> KeyNumber Number3
-    SDL.Keycode4                 -> KeyNumber Number4
-    SDL.Keycode5                 -> KeyNumber Number5
-    SDL.Keycode6                 -> KeyNumber Number6
-    SDL.Keycode7                 -> KeyNumber Number7
-    SDL.Keycode8                 -> KeyNumber Number8
-    SDL.Keycode9                 -> KeyNumber Number9
-    SDL.KeycodeColon             -> KeySymbol SymbolColon
-    SDL.KeycodeSemicolon         -> KeySymbol SymbolSemiColon
-    SDL.KeycodeLess              -> KeySymbol SymbolLess
-    SDL.KeycodeEquals            -> KeySymbol SymbolEqual
-    SDL.KeycodeGreater           -> KeySymbol SymbolGreater
-    SDL.KeycodeQuestion          -> KeySymbol SymbolQuestion
-    SDL.KeycodeAt                -> KeySymbol SymbolAt
-    SDL.KeycodeLeftBracket       -> KeySymbol SymbolLeftBracket
-    SDL.KeycodeBackslash         -> KeySymbol SymbolBackSlash
-    SDL.KeycodeRightBracket      -> KeySymbol SymbolRightBracket
-    SDL.KeycodeCaret             -> KeySymbol SymbolCaret
-    SDL.KeycodeUnderscore        -> KeySymbol SymbolUnderscore
-    SDL.KeycodeBackquote         -> KeySymbol SymbolBackquote
-    SDL.KeycodeA                 -> KeyLetter LetterA                      -- The A key
-    SDL.KeycodeB                 -> KeyLetter LetterB                      -- The B key
-    SDL.KeycodeC                 -> KeyLetter LetterC                      -- The C key
-    SDL.KeycodeD                 -> KeyLetter LetterD                      -- The D key
-    SDL.KeycodeE                 -> KeyLetter LetterE                      -- The E key
-    SDL.KeycodeF                 -> KeyLetter LetterF                      -- The F key
-    SDL.KeycodeG                 -> KeyLetter LetterG                      -- The G key
-    SDL.KeycodeH                 -> KeyLetter LetterH                      -- The H key
-    SDL.KeycodeI                 -> KeyLetter LetterI                      -- The I key
-    SDL.KeycodeJ                 -> KeyLetter LetterJ                      -- The J key
-    SDL.KeycodeK                 -> KeyLetter LetterK                      -- The K key
-    SDL.KeycodeL                 -> KeyLetter LetterL                      -- The L key
-    SDL.KeycodeM                 -> KeyLetter LetterM                      -- The M key
-    SDL.KeycodeN                 -> KeyLetter LetterN                      -- The N key
-    SDL.KeycodeO                 -> KeyLetter LetterO                      -- The O key
-    SDL.KeycodeP                 -> KeyLetter LetterP                      -- The P key
-    SDL.KeycodeQ                 -> KeyLetter LetterQ                      -- The Q key
-    SDL.KeycodeR                 -> KeyLetter LetterR                      -- The R key
-    SDL.KeycodeS                 -> KeyLetter LetterS                      -- The S key
-    SDL.KeycodeT                 -> KeyLetter LetterT                      -- The T key
-    SDL.KeycodeU                 -> KeyLetter LetterU                      -- The U key
-    SDL.KeycodeV                 -> KeyLetter LetterV                      -- The V key
-    SDL.KeycodeW                 -> KeyLetter LetterW                      -- The W key
-    SDL.KeycodeX                 -> KeyLetter LetterX                      -- The X key
-    SDL.KeycodeY                 -> KeyLetter LetterY                      -- The Y key
-    SDL.KeycodeZ                 -> KeyLetter LetterZ                      -- The Z key
+    SDL.KeycodeSpace             -> Key SymbolSpace
+    SDL.KeycodeExclaim           -> Key SymbolExclaim
+    SDL.KeycodeQuoteDbl          -> Key SymbolQuoteDbl
+    SDL.KeycodeHash              -> Key SymbolHash
+    SDL.KeycodePercent           -> Key SymbolPercent
+    SDL.KeycodeDollar            -> Key SymbolDollar
+    SDL.KeycodeAmpersand         -> Key SymbolAmpersand
+    SDL.KeycodeQuote             -> Key SymbolQuote
+    SDL.KeycodeLeftParen         -> Key SymbolLeftParen
+    SDL.KeycodeRightParen        -> Key SymbolRightParen
+    SDL.KeycodeAsterisk          -> Key SymbolAsterisk
+    SDL.KeycodePlus              -> Key SymbolPlus
+    SDL.KeycodeComma             -> Key SymbolComma
+    SDL.KeycodeMinus             -> Key SymbolMinus
+    SDL.KeycodePeriod            -> Key SymbolPeriod
+    SDL.KeycodeSlash             -> Key SymbolSlash
+    SDL.Keycode0                 -> Key Number0
+    SDL.Keycode1                 -> Key Number1
+    SDL.Keycode2                 -> Key Number2
+    SDL.Keycode3                 -> Key Number3
+    SDL.Keycode4                 -> Key Number4
+    SDL.Keycode5                 -> Key Number5
+    SDL.Keycode6                 -> Key Number6
+    SDL.Keycode7                 -> Key Number7
+    SDL.Keycode8                 -> Key Number8
+    SDL.Keycode9                 -> Key Number9
+    SDL.KeycodeColon             -> Key SymbolColon
+    SDL.KeycodeSemicolon         -> Key SymbolSemiColon
+    SDL.KeycodeLess              -> Key SymbolLess
+    SDL.KeycodeEquals            -> Key SymbolEqual
+    SDL.KeycodeGreater           -> Key SymbolGreater
+    SDL.KeycodeQuestion          -> Key SymbolQuestion
+    SDL.KeycodeAt                -> Key SymbolAt
+    SDL.KeycodeLeftBracket       -> Key SymbolLeftBracket
+    SDL.KeycodeBackslash         -> Key SymbolBackSlash
+    SDL.KeycodeRightBracket      -> Key SymbolRightBracket
+    SDL.KeycodeCaret             -> Key SymbolCaret
+    SDL.KeycodeUnderscore        -> Key SymbolUnderscore
+    SDL.KeycodeBackquote         -> Key SymbolBackquote
+    SDL.KeycodeA                 -> Key LetterA                      -- The A key
+    SDL.KeycodeB                 -> Key LetterB                      -- The B key
+    SDL.KeycodeC                 -> Key LetterC                      -- The C key
+    SDL.KeycodeD                 -> Key LetterD                      -- The D key
+    SDL.KeycodeE                 -> Key LetterE                      -- The E key
+    SDL.KeycodeF                 -> Key LetterF                      -- The F key
+    SDL.KeycodeG                 -> Key LetterG                      -- The G key
+    SDL.KeycodeH                 -> Key LetterH                      -- The H key
+    SDL.KeycodeI                 -> Key LetterI                      -- The I key
+    SDL.KeycodeJ                 -> Key LetterJ                      -- The J key
+    SDL.KeycodeK                 -> Key LetterK                      -- The K key
+    SDL.KeycodeL                 -> Key LetterL                      -- The L key
+    SDL.KeycodeM                 -> Key LetterM                      -- The M key
+    SDL.KeycodeN                 -> Key LetterN                      -- The N key
+    SDL.KeycodeO                 -> Key LetterO                      -- The O key
+    SDL.KeycodeP                 -> Key LetterP                      -- The P key
+    SDL.KeycodeQ                 -> Key LetterQ                      -- The Q key
+    SDL.KeycodeR                 -> Key LetterR                      -- The R key
+    SDL.KeycodeS                 -> Key LetterS                      -- The S key
+    SDL.KeycodeT                 -> Key LetterT                      -- The T key
+    SDL.KeycodeU                 -> Key LetterU                      -- The U key
+    SDL.KeycodeV                 -> Key LetterV                      -- The V key
+    SDL.KeycodeW                 -> Key LetterW                      -- The W key
+    SDL.KeycodeX                 -> Key LetterX                      -- The X key
+    SDL.KeycodeY                 -> Key LetterY                      -- The Y key
+    SDL.KeycodeZ                 -> Key LetterZ                      -- The Z key
     SDL.KeycodeCapsLock          -> KeyUnsupported
     SDL.KeycodeF1                -> KeyUnsupported
     SDL.KeycodeF2                -> KeyUnsupported
@@ -351,10 +351,10 @@ processKeycode keycode =
     SDL.KeycodeDelete            -> KeyCommand CommandDelete
     SDL.KeycodeEnd               -> KeyCommand CommandEnd
     SDL.KeycodePageDown          -> KeyCommand CommandPageDown
-    SDL.KeycodeRight             -> KeyArrow ArrowRight
-    SDL.KeycodeLeft              -> KeyArrow ArrowLeft
-    SDL.KeycodeDown              -> KeyArrow ArrowDown
-    SDL.KeycodeUp                -> KeyArrow ArrowUp
+    SDL.KeycodeRight             -> Key ArrowRight
+    SDL.KeycodeLeft              -> Key ArrowLeft
+    SDL.KeycodeDown              -> Key ArrowDown
+    SDL.KeycodeUp                -> Key ArrowUp
     SDL.KeycodeNumLockClear      -> KeyUnsupported
     SDL.KeycodeKPDivide          -> KeyUnsupported
     SDL.KeycodeKPMultiply        -> KeyUnsupported
@@ -409,7 +409,7 @@ processKeycode keycode =
     SDL.KeycodeClear             -> KeyUnsupported
     SDL.KeycodePrior             -> KeyUnsupported
     SDL.KeycodeReturn2           -> KeyUnsupported
-    SDL.KeycodeSeparator         -> KeySymbol SymbolBar
+    SDL.KeycodeSeparator         -> Key SymbolBar
     SDL.KeycodeOut               -> KeyUnsupported
     SDL.KeycodeOper              -> KeyUnsupported
     SDL.KeycodeClearAgain        -> KeyUnsupported

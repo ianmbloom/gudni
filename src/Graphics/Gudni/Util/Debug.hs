@@ -8,10 +8,12 @@ module Graphics.Gudni.Util.Debug
   , trM
   , trWith
   , trF
+  , trFl
   , tc
   , tcWith
   , trCList
   , trLength
+  , trFWhen
   , trWhen
   , tcWhen
   , trIfTrue
@@ -21,6 +23,7 @@ module Graphics.Gudni.Util.Debug
   , showFlFixed
   , showFlFixed'
   , trace
+  , traceWhen
   , DebugIdentity (..)
   , debugHead
   , debugFromJust
@@ -72,13 +75,19 @@ tr :: (Show a) => String -> a -> a
 tr = trWith show
 trM m = fmap (tr m)
 trF :: (Show a, RealFloat a) => String -> a -> a
-trF = trWith (showFl' 3)
+trF = trWith (showFl' 8)
+trFl :: (Show a, RealFloat a) => Int -> String -> a -> a
+trFl digits = trWith (showFl' digits)
+
 trHex :: (Integral a) => String -> a -> a
 trHex = trWith (\t -> showHex (fromIntegral t) "")
 
 tcWith :: (a -> String) -> String -> a -> a
 tcWith f m x = trace ("START"++m) $
                   trace ("END"++m++"   "++(f x)++"DONE") x
+
+traceWhen :: Bool -> String -> a -> a
+traceWhen cond message = if cond then trace message else id
 
 tc :: Show a => String -> a -> a
 tc = tcWith show
@@ -90,6 +99,7 @@ trCList m x = trace (m++":"++concat (zipWith (\i l ->", " ++ show i ++ ":" ++ sh
 trLength :: Show a => String -> [a] -> [a]
 trLength = trWith (\x -> show (length x) ++ ":" ++ show x)
 
+trFWhen cond m x = if cond then trF m x else x
 trWhen cond m x = if cond then tr m x else x
 tcWhen cond m x = if cond then tc m x else x
 

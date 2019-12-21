@@ -41,23 +41,24 @@ instance Model PlotState where
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =
-        execStateT (
+        execState (
             do  stateAngle .= (realToFrac elapsedTime / 2) @@ turn
-                mapM_ processInput inputs
+                mapM_ processSimpleInput inputs
             ) state
+    ioTask = return
     constructScene state status =
-        Scene (light . greenish $ blue) . Just <$> plots state
+        Scene (light . greenish $ blue) <$> plots state
     providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target
                                     return state
 
-processInput input =
+processSimpleInput input =
     case input of
         (InputKey Pressed _ inputKeyboard) ->
              case inputKeyboard of
-                KeyArrow ArrowUp    -> stateScale *=  1.25
-                KeyArrow ArrowDown  -> stateScale //= 1.25
-                _                   -> return ()
+                Key ArrowUp    -> stateScale *=  1.25
+                Key ArrowDown  -> stateScale //= 1.25
+                _              -> return ()
         _ -> return ()
 
 main :: IO ()

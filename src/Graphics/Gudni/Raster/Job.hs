@@ -22,8 +22,13 @@ module Graphics.Gudni.Raster.Job
   , BuildJobsMonad(..)
   , execBuildJobsMonad
   , RasterJob(..)
+  , BuildState(..)
+  , bsTileCount
+  , bsCurrentJob
+  , bsJobs
   , rJShapePile
   , rJTilePile
+  , rJColumnAllocation
   , freeRasterJobs
   , accumulateRasterJobs
   , outputRasterJob
@@ -66,7 +71,8 @@ import qualified Data.Map as M
 -- Each job corresponds to an individual rasterizer kernel call.
 data RasterJob = RasterJob
   { _rJShapePile :: !(Pile (Shape GeoReference))
-  , _rJTilePile  :: !(Pile (Tile (Slice (Shape GeoReference))))
+  , _rJTilePile  :: !(Pile (Tile (Slice (Shape GeoReference), Int)))
+  , _rJColumnAllocation :: Int -- number of columns allocated for this job.
   } deriving (Show)
 makeLenses ''RasterJob
 
@@ -74,6 +80,7 @@ makeLenses ''RasterJob
 -- of RasterJobs
 data BuildState = BuildState
   { _bsTileCount :: Int -- number of tiles added to the current job.
+  , _bsCurrentJob :: RasterJob -- current job
   , _bsJobs  :: [RasterJob] -- accumulated jobs.
   }
 makeLenses ''BuildState
@@ -82,21 +89,22 @@ makeLenses ''BuildState
 type BuildJobsMonad m = StateT BuildState m
 
 -- | Run a RasterJobMonad and return the state.
-execBuildJobsMonad :: MonadIO m => BuildJobsMonad m a -> m [RasterJob]
+execBuildJobsMonad :: MonadIO m => BuildJobsMonad m a -> m BuildState
 execBuildJobsMonad code =
   do -- prime the stack of jobs
      initJob <- newRasterJob
      -- execute the monad (this is usually passing over a structure of tiles and adding each tile to the monad. )
-     fmap (view bsJobs) $ execStateT code (BuildState 0 [initJob])
+     execStateT code (BuildState 0 initJob [])
 
 -- | Create a new rasterJob with default allocation sizes.
 newRasterJob :: MonadIO m => m RasterJob
 newRasterJob = liftIO $
     do  initShapePile <- newPile :: IO (Pile (Shape GeoReference))
-        initTilePile  <- newPile :: IO (Pile (Tile (Slice (Shape GeoReference))))
+        initTilePile  <- newPile :: IO (Pile (Tile (Slice (Shape GeoReference), Int)))
         return RasterJob
             { _rJShapePile = initShapePile
             , _rJTilePile  = initTilePile
+            , _rJColumnAllocation = 0
             }
 
 -- | Free all memory allocated by the 'RasterJob'
@@ -133,7 +141,8 @@ addTileToRasterJob tile =
       -- add the stripped shapes to the raster job and get the range of the added shapes
       slice <- appendShapes referenceEntries
       -- strip the tile down so just the range of shapes is left
-      let tileInfo = set tileRep slice tile
+      columnAllocation <- use rJColumnAllocation
+      let tileInfo = set tileRep (slice, columnAllocation) tile
       -- add it to the pile of tiles for the job.
       addToPileState rJTilePile tileInfo
       return ()
@@ -141,30 +150,33 @@ addTileToRasterJob tile =
 -- | Add a tile to the BuildState, adding a new RasterJob if we go over the maximum per tile.
 accumulateRasterJobs :: MonadIO m
                      => Int
+                     -> Int
                      -> Tile TileEntry
                      -> BuildJobsMonad m ()
-accumulateRasterJobs maxTilesPerJob tile =
+accumulateRasterJobs maxTilesPerJob threadsPerTile tile =
   do  -- get the current stack of jobs
       jobs <- use bsJobs
       -- get the counter for the number of tiles in the job on top of the stack
       count <- use bsTileCount
       -- check if there is room for another tile in the job
+      currentJob <- use bsCurrentJob
       if count >= maxTilesPerJob
       then do -- if not create a new job and add it to the stack
-              newJob <- newRasterJob
-              bsJobs .= newJob:jobs
+              bsJobs %= (currentJob:)
+              newJob <- liftIO $ newRasterJob
+              bsCurrentJob .= newJob
               -- reset the counter
               bsTileCount .= 0
               -- rerun the function with the new job on top of the state
-              accumulateRasterJobs maxTilesPerJob tile
+              accumulateRasterJobs maxTilesPerJob threadsPerTile tile
       else do -- otherwise grab the job on the top of the stack
-              let currentJob = head jobs
               -- add the new tile to the job
-              job' <- execStateT (addTileToRasterJob tile) currentJob
-              -- put it back on the stack
-              bsJobs .= job':tail jobs
+              (bsCurrentJob .=) =<<  execStateT (addTileToRasterJob tile) currentJob
+
               -- increment the counter
               bsTileCount += 1
+              bsCurrentJob . rJColumnAllocation += threadsPerTile -- (fromIntegral . widthOf $ tile ^. tileBox)
+
 
 -- | Output a RasterJob in IO
 outputRasterJob :: RasterJob -> IO ()
@@ -177,4 +189,4 @@ outputRasterJob job =
     putStrList =<< (pileToList . view rJTilePile $ job)
 
 instance NFData RasterJob where
-  rnf (RasterJob a b) = a `deepseq` b `deepseq` ()
+  rnf (RasterJob a b c) = a `deepseq` b `deepseq` c `deepseq` ()

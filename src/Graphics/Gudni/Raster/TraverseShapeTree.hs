@@ -35,7 +35,6 @@ import Control.Lens
 traverseCompound :: Compound -> Compound -> (Compound, Compound)
 traverseCompound CompoundAdd      current = (current, current)
 traverseCompound CompoundSubtract current = (invertCompound current, current)
-traverseCompound CompoundContinue current = (current, current)
 
 -- | Operate on an overlay junction.
 traverseUnit :: () -> () -> ((), ())
@@ -62,6 +61,7 @@ traverseTree combineOp transformOp c t f tree = go c t tree
                         go a t above
                         go b t below
                   STransform tOp child -> go c (transformOp tOp t) child
+                  SEmpty -> return ()
 
 -- | Traverse a compound shape tree
 traverseCompoundTree :: (Num (SpaceOf rep), Monad m)

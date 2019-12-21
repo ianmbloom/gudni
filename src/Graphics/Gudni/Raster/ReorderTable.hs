@@ -22,7 +22,6 @@ where
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Util.Debug
-import qualified Data.Vector.Storable as VS
 import qualified Data.Vector as V
 import Data.Vector ((!))
 import Linear.V3

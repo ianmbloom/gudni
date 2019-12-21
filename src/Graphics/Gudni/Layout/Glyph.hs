@@ -25,6 +25,8 @@ module Graphics.Gudni.Layout.Glyph
   , unGlyph
   , mapGlyph
   , showGlyph
+  , combineGlyph
+  , HasEmpty(..)
   )
 where
 
@@ -33,23 +35,37 @@ import Graphics.Gudni.Figure
 import Control.DeepSeq
 import Data.Hashable
 import Control.Lens
+import Control.Monad
 
 data Glyph a = Glyph
   { _glyphBox :: Box (SpaceOf a)
-  , _unGlyph :: Maybe a
-  }
+  , _unGlyph :: a
+  } |
+  EmptyGlyph
 makeLenses ''Glyph
 
 deriving instance (Show (SpaceOf a), Show a) => Show (Glyph a)
 deriving instance (Eq   (SpaceOf a), Eq   a) => Eq   (Glyph a)
 deriving instance (Ord  (SpaceOf a), Ord  a) => Ord  (Glyph a)
 
+class HasEmpty a where
+  emptyItem :: a
+  isEmpty   :: a -> Bool
+
+instance HasEmpty (Glyph rep) where
+  emptyItem = EmptyGlyph
+  isEmpty EmptyGlyph = True
+  isEmpty _ = False
+
 mapGlyph :: forall a b . (SpaceOf a ~ SpaceOf b) => (a->b) -> Glyph a -> Glyph b
-mapGlyph f (Glyph box a) = Glyph box (fmap f a)
+mapGlyph f (Glyph box a) = Glyph box (f a)
+mapGlyph f EmptyGlyph    = EmptyGlyph
 
 instance SimpleTransformable a => SimpleTransformable (Glyph a) where
-  tTranslate p (Glyph box a) = Glyph (tTranslate p box) (fmap (tTranslate p) a)
-  tScale f (Glyph box a) = Glyph (tScale f box) (fmap (tScale f) a)
+  tTranslate p (Glyph box a) = Glyph (tTranslate p box) (tTranslate p a)
+  tTranslate p EmptyGlyph    = EmptyGlyph
+  tScale     f (Glyph box a) = Glyph (tScale f box) (tScale f a)
+  tScale     f EmptyGlyph    = EmptyGlyph
 
 instance HasSpace a => HasSpace (Glyph a) where
   type SpaceOf (Glyph a) = SpaceOf a
@@ -61,4 +77,26 @@ instance (NFData a, NFData (SpaceOf a)) => NFData (Glyph a) where
   rnf (Glyph a b) = a `deepseq` b `deepseq` ()
 
 showGlyph :: (HasSpace t) => Glyph t -> [Char]
-showGlyph = show . view glyphBox
+showGlyph EmptyGlyph = "EmptyGlyph"
+showGlyph (Glyph box _) = show box
+
+maxPoint :: Ord s => Point2 s -> Point2 s -> Point2 s
+minPoint :: Ord s => Point2 s -> Point2 s -> Point2 s
+maxPoint (Point2 x0 y0) (Point2 x1 y1) = Point2 (max x0 x1) (max y0 y1)
+minPoint (Point2 x0 y0) (Point2 x1 y1) = Point2 (min x0 x1) (min y0 y1)
+
+combineGlyph :: (HasSpace rep)
+             => (rep -> rep -> rep)
+             -> Glyph rep
+             -> Glyph rep
+             -> Glyph rep
+combineGlyph op a b =
+  if isEmpty a
+  then b
+  else
+  if isEmpty b
+  then a
+  else
+  let tl = minPoint (a ^?! glyphBox . topLeftBox    ) (b ^?! glyphBox . topLeftBox    )
+      br = maxPoint (a ^?! glyphBox . bottomRightBox) (b ^?! glyphBox . bottomRightBox)
+  in  Glyph (Box tl br) (op (a ^?! unGlyph) (b ^?! unGlyph))

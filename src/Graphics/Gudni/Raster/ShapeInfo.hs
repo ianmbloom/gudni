@@ -92,7 +92,6 @@ makeShapeTag (ShapeInfo substance combine groupId) =
                           SubstanceSolidColor -> sHAPETAGsUBSTANCEtYPEsOLIDcOLOR
                           SubstancePicture    -> sHAPETAGsUBSTANCEtYPEpICTURE
       combineFlag   = case combine of
-                          CompoundContinue     -> sHAPETAGcOMPOUNDtYPEcONTINUE
                           CompoundAdd          -> sHAPETAGcOMPOUNDtYPEaDD
                           CompoundSubtract     -> sHAPETAGcOMPOUNDtYPEsUBTRACT
   in  if unSubstanceId groupId <= mAXsHAPEID
@@ -117,7 +116,6 @@ tagToCompound tag = tagBitsToCompound (unShapeTag tag .&. sHAPETAGcOMPOUNDtYPEbI
 -- | Select the 'Compound' from the masked 'ShapeTag_'.
 tagBitsToCompound :: ShapeTag_ -> Compound
 tagBitsToCompound tagBits
-  | tagBits == sHAPETAGcOMPOUNDtYPEcONTINUE = CompoundContinue
   | tagBits == sHAPETAGcOMPOUNDtYPEaDD      = CompoundAdd
   | tagBits == sHAPETAGcOMPOUNDtYPEsUBTRACT = CompoundSubtract
   | otherwise = error "bitMask does not correspond to a valid Compound."

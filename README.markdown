@@ -105,3 +105,24 @@ To get it to compile on MacOSX Sierra I changed the following in my local OpenCL
     cc-options: "-U__BLOCKS__"
     Frameworks:  OpenCL
 ```
+
+On MacOS versions later than Mojave, c2hs cannot process certain macros in the file normally found at
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/dispatch/base.h
+
+You can temporarily fix this by commenting out the if clause of the if-else-endif in the definition for DISPATCH_ENUM and DISPATCH_OPTIONS like so:
+
+Line 241:
+```
+// #if __has_feature(objc_fixed_enum) || __has_extension(cxx_strong_enums) || \
+//   __has_extension(cxx_fixed_enum) || defined(_WIN32)
+// #define DISPATCH_ENUM(name, type, ...) \
+//   typedef enum : type { __VA_ARGS__ } __DISPATCH_ENUM_ATTR name##_t
+// #define DISPATCH_OPTIONS(name, type, ...) \
+//   typedef enum : type { __VA_ARGS__ } __DISPATCH_OPTIONS_ATTR __DISPATCH_ENUM_ATTR name##_t
+// #else
+#define DISPATCH_ENUM(name, type, ...) \
+enum { __VA_ARGS__ } __DISPATCH_ENUM_ATTR; typedef type name##_t
+#define DISPATCH_OPTIONS(name, type, ...) \
+enum { __VA_ARGS__ } __DISPATCH_OPTIONS_ATTR __DISPATCH_ENUM_ATTR; typedef type name##_t
+// #endif // __has_feature(objc_fixed_enum) ...
+```

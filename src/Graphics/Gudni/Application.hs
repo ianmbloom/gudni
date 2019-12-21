@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, ScopedTypeVariables, FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell, ScopedTypeVariables, FlexibleContexts, RankNTypes #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -17,6 +17,7 @@ module Graphics.Gudni.Application
   , Model(..)
   , ScreenMode(..)
   , SimpleTime
+  , overState
   )
 where
 -- This must be compiled with the -threaded option
@@ -53,6 +54,7 @@ import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Interface.InterfaceSDL
 import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Interface.ScreenMode
+import Graphics.Gudni.Interface.Time
 
 import Graphics.Gudni.OpenCL.Setup
 import Graphics.Gudni.OpenCL.Rasterizer
@@ -78,14 +80,14 @@ import Graphics.Gudni.Util.RandomField
 import qualified Data.Vector.Storable as VS
 import System.Info
 
-type SimpleTime = Double
-
 -- | The model typeclass is the primary interface to the application functions in Gudni
 class Model s where
   -- | Construct a Scene from the state of type `s`
   constructScene  :: s -> String -> FontMonad IO (Scene Int)
   -- | Update the state based on the elapsed time and a list of inputs
-  updateModelState :: Monad m => Int -> SimpleTime -> [Input (Point2 PixelSpace)] -> s -> m s
+  updateModelState :: Int -> SimpleTime -> [Input (Point2 PixelSpace)] -> s -> s
+  -- | Do tasks in the IO monad based and update the current state.
+  ioTask           :: MonadIO m => s -> m s
   -- | Set the initial display to FullScreen or a specific window size in pixels.
   screenSize       :: s -> ScreenMode
   -- | Determine if the application will enter the event loop.
@@ -152,7 +154,7 @@ runApplication state =
                 -- Generate a random field for the stochastic aliasing of the rasterizer.
                 randomField <- liftIO $ makeRandomField rANDOMFIELDsIZE
                 -- Run the geometry serialization monad.
-                runGeometryMonad randomField $
+                runGeometryMonad (appState ^. appRasterizer . rasterSpec) randomField $
                     -- Run the application monad.
                     runApplicationMonad appState $
                         do  -- start the event loop.
@@ -176,10 +178,11 @@ appMessage :: String -> ApplicationMonad s ()
 appMessage = liftIO . putStrLn
 
 -- | Call a function f in IO that uses the application state as it's first argument.
-overState f =
-  do  state <- use appState
-      state' <- liftIO $ f state
-      appState .= state'
+overState :: (MonadState g m) => Lens' g a -> (a -> m a) -> m ()
+overState lens f =
+  do  state <- use lens
+      state' <- f state
+      lens .= state'
 
 -- | Initialize the timekeeper
 restartAppTimer :: ApplicationMonad s ()
@@ -194,13 +197,16 @@ beginCycle =
 processState :: (Show s, Model s) => SimpleTime -> [Input (Point2 PixelSpace)] -> ApplicationMonad s (Scene Int)
 processState elapsedTime inputs =
     do  frame <- fromIntegral <$> use appCycle
-        overState $ updateModelState frame elapsedTime inputs
-        status <- use appStatus
         markAppTime "Advance State"
         state <- use appState
+        appState .= updateModelState frame elapsedTime inputs state
+        state <- use appState
+        state' <- liftIO (ioTask state)
+        appState .= state'
         if null inputs
         then appMessage $ show state
         else appMessage $ show state ++ show inputs
+        status <- use appStatus
         shapeTree <- lift . lift $ constructScene state status
         markAppTime "Build State"
         return shapeTree
@@ -216,6 +222,7 @@ drawFrame frameCount scene =
         let canvasSize = P (targetArea target)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
         let maxTileSize = rasterizer ^. rasterSpec . specMaxTileSize
+
         lift (geoTileTree .= buildTileTree maxTileSize (fromIntegral <$> canvasSize))
         markAppTime "Build TileTree"
         substanceState <- lift ( execSubstanceMonad pictureMap $
@@ -266,7 +273,7 @@ isQuit :: Input a -> Bool
 isQuit input =
     case input of
         InputWindow WindowClosed -> True
-        InputKey Pressed (KeyModifier _ _ _ True) (KeyLetter LetterQ) -> True
+        InputKey Pressed (KeyModifier _ _ _ True) (Key LetterQ) -> True
         InputKey Pressed _ (KeyCommand CommandQuit) -> True
         _ -> False
 

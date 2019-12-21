@@ -15,13 +15,13 @@
 
 module Graphics.Gudni.Raster.Deknob
   ( Triple (..)
-  , Range  (..)
   , replaceKnobs
   )
 where
 
 import Linear
 import Graphics.Gudni.Figure
+import qualified Data.Vector as V
 
 import Control.Lens
 import Control.Loop
@@ -29,20 +29,6 @@ import Control.Loop
 -- | A triple is just a convenient way to represent a complete quadratic curve section.
 type Triple s = V3 (Point2 s)
 
--- | A range is inclusive so Range 1 3 includes [1,2,3], combining Range 1 1 and Range 2 2 would yield Range 1 2.
-data Range a = Range (Int -> a) Int
-
-instance Show a => Show (Range a) where
-  show (Range f len) = "Rg" ++ show len ++ " " ++ (show $ map f [0..len-1])
-
-instance Eq a => Eq (Range a) where
-  (==) (Range f0 len0) (Range f1 len1) =
-    let xs0 :: [a]
-        xs0 = map f0 [0..(len0-1)]
-        xs1 :: [a]
-        xs1 = map f1 [0..(len1-1)]
-    in  len0 == len1 &&
-        (all id $ zipWith (==) xs0 xs1)
 
 -- * Remove Knobs
 -- Knobs are segments of a curve where the curve point is outside of the horizontal range of the anchor points.
@@ -54,87 +40,73 @@ instance Eq a => Eq (Range a) where
 sPLIT :: (Fractional s, Num s) => s
 sPLIT = 1 / 2
 
--- | Find the point along the curve parameterized by t.
-midPoint :: Num s => s -> Point2 s -> Point2 s -> Point2 s
-midPoint t v0 v1 = (v0 ^* (1-t)) ^+^ (v1 ^* t)
+-- | Find the point along the line from v0 v1 with the distance proportional by t.
+between :: Num s => s -> Point2 s -> Point2 s -> Point2 s
+between t v0 v1 = (v0 ^* (1-t)) ^+^ (v1 ^* t)
 
--- | Given two onCurve points and a controlPoint. Find two control points and a midway on-curve point.
+-- | Given two onCurve points and a controlPoint. Find two control points and an on-curve point between them
+-- by bifercating according to the parameter t.
 curvePoint :: Num s => s -> Point2 s -> Point2 s -> Point2 s -> Triple s
-curvePoint t left control right =
-  let leftMid  = midPoint t left    control
-      rightMid = midPoint t control right
-      onCurve  = midPoint t leftMid rightMid
-  in  (V3 leftMid onCurve rightMid)
+curvePoint t v0 control v1 =
+  let mid0     = between t v0      control
+      mid1     = between t control v1
+      onCurve  = between t mid0    mid1
+  in  (V3 mid0 onCurve mid1)
 
--- | Return true if a curve and its control point would be convex in the positive horizontal direction.
-leftConvex  :: (Show s, Num s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Bool
-leftConvex control onCurve  = control ^. pX < onCurve ^. pX
+-- | Return true if a is left of b in screen space.
+isLeftOf  :: (Show s, Num s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Bool
+a `isLeftOf` b  = a ^. pX < b ^. pX
 
--- | Return true if a curve and its control point would be convex in the negative horizontal direction.
-rightConvex :: (Show s, Num s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Bool
-rightConvex control onCurve = onCurve ^. pX < control ^. pX
-
--- | Find an onCurve point and two new control points to can horizonally divide a curve that
--- is convex to the right (like a right bracket ")")
-splitRightKnob ::(Show s, Fractional s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Point2 s -> Triple s
-splitRightKnob = splitKnob rightConvex sPLIT -- start halfway
-
--- | Find an onCurve point and two new control points that horizonally divide a curve that
--- is convex to the left (like a left bracket "(")
-splitLeftKnob :: (Show s, Fractional s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Point2 s -> Triple s
-splitLeftKnob = splitKnob leftConvex sPLIT -- start halfway
+-- | Return true if a is right of b in screen space.
+isRightOf :: (Show s, Num s, Ord s, Num s, Iota s) => Point2 s -> Point2 s -> Bool
+a `isRightOf` b = a ^. pX > b ^. pX
 
 -- | Find a new onCurve point and two new control points that divide the curve based on the convex function.
-splitKnob :: (Show s, Fractional s, Ord s, Num s, Iota s) => (Point2 s -> Point2 s -> Bool) -> s -> Point2 s -> Point2 s -> Point2 s -> Triple s
-splitKnob = splitKnob' 0.0 1.0
+findSplit :: (Show s, Fractional s, Ord s, Num s, Iota s) => (Point2 s -> Point2 s -> Bool) -> s -> Triple s -> Triple s
+findSplit staysRelativeTo t (V3 v0 control v1) = search 0.0 1.0 t
+  where
+  -- | Given a range of parameters along the curve determine if the are close enough to split the curve.
+  --search :: s -> s -> s -> Triple s -> Triple s
+  search bottom top t
+    -- So if the top and bottom parameters are close enough, return the points to divide the curve.
+    | top - bottom <= iota = V3 mid0 onCurve mid1
+    -- Otherwise if the mid0 control point is still convex move the paramters to toward the top parameter and split again.
+    | mid1 `staysRelativeTo` onCurve =
+          search t top topSplit -- search closer to v0
+    -- Otherwise if the mid1 control point is still convex move the paramters to toward the bottom parameter and split again.
+    | mid0 `staysRelativeTo` onCurve = -- if the mid1 control point is still convex.
+          search bottom t bottomSplit -- search closer to v1
+    -- Otherwise it's not convex anymore so split it
+    | otherwise = V3 mid0 onCurve mid1
+    where (V3 mid0 onCurve mid1) = curvePoint t v0 control v1
+          topSplit    = (t + ((top - t) / 2))
+          bottomSplit = (bottom + ((t - bottom) / 2))
 
--- | Given a range of parameters along the curve determine if the are close enough to split the curve.
-splitKnob' :: (Show s, Fractional s, Ord s, Num s, Iota s) => s -> s -> (Point2 s -> Point2 s -> Bool) -> s -> Point2 s -> Point2 s -> Point2 s -> Triple s
-splitKnob' bottom top convex t v0 control v1
-  -- So if the top and bottom parameters are close enough, return the points to divide the curve.
-  | top - bottom <= iota = V3 leftMid onCurve rightMid
-  -- Otherwise if the leftMid control point is still convex move the paramters to toward the top parameter and split again.
-  | convex rightMid onCurve =
-        splitKnob' t top convex (t + ((top - t) / 2)) v0 control v1 -- search closer to v0
-  -- Otherwise if the rightMid control point is still convex move the paramters to toward the bottom parameter and split again.
-  | convex leftMid  onCurve = -- if the rightMid control point is still convex.
-        splitKnob' bottom t convex (bottom + ((t - bottom) / 2)) v0 control v1 -- search closer to v1
-  -- Otherwise it's not convex anymore so split it
-  | otherwise = V3 leftMid onCurve rightMid
-  where (V3 leftMid onCurve rightMid) = curvePoint t v0 control v1
+vector2 :: a -> a -> V.Vector a
+vector2 a b = V.singleton a `V.snoc` b
 
 -- | If a curve is a knob, split it.
-checkKnob :: (Show s, Fractional s, Ord s, Num s, Iota s) => Triple s -> Maybe (Triple s, Triple s)
-checkKnob (V3 a b c) =
+fixKnob :: (Show s, Fractional s, Ord s, Num s, Iota s) => Triple s -> V.Vector (Triple s)
+fixKnob (V3 v0 control v1) =
     -- If both sides are convex in the left direction.
-    if leftConvex b a && leftConvex b c
-    then-- Split the knob based on it being left convex.
-        let (V3 leftMid onCurve rightMid) = splitLeftKnob a b c
+    if control `isLeftOf` v0 && control `isLeftOf` v1
+    then-- This is a left bulging knob. Split it while one part maintains that bulge.
+        let (V3 mid0 onCurve mid1) = findSplit isLeftOf sPLIT (V3 v0 control v1)
         -- And return the two resulting curves.
-        in Just (V3 a leftMid onCurve, V3 onCurve rightMid c)
+        in vector2 (V3 v0 mid0 onCurve) (V3 onCurve mid1 v1)
     else-- Else if both sides are convex in the right direction
-        if rightConvex b a && rightConvex b c
-        then-- Split the know based on it being right convex.
-            let (V3 leftMid  onCurve  rightMid) = splitRightKnob a b c
+        if control `isRightOf` v0 && control `isRightOf` v1
+        then-- This is a right bulging knob. Split it while one part maintains that bulge direction.
+            let (V3 mid0  onCurve  mid1) = findSplit isRightOf sPLIT  (V3 v0 control v1)
             -- And return the two resulting curves.
-            in Just (V3 a leftMid onCurve, V3 onCurve rightMid c)
-        else-- Otherwise return the curve unharmed.
-            Nothing
+            in vector2 (V3 v0 mid0 onCurve) (V3 onCurve mid1 v1)
+        else -- Otherwise return the curve unharmed.
+             V.singleton (V3 v0 control v1)
 
-replaceKnob :: (Show s, Fractional s, Ord s, Num s, Iota s)
-            => Range (Triple s) -> Int -> Range (Triple s)
-replaceKnob (Range f len) i =
-  case checkKnob (f i) of
-    Nothing -> Range f len
-    Just (a,b) -> let g j = if j < i
-                            then f j
-                            else if j == i
-                                 then a
-                                 else if j == i + 1
-                                      then b
-                                      else f (j - 1)
-                  in  Range g (len + 1)
 
 replaceKnobs :: (Show s, Fractional s, Ord s, Num s, Iota s)
-             => Range (Triple s) -> Range (Triple s)
-replaceKnobs (Range f len) = numLoopFold 0 (len - 1) (Range f len) replaceKnob
+             => V.Vector (Triple s) -> V.Vector (Triple s)
+replaceKnobs triples =
+  let len = V.length triples
+
+  in  V.concatMap fixKnob triples

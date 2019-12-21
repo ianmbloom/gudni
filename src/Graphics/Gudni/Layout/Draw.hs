@@ -31,7 +31,6 @@ module Graphics.Gudni.Layout.Draw
   , fromSegments
   , cAdd
   , cSubtract
-  , cContinue
   , glyphWrapOutline
   , testPlot
   )
@@ -42,7 +41,8 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Plot
 import Graphics.Gudni.Layout.Glyph
-import Graphics.Gudni.Layout.Scaffolding
+import Graphics.Gudni.Layout.Adjacent
+import Graphics.Gudni.Util.Debug
 
 import Data.Char (ord)
 import Control.Lens
@@ -51,25 +51,22 @@ import Control.Lens
 glyphWrapOutline :: Space s => [Outline s] -> Glyph (CompoundTree s)
 glyphWrapOutline outlines =
    let box = foldl1 minMaxBox $ map boxOf $ outlines
-   in  Glyph box (Just . SLeaf $ outlines)
+   in  Glyph box (SLeaf $ outlines)
 
 -- | Typeclass of shape representations that can be combined with other shapes.
 class Compoundable a where
   cAdd      :: a -> a -> a
   cSubtract :: a -> a -> a
-  cContinue :: a -> a -> a
 
 -- | Instance for combining simple compound shapes.
 instance Compoundable (STree Compound leaf) where
   cAdd      = SMeld CompoundAdd
   cSubtract = flip (SMeld CompoundSubtract) -- the subtracted shape must be above what is being subtracted in the stack.
-  cContinue = SMeld CompoundContinue
 
 -- | Instance for combining with glyph wrapped compound shapes.
 instance HasSpace leaf => Compoundable (Glyph (STree Compound leaf)) where
   cAdd      = combineGlyph cAdd
   cSubtract = combineGlyph cSubtract
-  cContinue = combineGlyph cContinue
 
 -- | Create a series of segments based on the size of a rectangle.
 rectangleCurve :: Space s => Point2 s -> [Segment s]
@@ -90,7 +87,7 @@ instance Space s => HasRectangle (CompoundTree s) where
 
 -- | Glyph wrapper instance around a rectangle.
 instance Space s => HasRectangle (Glyph (CompoundTree s)) where
-    rectangle v = Glyph (Box zeroPoint v) . Just . rectangle $ v
+    rectangle v = Glyph (Box zeroPoint v) . rectangle $ v
 
 -- | Unit square rectangle.
 unitSquare :: HasRectangle a => a
@@ -156,7 +153,7 @@ class HasArc a => HasCircle a where
 circleCurve :: Space s => [Outline s]
 circleCurve = arcCurve fullTurn
 centerCircle :: (Fractional (SpaceOf a), SimpleTransformable a) => a -> a
-centerCircle = tTranslateXY 0.5 0.5 . tScale 0.5
+centerCircle = id -- tScale 0.5 . tTranslateXY 0.5 0.5 -- . tScale 0.5
 
 
 -- | Basic instance of a circle.

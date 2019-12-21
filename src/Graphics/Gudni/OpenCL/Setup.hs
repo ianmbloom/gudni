@@ -34,6 +34,7 @@ import CLUtil.Initialization
 
 import Data.List
 import Data.Maybe
+import Foreign.Storable
 
 import qualified Data.ByteString.Char8 as BS
 
@@ -45,8 +46,9 @@ cppDefines :: RasterSpec -> [CppDefinition]
 cppDefines spec =
   [Cpp "STOCHASTIC_FACTOR"                 (CppFloat sTOCHASTICfACTOR                )
   ,Cpp "RANDOMFIELDSIZE"                   (CppInt   rANDOMFIELDsIZE                 )
-  ,Cpp "MAXTHRESHOLDS"                     (CppInt   $ spec ^. specMaxThresholds   )
-  ,Cpp "MAXSHAPE"                          (CppInt   $ spec ^. specMaxShapes       )
+  ,Cpp "MAXTHRESHOLDS"                     (CppInt   $ spec ^. specMaxThresholds     )
+  ,Cpp "MAXSHAPE"                          (CppInt   $ spec ^. specMaxShapes         )
+  ,Cpp "SHAPESTACKSECTIONS"                (CppInt   $ sHAPEsTACKsECTIONS            )
   ,Cpp "SHAPETAG_SUBSTANCETYPE_BITMASK"    (CppHex64 sHAPETAGsUBSTANCEtYPEbITmASK    )
   ,Cpp "SHAPETAG_SUBSTANCETYPE_SOLIDCOLOR" (CppHex64 sHAPETAGsUBSTANCEtYPEsOLIDcOLOR )
   ,Cpp "SHAPETAG_SUBSTANCETYPE_PICTURE"    (CppHex64 sHAPETAGsUBSTANCEtYPEpICTURE    )
@@ -73,10 +75,14 @@ determineRasterSpec device =
       localMemSize  <- clGetDeviceLocalMemSize          device
       maxBufferSize <- clGetDeviceMaxConstantBufferSize device
       globalMemSize <- clGetDeviceGlobalMemSize         device
+      maxMemAllocSize <- clGetDeviceMaxMemAllocSize     device
+      -- The maximum number of threads that each tile can store is the maximum allocation size
+      let maxThresholds = fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize ^ 2) * sizeOf (undefined :: THRESHOLDTYPE))
       return RasterSpec { _specMaxTileSize     = fromIntegral maxGroupSize
                         , _specThreadsPerTile  = fromIntegral maxGroupSize
                         , _specMaxTilesPerCall = fromIntegral maxGroupSize
-                        , _specMaxThresholds   = mAXtHRESHOLDS
+                        , _specMaxThresholds   = tr "maxThresholds" $ maxThresholds
+                        , _specMaxStrandsPerTile = tr "maxStrandsPerTile" $ maxThresholds - 2
                         , _specMaxShapes       = mAXsHAPE
                         }
 
@@ -100,7 +106,7 @@ setupOpenCL enableProfiling useCLGLInterop src =
       -- Create Detail Records for every available device.
       details <- queryOpenCL CL_DEVICE_TYPE_GPU
       -- List all platforms and all devices.
-      mapM (putStrLn . show) details
+      --mapM (putStrLn . show) details
       -- Filter function for qualified devices to select.
       --let deviceFilter = deviceNameContains "Iris Pro"  -- select the first Iris Pro GPU
       --let deviceFilter = deviceNameContains "Vega"        -- select the first AMD GPU
@@ -128,11 +134,14 @@ setupOpenCL enableProfiling useCLGLInterop src =
               program <- loadProgramWOptions options state modifiedSrc
               putStrLn $ "Finished OpenCL kernel compile"
               -- get the rasterizer kernel.
-              rasterKernel <- program "multiTileRaster"
-
+              generateThresholdsKernel <- program "generateThresholds"
+              sortThresholdsKernel     <- program "sortThresholds"
+              renderThresholdsKernel   <- program "renderThresholds"
               -- Return a Library constructor with relevant information about the device for the rasterizer.
               return Rasterizer { _rasterClState  = state
-                                , _rasterClKernel = rasterKernel
+                                , _rasterGenerateThresholdsKernel = generateThresholdsKernel
+                                , _rasterSortThresholdsKernel     = sortThresholdsKernel
+                                , _rasterRenderThresholdsKernel   = renderThresholdsKernel
                                 , _rasterUseGLInterop = useCLGLInterop
                                 , _rasterSpec = rasterSpec
                                 }

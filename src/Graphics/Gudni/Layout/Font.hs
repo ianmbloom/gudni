@@ -159,7 +159,7 @@ getGlyph codepoint =
                 -- build the Glyph constructor including the metadata and the outlines.
                 glyph :: Glyph (CompoundTree SubSpace)
                 glyph = Glyph { _glyphBox = Box zeroPoint (Point2 (realToFrac advance * fontScaleFactor) (realToFrac (ascent + descent) * fontScaleFactor))
-                              , _unGlyph  = Just $ SLeaf outlines
+                              , _unGlyph  = SLeaf outlines
                               }
             in  do  -- insert the new glyph into the cache.
                     gCMap .= M.insert codepoint glyph dict
@@ -170,7 +170,10 @@ class HasGlyph a where
   glyph :: (MonadState FontCache m, Monad m) => CodePoint -> m a
 
 instance HasGlyph (CompoundTree SubSpace) where
-  glyph = fmap (fromJust . view unGlyph) . getGlyph
+  glyph codePoint = do g <- getGlyph codePoint
+                       case g of
+                           Glyph _ a  -> return a
+                           EmptyGlyph -> return SEmpty
 
 instance HasGlyph (Glyph (CompoundTree SubSpace)) where
   glyph = getGlyph

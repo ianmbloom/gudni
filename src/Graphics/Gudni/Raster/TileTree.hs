@@ -110,84 +110,84 @@ buildTileTree tileSize canvasSize = goV canvasDepth box
 
 -- | Add a shape to a tile tree by choosing one side of each branch or copying a shape
 -- that bridges the cut.
-addShapeToTree :: TileTree -> Shape ShapeEntry -> TileTree
-addShapeToTree tree = {-tr "result" .-} insertShapeV tree {-. tr "addShape"-}
+addShapeToTree :: NumStrands -> TileTree -> Shape ShapeEntry -> TileTree
+addShapeToTree maxStrandsPerTile tree = {-tr "result" .-} insertShapeV tree {-. tr "addShape"-}
+    where
+    -- | Add a shape to an HTree
+    insertShapeH :: HTree -> Shape ShapeEntry -> HTree
+    insertShapeH (HTree cut left right) shapeEntry =
+        let left'  = -- if the left side of the shape is left of the cut add it to the left branch
+                     if shapeEntry ^. shRep . shapeBox . leftSide < cut
+                     then insertShapeV left shapeEntry
+                     else left
+            right' = -- if the right side of the shape is right of the cut add it to the right branch
+                     if shapeEntry ^. shRep . shapeBox . rightSide > cut
+                     then insertShapeV right shapeEntry
+                     else right
+        in  HTree cut left' right'
+    insertShapeH (HLeaf tile) shapeEntry =
+      if -- the tile has room for more shapes or its to small to be split again
+         checkTileSpace tile shapeEntry || widthOf (tile ^. tileBox) <= mINtILEsIZE ^. pX
+      then -- then simple add it.
+           HLeaf $ insertShapeTile tile shapeEntry
+      else -- otherwise split the tile in half and then add the shape to the split tiles.
+           insertShapeH (hSplit tile) shapeEntry
 
--- | Add a shape to an HTree
-insertShapeH :: HTree -> Shape ShapeEntry -> HTree
-insertShapeH (HTree cut left right) shapeEntry =
-    let left'  = -- if the left side of the shape is left of the cut add it to the left branch
-                 if shapeEntry ^. shRep . shapeBox . leftSide < cut
-                 then insertShapeV left shapeEntry
-                 else left
-        right' = -- if the right side of the shape is right of the cut add it to the right branch
-                 if shapeEntry ^. shRep . shapeBox . rightSide > cut
-                 then insertShapeV right shapeEntry
-                 else right
-    in  HTree cut left' right'
-insertShapeH (HLeaf tile) shapeEntry =
-  if -- the tile has room for more shapes or its to small to be split again
-     checkTileSpace tile shapeEntry || widthOf (tile ^. tileBox) <= mINtILEsIZE ^. pX
-  then -- then simple add it.
-       HLeaf $ insertShapeTile tile shapeEntry
-  else -- otherwise split the tile in half and then add the shape to the split tiles.
-       insertShapeH (hSplit tile) shapeEntry
+    insertShapeV :: VTree -> Shape ShapeEntry -> VTree
+    insertShapeV (VTree cut top bottom) shapeEntry =
+        let top'    = if shapeEntry ^. shRep . shapeBox . topSide < cut
+                      then insertShapeH top shapeEntry
+                      else top
+            bottom' = if shapeEntry ^. shRep . shapeBox . bottomSide > cut
+                      then insertShapeH bottom shapeEntry
+                      else bottom
+        in  VTree cut top' bottom'
+    insertShapeV (VLeaf tile) shapeEntry =
+        if -- the tile has room for more shapes or its to small to be split again
+           checkTileSpace tile shapeEntry || heightOf (tile ^. tileBox) <= mINtILEsIZE ^. pY
+        then -- then simple add it.
+             VLeaf $ insertShapeTile tile shapeEntry
+        else -- otherwise split the tile in half and then add the shape to the split tiles.
+             insertShapeV (vSplit tile) shapeEntry
 
-insertShapeV :: VTree -> Shape ShapeEntry -> VTree
-insertShapeV (VTree cut top bottom) shapeEntry =
-    let top'    = if shapeEntry ^. shRep . shapeBox . topSide < cut
-                  then insertShapeH top shapeEntry
-                  else top
-        bottom' = if shapeEntry ^. shRep . shapeBox . bottomSide > cut
-                  then insertShapeH bottom shapeEntry
-                  else bottom
-    in  VTree cut top' bottom'
-insertShapeV (VLeaf tile) shapeEntry =
-    if -- the tile has room for more shapes or its to small to be split again
-       checkTileSpace tile shapeEntry || heightOf (tile ^. tileBox) <= mINtILEsIZE ^. pY
-    then -- then simple add it.
-         VLeaf $ insertShapeTile tile shapeEntry
-    else -- otherwise split the tile in half and then add the shape to the split tiles.
-         insertShapeV (vSplit tile) shapeEntry
+    -- | Add a shape to a tile.
+    insertShapeTile :: Tile TileEntry -> Shape ShapeEntry -> Tile TileEntry
+    insertShapeTile tile shapeEntry =
+      let tileEntry = tile ^. tileRep
+          newEntry = TileEntry { -- append the shape.
+                                 _tileShapes = shapeEntry:tileEntry ^. tileShapes
+                                 -- add to the total strand count.
+                               , _tileStrandCount = tileEntry ^. tileStrandCount + shapeEntry ^. shRep . shapeStrandCount
+                                 -- increment the shape count.
+                               , _tileShapeCount = tileEntry ^. tileShapeCount + 1
+                               }
+      in  set tileRep newEntry tile
 
--- | Add a shape to a tile.
-insertShapeTile :: Tile TileEntry -> Shape ShapeEntry -> Tile TileEntry
-insertShapeTile tile shapeEntry =
-  let tileEntry = tile ^. tileRep
-      newEntry = TileEntry { -- append the shape.
-                             _tileShapes = shapeEntry:tileEntry ^. tileShapes
-                             -- add to the total strand count.
-                           , _tileStrandCount = tileEntry ^. tileStrandCount + shapeEntry ^. shRep . shapeStrandCount
-                             -- increment the shape count.
-                           , _tileShapeCount = tileEntry ^. tileShapeCount + 1
-                           }
-  in  set tileRep newEntry tile
+    -- | Check if the tile can hold an additional shape without splitting.
+    checkTileSpace :: Tile TileEntry -> Shape ShapeEntry -> Bool
+    checkTileSpace tile shapeEntry =
+      let tileEntry = tile ^. tileRep
+          withAddedStrands = (tileEntry ^. tileStrandCount + (shapeEntry ^. shRep . shapeStrandCount))
+      in     tileEntry ^. tileShapeCount < mAXsHAPE - 1 -- the total shapes would be less than the maximum
+          && withAddedStrands < (maxStrandsPerTile) -- the total strands would be less than the maximum.
 
--- | Check if the tile can hold an additional shape without splitting.
-checkTileSpace :: Tile TileEntry -> Shape ShapeEntry -> Bool
-checkTileSpace tile shapeEntry =
-  let tileEntry = tile ^. tileRep
-      withAddedStrands = (tileEntry ^. tileStrandCount + (shapeEntry ^. shRep . shapeStrandCount))
-  in     tileEntry ^. tileShapeCount < mAXsHAPE - 1 -- the total shapes would be less than the maximum
-      && withAddedStrands < (NumStrands . fromIntegral $ mAXsTRANDpERtILE) -- the total strands would be less than the maximum.
+    -- | Split a tile into two horizontal sections and put its contents into both sides in the proper order (reversed)
+    hSplit :: Tile TileEntry -> HTree
+    hSplit tile =
+      let cut = tile ^. tileBox . leftSide + (widthOf (tile ^. tileBox) `div` 2)
+          lEmpty = emptyTile (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set rightSide cut (tile ^. tileBox))
+          rEmpty = emptyTile (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set leftSide cut (tile ^. tileBox))
+          hTree = HTree (fromIntegral cut) (VLeaf lEmpty) (VLeaf rEmpty)
+      in  {-tr "hSplit" $-} foldl insertShapeH hTree $ reverse (tile ^. tileRep . tileShapes)
 
--- | Split a tile into two horizontal sections and put its contents into both sides in the proper order (reversed)
-hSplit :: Tile TileEntry -> HTree
-hSplit tile =
-  let cut = tile ^. tileBox . leftSide + (widthOf (tile ^. tileBox) `div` 2)
-      lEmpty = emptyTile (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set rightSide cut (tile ^. tileBox))
-      rEmpty = emptyTile (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set leftSide cut (tile ^. tileBox))
-      hTree = HTree (fromIntegral cut) (VLeaf lEmpty) (VLeaf rEmpty)
-  in  {-tr "hSplit" $-} foldl insertShapeH hTree $ reverse (tile ^. tileRep . tileShapes)
-
--- | Split a tile into two vertical sections and put its contents into both sides in the proper order (reversed)
-vSplit :: Tile TileEntry -> VTree
-vSplit tile =
-  let cut = tile ^. tileBox . topSide + (heightOf (tile ^. tileBox) `div` 2)
-      tEmpty = emptyTile (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set bottomSide cut (tile ^. tileBox))
-      bEmpty = emptyTile (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set topSide    cut (tile ^. tileBox))
-      vTree = VTree (fromIntegral cut) (HLeaf tEmpty) (HLeaf bEmpty)
-  in  {-tr "vSplit" $-} foldl insertShapeV vTree $ reverse (tile ^. tileRep . tileShapes)
+    -- | Split a tile into two vertical sections and put its contents into both sides in the proper order (reversed)
+    vSplit :: Tile TileEntry -> VTree
+    vSplit tile =
+      let cut = tile ^. tileBox . topSide + (heightOf (tile ^. tileBox) `div` 2)
+          tEmpty = emptyTile (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set bottomSide cut (tile ^. tileBox))
+          bEmpty = emptyTile (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set topSide    cut (tile ^. tileBox))
+          vTree = VTree (fromIntegral cut) (HLeaf tEmpty) (HLeaf bEmpty)
+      in  {-tr "vSplit" $-} foldl insertShapeV vTree $ reverse (tile ^. tileRep . tileShapes)
 
 -- | Traverse a TileTree with a monadic function.
 traverseTileTree :: Monad m => (Tile TileEntry -> m t) -> TileTree -> m t
