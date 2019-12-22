@@ -72,11 +72,13 @@ library
   other-modules:       Graphics.Gudni.Figure.HasDefault
                      , Graphics.Gudni.Figure.Box
                      , Graphics.Gudni.Figure.Color
+                     , Graphics.Gudni.Figure.ArcLength
                      , Graphics.Gudni.Figure.OpenCurve
                      , Graphics.Gudni.Figure.Outline
                      , Graphics.Gudni.Figure.Point
                      , Graphics.Gudni.Figure.Segment
                      , Graphics.Gudni.Figure.Space
+                     , Graphics.Gudni.Figure.Projection
                      , Graphics.Gudni.Figure.Transformer
                      , Graphics.Gudni.Figure.Picture
                      , Graphics.Gudni.Interface.DrawTarget
@@ -261,7 +263,7 @@ executable square-example
                -- -fprof-auto
                -- "-with-rtsopts=-N -p -s -h -i0.1"
 
-executable project-demo
+executable projection-example
   if flag(benchmarks)
     build-depends:   gudni
                    , base

@@ -65,16 +65,16 @@ instance Show Strand where
 
 
 -- | Compare the begining and end of a triple, horizontally. (Assumes its not a knob).
-compareHorizontal :: Ord s => Triple s -> Ordering
-compareHorizontal (V3 a _ b) = compare (a ^. pX) (b ^. pX)
+compareHorizontal :: Ord s => Bezier s -> Ordering
+compareHorizontal (Bez a _ b) = compare (a ^. pX) (b ^. pX)
 -- | Compare the begining and end of a triple, vertically.
-compareVertical :: Ord s => Triple s -> Ordering
-compareVertical   (V3 a _ b) = compare (a ^. pY) (b ^. pY)
+compareVertical :: Ord s => Bezier s -> Ordering
+compareVertical   (Bez a _ b) = compare (a ^. pY) (b ^. pY)
 
--- | Determine if two adjacent triples will be part of the same strand.
+-- | Determine if two adjacent beziers will be part of the same strand.
 -- If both have the same horizontal order but they are not vertical then combine them.
 -- Vertical segments are never combined even if they are adjacent.
-connectable :: Ord s => Triple s -> Triple s -> Bool
+connectable :: Ord s => Bezier s -> Bezier s -> Bool
 connectable a b =
   let hA = compareHorizontal a
       hB = compareHorizontal b
@@ -82,9 +82,9 @@ connectable a b =
 
 -- | Accumulate strands if the are connectable.
 accumulateStrands :: Ord s
-                  => (V.Vector (Triple s), V.Vector (V.Vector (Triple s)))
-                  -> Triple s
-                  -> (V.Vector (Triple s), V.Vector (V.Vector (Triple s)))
+                  => (V.Vector (Bezier s), V.Vector (V.Vector (Bezier s)))
+                  -> Bezier s
+                  -> (V.Vector (Bezier s), V.Vector (V.Vector (Bezier s)))
 accumulateStrands (acc, strands) triple =
   if V.null acc
   then (V.singleton triple, strands)
@@ -96,7 +96,7 @@ accumulateStrands (acc, strands) triple =
 -- Divide a loop of curve sections into strands of horizontally adjacent curve sections that go
 -- in the same direction.
 splitIntoStrands :: Ord s
-                 => V.Vector (Triple s) -> V.Vector (V.Vector (Triple s))
+                 => V.Vector (Bezier s) -> V.Vector (V.Vector (Bezier s))
 splitIntoStrands vector =
   let (acc, strands) = V.foldl accumulateStrands (V.empty, V.empty) vector
   in acc `V.cons` strands
@@ -109,12 +109,12 @@ splitTooLarge maxSize vector = if V.length vector > maxSize
                                else V.singleton vector
 
 -- Make a curve section from two adjacent curve pairs.
-makeTriple :: CurvePair s -> CurvePair s -> Triple s
-makeTriple a b = V3 (a ^. onCurve) (a ^. offCurve) (b ^. onCurve)
+makeBezier :: CurvePair s -> CurvePair s -> Bezier s
+makeBezier a b = Bez (a ^. onCurve) (a ^. offCurve) (b ^. onCurve)
 
 -- | Reverse the direction of a curve section.
-reverseTriple :: Triple s -> Triple s
-reverseTriple (V3 a b c) = V3 c b a
+reverseBezier :: Bezier s -> Bezier s
+reverseBezier (Bez a b c) = Bez c b a
 
 -- | Zip each element with its next neighbor or the first element.
 overNeighbors :: (a -> a -> b) -> V.Vector a -> V.Vector b
@@ -122,24 +122,24 @@ overNeighbors f vector =
   let rotated = (V.++) (V.drop 1 vector) (V.take 1 vector)
   in  V.zipWith f vector rotated
 
--- | Turn a sequence of curve pairs into a sequence of curve sections (called triples)
-pairsToTriples :: V.Vector (CurvePair s) -> V.Vector (Triple s)
-pairsToTriples  = overNeighbors makeTriple
+-- | Turn a sequence of curve pairs into a sequence of curve sections (called beziers)
+pairsToBeziers :: V.Vector (CurvePair s) -> V.Vector (Bezier s)
+pairsToBeziers  = overNeighbors makeBezier
 
--- | Turn a sequence of triples into a sequence of points
-triplesToPoints :: V.Vector (Triple s) -> V.Vector (Point2 s)
-triplesToPoints vector =
-  let lastPoint = V.last vector ^. _z
-      lastTwo triple = V.singleton (triple ^. _x) `V.snoc` (triple ^. _y)
+-- | Turn a sequence of beziers into a sequence of points
+beziersToPoints :: V.Vector (Bezier s) -> V.Vector (Point2 s)
+beziersToPoints vector =
+  let lastPoint = unBezier (V.last vector) ^. _z
+      lastTwo triple = V.singleton (unBezier triple ^. _x) `V.snoc` (unBezier triple ^. _y)
   in  V.concatMap lastTwo vector `V.snoc` lastPoint
 
 -- | Reverse strands if neccessary so that they go from left to right.
-reverseIfBackwards :: Ord s => V.Vector (Triple s) -> V.Vector (Triple s)
+reverseIfBackwards :: forall s . Ord s => V.Vector (Bezier s) -> V.Vector (Bezier s)
 reverseIfBackwards vector =
-    let startPoint = V.head vector ^. _x
-        endPoint   = V.last vector ^. _z
+    let startPoint = unBezier (V.head vector) ^. _x
+        endPoint   = unBezier (V.last vector) ^. _z
     in  if (startPoint ^. pX) > (endPoint ^. pX)
-        then V.reverse . V.map reverseTriple $ vector
+        then V.reverse . V.map reverseBezier $ vector
         else vector
 
 -- | Reorder a vector into a horizontally searchable tree based on a predermined lookup table
@@ -158,13 +158,13 @@ splitShape table maxSectionSize curvePairs =
     -- read this composition from bottom to top
     V.map ( Strand
           . reorder table      -- use a lookup take to turn the strand into a horizontally searchable tree of points
-          . triplesToPoints    -- remove additional points making each strand into a list of points.
+          . beziersToPoints    -- remove additional points making each strand into a list of points.
           . reverseIfBackwards -- make each strands go in order from left to right.
           ) .
     V.concatMap (splitTooLarge maxSectionSize) . -- Divide any long strands into smaller sections.
     splitIntoStrands . -- Divide curves into horizontal strands.
     replaceKnobs .   -- Split curve sections that bulge in the x direction to two curve sections that do not bulge.
-    pairsToTriples $ -- convert each adjacent point pair to a curve section.
+    pairsToBeziers $ -- convert each adjacent point pair to a curve section.
     curvePairs
 
 -- | Build a list of strands from an outline.

@@ -39,24 +39,22 @@ instance Model ProjectionState where
     screenSize state = Window (Point2 500 250)
     shouldLoop _ = True
     fontFile _ = findDefaultFont
-    updateModelState _frame _elapsedTime _inputs state = return state
-    constructScene _state _status = return . Scene gray . Just $
-        overlap (byT ++ map (tTranslate (Point2 240 0)) byLength)
+    updateModelState _frame _elapsedTime _inputs state = state
+    ioTask = return
+    constructScene _state _status = return . Scene gray $
+        overlap (byT ++ map (tTranslate (Point2 0 0)) byLength)
       where
-        bz = V3 (Point2 20 20) (Point2 220 120) (Point2 220 220)
-        l = B.arcLength bz
-        byT = map (marker blue . B.eval bz) [0, 0.1..1.0]
-        byLength = map (marker red . B.eval bz . B.inverseArcLength 1e-6 bz) [0, 0.1*l .. l]
+        bz = Bez (Point2 20 20) (Point2 220 20) (Point2 220 220)
+        l = arcLength bz
+        byT = map (marker blue . eval bz) [0, 0.1..1.0]
+        byLength = map (marker red . eval bz . inverseArcLength 8 (Just 1e-6) bz) [0, 0.1*l .. l]
     providePictureMap _ = noPictures
     handleOutput state target = do
         presentTarget target
         return state
 
--- overlap :: [ShapeTree ()] -> ShapeTree ()
--- overlap = foldr1 (SMeld ())
-
 marker :: Color -> Point2 SubSpace -> ShapeTree Int SubSpace
-marker color center = solid color $ tTranslate center marker0
+marker color center = solid (transparent 0.5 color) $ tTranslate center marker0
 
 marker0 :: CompoundTree SubSpace
 marker0 = tRotate (1/8 @@ turn) $ tTranslate (Point2 (s/2) (s/2)) $ square

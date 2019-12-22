@@ -68,11 +68,11 @@ import Linear.Epsilon
 showBin i = printf "The value of %d in hex is: 0x%08x and binary is: %b\n" i i i
 
 type SimpleSpace s = (Num s, Eq s, Ord s, Bounded s, Show s)
-type Space s = (SimpleSpace s, Floating s, Real s, Fractional s)
+type Space s = (SimpleSpace s, Floating s, Real s, Fractional s, Epsilon s, RealFrac s)
 
 type SubSpace_ = Float
 -- | SubSpace is short for subpixel space. A floating point value where one square unit refers to one pixel.
-newtype SubSpace = SubSpace {unSubSpace :: SubSpace_} deriving (Enum, RealFrac, Fractional, Real, Num, Ord, Eq, RealFloat, Floating)
+newtype SubSpace = SubSpace {unSubSpace :: SubSpace_} deriving (Enum, Epsilon, RealFrac, Fractional, Real, Num, Ord, Eq, RealFloat, Floating)
 
 instance Bounded SubSpace where { minBound = SubSpace (-1/0); maxBound = SubSpace(1/0) }
 
