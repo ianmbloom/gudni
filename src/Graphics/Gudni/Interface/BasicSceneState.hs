@@ -56,8 +56,8 @@ simpleTransformFromState :: (SimpleTransformable t, SpaceOf t ~ SubSpace) => Bas
 simpleTransformFromState state constructed =
     let sc    = state ^. stateScale
         delta = state ^. stateDelta
-    in  tTranslate delta .
-        tScale sc $
+    in  translateBy delta .
+        scaleBy sc $
         constructed
 
 
@@ -66,17 +66,17 @@ transformFromState state constructed =
     let sc    = state ^. stateScale
         delta = state ^. stateDelta
         angle = state ^. stateAngle
-    in  tTranslate delta .
-        tRotate angle .
-        tScale sc $
+    in  translateBy delta .
+        rotateBy angle .
+        scaleBy sc $
         constructed
 
 statusDisplay :: Monad m => BasicSceneState -> String -> [String] -> FontMonad m (Glyph (ShapeTree Int SubSpace))
 statusDisplay state testName status =
-    tTranslateXY 1800 800 .
-    fmap (mapGlyph (tRotate (45 @@ deg))) .
-    tTranslate (state ^. stateDelta) .
-    tScale 30 .
+    translateByXY 1800 800 .
+    fmap (mapGlyph (rotateBy (45 @@ deg))) .
+    translateBy (state ^. stateDelta) .
+    scaleBy 30 .
     fmap (solid (dark red)) .
     paragraph 0 0 AlignMin AlignMin $
     unlines $ testName : status

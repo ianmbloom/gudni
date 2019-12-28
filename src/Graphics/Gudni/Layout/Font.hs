@@ -37,6 +37,7 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Outline
+import Graphics.Gudni.Figure.CurvePair
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.ShapeTree
 
@@ -155,7 +156,7 @@ getGlyph codepoint =
                 -- create outlines from the lists of vertices by converting them to Point2 SubSpace and scaling them
                 -- by the fontfactor, this means a normal glyph will have a height of 1 in SubSpace.
                 outlines :: [Outline SubSpace]
-                outlines =  map (Outline . V.fromList . pairPoints . map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) vertices
+                outlines =  map (Outline . pairsToBeziers . V.fromList . pairPoints . map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) vertices
                 -- build the Glyph constructor including the metadata and the outlines.
                 glyph :: Glyph (CompoundTree SubSpace)
                 glyph = Glyph { _glyphBox = Box zeroPoint (Point2 (realToFrac advance * fontScaleFactor) (realToFrac (ascent + descent) * fontScaleFactor))

@@ -20,24 +20,27 @@
 -- Functions for defining and combining open curves.
 
 module Graphics.Gudni.Figure.OpenCurve
-  ( OpenCurve(..)
+  ( OpenCurve_(..)
+  , OpenCurve(..)
+  , UnLoop(..)
   , curveSegments
   , terminator
   , outset
   , (<^>)
   , reverseCurve
-  , overCurve
-  , terminated
+  , overCurvePoints
   )
 where
+import Prelude hiding (last, reverse)
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
-import Graphics.Gudni.Figure.Segment
+import Graphics.Gudni.Figure.Bezier
+import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Angle
-import Graphics.Gudni.Figure.Transformer
+import Graphics.Gudni.Figure.Transformable
 import qualified Graphics.Gudni.Figure.Bezier as BZ
-
+--import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
 
 import Linear
@@ -46,6 +49,7 @@ import Data.Maybe
 import Data.Fixed
 import Data.Hashable
 import qualified Data.Map as M
+import qualified Data.Vector as V
 
 import Control.Monad.State
 import Control.DeepSeq
@@ -54,57 +58,72 @@ import Control.Lens
 import Data.Traversable
 
 -- | An (almost) typesafe representation of an open bezier curve.
-data OpenCurve s = OpenCurve
-    { _curveSegments :: [Segment s]
-    , _terminator    :: (Point2 s)
-    } deriving (Show, Eq, Ord)
-makeLenses ''OpenCurve
+data OpenCurve_ t s = OpenCurve
+    { _curveSegments :: t (Bezier s)
+    }
+makeLenses ''OpenCurve_
 
-instance (SimpleSpace s) => HasSpace (OpenCurve s) where
-    type SpaceOf (OpenCurve s) = s
+deriving instance (Show (t (Bezier s))) => Show (OpenCurve_ t s)
+deriving instance (Eq   (t (Bezier s))) => Eq (OpenCurve_ t s)
+deriving instance (Ord  (t (Bezier s))) => Ord (OpenCurve_ t s)
 
--- | The first point on the curve of an open curve or the terminator if it only has one point.
-outset :: Lens' (OpenCurve s) (Point2 s)
-outset elt_fn (OpenCurve segments terminator) =
-  let (Seg p mc) = head segments
-  in  (\p' -> OpenCurve (Seg p' mc:tail segments) terminator) <$> elt_fn p
+class UnLoop t where
+  first   :: t a -> a
+  rest    :: t a -> t a
+  last    :: t a -> a
+  notLast :: t a -> t a
+  reverse :: t a -> t a
+  halfSplit :: t a -> (t a, t a)
+
+instance UnLoop V.Vector where
+  first   = V.head
+  rest    = V.tail
+  last    = V.last
+  notLast vector = V.take (V.length vector - 1) vector
+  reverse = V.reverse
+  halfSplit vector = if (V.null vector)
+                     then (V.empty, V.empty)
+                     else let half = V.length vector `div` 2
+                          in (V.take half vector, V.drop half vector)
+
+type OpenCurve s = OpenCurve_ V.Vector s
+
+instance (SimpleSpace s) => HasSpace (OpenCurve_ t s) where
+    type SpaceOf (OpenCurve_ t s) = s
+
+-- {-# SPECIALIZE arcLength :: OpenCurve Float  -> Float  #-}
+-- {-# SPECIALIZE arcLength :: OpenCurve Double -> Double #-}
+instance (Functor t, Foldable t, Space s) => HasArcLength (OpenCurve_ t s) where
+    arcLength = sum . fmap arcLength . view curveSegments
+
+-- | The first point on the curve of an open curve.
+outset :: (Alternative t, UnLoop t) => Lens' (OpenCurve_ t s) (Point2 s)
+outset elt_fn (OpenCurve segments) =
+    let (Bez v0 control v1) = first segments
+    in  (\v0' -> OpenCurve $ pure (Bez v0' control v1) <|> rest segments) <$> elt_fn v0
+
+ -- | The last poinr on the curve of an open curve.
+terminator :: (Alternative t, UnLoop t) => Lens' (OpenCurve_ t s) (Point2 s)
+terminator elt_fn (OpenCurve segments) =
+    let (Bez v0 control v1) = last segments
+    in  (\v1' -> OpenCurve $ notLast segments <|> pure (Bez v0 control v1')) <$> elt_fn v1
 
 -- | Map over every point in an OpenCurve
-overCurve :: (Point2 s -> Point2 z) -> OpenCurve s -> OpenCurve z
-overCurve f (OpenCurve segs term) = OpenCurve (map (overSegment f) segs) (f term)
-
-
-pullSegments :: Segment s -> Segment s -> Segment s
-pullSegments (Seg o0 c0) (Seg o1 c1) = Seg o1 c0
-
--- | Map a function f over every consecutive pair in a list of one or more elements.
-acrossPairs f (a:b:cs) = f a b : acrossPairs f (b:cs)
-acrossPairs f (a:[]) = []
-acrossPairs f [] = error "list must have on or more elements"
+overCurvePoints :: Functor t => (Point2 s -> Point2 s) -> OpenCurve_ t s -> OpenCurve_ t s
+overCurvePoints f = over curveSegments (fmap (over bzPoints $ fmap f))
 
 -- | Return the same curve in the opposite order.
-reverseCurve :: OpenCurve s -> OpenCurve s
-reverseCurve (OpenCurve segments terminator) =
-  let terminal = head segments ^. anchor
-      extendSegments = segments ++ [Seg terminator Nothing]
-      revCurve = reverse . acrossPairs pullSegments $ extendSegments
-  in  OpenCurve revCurve terminal
+reverseCurve :: (Functor t, UnLoop t) => OpenCurve_ t s -> OpenCurve_ t s
+reverseCurve = over curveSegments (reverse . fmap reverseBezier)
 
 -- | Connect two curves end to end by translating c1 so that the starting point of 'c1' is equal to the terminator of 'c0'
-(<^>) :: Space s => OpenCurve s -> OpenCurve s -> OpenCurve s
+(<^>) :: (UnLoop t, Alternative t, Space s) => OpenCurve_ t s -> OpenCurve_ t s -> OpenCurve_ t s
 (<^>) c0 c1 = let delta = c0 ^. terminator ^-^ c1 ^. outset
-                  transC1 = overCurve (tTranslate delta) c1
-              in  over curveSegments (c0 ^. curveSegments ++) transC1
+                  transC1 = overCurvePoints (translateBy delta) c1
+              in  over curveSegments (c0 ^. curveSegments <|>) transC1
 
-instance Hashable s => Hashable (OpenCurve s) where
-    hashWithSalt s (OpenCurve segs term) = s `hashWithSalt` segs `hashWithSalt` term
+instance (Hashable s, Hashable (t (Bezier s))) => Hashable (OpenCurve_ t s) where
+    hashWithSalt s (OpenCurve segs) = s `hashWithSalt` segs
 
-instance NFData s => NFData (OpenCurve s) where
-    rnf (OpenCurve a b) = a `deepseq` b `deepseq` ()
-
-{-# INLINE terminated #-}
-terminated :: OpenCurve s -> [(Segment s, Point2 s)]
-terminated (OpenCurve [] _) = []
-terminated (OpenCurve [s0] p2) = [(s0, p2)]
-terminated (OpenCurve (s0 : ss@(Seg p2 _ : _)) terminator) =
-    (s0, p2) : terminated (OpenCurve ss terminator)
+instance (NFData s, NFData (t (Bezier s))) => NFData (OpenCurve_ t s) where
+    rnf (OpenCurve a ) = a `deepseq` ()

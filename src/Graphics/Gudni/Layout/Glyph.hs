@@ -62,10 +62,12 @@ mapGlyph f (Glyph box a) = Glyph box (f a)
 mapGlyph f EmptyGlyph    = EmptyGlyph
 
 instance SimpleTransformable a => SimpleTransformable (Glyph a) where
-  tTranslate p (Glyph box a) = Glyph (tTranslate p box) (tTranslate p a)
-  tTranslate p EmptyGlyph    = EmptyGlyph
-  tScale     f (Glyph box a) = Glyph (tScale f box) (tScale f a)
-  tScale     f EmptyGlyph    = EmptyGlyph
+  translateBy p (Glyph box a) = Glyph (translateBy p box) (translateBy p a)
+  translateBy p EmptyGlyph    = EmptyGlyph
+  stretchBy   p (Glyph box a) = Glyph (stretchBy p box) (stretchBy p a)
+  stretchBy   p EmptyGlyph    = EmptyGlyph
+  scaleBy     f (Glyph box a) = Glyph (scaleBy f box) (scaleBy f a)
+  scaleBy     f EmptyGlyph    = EmptyGlyph
 
 instance HasSpace a => HasSpace (Glyph a) where
   type SpaceOf (Glyph a) = SpaceOf a

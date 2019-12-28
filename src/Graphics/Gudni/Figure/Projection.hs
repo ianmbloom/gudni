@@ -2,11 +2,13 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Graphics.Gudni.Figure.Projection
-  ( segmentLength
-  , arcLength
-  , CanProject(..)
+  ( CanProject(..)
+  , BezierSpace(..)
   )
 where
 
@@ -14,80 +16,110 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Bezier
-import Graphics.Gudni.Figure.Segment
+import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.OpenCurve
+import Graphics.Gudni.Figure.Transformable
+import Graphics.Gudni.Figure.Deknob
 
 import Control.Lens
 import Linear
 import Linear.Affine
 import Linear.V2
 import Linear.V3
+import qualified Data.Vector as V
+import Control.Applicative
+import Control.Monad
+import Data.Functor.Classes
 
--- | Returns a Bezier for each Segment in the input
-{-# INLINE segmentLength #-}
-segmentLength :: (Space s) => (Segment s, Point2 s) -> s
-segmentLength (seg, p2) = case seg ^. control of
-    Nothing -> distance (seg ^. anchor) p2
-    Just c -> arcLength (Bez (seg ^. anchor) c p2)
-
--- {-# SPECIALIZE arcLength :: OpenCurve Float  -> Float  #-}
--- {-# SPECIALIZE arcLength :: OpenCurve Double -> Double #-}
-instance Space s => HasArcLength (OpenCurve s) where
-    arcLength = sum . map segmentLength . terminated
+projectPoint :: Space s => Int -> Maybe s -> Bezier s -> Point2 s -> Point2 s
+projectPoint max_steps m_accuracy bz@(Bez anchor control endpoint) (Point2 x y) =
+  (onCurve .+^ (y *^ normal)) where
+      len = (inverseArcLength max_steps m_accuracy bz x)
+      (_, Bez onCurve tangent _) = splitBezier x bz
+      normal = normalize (perp (tangent .-. onCurve))
 
 -- | In most cases, it is sufficient to define
--- @projectWithStepsAccuracy@, and use default implementations for the
+-- @projectionWithStepsAccuracy@, and use default implementations for the
 -- remaining functions.  You may also want to define a default
 -- accuracy by overriding @project@.
-class CanProject t where
-  project :: OpenCurve (SpaceOf t) -> t -> t
-  default project ::
-      (SpaceOf t ~ s, Floating s, RealFrac s) => OpenCurve (SpaceOf t) -> t -> t
-  project = projectWithAccuracy 1e-3
+class (SpaceOf u ~ SpaceOf t, Space (SpaceOf t), Monad f, Alternative f) => CanProject u f t where
+  projection :: u -> t -> f t
+  default projection :: u -> t -> f t
+  projection = projectionWithAccuracy 1e-3
 
-  projectWithAccuracy :: SpaceOf t -> OpenCurve (SpaceOf t) -> t -> t
-  default projectWithAccuracy ::
-      (SpaceOf t ~ s, Floating s, RealFrac s) => SpaceOf t -> OpenCurve (SpaceOf t) -> t -> t
-  projectWithAccuracy accuracy =
-      projectWithStepsAccuracy (maxStepsFromAccuracy accuracy) (Just accuracy)
+  projectionWithAccuracy :: SpaceOf t -> u -> t -> f t
+  default projectionWithAccuracy :: SpaceOf t -> u -> t -> f t
+  projectionWithAccuracy accuracy =
+      projectionWithStepsAccuracy (maxStepsFromAccuracy accuracy) (Just accuracy)
 
-  projectWithSteps :: Int -> OpenCurve (SpaceOf t) -> t -> t
-  projectWithSteps max_steps = projectWithStepsAccuracy max_steps Nothing
+  projectionWithSteps :: Int -> u -> t -> f t
+  projectionWithSteps max_steps = projectionWithStepsAccuracy max_steps Nothing
 
-  projectWithStepsAccuracy :: s ~ SpaceOf t => Int -> Maybe s -> OpenCurve s -> t -> t
+  projectionWithStepsAccuracy :: Int -> Maybe (SpaceOf t) -> u -> t -> f t
 
-instance (Epsilon s, RealFrac s, Space s) => CanProject (Point2 s) where
-  projectWithStepsAccuracy max_steps m_accuracy curve (P (V2 overall_length offset)) =
-      let -- find the segment containing the point we want
-          segments = terminated curve
-          pickSeg remaining [] = error "unreachable empty list in projectPoint"
-          pickSeg remaining (s : ss) =
-              let l = segmentLength s in
-                  case (l < remaining, ss) of
-                      (False, _) -> (remaining, s)
-                      (True, []) -> let
-                          (Seg p1 m_control, p2) = s
-                          v = case m_control of
-                              Just control -> p2 .-. control
-                              Nothing -> p2 .-. p1
-                        in (remaining - l, (Seg p2 Nothing, p2 .+^ negated v))
-                      (True, _) -> pickSeg (remaining - l) ss
-          (remaining_length, (Seg anchor m_control, endpoint)) = pickSeg overall_length segments
-      in case m_control of
-          -- if segment is a line, exact calculation
-          Nothing -> (onCurve .+^ (offset *^ normal)) where
-              t = remaining_length / distance anchor endpoint
-              onCurve = lerp t endpoint anchor
-              normal = normalize (perp (endpoint .-. anchor))
-          -- if if segment is a curve, call inverseBezierArcLength
-          Just c -> (onCurve .+^ (offset *^ normal)) where
-              bz = Bez anchor c endpoint
-              (_, Bez onCurve tangent _) = splitBezier bz
-                  (inverseArcLength max_steps m_accuracy bz remaining_length)
-              normal = normalize (perp (tangent .-. onCurve))
+instance (Space s, Monad f, Alternative f) => CanProject (Bezier s) f (Bezier s) where
+    projectionWithStepsAccuracy max_steps m_accuracy path =
+       pure . over bzPoints (fmap (projectPoint max_steps m_accuracy path))
 
-instance (SpaceOf (OpenCurve s) ~ s, Space s) => CanProject (OpenCurve s) where
-    projectWithStepsAccuracy max_steps m_accuracy path (OpenCurve ss terminator)  =
-        OpenCurve segments (proj terminator) where
-      segments = ss <&> \(Seg p1 c) -> Seg (proj p1) (proj <$> c)
-      proj = projectWithStepsAccuracy max_steps m_accuracy path
+
+instance (Space s, Monad f, Alternative f) => CanProject (BezierSpace s) f (Bezier s) where
+    projectionWithStepsAccuracy max_steps m_accuracy bSpace =
+      let stretchProject :: (Monad f, Alternative f) => (s -> Bezier s -> Bezier s -> f (Bezier s))
+          stretchProject len path = projectionWithStepsAccuracy max_steps m_accuracy path . stretchBy (Point2 (1/len) 1)
+      in  join . (fmap (traverseBezierSpace stretchProject bSpace)) . fixKnob
+
+instance (Space s, Monad f, Alternative f) => CanProject (BezierSpace s) f (OpenCurve_ f s) where
+    projectionWithStepsAccuracy max_steps m_accuracy bSpace curve =
+         pure . OpenCurve . join . fmap (projectionWithStepsAccuracy max_steps m_accuracy bSpace) . view curveSegments $ curve
+
+instance (Eq1 f, Alternative f, UnLoop f, Space s, CanProject (BezierSpace s) f t) => CanProject (OpenCurve_ f s) f t where
+    projectionWithStepsAccuracy max_steps m_accuracy path t =
+      let bSpace = makeBezierSpace arcLength (view curveSegments $ path)
+      in  projectionWithStepsAccuracy max_steps m_accuracy bSpace t
+
+data BezierSpace s = BezierSpace
+  { bsTree   :: RangeTree (Bezier s)
+  , bsLength :: s
+  }
+
+instance Space s => HasSpace (BezierSpace s) where
+  type SpaceOf (BezierSpace s) = s
+
+data HasSpace t => RangeTree t
+  = RangeSplit (SpaceOf t) (RangeTree t) (RangeTree t)
+  | RangeLeaf { rangeLength :: (SpaceOf t)
+              , rangeItem :: t
+              }
+  | RangeEmpty
+
+makeBezierSpace :: forall f s . (Eq1 f, Alternative f, UnLoop f, Space s) => (Bezier s -> s) -> f (Bezier s) -> BezierSpace s
+makeBezierSpace lengthFun = uncurry BezierSpace . go 0
+  where
+  go :: s -> f (Bezier s) -> (RangeTree (Bezier s), s)
+  go start vector =
+    let (left, right) = halfSplit vector
+    in if right `eq1` empty
+       then if left `eq1` empty
+            then (RangeEmpty, start)
+            else let curve = first left
+                     curveLength = lengthFun curve
+                 in  (RangeLeaf curveLength curve, start + curveLength)
+        else
+           let (leftBranch,  leftSplit ) = go start     left
+               (rightBranch, rightSplit) = go leftSplit right
+           in  (RangeSplit leftSplit leftBranch rightBranch, rightSplit)
+
+traverseBezierSpace :: (Space s, Alternative f) => (s -> Bezier s -> Bezier s -> f a) -> BezierSpace s -> Bezier s -> f a
+traverseBezierSpace f (BezierSpace tree totalLen) bez =
+  go bez tree
+  where
+  go bez tree = case tree of
+    RangeSplit splitPoint left right ->
+      if (unOrtho (bez ^. bzStart . pX) < splitPoint)
+      then if (unOrtho (bez ^. bzEnd . pX) > splitPoint)
+           then let [leftBez, rightBez] = splitBezierX splitPoint bez
+                in  go leftBez left <|> go rightBez right
+           else go bez left
+      else go bez right
+    RangeEmpty -> empty
+    RangeLeaf len controlCurve -> f len controlCurve bez

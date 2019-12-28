@@ -1,5 +1,6 @@
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE FlexibleInstances     #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -12,23 +13,31 @@
 -- Portability :  portable
 --
 -- Segments are a typesafe way to describe the components of a bezier curve sequence.
+-- This module is utilities because segments are just regarded as a convenient way to describe raw outlines
+-- for debugging etc. There are better ways to describe shapes.
 
-module Graphics.Gudni.Figure.Segment
+module Graphics.Gudni.Util.Segment
   ( Segment (..)
   , anchor
   , control
   , pattern Straight
-  , straight
+  , straightXY
   , pattern Curved
-  , curved
+  , curvedXY
   , hasControl
   , overSegment
   , randomSegmentFromPoints
+  , fromSegments
   )
 where
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
+import Graphics.Gudni.Figure.ShapeTree
+import Graphics.Gudni.Layout.Glyph
+import Graphics.Gudni.Layout.Draw
+import Graphics.Gudni.Figure.Outline
+import Graphics.Gudni.Figure.CurvePair
 
 import Control.Lens
 
@@ -36,6 +45,7 @@ import System.Random
 import Control.Monad.Random
 import Control.DeepSeq
 import Data.Hashable
+import qualified Data.Vector as V
 
 -- | A segment is a typesafe way to describe on link in a quadradic bezier curve.
 -- multiple on curves points can occur in sequence but multiple control points cannot.
@@ -48,15 +58,15 @@ makeLenses ''Segment
 -- | Pattern synonym for a segment with no control point.
 pattern Straight p = Seg p Nothing
 -- | Make a straight segment from the component dimensions
-straight :: X s -> Y s -> Segment s
-straight x y = Seg (makePoint x y) Nothing
+straightXY :: X s -> Y s -> Segment s
+straightXY x y = Seg (makePoint x y) Nothing
 
 -- | Pattern synonym for a segment with a control point.
 pattern Curved p c = Seg p (Just c)
 
 -- | Make a curved segment from the component dimensions.
-curved :: X s -> Y s -> X s -> Y s -> Segment s
-curved x y cx cy = Seg (makePoint x y) (Just (makePoint cx cy))
+curvedXY :: X s -> Y s -> X s -> Y s -> Segment s
+curvedXY x y cx cy = Seg (makePoint x y) (Just (makePoint cx cy))
 
 -- | Map over the points of a segment.
 overSegment :: (Point2 s -> Point2 z) -> Segment s -> Segment z
@@ -84,6 +94,33 @@ instance Random s => Random (Segment s) where
 -- | Generate a random segment from inside the boundaries of a range of points.
 randomSegmentFromPoints :: (RandomGen g, Random s) => (Point2 s, Point2 s) -> g -> (Segment s, g)
 randomSegmentFromPoints (p0, p1) = randomR (Seg p0 Nothing, Seg p1 Nothing)
+
+-- | Convert a loop of Segments to a loop of CurvePairs.
+segmentsToCurvePairs :: (Fractional s) => [Segment s] -> [CurvePair s]
+segmentsToCurvePairs segments = segmentsToCurvePairs' (head segments ^. anchor) segments
+
+segmentsToCurvePairs' :: (Fractional s) => Point2 s -> [Segment s] -> [CurvePair s]
+segmentsToCurvePairs' first segs = case segs of
+      (Seg v0 Nothing:[])             -> CurvePair v0 (mid v0 first):[]
+      (Seg v0 Nothing:Seg v1 mC:rest) -> CurvePair v0 (mid v0 v1):segmentsToCurvePairs' first (Seg v1 mC:rest)
+      (Seg v0 (Just c):rest)          -> CurvePair v0 c:segmentsToCurvePairs' first rest
+      []                              -> []
+
+-- | Convert a list of lists of segments to a list of outlines.
+segmentsToOutline :: (Fractional s) => [[Segment s]] -> [Outline s]
+segmentsToOutline = map (Outline . pairsToBeziers . V.fromList . segmentsToCurvePairs)
+
+-- | Typeclass for shape representations that can be created from a list of segments.
+class HasFromSegments a where
+  fromSegments :: [Segment (SpaceOf a)] -> a
+
+-- | Instance for creating a simple shape from a list of segments.
+instance Space s => HasFromSegments (CompoundTree s) where
+  fromSegments = SLeaf . segmentsToOutline . pure
+
+-- | Instance for creating a glyph wrapped shape from a list of segments.
+instance Space s => HasFromSegments (Glyph (CompoundTree s)) where
+  fromSegments = glyphWrapOutline . segmentsToOutline . pure
 
 instance NFData s => NFData (Segment s) where
   rnf (Seg o c) = o `deepseq` c `deepseq` ()

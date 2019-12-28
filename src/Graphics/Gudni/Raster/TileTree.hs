@@ -28,7 +28,7 @@ where
 
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.Types
-import Graphics.Gudni.Figure
+import Graphics.Gudni.Figure hiding (reverse)
 import Graphics.Gudni.Raster.TraverseShapeTree
 import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Util.Debug

@@ -68,8 +68,8 @@ main = runApplication (PlotState (0 @@ turn) 50)
 -- | All the turtle plots from the plot module.
 plots :: Monad m => PlotState -> FontMonad m (ShapeTree Int SubSpace)
 plots state = return .
-              tTranslateXY 100 100 .
-              tScale 30 .
+              translateByXY 100 100 .
+              scaleBy 30 .
               overlap .
               makeGrid 10 16 1 .
               catMaybes .

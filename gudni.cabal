@@ -60,10 +60,12 @@ library
                      , Graphics.Gudni.Figure.ShapeTree
                      , Graphics.Gudni.Figure
                      , Graphics.Gudni.Figure.Bezier
+                     , Graphics.Gudni.Figure.CurvePair
                      , Graphics.Gudni.Interface
                      , Graphics.Gudni.Util.Debug
                      , Graphics.Gudni.Util.Fuzzy
                      , Graphics.Gudni.Util.Plot
+                     , Graphics.Gudni.Util.Segment
                      , Graphics.Gudni.OpenCL.DeviceQuery
                      , Graphics.Gudni.Layout
                      , Graphics.Gudni.Figure.Angle
@@ -76,11 +78,14 @@ library
                      , Graphics.Gudni.Figure.OpenCurve
                      , Graphics.Gudni.Figure.Outline
                      , Graphics.Gudni.Figure.Point
-                     , Graphics.Gudni.Figure.Segment
                      , Graphics.Gudni.Figure.Space
+                     , Graphics.Gudni.Figure.Split
                      , Graphics.Gudni.Figure.Projection
+                     , Graphics.Gudni.Figure.Deknob
+                     , Graphics.Gudni.Figure.Transformable
                      , Graphics.Gudni.Figure.Transformer
                      , Graphics.Gudni.Figure.Picture
+                     , Graphics.Gudni.Figure.Facet
                      , Graphics.Gudni.Interface.DrawTarget
                      , Graphics.Gudni.Interface.FontLibrary
                      , Graphics.Gudni.Interface.Input
@@ -98,7 +103,6 @@ library
                      , Graphics.Gudni.Raster.ShapeInfo
                      , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.Job
-                     , Graphics.Gudni.Raster.Deknob
                      , Graphics.Gudni.Raster.Strand
                      , Graphics.Gudni.Raster.Enclosure
                      , Graphics.Gudni.Raster.ReorderTable

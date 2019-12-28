@@ -1,10 +1,19 @@
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Functions on quadratic Bézier curves
 module Graphics.Gudni.Figure.Bezier
   ( Bezier(..)
+  , straight
+  , curved
+  , bzStart
+  , bzControl
+  , bzEnd
+  , bzPoints
   , pattern Bez
+  , overBezier
+  , reverseBezier
   , maxStepsFromAccuracy
   , splitBezier
   , inverseArcLength
@@ -14,23 +23,64 @@ where
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
+import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.ArcLength
+import Graphics.Gudni.Figure.Transformable
 
 
 import Numeric.Interval
 import Linear
 import Linear.Affine
 import Linear
+import qualified Data.Vector as V
+import Data.Hashable
+import Control.DeepSeq
+import Control.Lens hiding ((...))
 
-newtype Bezier s = Bezier {unBezier :: V3 (Point2 s)}
-
+data Bezier s = Bezier {unBezier :: V3 (Point2 s)} deriving (Show, Eq, Ord)
 pattern Bez x y z = Bezier (V3 x y z)
+
+-- | Lens for the start point of a bezier.
+bzStart :: Lens' (Bezier s) (Point2 s)
+bzStart elt_fn (Bez v0 c v1) = (\v0' -> Bez v0' c v1) <$> (elt_fn v0)
+
+-- | Lens for the control point of a bezier.
+bzControl :: Lens' (Bezier s) (Point2 s)
+bzControl elt_fn (Bez v0 c v1) = (\c' -> Bez v0 c' v1) <$> (elt_fn c)
+
+-- | Lens for the control point of a bezier.
+bzEnd :: Lens' (Bezier s) (Point2 s)
+bzEnd elt_fn (Bez v0 c v1) = (\v1' -> Bez v0 c v1') <$> (elt_fn v1)
+
+bzPoints :: Lens' (Bezier s) (V3 (Point2 s))
+bzPoints elt_fn (Bezier v3) = (\v3' -> Bezier v3') <$> (elt_fn v3)
+
+instance Space s => SimpleTransformable (Bezier s) where
+    translateBy delta = over bzPoints (fmap (translateBy delta))
+    scaleBy     scale = over bzPoints (fmap (scaleBy scale))
+    stretchBy   delta = over bzPoints (fmap (stretchBy delta))
+
+instance Space s => Transformable (Bezier s) where
+    rotateBy    angle = over bzPoints (fmap (rotateBy angle))
+
+overBezier :: (Point2 s -> Point2 z) -> Bezier s -> Bezier z
+overBezier f (Bezier v3) =  Bezier (fmap f v3)
+
+-- | Reverse the direction of a curve section.
+reverseBezier :: Bezier s -> Bezier s
+reverseBezier (Bez a b c) = Bez c b a
+
+straight :: Space s => Point2 s -> Point2 s -> Bezier s
+straight v0 v1 = Bez v0 (mid v0 v1) v1
+
+curved :: Space s => Point2 s -> Point2 s -> Point2 s -> Bezier s
+curved v0 c v1 = Bez v0 c v1
 
 instance Space s => HasSpace (Bezier s) where
   type SpaceOf (Bezier s) = s
 
 eval :: Num s => Bezier s -> s -> Point2 s
-eval (Bezier (V3 p0 p1 p2)) t = let mt = 1 - t in
+eval (Bez p0 p1 p2) t = let mt = 1 - t in
     p0 ^* (mt * mt) + (p1 ^* (mt * 2) + p2 ^* t) ^* t
 
 -- | Arc length of a single quadratic Bézier segment.
@@ -41,7 +91,7 @@ eval (Bezier (V3 p0 p1 p2)) t = let mt = 1 - t in
 -- arcLength runtime increases ~50x without the SPECIALIZE
 --{-# SPECIALIZE arcLength :: Bezier SubSpace -> SubSpace #-}
 instance Space s => HasArcLength (Bezier s) where
-    arcLength (Bezier (V3 p0 p1 p2)) = let
+    arcLength (Bez p0 p1 p2) = let
         d2 = p0 - 2.0 * p1 + p2
         a = quadrance d2
         d1 = p1 - p0
@@ -84,8 +134,8 @@ instance Space s => HasArcLength (Bezier s) where
 
 
 {-# INLINE splitBezier #-}
-splitBezier :: (Floating s, Ord s) => Bezier s -> s -> (Bezier s, Bezier s)
-splitBezier (Bez p0 p1 p2) t = (Bez p0 c1 pm, Bez pm c2 p2) where
+splitBezier :: (Floating s, Ord s) => s -> Bezier s -> (Bezier s, Bezier s)
+splitBezier t (Bez p0 p1 p2) = (Bez p0 c1 pm, Bez pm c2 p2) where
     c1 = lerp t p1 p0
     c2 = lerp t p2 p1
     pm = lerp t c2 c1
@@ -102,7 +152,7 @@ inverseArcLength max_steps m_accuracy bz goal_length =
     go n range last_length =
         let
             mid_t = midpoint range
-            mid_length = arcLength (fst (splitBezier bz mid_t))
+            mid_length = arcLength (fst (splitBezier mid_t bz))
         in if n == 0 || closeEnough mid_length
         then -- finish up by linear interpolation
             if last_length < mid_length
@@ -119,3 +169,12 @@ inverseArcLength max_steps m_accuracy bz goal_length =
 
 maxStepsFromAccuracy :: (Floating s, RealFrac s) => s -> Int
 maxStepsFromAccuracy accuracy = ceiling (-1 * log accuracy / log 2)
+
+instance (Space s) => HasBox (Bezier s) where
+  boxOf (Bez v0 c v1) = minMaxBox (minMaxBox (boxOf v0) (boxOf c)) (boxOf v1)
+
+instance Hashable s => Hashable (Bezier s) where
+    hashWithSalt s (Bezier v3) = s `hashWithSalt` v3
+
+instance NFData s => NFData (Bezier s) where
+    rnf (Bezier v3) = v3 `deepseq` ()

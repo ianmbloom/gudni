@@ -26,9 +26,9 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.Outline
+import Graphics.Gudni.Figure.Deknob
 
 import Graphics.Gudni.Raster.ReorderTable
-import Graphics.Gudni.Raster.Deknob
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
@@ -108,24 +108,6 @@ splitTooLarge maxSize vector = if V.length vector > maxSize
                                     in first `V.cons` splitTooLarge maxSize rest
                                else V.singleton vector
 
--- Make a curve section from two adjacent curve pairs.
-makeBezier :: CurvePair s -> CurvePair s -> Bezier s
-makeBezier a b = Bez (a ^. onCurve) (a ^. offCurve) (b ^. onCurve)
-
--- | Reverse the direction of a curve section.
-reverseBezier :: Bezier s -> Bezier s
-reverseBezier (Bez a b c) = Bez c b a
-
--- | Zip each element with its next neighbor or the first element.
-overNeighbors :: (a -> a -> b) -> V.Vector a -> V.Vector b
-overNeighbors f vector =
-  let rotated = (V.++) (V.drop 1 vector) (V.take 1 vector)
-  in  V.zipWith f vector rotated
-
--- | Turn a sequence of curve pairs into a sequence of curve sections (called beziers)
-pairsToBeziers :: V.Vector (CurvePair s) -> V.Vector (Bezier s)
-pairsToBeziers  = overNeighbors makeBezier
-
 -- | Turn a sequence of beziers into a sequence of points
 beziersToPoints :: V.Vector (Bezier s) -> V.Vector (Point2 s)
 beziersToPoints vector =
@@ -152,9 +134,9 @@ reorder table vector =
 -- | Split an outline into strands.
 splitShape :: ReorderTable
            -> Int
-           -> V.Vector (CurvePair SubSpace)
+           -> V.Vector (Bezier SubSpace)
            -> V.Vector Strand
-splitShape table maxSectionSize curvePairs =
+splitShape table maxSectionSize beziers =
     -- read this composition from bottom to top
     V.map ( Strand
           . reorder table      -- use a lookup take to turn the strand into a horizontally searchable tree of points
@@ -163,9 +145,9 @@ splitShape table maxSectionSize curvePairs =
           ) .
     V.concatMap (splitTooLarge maxSectionSize) . -- Divide any long strands into smaller sections.
     splitIntoStrands . -- Divide curves into horizontal strands.
-    replaceKnobs .   -- Split curve sections that bulge in the x direction to two curve sections that do not bulge.
-    pairsToBeziers $ -- convert each adjacent point pair to a curve section.
-    curvePairs
+    tr "replaceKnobs" . 
+    replaceKnobs $   -- Split curve sections that bulge in the x direction to two curve sections that do not bulge.
+    beziers
 
 -- | Build a list of strands from an outline.
 outlineToStrands :: ReorderTable

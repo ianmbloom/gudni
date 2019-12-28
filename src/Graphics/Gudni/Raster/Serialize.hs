@@ -65,6 +65,7 @@ import Foreign.Storable
 import Control.DeepSeq
 
 import qualified Data.Map as M
+import qualified Data.Vector as V
 import Data.Maybe
 import Data.List
 
@@ -152,7 +153,7 @@ onShape :: MonadIO m
         -> [Outline SubSpace]
         -> GeometryMonad m ()
 onShape wrapShape combineType transformer outlines =
-  do let transformedOutlines = fmap (applyTransformer transformer) $ Group outlines
+  do let transformedOutlines = tr "transformedOutlines" . Group . join . V.fromList . (map (applyTransformer transformer)) $ outlines
          boundingBox = boxOf transformedOutlines
      canvasSize <- use geoCanvasSize
      if excludeBox canvasSize boundingBox
@@ -164,7 +165,7 @@ onShape wrapShape combineType transformer outlines =
              -- Maximum strands per tile
              maxStrandsPerTile <- use geoMaxStrandsPerTile
              -- Build an enclosure from the outlines.
-             let enclosure = enclose reorderTable maxStrandSize (unGroup transformedOutlines)
+             let enclosure = tr "enclosures" $ enclose reorderTable maxStrandSize (unGroup transformedOutlines)
              -- Get the geometry pile.
              geometryPile <- use geoGeometryPile
              -- Add the shape to the geometry pile.
@@ -242,7 +243,7 @@ onSubstance onShape () transformer (SRep token substance subTree) =
                                     return name
                               SharedTexture name -> return name
                    -- Transformation information is transfered to the texture here.
-                   let newUsage = applyTransformer transformer $
+                   let newUsage = -- applyTransformer transformer $
                                   PictureUsage { pictSource = name
                                                , pictScale = 1
                                                , pictTranslate = zeroPoint

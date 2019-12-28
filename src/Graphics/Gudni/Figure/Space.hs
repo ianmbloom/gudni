@@ -35,6 +35,7 @@ module Graphics.Gudni.Figure.Space
   , Iota (..)
   , SubSpace (..)
   , PixelSpace (..)
+  , TextureSpace (..)
   , showBin
   )
 where
@@ -47,7 +48,8 @@ import Data.Word
 import Data.Char
 import Data.Bits
 import Data.Hashable
-import qualified Data.Vector.Storable as V
+-- import qualified Data.Vector.Storable as V
+import qualified Data.Vector as V
 
 import GHC.Float (double2Float)
 
@@ -68,17 +70,21 @@ import Linear.Epsilon
 showBin i = printf "The value of %d in hex is: 0x%08x and binary is: %b\n" i i i
 
 type SimpleSpace s = (Num s, Eq s, Ord s, Bounded s, Show s)
-type Space s = (SimpleSpace s, Floating s, Real s, Fractional s, Epsilon s, RealFrac s)
+type Space s = (SimpleSpace s, Floating s, Real s, Fractional s, Epsilon s, Iota s, RealFrac s)
 
 type SubSpace_ = Float
 -- | SubSpace is short for subpixel space. A floating point value where one square unit refers to one pixel.
 newtype SubSpace = SubSpace {unSubSpace :: SubSpace_} deriving (Enum, Epsilon, RealFrac, Fractional, Real, Num, Ord, Eq, RealFloat, Floating)
-
 instance Bounded SubSpace where { minBound = SubSpace (-1/0); maxBound = SubSpace(1/0) }
 
 type PixelSpace_ = Int32
 -- | Pixel space is pixel boundary space. An integer value where one square unit refers to one pixel.
 newtype PixelSpace     = PSpace {unPSpace :: PixelSpace_ } deriving (Bounded, Integral, Enum, Ix, Real, Num, Ord, Eq)
+
+type TextureSpace_ = Float
+
+newtype TextureSpace = TSpace {unTSpace :: TextureSpace_ } deriving (Enum, Epsilon, RealFrac, Fractional, Real, Num, Ord, Eq, RealFloat, Floating)
+instance Bounded TextureSpace where { minBound = TSpace (-1/0); maxBound = TSpace(1/0) }
 
 class (SimpleSpace (SpaceOf a)) => HasSpace a where
   type SpaceOf a
@@ -104,10 +110,17 @@ instance Iota SubSpace where
 instance Iota PixelSpace where
   iota = PSpace 1
 
+instance Iota TextureSpace where
+  iota = TSpace 0.0001
+
 --------------------- Random -----------------
 instance Random SubSpace where
   random = runRand $ do value <-  getRandomR (-10, 2880); return $ SubSpace value
   randomR (SubSpace l, SubSpace h)= runRand $ do value <- getRandomR (l, h); return $ SubSpace value
+
+instance Random TextureSpace where
+  random = runRand $ do value <-  getRandomR (-10, 2880); return $ TSpace value
+  randomR (TSpace l, TSpace h)= runRand $ do value <- getRandomR (l, h); return $ TSpace value
 
 -------------------------------------
 -- Orthoganal Values
@@ -164,6 +177,12 @@ instance Storable SubSpace where
     alignment _         = alignment (undefined :: SubSpace_)
     peek ptr            = SubSpace . (realToFrac :: CFloat -> Float) <$> peek (castPtr ptr)
     poke ptr (SubSpace x) = poke (castPtr ptr) $ (realToFrac :: Float -> CFloat) x
+
+instance Storable TextureSpace where
+    sizeOf    _         = sizeOf    (undefined :: TextureSpace_)
+    alignment _         = alignment (undefined :: TextureSpace_)
+    peek ptr            = TSpace . (realToFrac :: CFloat -> Float) <$> peek (castPtr ptr)
+    poke ptr (TSpace x) = poke (castPtr ptr) $ (realToFrac :: Float -> CFloat) x
 
 instance Storable PixelSpace where
     sizeOf   _          = sizeOf    (undefined :: PixelSpace_)

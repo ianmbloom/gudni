@@ -72,11 +72,12 @@ overScafPoint f (ScafPoint p) = ScafPoint (f p)
 overScafPoint f Ambiguous     = Ambiguous
 
 instance Space s => SimpleTransformable (ScafPoint s) where
-  tTranslate delta = overScafPoint (tTranslate delta)
-  tScale scale     = overScafPoint (tScale scale)
+  translateBy delta = overScafPoint (translateBy delta)
+  scaleBy scale     = overScafPoint (scaleBy scale)
+  stretchBy point   = overScafPoint (stretchBy point)
 
 instance Space s => Transformable (ScafPoint s) where
-  tRotate rotate = overScafPoint (tRotate rotate)
+  rotateBy rotate = overScafPoint (rotateBy rotate)
 
 type NameMap s = M.Map [ScafName] (ScafPoint s)
 
@@ -92,7 +93,7 @@ scaffoldToSTree scaf = buildScaffold mapping transformedScaf
     case scaffold of
        STransform transform tree ->
          let (innerTree, innerMap) = go tree
-         in  (applyTransformer transform innerTree, M.map (applyTransformer transform) innerMap)
+         in  (undefined {-applyTransformer transform innerTree-}, undefined {-M.map (applyTransformer transform) innerMap-})
        SMeld meld a b ->
          let (a', aMap) = go a
              (b', bMap) = go b
@@ -171,13 +172,14 @@ mapScafPoints :: (Point2 (SpaceOf t) -> Point2 (SpaceOf t)) -> Scaf m o t -> Sca
 mapScafPoints f scaf =
     case scaf of
         Named name child -> Named name $ mapScaffoldPoints f child
-        Build    b     ->  Build  b
-        Build1   b x   ->  Build1 b (mapPointRef f x)
-        Build2   b x y ->  Build2 b (mapPointRef f x) (mapPointRef f y)
+        Build  b         -> Build  b
+        Build1 b x       -> Build1 b (mapPointRef f x)
+        Build2 b x y     -> Build2 b (mapPointRef f x) (mapPointRef f y)
 
 instance (HasSpace t) => SimpleTransformable (Scaf m o t) where
-  tTranslate delta = mapScafPoints (tTranslate delta)
-  tScale scale = mapScafPoints (tScale scale)
+  translateBy delta   = mapScafPoints (translateBy delta  )
+  scaleBy     scale   = mapScafPoints (scaleBy     scale  )
+  stretchBy   boxSize = mapScafPoints (stretchBy   boxSize)
 
 instance (Space (SpaceOf (Scaf m o t)), SimpleTransformable (Scaf m o t)) => Transformable (Scaf m o t) where
-  tRotate  angle = mapScafPoints (tRotate angle)
+  rotateBy  angle = mapScafPoints (rotateBy angle)

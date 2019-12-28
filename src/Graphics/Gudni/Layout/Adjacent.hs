@@ -94,12 +94,12 @@ alignHorizontal alignment a b =
                   AlignMin    -> 0
                   AlignMax    -> width - aWidth
                   AlignCenter -> (width - aWidth) / 2
-      newA = tTranslateXY offsetA 0 $ a
+      newA = translateByXY offsetA 0 $ a
       offsetB = case alignment of
                   AlignMin    -> 0
                   AlignMax    -> width - bWidth
                   AlignCenter -> (width - bWidth) / 2
-      newB = tTranslateXY offsetB 0 $ b
+      newB = translateByXY offsetB 0 $ b
   in  (newA, newB)
 
 alignVertical :: (Show (SpaceOf rep)
@@ -121,12 +121,12 @@ alignVertical alignment a b =
                   AlignMin    -> 0
                   AlignMax    -> height - aHeight
                   AlignCenter -> (height - aHeight) / 2
-      newA = tTranslateXY 0 offsetA $ a
+      newA = translateByXY 0 offsetA $ a
       offsetB = case alignment of
                   AlignMin    -> 0
                   AlignMax    -> height - bHeight
                   AlignCenter -> (height - bHeight) / 2
-      newB = tTranslateXY 0 offsetB $ b
+      newB = translateByXY 0 offsetB $ b
   in  (newA, newB)
 
 nextToHorizontal :: ( Show (SpaceOf rep)
@@ -139,7 +139,7 @@ nextToHorizontal a b =
   whenBothNotEmpty a b $
   let newB = set (maybeBox . widthBox) (b ^?! maybeBox . widthBox ) .
              set (maybeBox . leftSide) (a ^?! maybeBox . rightSide) .
-             tTranslateXY (a ^?! maybeBox . rightSide - b ^?! maybeBox . leftSide) 0 $
+             translateByXY (a ^?! maybeBox . rightSide - b ^?! maybeBox . leftSide) 0 $
              b
   in (a, newB)
 
@@ -153,7 +153,7 @@ nextToVertical a b =
   whenBothNotEmpty a b $
     let newB = set (maybeBox . heightBox) (b ^?! maybeBox . heightBox ) .
                set (maybeBox . topSide  ) (a ^?! maybeBox . bottomSide) .
-               tTranslateXY 0 (a ^?! maybeBox . bottomSide - b ^?! maybeBox . topSide) $
+               translateByXY 0 (a ^?! maybeBox . bottomSide - b ^?! maybeBox . topSide) $
                b
     in (a, newB)
 

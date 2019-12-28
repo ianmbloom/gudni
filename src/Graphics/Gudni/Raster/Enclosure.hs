@@ -36,6 +36,7 @@ import Foreign.Ptr
 import Foreign.C.Types
 import Foreign.Storable
 import Control.DeepSeq
+import Control.Monad
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as VS
 
@@ -61,11 +62,11 @@ data Enclosure = Enclosure
 -- | Convert a list of outlines into an enclosure.
 enclose :: ReorderTable
         -> Int
-        -> [Outline SubSpace]
+        -> V.Vector (Outline SubSpace)
         -> Enclosure
 enclose curveTable maxSectionSize outlines =
   let -- Convert the list of outlines into a list of strands.
-      strands = V.concatMap (outlineToStrands curveTable maxSectionSize) $ V.fromList outlines
+      strands = join . fmap (outlineToStrands curveTable maxSectionSize) $ outlines
       -- Count the strands.
       numStrands = V.length strands :: Int
   in  Enclosure { enclosureNumStrands = fromIntegral numStrands

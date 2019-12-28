@@ -50,7 +50,7 @@ module Graphics.Gudni.Figure.Box
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
-import Graphics.Gudni.Figure.Transformer
+import Graphics.Gudni.Figure.Transformable
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
@@ -61,6 +61,7 @@ import Foreign.Storable
 import Foreign.C.Types
 
 import Control.Lens
+import Control.Applicative
 
 --import Data.ShapeInfo.SIMD
 import Data.Traversable
@@ -89,8 +90,10 @@ instance (SimpleSpace s) => HasBox (Box s) where
 instance (SimpleSpace s) => HasBox (Point2 s) where
   boxOf p = Box p p
 
-instance HasBox a => HasBox [a] where
-  boxOf = minMaxBoxes . map boxOf
+instance (Functor f, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Foldable f, HasBox a) => HasBox (f a) where
+  boxOf = minMaxBoxes . fmap boxOf
+
+
 
 -- | Get the width of a box.
 widthOf :: (HasBox a) => a -> X (SpaceOf a)
@@ -175,8 +178,9 @@ minMaxBoxes = foldl minMaxBox (Box maxPoint minPoint) . fmap boxOf
 
 -- Boxes have an instance for SimpleTransformable but no instance for Transformable.
 instance SimpleSpace s => SimpleTransformable (Box s) where
-  tTranslate p = mapBox (^+^ p)
-  tScale     s = mapBox (^* s)
+  translateBy p = mapBox (^+^ p)
+  stretchBy   p = mapBox (liftA2 (*) p)
+  scaleBy     s = mapBox (^* s)
 
 instance (Hashable s) => Hashable (Box s) where
     hashWithSalt s (Box tl br) = s `hashWithSalt` tl `hashWithSalt` br

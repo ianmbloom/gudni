@@ -30,7 +30,7 @@ import Foreign.C.Types
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Color
-import Graphics.Gudni.Figure.Transformer
+import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Util.Debug
@@ -113,10 +113,11 @@ instance (Space s) => HasSpace (PictureUsage ref s) where
   type SpaceOf (PictureUsage ref s) = s
 
 instance (Space s) => SimpleTransformable (PictureUsage ref s) where
-  tTranslate p (PictureUsage translate scale ref) = PictureUsage (p + translate) scale ref
-  tScale     s (PictureUsage translate scale ref) = PictureUsage translate (s * scale) ref
+  translateBy p (PictureUsage translate scale ref) = PictureUsage (p + translate) scale ref
+  stretchBy   s (PictureUsage translate scale ref) = PictureUsage translate (unOrtho (s ^. pX) * scale) ref
+  scaleBy     s (PictureUsage translate scale ref) = PictureUsage translate (s * scale) ref
 instance (Space s) => Transformable (PictureUsage ref s) where
-  tRotate    a usage = usage -- currently not implemented
+  rotateBy    a usage = usage -- currently not implemented
 
 instance (NFData ref, NFData s) => NFData (PictureUsage ref s) where
   rnf (PictureUsage a b c) = a `deepseq` b `deepseq` c `deepseq` ()

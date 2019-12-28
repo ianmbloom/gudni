@@ -28,10 +28,10 @@ where
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
-import Graphics.Gudni.Figure.Segment
+import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Angle
-import Graphics.Gudni.Figure.Transformer
+import Graphics.Gudni.Figure.Transformable
 
 import Graphics.Gudni.Util.Debug
 
@@ -45,14 +45,14 @@ import Control.DeepSeq
 import Control.Applicative
 import Control.Lens
 
-makeArcSegment :: (Space s) => Angle s -> OpenCurve s
-makeArcSegment angle = OpenCurve [curved 1 0 1 (Ortho $ tanA $ angle ^/ 2)] (Point2 (cosA angle) (sinA angle))
+makeArcSegment :: (Alternative t, Space s) => Angle s -> OpenCurve_ t s
+makeArcSegment angle = OpenCurve . pure $ curved (Point2 1 0) (Point2 1 (tanA $ angle ^/ 2)) (Point2 (cosA angle) (sinA angle))
 
-makeArc :: (Space s) => Angle s -> OpenCurve s
+makeArc :: (UnLoop t, Alternative t, Space s) => Angle s -> OpenCurve_ t s
 makeArc angle
     | abs (angle ^. deg) < 45 = makeArcSegment angle
-    | abs (angle ^. deg) == 0 = OpenCurve [] zeroPoint
-    | otherwise = makeArc (angle ^/ 2) <^> overCurve (tRotate (angle ^/ 2)) (makeArc (angle ^/ 2))
+    | abs (angle ^. deg) == 0 = OpenCurve empty
+    | otherwise = makeArc (angle ^/ 2) <^> overCurvePoints (rotateBy (angle ^/ 2)) (makeArc (angle ^/ 2))
 
 data Turn = Hard | Smooth deriving (Ord, Eq, Show)
 data LR s = L | R | UTurn | Arb (Angle s) deriving (Ord, Eq, Show)
@@ -82,24 +82,24 @@ initialTurtleState = TurtleState 1 (0 @@ deg)
 (+<+) a b = normalizeAngle (a ^+^ b)
 
 -- | Convert a list of turtle moves into an OpenCurve.
-plotTurtle :: (Space s) => TurtleState s -> [Turtle s] -> OpenCurve s
+plotTurtle :: (UnLoop t, Alternative t, Space s) => TurtleState s -> [Turtle s] -> OpenCurve_ t s
 plotTurtle state ss = let (m_plots, s) = runState (mapM plotTurtle' ss) initialTurtleState
                           plots = catMaybes m_plots
-                      in foldl1 (<^>) plots
+                      in  foldl1 (<^>) plots
 
 -- | Follow turtle moves across a monad.
-plotTurtle' :: (Space s) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve s))
+plotTurtle' :: (UnLoop t, Alternative t, Space s) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve_ t s))
 plotTurtle' simp =
   do
     a  <- use turtleAngle
     m_plot <- plotTurtle'' simp
     case m_plot of
       Nothing -> return Nothing
-      Just plot -> return $ Just $ overCurve (tRotate a) plot
+      Just plot -> return $ Just $ overCurvePoints (rotateBy a) plot
 
 
-plotTurtle'' :: (Space s) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve s))
-plotTurtle'' (TGo distance) = do r <- use turtleRadius ; return $ Just $ OpenCurve [straight 0 0] (makePoint (toXOrtho distance) 0)
+plotTurtle'' :: (UnLoop t, Alternative t, Space s) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve_ t s))
+plotTurtle'' (TGo distance) = do r <- use turtleRadius ; return $ Just $ OpenCurve $ pure $ straight (Point2 0 0) (Point2 distance 0)
 plotTurtle'' (TRadius r) = do turtleRadius .= r; return Nothing
 plotTurtle'' (TTurn t lr) =
   do
@@ -111,17 +111,17 @@ plotTurtle'' (TTurn t lr) =
       Smooth ->
         do
           r <- use turtleRadius
-          let f = if a > (0 @@ deg) then overCurve (tRotate (-90 @@ deg)) else overCurve (tRotate (90 @@ deg))
-          return $ Just $ f $ let arc = overCurve (tScale r) $ makeArc a
-                                  start = head (arc ^. curveSegments) ^. anchor
-                              in  overCurve (^-^ start) arc
+          let f = if a > (0 @@ deg) then overCurvePoints (rotateBy (-90 @@ deg)) else overCurvePoints (rotateBy (90 @@ deg))
+          return $ Just $ f $ let arc = overCurvePoints (scaleBy r) $ makeArc a
+                                  start = (arc ^. outset)
+                              in  overCurvePoints (^-^ start) arc
 plotTurtle'' (TReverse pl) =
   do state <- get
      return $ Just $ reverseCurve $ plotTurtle state pl
 plotTurtle'' (TMirror pl) =
   do state <- get
      let pl' = plotTurtle state pl
-     return $ Just $ pl' <^> (reverseCurve $ overCurve flipH pl')
+     return $ Just $ pl' <^> (reverseCurve $ overCurvePoints flipH pl')
 
 -- | Convert an LR  (left right direction to an angle.
 lrToAngle :: (Floating s, Num s) => LR s -> Angle s
@@ -152,7 +152,7 @@ turtleNames :: [String]
 turtleNames = map fst allTurtles
 
 -- | Function to turn a list of turtle moves into an OpenCurve.
-runTurtle :: (Space s) => [Turtle s] -> OpenCurve s
+runTurtle :: (UnLoop t, Alternative t, Space s) => [Turtle s] -> OpenCurve_ t s
 runTurtle = plotTurtle initialTurtleState
 
 -- | Lookup a turtle move in the library.
@@ -160,7 +160,7 @@ turtleLibrary :: (Space s) => String -> Maybe [Turtle s]
 turtleLibrary n = M.lookup n turtleLibrary'
 
 -- | Lookup a curve in the library based on the name.
-curveLibrary :: (Space s) => String -> Maybe (OpenCurve s)
+curveLibrary :: (UnLoop t, Alternative t, Space s) => String -> Maybe (OpenCurve_ t s)
 curveLibrary n = fmap runTurtle  (turtleLibrary n)
 
 -- | Cycle a turtle move reps number of times.
@@ -168,13 +168,13 @@ cyclic :: [Turtle s] -> Int -> [Turtle s]
 cyclic pat reps = concat . take reps . repeat $ pat
 
 -- | Create a rounded polygon with a certain number of sides.
-roundedPolygon :: (Space s) => Int -> OpenCurve s
+roundedPolygon :: (UnLoop t, Alternative t, Space s) => Int -> OpenCurve_ t s
 roundedPolygon sides = runTurtle . cyclic [TRadius 0.1, TGo 1, TTurn Smooth (Arb (fullTurn ^/fromIntegral sides))] $ sides
 
 -- | Create a start with a certain number of sides.
-star :: (Space s) => Int -> Angle s -> s -> OpenCurve s
+star :: (UnLoop t, Alternative t, Space s) => Int -> Angle s -> s -> OpenCurve_ t s
 star sides a r = runTurtle $ cyclic [TRadius r, TGo 1, TTurn Smooth (Arb ((fullTurn ^/ fromIntegral sides) ^+^ a)), TGo 1, TTurn Smooth (Arb (negated a))] sides
 
 -- | Create an arc by plotting a simple turtle move.
-plotArc :: (Space s) => Angle s -> OpenCurve s
+plotArc :: (UnLoop t, Alternative t, Space s) => Angle s -> OpenCurve_ t s
 plotArc angle = plotTurtle initialTurtleState [TTurn Smooth (Arb angle)]

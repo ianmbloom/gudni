@@ -27,10 +27,10 @@ import Graphics.Gudni.Layout.Scaffolding
 import Graphics.Gudni.Util.Util
 
 rowOf :: SimpleTransformable a => SpaceOf a -> [a] -> [a]
-rowOf s = zipWith ($) (map tTranslate $ iterate (^+^ Point2 s 0) zeroPoint)
+rowOf s = zipWith ($) (map translateBy $ iterate (^+^ Point2 s 0) zeroPoint)
 
 columnOf :: SimpleTransformable a => SpaceOf a -> [a] -> [a]
-columnOf s = zipWith ($) (map tTranslate $ iterate (^+^ Point2 0 s) zeroPoint)
+columnOf s = zipWith ($) (map translateBy $ iterate (^+^ Point2 0 s) zeroPoint)
 
 makeGrid :: (SimpleTransformable a)
          => SpaceOf a

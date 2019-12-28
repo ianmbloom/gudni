@@ -27,10 +27,10 @@
 module Graphics.Gudni.Figure.ShapeTree
   ( STree(..)
   , SRep(..)
-  , tTranslate
-  , tTranslateXY
-  , tScale
-  , tRotate
+  , translateBy
+  , translateByXY
+  , scaleBy
+  , rotateBy
   , shapeSubstanceType
   , shapeToken
   , shapeCompoundTree
@@ -54,7 +54,10 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Box
+import Graphics.Gudni.Figure.OpenCurve
 --import Graphics.Gudni.Figure.Glyph
+import Graphics.Gudni.Figure.Projection
+import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Color
 import Graphics.Gudni.Figure.Picture
@@ -142,11 +145,15 @@ instance HasSpace rep => HasSpace (SRep token rep) where
   type SpaceOf (SRep token rep) = SpaceOf rep
 
 instance (HasSpace leaf) => SimpleTransformable (STree o leaf) where
-  tTranslate delta tree = if delta == zeroPoint then tree else STransform (Translate delta) tree
-  tScale factor tree = if factor == 1 then tree else STransform (Scale factor) tree
+  translateBy delta tree = if delta == zeroPoint then tree else STransform (Translate delta) tree
+  scaleBy factor tree = if factor == 1 then tree else STransform (Scale factor) tree
+  stretchBy size tree = if size == Point2 1 1 then tree else STransform (Stretch size) tree
 
 instance (HasSpace leaf) => Transformable (STree o leaf) where
-  tRotate angle tree = if angle == (0 @@ rad) then tree else STransform (Rotate angle) tree
+  rotateBy angle tree = if angle == (0 @@ rad) then tree else STransform (Rotate angle) tree
+
+instance (Space s, CanProject (BezierSpace s) f leaf) => CanProject (OpenCurve s) f (STree o leaf) where
+    projectionWithStepsAccuracy max_steps m_accuracy path tree = pure . STransform (Project path) $ tree
 
 instance Functor (SRep token) where
   fmap f (SRep token substance rep) = SRep token substance (f rep)

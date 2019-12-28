@@ -228,7 +228,7 @@ buildThresholdHs threshold =
                       -- then colorModifier $ colors !! shapeIndex
                       -- else transparent 0.01 $ black
   in  overlap [(solid color :: Glyph (CompoundTree SubSpace) -> Glyph (ShapeTree Int SubSpace)) $ line adjustedStroke startPoint endPoint
-              --,tTranslate (Point2 (DSpace . realToFrac . thrLeft  $ threshold) (DSpace . realToFrac . thrTop $ threshold)) .
+              --,translateBy (Point2 (DSpace . realToFrac . thrLeft  $ threshold) (DSpace . realToFrac . thrTop $ threshold)) .
               -- SLeaf (Left $ transparent 0.25 $ light blue) 0 $
               -- rectangle (Point2 ((DSpace . realToFrac . thrRight  $ threshold) - (DSpace . realToFrac . thrLeft $ threshold))
               --                   ((DSpace . realToFrac . thrBottom $ threshold) - (DSpace . realToFrac . thrTop  $ threshold))
@@ -286,7 +286,7 @@ buildParseStateHs action =
     --  buildCount        action -- Int
     --  randomFieldCursor action -- Int
     --  randomField       action -- Int
-    in tTranslate start . solid color . rectangle $ end - start
+    in translateBy start . solid color . rectangle $ end - start
 
 buildTileStateHs :: Action -> Glyph (ShapeTree Int SubSpace)
 buildTileStateHs action = undefined
@@ -349,8 +349,8 @@ instance Model TraceState where
 
 statusDisplay :: Monad m => TraceState -> String -> FontMonad m (Glyph (ShapeTree Int SubSpace))
 statusDisplay state status =
-    tTranslateXY 3100 2000 .
-    tScale 24 .
+    translateByXY 3100 2000 .
+    scaleBy 24 .
     fmap (solid (redish $ dark gray)) .
     paragraph 0.1 0.1 AlignMin AlignMin $
     status
@@ -360,9 +360,9 @@ transformFromState state =
   let sc    = view stateScale state
       delta = view stateDelta state
       angle = view stateAngle state
-  in  tTranslate delta .
-      mapGlyph (tRotate angle) .
-      tScale sc
+  in  translateBy delta .
+      mapGlyph (rotateBy angle) .
+      scaleBy sc
 
 constructFromState :: TraceState -> Glyph (ShapeTree Int SubSpace)
 constructFromState state =

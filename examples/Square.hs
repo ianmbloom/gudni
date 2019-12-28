@@ -47,9 +47,9 @@ instance Model SquareState where
     constructScene state status =
         return .                          -- Push the scene into the FontMonad
         Scene (light . greenish $ blue) . -- Wrap the ShapeTree in a scene with background color
-        tTranslate (Point2 100 100) .     -- translate the child ShapeTree
-        tScale  (state ^. stateScale) .   -- scale the child ShapeTree based on the current state.
-        tRotate (state ^. stateAngle) .   -- rotate the child ShapeTree based on the current state.
+        translateBy (Point2 100 100) .     -- translate the child ShapeTree
+        scaleBy  (state ^. stateScale) .   -- scale the child ShapeTree based on the current state.
+        rotateBy (state ^. stateAngle) .   -- rotate the child ShapeTree based on the current state.
         solid yellow $                    -- create a leaf of the ShapeTree and fill the contained CompoundTree with a solid color.
         unitSquare                        -- create new compoundTree with just one leaf that is the outline of a unit square.
     providePictureMap _ = noPictures

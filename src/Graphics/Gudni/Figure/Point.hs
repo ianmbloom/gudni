@@ -36,6 +36,12 @@ module Graphics.Gudni.Figure.Point
   , normalize
   , norm
   , pointArea
+  , between
+  , mid
+  , isLeftOf
+  , isRightOf
+  , isAbove
+  , isBelow
 )
 where
 
@@ -85,3 +91,29 @@ instance Random s => Random (Point2 s) where
   randomR (Point2 x0 y0, Point2 x1 y1) = runRand $ do x <- getRandomR (x0, x1)
                                                       y <- getRandomR (y0, y1)
                                                       return (Point2 x y)
+
+-- Convenience functions for reasoning about points
+
+-- | Find the point along the line from v0 v1 with the distance proportional by t.
+between :: Num s => s -> Point2 s -> Point2 s -> Point2 s
+between t v0 v1 = (v0 ^* (1-t)) ^+^ (v1 ^* t)
+
+-- | Make a mid point from two points.
+mid :: (Fractional s, Num s) => Point2 s -> Point2 s -> Point2 s
+mid = lerp 0.5
+
+-- | Return true if a is left of b in screen axis space.
+isLeftOf :: (Space s) => Point2 s -> Point2 s -> Bool
+a `isLeftOf` b  = a ^. pX < b ^. pX
+
+-- | Return true if a is right of b in screen axis space.
+isRightOf :: (Space s) => Point2 s -> Point2 s -> Bool
+a `isRightOf` b = a ^. pX > b ^. pX
+
+-- | Return true if a is above b in screen axis space.
+isAbove :: (Space s) => Point2 s -> Point2 s -> Bool
+a `isAbove` b  = a ^. pY < b ^. pY
+
+-- | Return true if a is below b in screen axis space.
+isBelow :: (Space s) => Point2 s -> Point2 s -> Bool
+a `isBelow` b = a ^. pY > b ^. pY

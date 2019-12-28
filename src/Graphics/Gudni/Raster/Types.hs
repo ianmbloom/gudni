@@ -49,6 +49,7 @@ import Graphics.Gudni.Util.Debug
 
 import Control.DeepSeq
 import qualified Data.Vector.Storable as VS
+import qualified Data.Vector as V
 
 import Control.Lens
 
@@ -60,15 +61,16 @@ import System.Random
 import Control.Monad.Random
 import Linear
 
+
 -- | Group is just a newtype for "list of"
 newtype Group t = Group
-    { unGroup :: [t]
+    { unGroup :: V.Vector t
     } deriving (Show)
 
-instance HasSpace [t] => HasSpace (Group t) where
+instance (Space (SpaceOf t), HasSpace (V.Vector t)) => HasSpace (Group t) where
   type SpaceOf (Group t) = SpaceOf t
 
-instance HasBox [t] => HasBox (Group t) where
+instance (Space (SpaceOf t), HasBox (V.Vector t)) => HasBox (Group t) where
   boxOf (Group ts) = boxOf ts
 
 instance Functor Group where
