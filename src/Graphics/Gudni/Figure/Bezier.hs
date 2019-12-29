@@ -16,6 +16,7 @@ module Graphics.Gudni.Figure.Bezier
   , reverseBezier
   , maxStepsFromAccuracy
   , splitBezier
+  , insideBezier
   , inverseArcLength
   , eval
   )
@@ -36,6 +37,7 @@ import qualified Data.Vector as V
 import Data.Hashable
 import Control.DeepSeq
 import Control.Lens hiding ((...))
+import Control.Applicative
 
 data Bezier s = Bezier {unBezier :: V3 (Point2 s)} deriving (Show, Eq, Ord)
 pattern Bez x y z = Bezier (V3 x y z)
@@ -135,10 +137,19 @@ instance Space s => HasArcLength (Bezier s) where
 
 {-# INLINE splitBezier #-}
 splitBezier :: (Floating s, Ord s) => s -> Bezier s -> (Bezier s, Bezier s)
-splitBezier t (Bez p0 p1 p2) = (Bez p0 c1 pm, Bez pm c2 p2) where
-    c1 = lerp t p1 p0
-    c2 = lerp t p2 p1
-    pm = lerp t c2 c1
+splitBezier t (Bez p0 c p1) = (Bez p0 mid0 onCurve, Bez onCurve mid1 p1) where
+    (Bez mid0 onCurve mid1 ) = insideBezier t (Bez p0 c p1)
+
+-- | Given two onCurve points and a controlPoint. Find two control points and an on-curve point between them
+-- by bifercating according to the parameter t.
+{-# INLINE insideBezier #-}
+insideBezier :: Num s => s -> Bezier s -> Bezier s
+insideBezier t (Bez v0 control v1) =
+  let mid0     = lerp t control v0
+      mid1     = lerp t v1      control
+      onCurve  = lerp t mid1    mid0
+  in  (Bez mid0 onCurve mid1)
+
 
 -- | @inverseArcLength ε bz l@ returns a parameter @t@ such that the
 -- curve bz has length @l@ between its start point and @t@.  More

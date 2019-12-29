@@ -46,8 +46,8 @@ initialModel pictureMap =
     BenchmarkState
     { _stateBase = BasicSceneState
         { _stateScale       = 1
-        , _stateDelta       = Point2 20 20
-        , _stateAngle       = 90 @@ deg -- 0.02094 @@ rad -- 0 @@ turn-- quarterTurn
+        , _stateDelta       = Point2 0 0
+        , _stateAngle       = 0 @@ deg -- 0.02094 @@ rad -- 0 @@ turn-- quarterTurn
         , _statePaused      = True
         , _stateSpeed       = 0.1
         , _statePace        = 0.1

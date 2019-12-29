@@ -43,10 +43,20 @@ sPLIT = 1 / 2
 -- by bifercating according to the parameter t.
 curvePoint :: Num s => s -> Bezier s -> Bezier s
 curvePoint t (Bez v0 control v1) =
-  let mid0     = lerp t v0      control
-      mid1     = lerp t control v1
-      onCurve  = lerp t mid0    mid1
+  let mid0     = lerp (1-t) v0      control
+      mid1     = lerp (1-t) control v1
+      onCurve  = lerp (1-t) mid0    mid1
   in  (Bez mid0 onCurve mid1)
+
+-- | Given two onCurve points and a controlPoint. Find two control points and an on-curve point between them
+-- by bifercating according to the parameter t.
+-- curvePoint :: Num s => s -> Bezier s -> Bezier s
+-- curvePoint t (Bez v0 control v1) =
+--   let mid0     = between t v0      control
+--       mid1     = between t control v1
+--       onCurve  = between t mid0    mid1
+--   in  (Bez mid0 onCurve mid1)
+
 
 -- | Find a new onCurve point and two new control points that divide the curve based on the convex function.
 findSplit :: forall s . (Show s, Fractional s, Ord s, Num s, Iota s) => (Point2 s -> Point2 s -> Bool) -> s -> Bezier s -> Bezier s

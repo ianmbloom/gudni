@@ -27,16 +27,6 @@ import Control.Applicative
 sPLIT :: (Fractional s, Num s) => s
 sPLIT = 1 / 2
 
--- | Given two onCurve points and a controlPoint. Find two control points and an on-curve point between them
--- by bifercating according to the parameter t.
-curvePoint :: Num s => s -> Bezier s -> Bezier s
-curvePoint t (Bez v0 control v1) =
-  let mid0     = between t v0      control
-      mid1     = between t control v1
-      onCurve  = between t mid0    mid1
-  in  (Bez mid0 onCurve mid1)
-
-
 -- | Find a new onCurve point and two new control points that divide the curve based on the convex function.
 findSplit :: forall f s . (Alternative f, Show s, Fractional s, Ord s, Num s, Iota s) => (Point2 s -> s) -> s -> Bezier s -> f (Bezier s)
 findSplit axis cut bezier@(Bez v0 control v1) = search 0.0 1.0 0.5
@@ -54,7 +44,7 @@ findSplit axis cut bezier@(Bez v0 control v1) = search 0.0 1.0 0.5
           search lower t lowerSplit -- search closer to v1
     -- Otherwise it's not convex anymore so split it
     | otherwise = final
-    where innerBezier@(Bez mid0 onCurve mid1) = curvePoint t bezier
+    where innerBezier@(Bez mid0 onCurve mid1) = insideBezier t bezier
           upperSplit = (t + ((upper - t) / 2))
           lowerSplit = (lower + ((t - lower) / 2))
           final = pure (Bez v0 mid0 onCurve) <|> pure (Bez onCurve mid1 v1)

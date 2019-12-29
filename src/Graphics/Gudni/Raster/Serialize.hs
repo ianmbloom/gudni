@@ -153,7 +153,7 @@ onShape :: MonadIO m
         -> [Outline SubSpace]
         -> GeometryMonad m ()
 onShape wrapShape combineType transformer outlines =
-  do let transformedOutlines = tr "transformedOutlines" . Group . join . V.fromList . (map (applyTransformer transformer)) $ outlines
+  do let transformedOutlines = Group . join . V.fromList . (map (applyTransformer transformer)) $ outlines
          boundingBox = boxOf transformedOutlines
      canvasSize <- use geoCanvasSize
      if excludeBox canvasSize boundingBox
@@ -165,7 +165,7 @@ onShape wrapShape combineType transformer outlines =
              -- Maximum strands per tile
              maxStrandsPerTile <- use geoMaxStrandsPerTile
              -- Build an enclosure from the outlines.
-             let enclosure = tr "enclosures" $ enclose reorderTable maxStrandSize (unGroup transformedOutlines)
+             let enclosure = enclose reorderTable maxStrandSize (unGroup transformedOutlines)
              -- Get the geometry pile.
              geometryPile <- use geoGeometryPile
              -- Add the shape to the geometry pile.

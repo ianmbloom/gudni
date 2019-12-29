@@ -36,7 +36,6 @@ module Graphics.Gudni.Figure.Point
   , normalize
   , norm
   , pointArea
-  , between
   , mid
   , isLeftOf
   , isRightOf
@@ -93,10 +92,6 @@ instance Random s => Random (Point2 s) where
                                                       return (Point2 x y)
 
 -- Convenience functions for reasoning about points
-
--- | Find the point along the line from v0 v1 with the distance proportional by t.
-between :: Num s => s -> Point2 s -> Point2 s -> Point2 s
-between t v0 v1 = (v0 ^* (1-t)) ^+^ (v1 ^* t)
 
 -- | Make a mid point from two points.
 mid :: (Fractional s, Num s) => Point2 s -> Point2 s -> Point2 s
