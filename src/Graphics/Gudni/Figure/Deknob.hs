@@ -14,8 +14,8 @@
 -- rasterized.
 
 module Graphics.Gudni.Figure.Deknob
-  ( fixKnob
-  , replaceKnobs
+  ( CanDeKnob(..)
+  , deKnob
   )
 where
 
@@ -82,25 +82,24 @@ findSplit staysRelativeTo t bezier = search 0.0 1.0 t
 vector2 :: Alternative f => a -> a -> f a
 vector2 a b = pure a <|> pure b
 
--- | If a curve is a knob, split it.
-fixKnob :: (Alternative f, Space s) => Bezier s -> f (Bezier s)
-fixKnob (Bez v0 control v1) =
-    -- If both sides are convex in the left direction.
-    if control `isLeftOf` v0 && control `isLeftOf` v1
-    then-- This is a left bulging knob. Split it while one part maintains that bulge.
-        let (Bez mid0 onCurve mid1) = findSplit isLeftOf sPLIT (Bez v0 control v1)
-        -- And return the two resulting curves.
-        in vector2 (Bez v0 mid0 onCurve) (Bez onCurve mid1 v1)
-    else-- Else if both sides are convex in the right direction
-        if control `isRightOf` v0 && control `isRightOf` v1
-        then-- This is a right bulging knob. Split it while one part maintains that bulge direction.
-            let (Bez mid0  onCurve  mid1) = findSplit isRightOf sPLIT  (Bez v0 control v1)
-            -- And return the two resulting curves.
-            in vector2 (Bez v0 mid0 onCurve) (Bez onCurve mid1 v1)
-        else -- Otherwise return the curve unharmed.
-             pure (Bez v0 control v1)
+class HasSpace t => CanDeKnob t where
+  deKnob :: (Alternative f) => t -> f t
 
-replaceKnobs :: (Space s) => V.Vector (Bezier s) -> V.Vector (Bezier s)
-replaceKnobs bezierSections =
-  let len = V.length bezierSections
-  in  V.concatMap fixKnob bezierSections
+
+instance (Space s) => CanDeKnob (Bezier s) where
+   -- | If a curve is a knob, split it.
+   deKnob (Bez v0 control v1) =
+       -- If both sides are convex in the left direction.
+       if control `isLeftOf` v0 && control `isLeftOf` v1
+       then-- This is a left bulging knob. Split it while one part maintains that bulge.
+           let (Bez mid0 onCurve mid1) = findSplit isLeftOf sPLIT (Bez v0 control v1)
+           -- And return the two resulting curves.
+           in vector2 (Bez v0 mid0 onCurve) (Bez onCurve mid1 v1)
+       else-- Else if both sides are convex in the right direction
+           if control `isRightOf` v0 && control `isRightOf` v1
+           then-- This is a right bulging knob. Split it while one part maintains that bulge direction.
+               let (Bez mid0  onCurve  mid1) = findSplit isRightOf sPLIT  (Bez v0 control v1)
+               -- And return the two resulting curves.
+               in vector2 (Bez v0 mid0 onCurve) (Bez onCurve mid1 v1)
+           else -- Otherwise return the curve unharmed.
+                pure (Bez v0 control v1)

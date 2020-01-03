@@ -60,10 +60,10 @@ import Graphics.Gudni.OpenCL.Setup
 import Graphics.Gudni.OpenCL.Rasterizer
 import Graphics.Gudni.OpenCL.CallKernels
 
-import Graphics.Gudni.Raster.Types
 
 import Graphics.Gudni.Raster.Constants (rANDOMFIELDsIZE)
 import Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
+import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.TileTree
 import Graphics.Gudni.Raster.Serialize
 import Graphics.Gudni.Raster.Job
@@ -83,7 +83,7 @@ import System.Info
 -- | The model typeclass is the primary interface to the application functions in Gudni
 class Model s where
   -- | Construct a Scene from the state of type `s`
-  constructScene  :: s -> String -> FontMonad IO (Scene Int)
+  constructScene  :: s -> String -> FontMonad IO (Scene (ShapeTree Int SubSpace))
   -- | Update the state based on the elapsed time and a list of inputs
   updateModelState :: Int -> SimpleTime -> [Input (Point2 PixelSpace)] -> s -> s
   -- | Do tasks in the IO monad based and update the current state.
@@ -194,7 +194,7 @@ beginCycle =
     do  restartAppTimer
 
 -- | Update the model state and generate a shape tree, marking time along the way.
-processState :: (Show s, Model s) => SimpleTime -> [Input (Point2 PixelSpace)] -> ApplicationMonad s (Scene Int)
+processState :: (Show s, Model s) => SimpleTime -> [Input (Point2 PixelSpace)] -> ApplicationMonad s (Scene (ShapeTree Int SubSpace))
 processState elapsedTime inputs =
     do  frame <- fromIntegral <$> use appCycle
         markAppTime "Advance State"
@@ -212,7 +212,7 @@ processState elapsedTime inputs =
         return shapeTree
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
-drawFrame :: (Model s) => CInt -> Scene Int -> ApplicationMonad s DrawTarget
+drawFrame :: (Model s) => CInt -> Scene (ShapeTree Int SubSpace) -> ApplicationMonad s DrawTarget
 drawFrame frameCount scene =
     do  --appMessage "ResetJob"
         rasterizer <- use appRasterizer
@@ -222,11 +222,10 @@ drawFrame frameCount scene =
         let canvasSize = P (targetArea target)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
         let maxTileSize = rasterizer ^. rasterSpec . specMaxTileSize
-
         lift (geoTileTree .= buildTileTree maxTileSize (fromIntegral <$> canvasSize))
         markAppTime "Build TileTree"
-        substanceState <- lift ( execSubstanceMonad pictureMap $
-                                 buildOverScene scene)
+        (scenePictMem, pictDataPile) <- liftIO $ assignScenePictureMemory pictureMap scene
+        substanceState <- lift ( execSubstanceMonad $ buildOverScene scenePictMem)
         --liftIO $ evaluate $ rnf (substances, boundedShapedEnclosures, substanceState)
         markAppTime "Traverse ShapeTree"
         geometryState <- lift $ get
@@ -235,6 +234,7 @@ drawFrame frameCount scene =
                                         target
                                         geometryState
                                         substanceState
+                                        pictDataPile
         appMessage "===================== rasterStart ====================="
         jobs <- lift $ buildRasterJobs rasterParams
         markAppTime "Build Raster Jobs"

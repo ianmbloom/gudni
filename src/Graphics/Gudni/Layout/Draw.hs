@@ -30,7 +30,7 @@ module Graphics.Gudni.Layout.Draw
   , textureWith
   , cAdd
   , cSubtract
-  , glyphWrapOutline
+  , glyphWrapShape
   , testPlot
   )
 where
@@ -48,8 +48,8 @@ import Control.Lens
 import qualified Data.Vector as V
 
 
-glyphWrapOutline :: Space s => [Outline s] -> Glyph (CompoundTree s)
-glyphWrapOutline outlines =
+glyphWrapShape :: Space s => Shape s -> Glyph (CompoundTree s)
+glyphWrapShape outlines =
    let box = foldl1 minMaxBox $ map boxOf $ outlines
    in  Glyph box (SLeaf $ outlines)
 
@@ -131,7 +131,7 @@ instance (Space s) => HasLine (Outline s) where
   line stroke p0 p1 = Outline $ V.fromList $ lineCurve stroke p0 p1
 -- | Glyph wrapper instance around a basic line.
 instance (Space s) => HasLine (Glyph (CompoundTree s)) where
-  line stroke p0 p1 = glyphWrapOutline . pure $ line stroke p0 p1
+  line stroke p0 p1 = glyphWrapShape . pure $ line stroke p0 p1
 
 arcCurve angle = pure . closeOpenCurve . makeArc $ angle
 
@@ -145,14 +145,14 @@ instance Space s => HasArc (CompoundTree s) where
 
 -- | Glyph wrapper instance around and arc.
 instance Space s => HasArc (Glyph (CompoundTree s)) where
-  arc = glyphWrapOutline . arcCurve
+  arc = glyphWrapShape . arcCurve
 
 -- | Typeclass of shape representations that implement a circle.
 class HasArc a => HasCircle a where
   circle :: a
 
 -- | Basic circleCurve
-circleCurve :: Space s => [Outline s]
+circleCurve :: Space s => Shape s
 circleCurve = arcCurve fullTurn
 centerCircle :: (Fractional (SpaceOf a), SimpleTransformable a) => a -> a
 centerCircle = id -- scaleBy 0.5 . translateByXY 0.5 0.5 -- . scaleBy 0.5
@@ -164,7 +164,7 @@ instance Space s => HasCircle (CompoundTree s) where
 
 -- | Glyph wrapper around a circle.
 instance Space s => HasCircle (Glyph (CompoundTree s)) where
-  circle = centerCircle . glyphWrapOutline $ circleCurve
+  circle = centerCircle . glyphWrapShape $ circleCurve
 
 -- | Typeclass of shape representations that can be filled with a color or texture.
 class CanFill a b | b -> a where
@@ -193,8 +193,8 @@ instance {-# Overlappable #-} (Functor f, SpaceOf (f (Glyph (CompoundTree s))) ~
 
 -- | Placeholder function to take a plot out of the curveLibrary and substitute a square on Nothing.
 testPlot :: String
-      -> Glyph (CompoundTree SubSpace)
+         -> Glyph (CompoundTree SubSpace)
 testPlot name =
   case curveLibrary name of
-    Just path -> glyphWrapOutline . pure . closeOpenCurve $ path
+    Just path -> glyphWrapShape . pure . closeOpenCurve $ path
     Nothing -> unitSquare

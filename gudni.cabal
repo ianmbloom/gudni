@@ -80,6 +80,7 @@ library
                      , Graphics.Gudni.Figure.Point
                      , Graphics.Gudni.Figure.Space
                      , Graphics.Gudni.Figure.Split
+                     , Graphics.Gudni.Figure.Substance
                      , Graphics.Gudni.Figure.Projection
                      , Graphics.Gudni.Figure.Deknob
                      , Graphics.Gudni.Figure.Transformable
@@ -100,16 +101,19 @@ library
                      , Graphics.Gudni.OpenCL.CppDefines
                      , Graphics.Gudni.OpenCL.Instances
                      , Graphics.Gudni.OpenCL.Rasterizer
-                     , Graphics.Gudni.Raster.ShapeInfo
+                     , Graphics.Gudni.Raster.ItemInfo
                      , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.Job
                      , Graphics.Gudni.Raster.Strand
                      , Graphics.Gudni.Raster.Enclosure
                      , Graphics.Gudni.Raster.ReorderTable
                      , Graphics.Gudni.Raster.TileTree
+                     , Graphics.Gudni.Raster.GeoReference
                      , Graphics.Gudni.Raster.TraverseShapeTree
                      , Graphics.Gudni.Raster.Serialize
-                     , Graphics.Gudni.Raster.Types
+                     , Graphics.Gudni.Raster.SubstanceInfo
+                     , Graphics.Gudni.Raster.TextureReference
+                     , Graphics.Gudni.Raster.TileEntry
                      , Graphics.Gudni.Layout.Glyph
                      , Graphics.Gudni.Layout.Draw
                      , Graphics.Gudni.Layout.Grid
@@ -120,6 +124,7 @@ library
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util
                      , Graphics.Gudni.Util.Pile
+                     , Graphics.Gudni.Util.Chain
                      , Graphics.Gudni.Util.RandomField
 
   -- LANGUAGE extensions used by modules in this package.

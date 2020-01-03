@@ -18,7 +18,7 @@ module Graphics.Gudni.OpenCL.Rasterizer
   , specMaxTilesPerCall
   , specMaxThresholds
   , specMaxStrandsPerTile
-  , specMaxShapes
+  , specMaxLayers
   , Rasterizer(..)
   , rasterClState
   , rasterGenerateThresholdsKernel
@@ -46,7 +46,7 @@ data RasterSpec = RasterSpec
       -- | Determined best maximum number of thresholds per thread for this device.
     , _specMaxThresholds :: Int
       -- | Determined best maximum number of shapes per thread for this device∘
-    , _specMaxShapes :: Int
+    , _specMaxLayers :: Int
     }
 makeLenses ''RasterSpec
 

@@ -37,6 +37,8 @@ module Graphics.Gudni.Figure.Space
   , PixelSpace (..)
   , TextureSpace (..)
   , showBin
+  , textureSpaceToSubspace
+  , pixelSpaceToTextureSpace
   )
 where
 
@@ -95,6 +97,8 @@ instance (HasSpace a) => HasSpace [a] where
 instance (HasSpace a) => HasSpace (V.Vector a) where
   type SpaceOf (V.Vector a) = SpaceOf a
 
+textureSpaceToSubspace (TSpace x) = SubSpace x
+pixelSpaceToTextureSpace (PSpace x) = TSpace (fromIntegral x)
 -- ---- Iota -----------------
 -- Iota is an extremely small value used for "close enough" comparison.
 
@@ -159,7 +163,11 @@ instance Show a => Show (Y a) where
   show (Ortho y) = "y:"++show y
 
 instance Show SubSpace where
-  show (SubSpace x) = showFl' 5 x --showFl' 2 x ++ "d"
+  show (SubSpace x) = showFl' 5 x
+
+instance Show TextureSpace where
+  show (TSpace x) = showFl' 5 x
+
 
 instance Show PixelSpace where
   show (PSpace x) = show x
@@ -198,6 +206,10 @@ instance (NFData d, NFData a) => NFData (Ortho d a) where
 instance NFData SubSpace where
   rnf (SubSpace x) = x `deepseq` ()
 
+instance NFData TextureSpace where
+  rnf (TSpace x) = x `deepseq` ()
+
+
 instance NFData PixelSpace where
   rnf (PSpace x) = x `deepseq` ()
 
@@ -214,6 +226,10 @@ instance Hashable s => Hashable (Ortho d s) where
 
 instance Hashable SubSpace where
   hashWithSalt s (SubSpace x) = s `hashWithSalt` x
+
+instance Hashable TextureSpace where
+    hashWithSalt s (TSpace x) = s `hashWithSalt` x
+
 
 instance Hashable CFloat where
   hashWithSalt s x = s `hashWithSalt` (realToFrac x :: Float)

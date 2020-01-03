@@ -33,6 +33,7 @@ import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Transformable
 
+import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Debug
 
 import Data.Maybe
@@ -48,7 +49,7 @@ import Control.Lens
 makeArcSegment :: (Alternative t, Space s) => Angle s -> OpenCurve_ t s
 makeArcSegment angle = OpenCurve . pure $ curved (Point2 1 0) (Point2 1 (tanA $ angle ^/ 2)) (Point2 (cosA angle) (sinA angle))
 
-makeArc :: (UnLoop t, Alternative t, Space s) => Angle s -> OpenCurve_ t s
+makeArc :: (Chain t, Space s) => Angle s -> OpenCurve_ t s
 makeArc angle
     | abs (angle ^. deg) < 45 = makeArcSegment angle
     | abs (angle ^. deg) == 0 = OpenCurve empty
@@ -82,13 +83,13 @@ initialTurtleState = TurtleState 1 (0 @@ deg)
 (+<+) a b = normalizeAngle (a ^+^ b)
 
 -- | Convert a list of turtle moves into an OpenCurve.
-plotTurtle :: (UnLoop t, Alternative t, Space s) => TurtleState s -> [Turtle s] -> OpenCurve_ t s
+plotTurtle :: (Chain t, Space s) => TurtleState s -> [Turtle s] -> OpenCurve_ t s
 plotTurtle state ss = let (m_plots, s) = runState (mapM plotTurtle' ss) initialTurtleState
                           plots = catMaybes m_plots
                       in  foldl1 (<^>) plots
 
 -- | Follow turtle moves across a monad.
-plotTurtle' :: (UnLoop t, Alternative t, Space s) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve_ t s))
+plotTurtle' :: (Chain t, Space s) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve_ t s))
 plotTurtle' simp =
   do
     a  <- use turtleAngle
@@ -98,7 +99,7 @@ plotTurtle' simp =
       Just plot -> return $ Just $ overCurvePoints (rotateBy a) plot
 
 
-plotTurtle'' :: (UnLoop t, Alternative t, Space s) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve_ t s))
+plotTurtle'' :: (Chain t, Space s) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve_ t s))
 plotTurtle'' (TGo distance) = do r <- use turtleRadius ; return $ Just $ OpenCurve $ pure $ straight (Point2 0 0) (Point2 distance 0)
 plotTurtle'' (TRadius r) = do turtleRadius .= r; return Nothing
 plotTurtle'' (TTurn t lr) =
@@ -152,7 +153,7 @@ turtleNames :: [String]
 turtleNames = map fst allTurtles
 
 -- | Function to turn a list of turtle moves into an OpenCurve.
-runTurtle :: (UnLoop t, Alternative t, Space s) => [Turtle s] -> OpenCurve_ t s
+runTurtle :: (Chain t, Space s) => [Turtle s] -> OpenCurve_ t s
 runTurtle = plotTurtle initialTurtleState
 
 -- | Lookup a turtle move in the library.
@@ -160,7 +161,7 @@ turtleLibrary :: (Space s) => String -> Maybe [Turtle s]
 turtleLibrary n = M.lookup n turtleLibrary'
 
 -- | Lookup a curve in the library based on the name.
-curveLibrary :: (UnLoop t, Alternative t, Space s) => String -> Maybe (OpenCurve_ t s)
+curveLibrary :: (Chain t, Space s) => String -> Maybe (OpenCurve_ t s)
 curveLibrary n = fmap runTurtle  (turtleLibrary n)
 
 -- | Cycle a turtle move reps number of times.
@@ -168,13 +169,13 @@ cyclic :: [Turtle s] -> Int -> [Turtle s]
 cyclic pat reps = concat . take reps . repeat $ pat
 
 -- | Create a rounded polygon with a certain number of sides.
-roundedPolygon :: (UnLoop t, Alternative t, Space s) => Int -> OpenCurve_ t s
+roundedPolygon :: (Chain t, Space s) => Int -> OpenCurve_ t s
 roundedPolygon sides = runTurtle . cyclic [TRadius 0.1, TGo 1, TTurn Smooth (Arb (fullTurn ^/fromIntegral sides))] $ sides
 
 -- | Create a start with a certain number of sides.
-star :: (UnLoop t, Alternative t, Space s) => Int -> Angle s -> s -> OpenCurve_ t s
+star :: (Chain t, Space s) => Int -> Angle s -> s -> OpenCurve_ t s
 star sides a r = runTurtle $ cyclic [TRadius r, TGo 1, TTurn Smooth (Arb ((fullTurn ^/ fromIntegral sides) ^+^ a)), TGo 1, TTurn Smooth (Arb (negated a))] sides
 
 -- | Create an arc by plotting a simple turtle move.
-plotArc :: (UnLoop t, Alternative t, Space s) => Angle s -> OpenCurve_ t s
+plotArc :: (Chain t, Space s) => Angle s -> OpenCurve_ t s
 plotArc angle = plotTurtle initialTurtleState [TTurn Smooth (Arb angle)]

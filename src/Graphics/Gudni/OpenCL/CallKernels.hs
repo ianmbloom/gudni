@@ -28,6 +28,7 @@ module Graphics.Gudni.OpenCL.CallKernels
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Figure.Facet
 import Graphics.Gudni.Interface
 
 import Control.Concurrent
@@ -35,8 +36,9 @@ import Control.Concurrent
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.TraverseShapeTree
 import Graphics.Gudni.Raster.Enclosure
-import Graphics.Gudni.Raster.ShapeInfo
-import Graphics.Gudni.Raster.Types
+import Graphics.Gudni.Raster.ItemInfo
+import Graphics.Gudni.Raster.SubstanceInfo
+import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.Serialize
 import Graphics.Gudni.Raster.TileTree
 import Graphics.Gudni.Raster.Job
@@ -80,6 +82,7 @@ data RasterParams token = RasterParams
   , _rpTarget          :: DrawTarget
   , _rpGeometryState   :: GeometryState
   , _rpSubstanceState  :: SubstanceState token SubSpace
+  , _rpPictDataPile    :: Pile Word8
 
   }
 makeLenses ''RasterParams
@@ -127,8 +130,11 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
       thresholdQueueSliceBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdQueueBuffer" $ columnsToAlloc * 2) :: CL (CLBuffer (Slice Int)))
       liftIO $ putStrLn ("rasterGenerateThresholdsKernel XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
       runKernel (params ^. rpDevice . rasterGenerateThresholdsKernel)
-                (bicGeoBuffer  bic) -- (params ^. rpGeometryState  . geoGeometryPile)
-                (job    ^. rJShapePile)
+                (bicGeoBuffer    bic)
+                (bicGeoRefBuffer bic)
+                (bicPictFacets bic)
+                (job    ^. rJItemTagPile)
+                (bicSubTagBuffer bic)
                 (job    ^. rJTilePile)
                 bitmapSize
                 computeDepth
@@ -158,11 +164,11 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
                 headerBuffer
                 shapeStateBuffer
                 thresholdQueueSliceBuffer
-                (bicSubBuffer  bic) -- (params ^. rpSubstanceState . suSubstancePile)
+                (bicPictFacets    bic)
                 (bicPictBuffer bic) -- (params ^. rpPictData)
-                (bicPictUsage  bic) -- (params ^. rpSubstanceState . suPictureUsages)
+                (bicPictMemBuffer bic)
+                (bicSolidColors bic)
                 (bicRandoms    bic) -- (params ^. rpGeometryState  . geoRandomField)
-                (job    ^. rJShapePile)
                 (job    ^. rJTilePile)
                 (params ^. rpSubstanceState . suBackgroundColor)
                 bitmapSize
@@ -207,12 +213,14 @@ raster params bic frameCount job jobIndex =
 
 data BuffersInCommon = BIC
   { bicGeoBuffer       :: CLBuffer CChar
-  , bicSubBuffer       :: CLBuffer SubstanceInfo
+  , bicGeoRefBuffer    :: CLBuffer GeoReference
+  , bicPictMemBuffer   :: CLBuffer PictureMemoryReference
+  , bicPictFacets      :: CLBuffer (HardFacet_ SubSpace TextureSpace)
+  , bicSubTagBuffer    :: CLBuffer SubstanceTag
+  , bicSolidColors     :: CLBuffer Color
   , bicPictBuffer      :: CLBuffer Word8
-  , bicPictUsage       :: CLBuffer (PictureUsage PictureMemoryReference SubSpace)
   , bicRandoms         :: CLBuffer CFloat
   }
-
 
 -- | Queue a list of Rasterjobs and run them inside the CLMonad.
 queueRasterJobs :: (MonadIO m, Show token)
@@ -226,17 +234,21 @@ queueRasterJobs frameCount params jobs =
                     context = clContext state
              in
              runCL state $
-             do bic <- liftIO $ do geoBuffer  <- pileToBuffer context (params ^. rpGeometryState  . geoGeometryPile)
-                                   subBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suSubstancePile)
-                                   (pictDataPile, pictUsagePile) <- makePictData (params ^. rpSubstanceState . suPictureMapping) (params ^. rpSubstanceState . suPictureUsages)
-                                   pictBuffer <- pileToBuffer context pictDataPile
-                                   --putStrList =<< (pileToList pictUsagePile)
-                                   pictUsageBuffer <- pileToBuffer context pictUsagePile
-                                   randoms    <- vectorToBuffer context (params ^. rpGeometryState  . geoRandomField)
+             do bic <- liftIO $ do geoBuffer      <- pileToBuffer context (params ^. rpGeometryState  . geoGeometryPile   )
+                                   geoRefBuffer   <- pileToBuffer context (params ^. rpGeometryState  . geoRefPile        )
+                                   pictMemBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suPictureMems     )
+                                   facetBuffer    <- pileToBuffer context (params ^. rpSubstanceState . suFacetPile       )
+                                   subTagBuffer   <- pileToBuffer context (params ^. rpSubstanceState . suSubstanceTagPile)
+                                   colorBuffer    <- pileToBuffer context (params ^. rpSubstanceState . suSolidColorPile  )
+                                   pictDataBuffer <- pileToBuffer context (params ^. rpPictDataPile)
+                                   randoms        <- vectorToBuffer context (params ^. rpGeometryState  . geoRandomField)
                                    return $  BIC geoBuffer
-                                                 subBuffer
-                                                 pictBuffer
-                                                 pictUsageBuffer
+                                                 geoRefBuffer
+                                                 pictMemBuffer
+                                                 facetBuffer
+                                                 subTagBuffer
+                                                 colorBuffer
+                                                 pictDataBuffer
                                                  randoms
                 -- Run the rasterizer over each rasterJob inside a CLMonad.
                 zipWithM_ (raster params bic frameCount) jobs [0..]

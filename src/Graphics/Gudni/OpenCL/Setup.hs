@@ -44,23 +44,27 @@ instance OpenCLSource BS.ByteString where
 -- | List of definition pragmas to be added to the beggining of the Kernels.cl file.
 cppDefines :: RasterSpec -> [CppDefinition]
 cppDefines spec =
-  [Cpp "STOCHASTIC_FACTOR"                 (CppFloat sTOCHASTICfACTOR                )
-  ,Cpp "RANDOMFIELDSIZE"                   (CppInt   rANDOMFIELDsIZE                 )
-  ,Cpp "MAXTHRESHOLDS"                     (CppInt   $ spec ^. specMaxThresholds     )
-  ,Cpp "MAXSHAPE"                          (CppInt   $ spec ^. specMaxShapes         )
-  ,Cpp "SHAPESTACKSECTIONS"                (CppInt   $ sHAPEsTACKsECTIONS            )
-  ,Cpp "SHAPETAG_SUBSTANCETYPE_BITMASK"    (CppHex64 sHAPETAGsUBSTANCEtYPEbITmASK    )
-  ,Cpp "SHAPETAG_SUBSTANCETYPE_SOLIDCOLOR" (CppHex64 sHAPETAGsUBSTANCEtYPEsOLIDcOLOR )
-  ,Cpp "SHAPETAG_SUBSTANCETYPE_PICTURE"    (CppHex64 sHAPETAGsUBSTANCEtYPEpICTURE    )
-  ,Cpp "SHAPETAG_SUBSTANCETYPE_SHIFT"      (CppInt   sHAPETAGsUBSTANCETYPEsHIFT      )
-  ,Cpp "SHAPETAG_COMPOUNDTYPE_BITMASK"     (CppHex64 sHAPETAGcOMPOUNDtYPEbITmASK     )
-  ,Cpp "SHAPETAG_COMPOUNDTYPE_CONTINUE"    (CppHex64 sHAPETAGcOMPOUNDtYPEcONTINUE    )
-  ,Cpp "SHAPETAG_COMPOUNDTYPE_ADD"         (CppHex64 sHAPETAGcOMPOUNDtYPEaDD         )
-  ,Cpp "SHAPETAG_COMPOUNDTYPE_SUBTRACT"    (CppHex64 sHAPETAGcOMPOUNDtYPEsUBTRACT    )
-  ,Cpp "SHAPETAG_COMPOUNDTYPE_SHIFT"       (CppInt   sHAPETAGcOMPOUNDtYPEsHIFT       )
-  ,Cpp "SHAPETAG_SUBSTANCEID_BITMASK"      (CppHex64 sHAPETAGsUBSTANCEIDbITMASK      )
-  --,Cpp "DEBUG_OUTPUT"                      (CppNothing) -- uncomment this to turn on simple debugging output
-  --,Cpp "DEBUG_TRACE"                       (CppNothing) -- uncomment this to turn on parsable debugging output
+  [Cpp "STOCHASTIC_FACTOR"              (CppFloat sTOCHASTICfACTOR            )
+  ,Cpp "TAXICAB_FLATNESS"               (CppFloat tAXICABfLATNESS             )
+  ,Cpp "RANDOMFIELDSIZE"                (CppInt   rANDOMFIELDsIZE             )
+  ,Cpp "MAXTHRESHOLDS"                  (CppInt   $ spec ^. specMaxThresholds )
+  ,Cpp "MAXLAYERS"                      (CppInt   $ spec ^. specMaxLayers     )
+  ,Cpp "LAYERFLAGSSECTIONS"             (CppInt   $ lAYERfLAGSsECTIONS        )
+  ,Cpp "ITEMTAG_ISFACET_BITMASK"        (CppHex64 iTEMtAGiSfACETbITMASK       )
+  ,Cpp "ITEMTAG_ISSHAPE"                (CppHex64 iTEMtAGiSsHAPE              )
+  ,Cpp "ITEMTAG_ISFACET"                (CppHex64 iTEMtAGiSfACET              )
+  ,Cpp "ITEMTAG_COMPOUNDTYPE_BITMASK"   (CppHex64 iTEMtAGcOMPOUNDtYPEbITMASK  )
+  ,Cpp "ITEMTAG_COMPOUNDTYPE_ADD"       (CppHex64 iTEMtAGcOMPOUNDtYPEaDD      )
+  ,Cpp "ITEMTAG_COMPOUNDTYPE_SUBTRACT"  (CppHex64 iTEMtAGcOMPOUNDtYPEsUBTRACT )
+  ,Cpp "ITEMTAG_SUBSTANCE_ID_BITMASK"   (CppHex64 iTEMtAGsUBSTANCEIDbITMASK   )
+  ,Cpp "ITEMTAG_SUBSTANCE_ID_SHIFT"     (CppInt   iTEMtAGsUBSTANCEIDsHIFT     )
+  ,Cpp "ITEMTAG_ITEM_ID_BITMASK"        (CppHex64 iTEMtAGiTEMiDbITMASK        )
+  ,Cpp "SUBSTANCETAG_TYPE_BITMASK"      (CppHex64 sUBSTANCEtAGtYPEbITmASK     )
+  ,Cpp "SUBSTANCETAG_TYPE_SOLID_COLOR"  (CppHex64 sUBSTANCEtAGtYPEsOLIDcOLOR  )
+  ,Cpp "SUBSTANCETAG_TYPE_TEXTURE"      (CppHex64 sUBSTANCEtAGtYPEtEXTURE     )
+  ,Cpp "SUBSTANCETAG_REF_BITMASK"       (CppHex64 sUBSTANCEtAGrEFbITMASK      )
+--,Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
+--,Cpp "DEBUG_TRACE"                    (CppNothing) -- uncomment this to turn on parsable debugging output
   ]
 
 -- | Embedded source with implanted definition pragmas.
@@ -83,7 +87,7 @@ determineRasterSpec device =
                         , _specMaxTilesPerCall = fromIntegral maxGroupSize
                         , _specMaxThresholds   = tr "maxThresholds" $ maxThresholds
                         , _specMaxStrandsPerTile = tr "maxStrandsPerTile" $ maxThresholds - 2
-                        , _specMaxShapes       = mAXsHAPE
+                        , _specMaxLayers         = mAXlAYERS
                         }
 
 -- | Order Devices based on the number of compute units

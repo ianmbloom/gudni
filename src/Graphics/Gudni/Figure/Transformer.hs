@@ -22,7 +22,6 @@
 module Graphics.Gudni.Figure.Transformer
  ( Transformer (..)
  , applyTransformer
- , identityTransform
 )
 where
 
@@ -50,26 +49,24 @@ import System.Random
 instance Num s => HasDefault (Transformer s) where
     defaultValue = Translate (Point2 0 0)
 
-identityTransform :: Num s => Transformer s
-identityTransform = Translate (Point2 0 0)
-
 data Transformer s where
+  IdentityTransform :: Transformer s
   Translate :: Point2 s -> Transformer s
   Scale     :: s        -> Transformer s
   Stretch   :: Point2 s -> Transformer s
   Rotate    :: Angle s  -> Transformer s
-  Project   :: OpenCurve s -> Transformer s
+  Project   :: BezierSpace s -> Transformer s
   CombineTransform :: Transformer s -> Transformer s -> Transformer s
-
   deriving (Show)
 
-applyTransformer :: (Monad f, Alternative f, CanProject (OpenCurve s) f t, Transformable t) => Transformer (SpaceOf t) -> t -> f t
-applyTransformer (Translate delta) = pure . translateBy delta
-applyTransformer (Scale scale)     = pure . scaleBy scale
-applyTransformer (Stretch size)    = pure . stretchBy size
-applyTransformer (Rotate angle)    = pure . rotateBy angle
+applyTransformer :: (CanProject (BezierSpace s) t, Transformable t) => Transformer (SpaceOf t) -> t -> t
+applyTransformer IdentityTransform = id
+applyTransformer (Translate delta) = translateBy delta
+applyTransformer (Scale scale)     = scaleBy scale
+applyTransformer (Stretch size)    = stretchBy size
+applyTransformer (Rotate angle)    = rotateBy angle
 applyTransformer (Project curve)   = projection curve
-applyTransformer (CombineTransform a b) = join . fmap (applyTransformer b) . applyTransformer a
+applyTransformer (CombineTransform a b) = applyTransformer b . applyTransformer a
 
 -- * Instances
 

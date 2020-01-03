@@ -25,9 +25,9 @@ import Control.DeepSeq
 import Data.Hashable
 import qualified Data.Vector as V
 
--- | A CurvePair is a representation of two points along an outline∘
+-- | A CurvePair is a representation of two points along a shape or path.∘
 -- The control point is called offCurve and in the case of a straight segment the point just colinear with
--- the onCurve points before and after it. This is just internal, user defined outlines should be specified as
+-- the onCurve points before and after it. This is just internal, user defined shape should be specified as
 -- sequences of Segments.
 newtype CurvePair s = Cp {_unCp :: V2 (Point2 s)} deriving (Eq, Ord, Num)
 makeLenses ''CurvePair

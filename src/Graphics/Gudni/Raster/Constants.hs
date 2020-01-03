@@ -15,26 +15,32 @@
 module Graphics.Gudni.Raster.Constants
     ( THRESHOLDTYPE(..)
     , HEADERTYPE(..)
+    , tAXICABfLATNESS
     , sTOCHASTICfACTOR
     , mAXtILEsIZE
     , mINtILEsIZE
     , mAXsECTIONsIZE
-    , mAXsHAPE
+    , mAXlAYERS
+    , mAXfACETiD
     , sIZEoFsHAPEsTATE
-    , sHAPEsTACKsECTIONS
+    , lAYERfLAGSsECTIONS
     , rANDOMFIELDsIZE
     , sOURCEfILEpADDING
     , iNITgEOMETRYpILEsIZE
-    , sHAPETAGsUBSTANCEtYPEbITmASK
-    , sHAPETAGsUBSTANCEtYPEsOLIDcOLOR
-    , sHAPETAGsUBSTANCEtYPEpICTURE
-    , sHAPETAGsUBSTANCETYPEsHIFT
-    , sHAPETAGcOMPOUNDtYPEbITmASK
-    , sHAPETAGcOMPOUNDtYPEcONTINUE
-    , sHAPETAGcOMPOUNDtYPEaDD
-    , sHAPETAGcOMPOUNDtYPEsUBTRACT
-    , sHAPETAGcOMPOUNDtYPEsHIFT
-    , sHAPETAGsUBSTANCEIDbITMASK
+
+    , iTEMtAGiSfACETbITMASK
+    , iTEMtAGiSsHAPE
+    , iTEMtAGiSfACET
+    , iTEMtAGcOMPOUNDtYPEbITMASK
+    , iTEMtAGcOMPOUNDtYPEaDD
+    , iTEMtAGcOMPOUNDtYPEsUBTRACT
+    , iTEMtAGsUBSTANCEIDbITMASK
+    , iTEMtAGsUBSTANCEIDsHIFT
+    , iTEMtAGiTEMiDbITMASK
+    , sUBSTANCEtAGtYPEbITmASK
+    , sUBSTANCEtAGtYPEsOLIDcOLOR
+    , sUBSTANCEtAGtYPEtEXTURE
+    , sUBSTANCEtAGrEFbITMASK
     )
 where
 
@@ -47,18 +53,19 @@ import Linear.V4
 type THRESHOLDTYPE = V4 CFloat
 type HEADERTYPE    = CUInt
 
+tAXICABfLATNESS    = 0.25 :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
 sIZEoFsHAPEbIT     = 4 :: Int -- sizof(uint)
-sHAPEsTACKsECTIONS = 8 :: Int
+lAYERfLAGSsECTIONS = 8 :: Int
 sIZEoFsUBSTANCEiD  = 8 :: Int --sizeof(ulong)
-sIZEoFsHAPEsTACKsECTION = 8 :: Int -- sizeof(ulong)
+sIZEoFlAYERfLAGSsECTION = 8 :: Int -- sizeof(ulong)
 sTOCHASTICfACTOR = 0.0 :: Float -- relative amount of variability in an edge.
-mAXsHAPEbITS     = 511 :: Int -- total number of shapes per build based on the number of bits in the stack must be one less than the number of bits available.
+mAXfACETiD       = (2^20) :: Int -- 1048576 total possible number of facets per scene
 sHAPElIMIT       = 127 :: Int -- a hard limit on the number of shapes based on the empirical testing of the timeout period of the GPU.
 
-mAXsHAPE         = min mAXsHAPEbITS sHAPElIMIT
+mAXlAYERS        = sHAPElIMIT
 
-sIZEoFsHAPEsTATE = mAXsHAPE * sIZEoFsUBSTANCEiD + --
-                   sHAPEsTACKsECTIONS * sIZEoFsHAPEsTACKsECTION +
+sIZEoFsHAPEsTATE = mAXlAYERS * sIZEoFsUBSTANCEiD + --
+                   lAYERfLAGSsECTIONS * sIZEoFlAYERfLAGSsECTION +
                    sIZEoFsHAPEbIT +
                    4 -- padding
 
@@ -71,19 +78,39 @@ sOURCEfILEpADDING = 40 :: Int -- number of lines at the head of the openCL sourc
 
 iNITgEOMETRYpILEsIZE = 65536 :: Int
 
--- ShapeTag layout
--- Bits 31 - 30
-sHAPETAGsUBSTANCEtYPEbITmASK    = 0xC000000000000000 :: CULong -- bit mask for isolating the substance type in a shape tag.
-sHAPETAGsUBSTANCEtYPEsOLIDcOLOR = 0x8000000000000000 :: CULong -- flag for solid color substance type.
-sHAPETAGsUBSTANCEtYPEpICTURE    = 0x4000000000000000 :: CULong -- flag for picture substance type.
-sHAPETAGsUBSTANCETYPEsHIFT      = 30 :: Int
+-- Item Tag Bit Layout
+-- Bits | 1 bit   | 1 bit        | 30 bit      | 32 bit
+-- Type | bool    | bool         | uint        | geoId
+-- Desc | true =  | true =       | substanceId | or
+--      | facet   | additive     |             | facetId
+--      | false = | false =      |             |
+--      | outline | subtractive  |             |
 
--- Bits 29 - 28
-sHAPETAGcOMPOUNDtYPEbITmASK   = 0x3000000000000000 :: CULong -- bit mask for isolating the compounding type of a shape in a shape tag.
-sHAPETAGcOMPOUNDtYPEcONTINUE  = 0x1000000000000000 :: CULong -- DEPRECATED: flag treating a shape as a nuetral concatenation of outlines to the previous shape.
-sHAPETAGcOMPOUNDtYPEaDD       = 0x2000000000000000 :: CULong -- flag for adding the shape to the shape below it.
-sHAPETAGcOMPOUNDtYPEsUBTRACT  = 0x3000000000000000 :: CULong -- flag for subtracting the shape from the shape below it.
-sHAPETAGcOMPOUNDtYPEsHIFT     = 28 :: Int
+-- Bit 63
+iTEMtAGiSfACETbITMASK          = 0x8000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
+iTEMtAGiSsHAPE                 = 0x0000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
+iTEMtAGiSfACET                 = 0x8000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
+-- Bit 62
+iTEMtAGcOMPOUNDtYPEbITMASK     = 0x4000000000000000 :: CULong -- & with this to isolate the compound type bit.
+iTEMtAGcOMPOUNDtYPEaDD         = 0x4000000000000000 :: CULong
+iTEMtAGcOMPOUNDtYPEsUBTRACT    = 0x0000000000000000 :: CULong
 
--- Bits 27 - 0
-sHAPETAGsUBSTANCEIDbITMASK    = 0x0FFFFFFFFFFFFFFF :: CULong -- bit mask for isolating the shape id from the shape tag.
+-- Bits 61 - 32
+iTEMtAGsUBSTANCEIDbITMASK      = 0x3FFFFFFF00000000 :: CULong -- & with this to isolate the substanceId
+iTEMtAGsUBSTANCEIDsHIFT        = 32 :: Int
+
+-- Bits 31 - 0
+iTEMtAGiTEMiDbITMASK           = 0x00000000FFFFFFFF :: CULong
+
+-- Substance Tag Bit Layout
+-- Bits | 8 bit          | 56 bit                           |
+-- Type | enumerated     | uint                             |
+-- Desc | substancetype  | substance info record offset     |
+
+-- Bits 63 - 56
+sUBSTANCEtAGtYPEbITmASK    = 0xFF00000000000000 :: CULong -- & with this to determine if the shapetag is for solid colored shape or a picture.
+sUBSTANCEtAGtYPEsOLIDcOLOR = 0x0000000000000000 :: CULong -- & with this to determine if the shapetag is additive.
+sUBSTANCEtAGtYPEtEXTURE    = 0x0100000000000000 :: CULong
+
+-- Bits 55 - 0
+sUBSTANCEtAGrEFbITMASK     = 0x00FFFFFFFFFFFFFF :: CULong -- & with this to get the reference for the substance tag

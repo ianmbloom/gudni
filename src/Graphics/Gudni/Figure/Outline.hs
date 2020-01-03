@@ -19,13 +19,12 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Functions for defining Outlines which are closed bezier curves that are the component
--- parts of shapes.
+-- Functions for defining Outlines which are closed bezier curves.
 
 module Graphics.Gudni.Figure.Outline
   ( Outline(..)
   , Outline_(..)
-  , outlineSegments
+  , shapeSegments
   , mapOutlinePoints
   , closeOpenCurve
   )
@@ -38,6 +37,7 @@ import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Projection
+import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Util
 import Control.Lens
 import Linear.V2
@@ -48,10 +48,9 @@ import Data.Hashable
 import Control.DeepSeq
 import Control.Monad
 
--- | An outline is just a wrapper for a list of CurvePairs. It represents one curve loop∘
--- A shape is defined by a list of outlines.
+-- | An shape is just a wrapper for a list of beziers. It represents one curve loop∘
 newtype Outline_ t s = Outline
-  { _outlineSegments :: t (Bezier s)
+  { _shapeSegments :: t (Bezier s)
   }
 makeLenses ''Outline_
 
@@ -60,24 +59,24 @@ type Outline s = Outline_ V.Vector s
 instance (Show (t (Bezier s))) => Show (Outline_ t s) where
   show (Outline vs) = "Outline" ++ show vs
 
--- | Map over every point in an outline.
+-- | Map over every point in an shape.
 mapOutlinePoints :: Functor t => (Point2 s -> Point2 s) -> Outline_ t s -> Outline_ t s
-mapOutlinePoints f ps = over outlineSegments (fmap (over bzPoints (fmap f))) ps
+mapOutlinePoints f ps = over shapeSegments (fmap (over bzPoints (fmap f))) ps
 
--- | Close an open curve and convert it to an outline. An additional straight segment is added if the outset and the terminator of
+-- | Close an open curve and convert it to an shape. An additional straight segment is added if the outset and the terminator of
 -- the curve are not the same.
-closeOpenCurve :: forall t s . (UnLoop t, Alternative t, Space s) => OpenCurve_ t s -> Outline_ t s
+closeOpenCurve :: forall f s . (Chain f, Space s) => OpenCurve_ f s -> Outline_ f s
 closeOpenCurve curve =
-  let connect :: t (Bezier s) -> t (Bezier s)
+  let connect :: f (Bezier s) -> f (Bezier s)
       connect = if curve ^. terminator == curve ^. outset
                  then id  -- if the beggining of the curve is the same as the end, ignore the end
                  else (pure (straight (curve ^. terminator) (curve ^. outset)) <|>)
                      -- else insert a straight segment from the end to the beggining.
   in  Outline . connect . view curveSegments $ curve
 
-instance (Monad f, Alternative f, Space s) => CanProject (BezierSpace s) f (Outline_ f s) where
+instance (s ~ SpaceOf (f (Bezier s)), Monad f, Alternative f, Space s) => CanProject (BezierSpace s) (Outline_ f s) where
     projectionWithStepsAccuracy max_steps m_accuracy bSpace curve =
-         pure . Outline . join . fmap (projectionWithStepsAccuracy max_steps m_accuracy bSpace) . view outlineSegments $ curve
+         Outline . join . fmap (projectionWithStepsAccuracy max_steps m_accuracy bSpace . pure) . view shapeSegments $ curve
 
 
 -- * Instances

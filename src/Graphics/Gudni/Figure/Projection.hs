@@ -16,10 +16,12 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Bezier
+import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Deknob
+import Graphics.Gudni.Util.Chain
 
 import Control.Lens
 import Linear
@@ -42,37 +44,38 @@ projectPoint max_steps m_accuracy bz@(Bez anchor control endpoint) (Point2 x y) 
 -- @projectionWithStepsAccuracy@, and use default implementations for the
 -- remaining functions.  You may also want to define a default
 -- accuracy by overriding @project@.
-class (SpaceOf u ~ SpaceOf t, Space (SpaceOf t), Monad f, Alternative f) => CanProject u f t where
-  projection :: u -> t -> f t
-  default projection :: u -> t -> f t
+class (SpaceOf u ~ SpaceOf t, Space (SpaceOf t)) => CanProject u t where
+  projection :: u -> t -> t
+  default projection :: u -> t -> t
   projection = projectionWithAccuracy 1e-3
 
-  projectionWithAccuracy :: SpaceOf t -> u -> t -> f t
-  default projectionWithAccuracy :: SpaceOf t -> u -> t -> f t
+  projectionWithAccuracy :: SpaceOf t -> u -> t -> t
+  default projectionWithAccuracy :: SpaceOf t -> u -> t -> t
   projectionWithAccuracy accuracy =
       projectionWithStepsAccuracy (maxStepsFromAccuracy accuracy) (Just accuracy)
 
-  projectionWithSteps :: Int -> u -> t -> f t
+  projectionWithSteps :: Int -> u -> t -> t
   projectionWithSteps max_steps = projectionWithStepsAccuracy max_steps Nothing
 
-  projectionWithStepsAccuracy :: Int -> Maybe (SpaceOf t) -> u -> t -> f t
+  projectionWithStepsAccuracy :: Int -> Maybe (SpaceOf t) -> u -> t -> t
 
-instance (Space s, Monad f, Alternative f) => CanProject (Bezier s) f (Bezier s) where
+instance (Space s) => CanProject (Bezier s) (Bezier s) where
     projectionWithStepsAccuracy max_steps m_accuracy path =
-       pure . over bzPoints (fmap (projectPoint max_steps m_accuracy path))
+       over bzPoints (fmap (projectPoint max_steps m_accuracy path))
 
-
-instance (Space s, Monad f, Alternative f) => CanProject (BezierSpace s) f (Bezier s) where
-    projectionWithStepsAccuracy max_steps m_accuracy bSpace =
-      let stretchProject :: (Monad f, Alternative f) => (s -> Bezier s -> Bezier s -> f (Bezier s))
+instance (s ~ (SpaceOf (f (Bezier s))), Space s, Monad f, Alternative f) => CanProject (BezierSpace s) (f (Bezier s)) where
+    projectionWithStepsAccuracy max_steps m_accuracy bSpace beziers =
+      let stretchProject :: (Monad f, Alternative f) => s -> Bezier s -> Bezier s -> Bezier s
           stretchProject len path = projectionWithStepsAccuracy max_steps m_accuracy path . stretchBy (Point2 (1/len) 1)
-      in  join . (fmap (traverseBezierSpace stretchProject bSpace)) . fixKnob
+          fixed :: f (Bezier s)
+          fixed = join . fmap deKnob $ beziers
+      in  join . fmap (traverseBezierSpace splitBezierX stretchProject bSpace) $ fixed
 
-instance (Space s, Monad f, Alternative f) => CanProject (BezierSpace s) f (OpenCurve_ f s) where
+instance (s ~ (SpaceOf (f (Bezier s))), Space s, Monad f, Alternative f) => CanProject (BezierSpace s) (OpenCurve_ f s) where
     projectionWithStepsAccuracy max_steps m_accuracy bSpace curve =
-         pure . OpenCurve . join . fmap (projectionWithStepsAccuracy max_steps m_accuracy bSpace) . view curveSegments $ curve
+         OpenCurve . join . fmap (projectionWithStepsAccuracy max_steps m_accuracy bSpace . pure) . view curveSegments $ curve
 
-instance (Eq1 f, Alternative f, UnLoop f, Space s, CanProject (BezierSpace s) f t) => CanProject (OpenCurve_ f s) f t where
+instance (Eq1 f, Chain f, Space s, CanProject (BezierSpace s) t) => CanProject (OpenCurve_ f s) t where
     projectionWithStepsAccuracy max_steps m_accuracy path t =
       let bSpace = makeBezierSpace arcLength (view curveSegments $ path)
       in  projectionWithStepsAccuracy max_steps m_accuracy bSpace t
@@ -80,7 +83,7 @@ instance (Eq1 f, Alternative f, UnLoop f, Space s, CanProject (BezierSpace s) f 
 data BezierSpace s = BezierSpace
   { bsTree   :: RangeTree (Bezier s)
   , bsLength :: s
-  }
+  } deriving (Show)
 
 instance Space s => HasSpace (BezierSpace s) where
   type SpaceOf (BezierSpace s) = s
@@ -91,8 +94,9 @@ data HasSpace t => RangeTree t
               , rangeItem :: t
               }
   | RangeEmpty
+  deriving (Show)
 
-makeBezierSpace :: forall f s . (Eq1 f, Alternative f, UnLoop f, Space s) => (Bezier s -> s) -> f (Bezier s) -> BezierSpace s
+makeBezierSpace :: forall f s . (Eq1 f, Chain f, Space s) => (Bezier s -> s) -> f (Bezier s) -> BezierSpace s
 makeBezierSpace lengthFun = uncurry BezierSpace . go 0
   where
   go :: s -> f (Bezier s) -> (RangeTree (Bezier s), s)
@@ -109,17 +113,24 @@ makeBezierSpace lengthFun = uncurry BezierSpace . go 0
                (rightBranch, rightSplit) = go leftSplit right
            in  (RangeSplit leftSplit leftBranch rightBranch, rightSplit)
 
-traverseBezierSpace :: (Space s, Alternative f) => (s -> Bezier s -> Bezier s -> f a) -> BezierSpace s -> Bezier s -> f a
-traverseBezierSpace f (BezierSpace tree totalLen) bez =
-  go bez tree
+traverseBezierSpace :: forall f t a
+                    .  (Space (SpaceOf t), Alternative f, HasBox t)
+                    => (SpaceOf t -> t -> (t, t))
+                    -> (SpaceOf t -> Bezier (SpaceOf t) -> t -> a)
+                    -> BezierSpace (SpaceOf t) -> t -> f a
+traverseBezierSpace splitFun f (BezierSpace tree totalLen) item =
+  go item tree
   where
-  go bez tree = case tree of
-    RangeSplit splitPoint left right ->
-      if (unOrtho (bez ^. bzStart . pX) < splitPoint)
-      then if (unOrtho (bez ^. bzEnd . pX) > splitPoint)
-           then let [leftBez, rightBez] = splitBezierX splitPoint bez
-                in  go leftBez left <|> go rightBez right
-           else go bez left
-      else go bez right
-    RangeEmpty -> empty
-    RangeLeaf len controlCurve -> f len controlCurve bez
+  go :: t -> RangeTree (Bezier (SpaceOf t)) -> f a
+  go item tree =
+    let box = boxOf item in
+      case tree of
+        RangeSplit splitPoint left right ->
+          if (unOrtho (box ^. leftSide) < splitPoint)
+          then if (unOrtho (box ^. rightSide) > splitPoint)
+               then let (leftItem, rightItem) = splitFun splitPoint item
+                    in  go leftItem left <|> go rightItem right
+               else go item left
+          else go item right
+        RangeEmpty -> empty
+        RangeLeaf len controlCurve -> pure (f len controlCurve item)

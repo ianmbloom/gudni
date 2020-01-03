@@ -52,7 +52,7 @@ removeDoubleFalse (False:False:bs) = removeDoubleFalse (False:bs)
 removeDoubleFalse (a:bs)           = a:removeDoubleFalse bs
 removeDoubleFalse []               = []
 
-instance (Num token, Random token, Fuzzy rep) => Fuzzy (SRep token rep) where
+instance (Num token, Random token, Fuzzy rep) => Fuzzy (SRep token textureRep rep) where
   fuzz size = do color <- Solid <$> getRandom
                  token <- getRandomR(0,32768)
                  child <- fuzz (size - 1)

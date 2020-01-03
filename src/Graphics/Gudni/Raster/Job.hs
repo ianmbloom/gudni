@@ -26,7 +26,7 @@ module Graphics.Gudni.Raster.Job
   , bsTileCount
   , bsCurrentJob
   , bsJobs
-  , rJShapePile
+  , rJItemTagPile
   , rJTilePile
   , rJColumnAllocation
   , freeRasterJobs
@@ -42,14 +42,14 @@ import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.StorableM
 
-import Graphics.Gudni.Raster.Types
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Raster.TileTree
+import Graphics.Gudni.Raster.TileEntry
 import Graphics.Gudni.Raster.Serialize
 import Graphics.Gudni.Raster.ReorderTable
 import Graphics.Gudni.Raster.TraverseShapeTree
-import Graphics.Gudni.Raster.ShapeInfo
+import Graphics.Gudni.Raster.ItemInfo
 
 import Control.Monad
 import Control.Monad.State
@@ -70,8 +70,8 @@ import qualified Data.Map as M
 -- | A RasterJob stores the information needed to transfer data to OpenCL, to render a group of tiles∘
 -- Each job corresponds to an individual rasterizer kernel call.
 data RasterJob = RasterJob
-  { _rJShapePile :: !(Pile (Shape GeoReference))
-  , _rJTilePile  :: !(Pile (Tile (Slice (Shape GeoReference), Int)))
+  { _rJItemTagPile :: !(Pile ItemTag)
+  , _rJTilePile  :: !(Pile (Tile (Slice ItemTag, Int)))
   , _rJColumnAllocation :: Int -- number of columns allocated for this job.
   } deriving (Show)
 makeLenses ''RasterJob
@@ -99,10 +99,10 @@ execBuildJobsMonad code =
 -- | Create a new rasterJob with default allocation sizes.
 newRasterJob :: MonadIO m => m RasterJob
 newRasterJob = liftIO $
-    do  initShapePile <- newPile :: IO (Pile (Shape GeoReference))
-        initTilePile  <- newPile :: IO (Pile (Tile (Slice (Shape GeoReference), Int)))
+    do  initItemTagPile <- newPile :: IO (Pile ItemTag)
+        initTilePile  <- newPile :: IO (Pile (Tile (Slice ItemTag, Int)))
         return RasterJob
-            { _rJShapePile = initShapePile
+            { _rJItemTagPile = initItemTagPile
             , _rJTilePile  = initTilePile
             , _rJColumnAllocation = 0
             }
@@ -110,23 +110,19 @@ newRasterJob = liftIO $
 -- | Free all memory allocated by the 'RasterJob'
 freeRasterJob :: RasterJob -> IO ()
 freeRasterJob job =
-    do  freePile $ job ^. rJShapePile
+    do  freePile $ job ^. rJItemTagPile
         freePile $ job ^. rJTilePile
 
 -- | Free a list of RasterJobs
 freeRasterJobs :: MonadIO m => [RasterJob] -> m ()
 freeRasterJobs jobs = liftIO $ mapM_ freeRasterJob jobs
 
--- Strip out the ShapeEntry data leaving only a Shape which refers to its geometric data.
-referenceShape :: Shape ShapeEntry -> Shape GeoReference
-referenceShape (Shape info shapeEntry) = Shape info (shapeEntry ^. shapeGeoRef)
-
 -- | Add the shape to the pile of shapes in a RasterJob and return a reference to it.
-appendShapes :: MonadIO m
-            => [Shape GeoReference]
-            -> StateT RasterJob m (Slice (Shape GeoReference))
-appendShapes shapes =
-       addListToPileState rJShapePile shapes
+appendItems :: MonadIO m
+            => [ItemTag]
+            -> StateT RasterJob m (Slice ItemTag)
+appendItems shapes =
+       addListToPileState rJItemTagPile shapes
 
 -- | Add a tile to a RasterJob
 addTileToRasterJob :: MonadIO m
@@ -134,12 +130,9 @@ addTileToRasterJob :: MonadIO m
                    -> StateT RasterJob m ()
 addTileToRasterJob tile =
   do  -- get the list of new shapes from the tile entry
-      let shapeEntries = tile ^. tileRep . tileShapes
-      --  strip the strandcount and bounding box out of the shape containers leaving only the
-      --  reference to the geometric data.
-          referenceEntries = map referenceShape shapeEntries
+      let items = tile ^. tileRep . tileShapes
       -- add the stripped shapes to the raster job and get the range of the added shapes
-      slice <- appendShapes referenceEntries
+      slice <- appendItems items
       -- strip the tile down so just the range of shapes is left
       columnAllocation <- use rJColumnAllocation
       let tileInfo = set tileRep (slice, columnAllocation) tile
@@ -183,8 +176,8 @@ outputRasterJob :: RasterJob -> IO ()
 outputRasterJob job =
   do
     putStrLn "---------------- rJShapePile ----------------------"
-    print . view rJShapePile $ job
-    putStrList =<< (pileToList . view rJShapePile $ job)
+    print . view rJItemTagPile $ job
+    putStrList =<< (pileToList . view rJItemTagPile $ job)
     putStrLn "---------------- rJTilePile -----------------------"
     putStrList =<< (pileToList . view rJTilePile $ job)
 

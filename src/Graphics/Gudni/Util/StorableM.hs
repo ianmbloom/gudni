@@ -20,6 +20,7 @@ module Graphics.Gudni.Util.StorableM
   , peekV
   , pokeV
   , Offset(..)
+  , module Foreign.Storable
   )
 where
 

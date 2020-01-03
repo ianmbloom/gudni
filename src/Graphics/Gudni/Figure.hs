@@ -14,6 +14,7 @@ module Graphics.Gudni.Figure
   , module Graphics.Gudni.Figure.Split
   , module Graphics.Gudni.Figure.Transformer
   , module Graphics.Gudni.Figure.Transformable
+  , module Graphics.Gudni.Figure.Substance
   )
 where
 
@@ -32,3 +33,4 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Transformable
+import Graphics.Gudni.Figure.Substance

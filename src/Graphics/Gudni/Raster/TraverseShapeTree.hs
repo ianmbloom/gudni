@@ -5,6 +5,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -23,11 +24,12 @@ module Graphics.Gudni.Raster.TraverseShapeTree
   ( traverseTree
   , traverseCompoundTree
   , traverseShapeTree
+  , mapSTree
+  , mapMSTree
   )
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Raster.Types
 
 import Control.Lens
 
@@ -77,4 +79,36 @@ traverseShapeTree :: (Num (SpaceOf rep), Monad m)
                   => (() -> Transformer (SpaceOf rep) -> rep -> m ())
                   -> STree () rep
                   -> m ()
-traverseShapeTree = traverseTree traverseUnit CombineTransform () identityTransform
+traverseShapeTree = traverseTree traverseUnit CombineTransform () IdentityTransform
+
+mapSTree :: (SpaceOf a ~ SpaceOf b)
+         => (a -> b)
+         -> STree o a
+         -> STree o b
+mapSTree f tree = go  tree
+    where
+    go tree =
+       case tree of
+           SLeaf rep -> SLeaf (f rep)
+           SMeld overlap above below ->
+              let a = go above
+                  b = go below
+              in  SMeld overlap a b
+           STransform tOp child -> STransform tOp (go child)
+           SEmpty -> SEmpty
+
+mapMSTree :: (SpaceOf a ~ SpaceOf b, Monad m)
+             => (a -> m b)
+             -> STree o a
+             -> m (STree o b)
+mapMSTree f tree = go  tree
+    where
+    go tree =
+       case tree of
+           SLeaf rep -> SLeaf <$> f rep
+           SMeld overlap above below ->
+              do a <- go above
+                 b <- go below
+                 return $ SMeld overlap a b
+           STransform tOp child -> STransform tOp <$> go child
+           SEmpty -> return SEmpty

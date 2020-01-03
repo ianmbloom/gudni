@@ -1,4 +1,4 @@
-qSlice.s// 1 Space for haskell defined macros
+// 1 Space for haskell defined macros
 // 2 So the line numbers are correct
 // 3  -----------------------------------------------------------------------------
 // 4  -- |
@@ -79,7 +79,6 @@ qSlice.s// 1 Space for haskell defined macros
 #define AS_SPACE4 as_float4
 
 // Constants
-
 #define LARGE_PRIME 7919
 #define PIXELHEIGHT 1.0f
 #define COLUMNSPACING 1.0f
@@ -100,33 +99,43 @@ qSlice.s// 1 Space for haskell defined macros
 #define TRANSPARENT_COLOR (COLOR)(0,0,0,0) // constant clear pixel
 #define TRANSPARENT_COLOR_ZERO_AREA ((float8)(TRANSPARENT_COLOR,(float4)(0,0,0,0)))
 
-// A geo entry refers to an entry in the global table of shape geometry. A single geometry entry can be referenced by multiple tiles
-#define GEO_ENTRY  uint
-// The shape tag includes 4 bit combination style value, the 4 bit texture type and the 28 bit substance identifier.
-#define SHAPETAG ulong
-// A substance id is the reference to a group of shapes that share color/texture information.
-#define SUBSTANCEID ulong
+// An ITEMTAGID refers to the index of an item tag heap.
+#define ITEMTAGID  uint
+// An Item tag links to either a shape or a texture facet.
+// See Graphics.Gudni.Raster.Constants for the bit layouts of ITEMTAG type.
+#define ITEMTAG ulong
+// A FacetID refers to the index of a facet in the facet heap.
+#define FACETID   uint
+// An outline id refers to the index of a geoRef in the geoRefHeap.
+#define SHAPEID   uint
+
+#define SUBSTANCEID uint
+
+inline bool itemTagIsFacet(ITEMTAG tag)    {return (tag & ITEMTAG_ISFACET_BITMASK) == ITEMTAG_ISFACET;}
+inline bool itemTagIsShape(ITEMTAG tag)  {return (tag & ITEMTAG_ISFACET_BITMASK) == ITEMTAG_ISSHAPE;}
+inline bool itemTagIsAdd(ITEMTAG tag)      {return (tag & ITEMTAG_COMPOUNDTYPE_BITMASK) == ITEMTAG_COMPOUNDTYPE_ADD;}
+inline bool itemTagIsSubtract(ITEMTAG tag) {return (tag & ITEMTAG_COMPOUNDTYPE_BITMASK) == ITEMTAG_COMPOUNDTYPE_SUBTRACT;}
+inline SUBSTANCEID itemTagSubstanceId(ITEMTAG tag) {return (uint) ((tag & ITEMTAG_SUBSTANCE_ID_BITMASK) >> ITEMTAG_SUBSTANCE_ID_SHIFT);}
+inline FACETID itemTagFacetId(ITEMTAG tag) {return (uint) (tag & ITEMTAG_ITEM_ID_BITMASK);}
+inline SHAPEID itemTagShapeId(ITEMTAG tag) {return (uint) (tag & ITEMTAG_ITEM_ID_BITMASK);} // this is the same but here for consistency.
+
+// A SUBSTANCETAGID refers to the index of a substance tag in the substancetag heap.
+#define SUBSTANCETAGID uint
+//  A substance tag determines the type of a substance and contains a pointer to the substance description.
+#define SUBSTANCETAG ulong
+
+inline bool substanceTagIsSolidColor(SUBSTANCETAG tag) {return (tag & SUBSTANCETAG_TYPE_BITMASK) == SUBSTANCETAG_TYPE_SOLID_COLOR;}
+inline bool substanceTagIsTexture(SUBSTANCETAG tag)    {return (tag & SUBSTANCETAG_TYPE_BITMASK) == SUBSTANCETAG_TYPE_TEXTURE;}
+inline bool substanceTagColorId(SUBSTANCETAG tag)      {return (tag & SUBSTANCETAG_REF_BITMASK);}
+inline bool substanceTagTextureMemId(SUBSTANCETAG tag) {return (tag & SUBSTANCETAG_REF_BITMASK);} // this is the same but here for consistency.
+
 // A shape bit is the number of each shape assigned as it is added to a column, each shape number corresponds to a bit in the shape stack
 // so the number of possible shape bits is limited to the size (in bits) of the shape stack.
-#define SHAPEBIT    uint
+#define LAYERID    uint
 
-// Is Compound determines if the shape is a complex compound shape. If it is zero the shape is assumed to be made up of continuation
-// shapes.
-
-inline bool     shapeTagIsSolidColor (SHAPETAG tag) {return (tag & SHAPETAG_SUBSTANCETYPE_BITMASK) == SHAPETAG_SUBSTANCETYPE_SOLIDCOLOR;}
-inline SHAPETAG shapeTagSubstanceType(SHAPETAG tag) {return (tag & SHAPETAG_SUBSTANCETYPE_BITMASK) >> SHAPETAG_SUBSTANCETYPE_SHIFT;}
-
-inline int  shapeTagCompound  (SHAPETAG tag) {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) >> SHAPETAG_COMPOUNDTYPE_SHIFT;   }
-inline bool shapeTagIsAdd     (SHAPETAG tag) {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) == SHAPETAG_COMPOUNDTYPE_ADD;     }
-inline bool shapeTagIsSubtract(SHAPETAG tag) {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) == SHAPETAG_COMPOUNDTYPE_SUBTRACT;}
-inline bool shapeTagIsContinue(SHAPETAG tag) {return (tag & SHAPETAG_COMPOUNDTYPE_BITMASK) == SHAPETAG_COMPOUNDTYPE_CONTINUE;}
-
-inline  SUBSTANCEID shapeTagSubstanceId(SHAPETAG tag) {return (tag & SHAPETAG_SUBSTANCEID_BITMASK);}
+#define LOCALSUBSTANCE uint
 
 // Memory Types
-
-#define TMEM __local   // memory type used to store threshold header and threshold buffers
-#define SMEM __global  // memory type used to store shape references and strandheap geometry etc.
 
 #define GMEM __global
 #define LMEM __local
@@ -152,66 +161,57 @@ inline  SUBSTANCEID shapeTagSubstanceId(SHAPETAG tag) {return (tag & SHAPETAG_SU
 //   | /...|
 //   |/....| slope pointing upward (negative)
 // y o-----|
-#define HEADER        uint   // the threshold-header includes identifying information
+#define HEADER        ulong   // the threshold-header includes identifying information
 #define THRESHOLD     SPACE4 // the stored version of a threshold encoded in floats
 
-// ThresholdHeader 16it,  uchar2
-// Bits | 1 bit  | 1 bit      | 1 bit   | 1 bit | 28 bit
-// Type | bool   | bool       | bool    | bool  | uint
-// Desc | slope  | persistent | enabled | brush | shapeBit or
-//      | sign   |            |         | mode  | brush
+// HEADER base type 64 bit ulong
+// Bits | 1 bit  | 1 bit      | 1 bit    | 1 bit    | 32 bit  | 28 bit
+// Type | bool   | bool       | bool     |          | uint    | uint
+// Desc | slope  | persistent | isFacet  | reserved | facetId | substanceId (if facet threshold)
+//      | sign   |            |          |          |         | or layerId (if shape threshold)
 // slope sign - determines the sign of the slope of the threshold.
 // persitent - determines if the threshold intersects with the left side of the pixel.
-// threshold enable - determines if the threshold has been disabled by when converted from brush to shapeindex
-// in brush mode - determines if the payload is the shapeBit or defining a compound shape.
+// isFacet - determines if the threshold defines a shape border or a texture facet border
+// facetId - determines which facet the threshold is a border for.
+// substanceId - either determines which substance the theshold is a facet border for.
+// layerId - determines which layer the threshold defines a shape border for.
+#define POSITIVE_SLOPE_MASK    0x8000000000000000 // & to get the leftmost bit
+#define PERSIST_AND_SLOPE_MASK 0xC000000000000000 // & to get leftmost and second to leftmost bit
+#define PERSIST_TOP            0xC000000000000000 // positive slope and persist
+#define PERSIST_BOTTOM         0x4000000000000000 // not positive slopw and persist
 
-#define POSITIVE_SLOPE_MASK    0x80000000 // leftmost bit
-#define PERSIST_AND_SLOPE_MASK 0xC0000000 // leftmost and second to leftmost bit
-#define PERSIST_TOP            0xC0000000 // positive slope and persist
-#define PERSIST_BOTTOM         0x40000000 // not positive slopw and persist
+#define POSITIVE_SLOPE         0x8000000000000000
+#define NEGATIVE_SLOPE         0x0000000000000000
 
-#define POSITIVE_SLOPE         0x80000000
-#define NEGATIVE_SLOPE         0x00000000
+#define PERSIST                0x4000000000000000 // & to isolate the persist bit
+#define NONPERSIST             0x0000000000000000 // just zero
+#define UNPERSISTMASK          0xBFFFFFFFFFFFFFFF // everything but the persist bit
 
-#define PERSIST                0x40000000 // isolate the persist bit
-#define NONPERSIST             0x00000000 // just zero
-#define UNPERSISTMASK          0xBFFFFFFF // everything but the persist bit
+#define FACETFLAGMASK          0x2000000000000000 // & to determine if the threshold changes active facet
+#define FACETFLAGSET           0x2000000000000000 // or with this to create a header with the facet flag set
+#define FACETFLAGNOTSET        0x0000000000000000 // or with this to create a header with the facet flag not set
+#define WITHOUT_PAYLOAD        0xF000000000000000 // & to get control bits without the payload
+#define JUST_PAYLOAD           0x0FFFFFFFFFFFFFFF // & to get right 60 bit payload
 
-#define THRESHOLDENABLE        0x20000000 // determine if the threshold has been deactivated by brushes.
-#define THRESHOLDDISABLE       0x00000000
-#define DISABLEMASK            0xDFFFFFFF // AND with a header to disable the header.
-
-#define SHAPEBIT_MASK          0x0FFFFFFF // right 29 bits including the brushmode
-#define WITHOUT_SHAPEBIT       0xF0000000 // bits without shape index
+#define FACETIDMASK            0x0FFFFFFFF0000000 // & and shift to get the facets shapeId
+#define NOFACET                0x0FFFFFFFF        // this value is reserved to indicate that a substance is outside of all facets.
+#define FACETIDSHIFT           28               // amount to shift the shapeId
+#define LAYERIDMASK            0x000000000FFFFFFF // & to get the layer id
 
 // & has a lower precedence than !=
 inline     bool headerPositiveSlope(HEADER h) {return (h & POSITIVE_SLOPE_MASK) != 0;} // determine if the threshold has a positive slope
 inline     bool headerPersistTop   (HEADER h) {return (h & PERSIST_AND_SLOPE_MASK) == PERSIST_TOP;   } // determine if the top of the threshold affects the persistant state of the shapestack
 inline     bool headerPersistBottom(HEADER h) {return (h & PERSIST_AND_SLOPE_MASK) == PERSIST_BOTTOM;} // determine if the bottom of the threshold affects the persistant state of the shapestack
 inline     bool headerPersistEither(HEADER h) {return (h & PERSIST) != 0;  } // determine if either top or bottom of the threshold affects the persistant state of the shapestack
-inline SHAPEBIT headerShapeBit     (HEADER h) {return  h & SHAPEBIT_MASK;} // get the index of the shape that corresponds to the threshold
-
 inline HEADER unPersist      (HEADER h) {return h & UNPERSISTMASK;}
-inline HEADER disableHeader  (HEADER h) {return h & DISABLEMASK;  }
-inline   bool headerIsEnabled(HEADER h) {return (h & THRESHOLDENABLE) != 0;}
 
-inline HEADER setEnableBit ( HEADER header
-                           , HEADER newBit
-                           , bool enable
-                           ) {
-    HEADER enableShape = enable ? THRESHOLDENABLE : THRESHOLDDISABLE;
-    return (header & PERSIST_AND_SLOPE_MASK) | enableShape | newBit;
-}
+inline    bool headerIsFacet(HEADER h) {return (h & FACETFLAGMASK) != 0;}
+inline FACETID headerFacetId(HEADER h) {return (h & FACETIDMASK) >> FACETIDSHIFT;}
 
-inline HEADER setShapeBit ( HEADER header
-                          , HEADER newBit
-                          ) {
-    return (header & WITHOUT_SHAPEBIT) | newBit;
-}
+inline LAYERID headerLayerId(HEADER h) {return  h & LAYERIDMASK;} // get the index of the shape that corresponds to the threshold
+inline LOCALSUBSTANCE headerLocalSubstance (HEADER h) {return  h & LAYERIDMASK;} // get the local substance index for the header (same as above just for consistency.)
 
-inline HEADER makeHeaderIndex(int shapeBit) {
-    return THRESHOLDENABLE | shapeBit;
-}
+
 
 #define VERTICALSLOPE      FLT_MAX // float value used to indicate vertical threshold slope.
 
@@ -247,61 +247,8 @@ inline float thresholdInvertedSlope ( HEADER header
 
 // Tesselation
 #define T 0.5f // halfway value for tesselating curves.
-#define TAXICAB_FLATNESS 0.25f // minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
-
-// ShapeStack
-
-#define SHAPESTACK             ulong
-#define SHAPESTACKBITS         64
-#define SHAPESTACKCARRYSHIFT   63
-#define SHAPESTACKCARRYMASK    0x1
-#define SHAPESTACKSECTIONSHIFT 6    // the amount to shift to get the section from the total bits
-#define SHAPESTACKSECTIONBITS  0x3F
-
-#define EMPTY_SHAPESTACK       0x0
-#define COMPLETE_MASK          0xFFFFFFFFFFFFFFFF
-// The shape index of top shape (the visible one) can be determined by counting the leading zeros in the shapestack value using clz
-
-inline void clearShapeStack(SHAPESTACK *stack) {
-    for (int i = 0; i < SHAPESTACKSECTIONS; i++) {
-        stack[i] = EMPTY_SHAPESTACK;
-    }
-}
-
-inline SHAPESTACK ignoreStack(SHAPESTACK section, int ignoreBits) {
-    //DEBUG_IF(printf("ignoreBits %i (COMPLETE_MASK << ignoreBits) %lX (~(COMPLETE_MASK << ignoreBits)) %lX ignoreStack %lX (SHAPESTACKBITS - clz(ignoreStack)) - 1 %i \n", ignoreBits, (COMPLETE_MASK << ignoreBits), (~(COMPLETE_MASK << ignoreBits)), ignoreStack, (SHAPESTACKBITS - clz(ignoreStack)) - 1 );)
-    return ignoreBits >= SHAPESTACKBITS ? section : (~(COMPLETE_MASK << ignoreBits)) & section;
-}
-
-inline int findSectionTop(SHAPESTACK section) {
-    // find the top set bit
-    return SHAPESTACKBITS - clz(section);
-}
-
-inline int findTop(PMEM SHAPESTACK *shapeStack, int ignoreAbove) {
-    int ignoreSection = (ignoreAbove >> SHAPESTACKSECTIONSHIFT);
-    int ignoreBits    = ignoreAbove & SHAPESTACKSECTIONBITS;
-    //DEBUG_IF(printf("findTop ignoreAbove %i iS %i ignoreBits %i ", ignoreAbove, ignoreSection, ignoreBits);)
-    SHAPESTACK section = ignoreStack(shapeStack[ignoreSection], ignoreBits);
-    while (section == EMPTY_SHAPESTACK && ignoreSection > 0) {
-      ignoreSection -= 1;
-      section = shapeStack[ignoreSection];
-    }
-    int sectionBits = findSectionTop(section);
-    return (ignoreSection << SHAPESTACKSECTIONSHIFT) + sectionBits - 1;
-}
 
 
-inline SHAPESTACK setSectionBit(SHAPEBIT bit)                     {return (((ulong)0x1) << bit);} // create a shape by shifting a bit to the right position
-inline SHAPESTACK flipSectionBit(SHAPEBIT bit, SHAPESTACK section) {return (section ^ setSectionBit(bit));} // if shape on is true, toggle a shape bit
-
-inline void flipBit(SHAPEBIT shapeBit, PMEM SHAPESTACK *shapeStack) {
-    int section = shapeBit >> SHAPESTACKSECTIONSHIFT;
-    int bit     = shapeBit & SHAPESTACKSECTIONBITS;
-    //DEBUG_IF(printf("flipBit section %i bit %i before shapeStack[section] %lx ", section, bit, shapeStack[section]);)
-    shapeStack[section] = flipSectionBit(bit, shapeStack[section]);
-    //DEBUG_IF(printf(" after shapeStack[section] %lx\n", shapeStack[section]);)
-}
 
 // REF is a reference to an array with max index 32768
 #define REF int
@@ -314,16 +261,9 @@ typedef struct Slice
     REF sLength;
   } Slice;
 
-// A shape is a reference to shape data with information for on-the-fly translation, scaling, and shape combination.
-typedef struct Shape
-  { SHAPETAG shapeTag;
-    Slice    shapeSlice;
-  } Shape;
-
-inline int getGeometryStart(Shape shape) {return shape.shapeSlice.sStart;}  // The first part of a shape slice refers to the position in the geometry buffer
-inline int getNumStrands(Shape shape)    {return shape.shapeSlice.sLength;} // The second part refers to the number of strands that define the shape
-                                                                            // (the actual size of the strands is at the beginning of each strand heap)
-
+inline int getGeometryStart(Slice ref) {return ref.sStart;}  // The first part of a shape slice refers to the position in the geometry buffer
+inline int getNumStrands(Slice ref)    {return ref.sLength;} // The second part refers to the number of strands that define the shape
+                                                              // (the actual size of the strands is at the beginning of each strand heap)
 inline int boxLeft  (int4 box) {return box.x;}
 inline int boxTop   (int4 box) {return box.y;}
 inline int boxRight (int4 box) {return box.z;}
@@ -346,19 +286,27 @@ typedef struct Substance
   } Substance;
 
 // A picture reference is a reference to bitmap data that can be the substance of a shape.
-typedef struct PictureUse
-  { float2 pictTranslate; // translation vector in subspace units
-      int2 pictSize;      // size of the bitmap
+typedef struct PictUse
+  {   int2 pictSize;      // size of the bitmap
        int pictMemOffset; // starting point of the pixel data in the memory buffer
-     float pictScale;    // scale factor for image
-  } PictureUse;
+  } PictUse;
+
+// A hard facet pointing to a specific picture.
+typedef struct HardFacet
+  { float2 facetP0;
+    float2 facetP1;
+    float2 facetP2;
+    float2 facetT0;
+    float2 facetT1;
+    float2 facetT2;
+  } HardFacet;
 
 // The color state structure tracks the current color information during a scan through thresholds
 typedef struct ColorState {
                COLOR   csBackgroundColor;         // background color
      GMEM      uchar  *csPictureData;             // global image information
-     CMEM PictureUse  *csPictureRefs;             // global list of image references
-                bool   csIsConstant;              // determine is the color state changes after a pixel move
+     GMEM    PictUse  *csPictureRefs;             // global list of image references
+     GMEM    COLOR    *csSolidColors;               // global list of solidColors
                 int2   absolutePosition;          // the absolute position of the current pixel.
   } ColorState;
 
@@ -414,11 +362,69 @@ inline void popTop(ThresholdQueue *tQ) {
 
 #define RANDOM_POS int
 
+// LAYERENTRY base type 16 bit ushort
+#define LAYERENTRY ushort
+// LAYERENTRY bit layout
+// Bits | 1 bit  | 1 bit      | 14 bit
+// Type | bool   | bool       | uint
+// Desc | active | additive   | local substance
+//      |        |            |
+// active - this bit changes during parsing and determines whether the layer is currently inside a shape.
+// additive - this bit determines whether the layer is additive or subtractive and does not change during parsing.
+// local substance - these bits determine which substance in the substanceTagStack the layer references.
+
+#define LAYERACTIVEMASK            0x8000
+#define LAYERISACTIVE              0x8000
+#define LAYERNOTACTIVEBITMASK      0x7FFF
+#define LAYERADDITIVEMASK          0x4000
+#define LAYERISADDITIVE            0x4000
+#define LAYERISSUBTRACTIVE         0x0000
+#define LAYERLOCALSUBSTANCEBITMASK 0x3FFF
+
+inline bool layerEntryIsActive (LAYERENTRY entry) {return (entry & LAYERACTIVEMASK) == LAYERISACTIVE;}
+inline LAYERENTRY layerEntrySetActive(LAYERENTRY entry) {return (entry | LAYERISACTIVE);}
+inline LAYERENTRY layerEntrySetNotActive(LAYERENTRY entry) {return (entry & LAYERNOTACTIVEBITMASK);}
+inline LAYERENTRY layerEntryToggleActive(LAYERENTRY entry) {return (~(entry & LAYERACTIVEMASK)) | (entry & LAYERNOTACTIVEBITMASK);}
+inline bool layerEntryIsAdditive(LAYERENTRY entry) {return (entry & LAYERADDITIVEMASK) == LAYERISADDITIVE;}
+inline LOCALSUBSTANCE layerEntryLocalSubstance(LAYERENTRY entry) {return (entry & LAYERLOCALSUBSTANCEBITMASK);}
+inline LAYERENTRY createLayerEntry(bool isAdditive, LOCALSUBSTANCE substance) {
+  LAYERENTRY additiveBit = isAdditive ? LAYERISADDITIVE : LAYERISSUBTRACTIVE;
+  return additiveBit | ((LAYERENTRY)substance);
+  }
+
 typedef struct ShapeState {
-                SHAPEBIT  shapeBits;                 // the number of shapes assigned to a bit in the shapeStack.
-      SUBSTANCEID  shapeIndices[MAXSHAPE];     // a mapping from shape bit positions in the shapeStacks to shapeIndices in the tile.
-      PMEM SHAPESTACK shapeStack[SHAPESTACKSECTIONS]; // the current shape Stack. (Each bit represents the presence of a shape in the stack.)
+            LAYERID layerCount;                      // the number of shapes and thus layers added to the column.
+         LAYERENTRY layerStack[MAXLAYERS];            // a stack of layer entries
+                int substanceCount;                  // the number of substances that have been added to the tile.
+       SUBSTANCETAG substanceTagStack[MAXLAYERS];     // a stack of all substances in the column
+            FACETID substanceActiveFacet[MAXLAYERS];  // a mapping each substance to the active facet of that texture or -1 for no facet
 } ShapeState;
+
+inline void clearLayerFlags(LAYERENTRY *stack, int numLayers) {
+    for (int i = 0; i < numLayers; i++) {
+        stack[i] = layerEntrySetNotActive(stack[i]);
+    }
+}
+
+inline int findTop(LAYERENTRY *stack, int numLayers, int ignoreAbove) {
+   int i = ignoreAbove;
+   while (i < numLayers && (!layerEntryIsActive(stack[i]))) {
+     i++;
+   }
+   return i;
+}
+
+inline void toggleLayerActive(ShapeState *shS, int layer) {
+  shS->layerStack[layer] = layerEntryToggleActive(shS->layerStack[layer]);
+}
+
+inline LOCALSUBSTANCE layerSubstance(ShapeState *shS, int layer) {
+  return layerEntryLocalSubstance(shS->layerStack[layer]);
+}
+
+inline bool layerIsAdditive(ShapeState *shS, int layer) {
+  return layerEntryIsAdditive(shS->layerStack[layer]);
+}
 
 typedef struct ParseState {
                int  currentThreshold;   // the current threshold bordering the section
@@ -436,8 +442,8 @@ typedef struct ParseState {
   } ParseState;
 
 typedef struct TileState {
-         GEO_ENTRY  tileShapeStart;
-               int  tileNumShapes;
+         ITEMTAGID  tileItemStart;
+               int  tileNumItems;
                int  threadId;
               int2  tileSize;
               int2  bitmapSize;
@@ -480,7 +486,7 @@ void addLineSegment ( PMEM  ThresholdQueue *tQ
                     , PMEM       TileState *tileS
                     ,               float2  left
                     ,               float2  right
-                    ,             SHAPEBIT  shapeBit
+                    ,             LAYERID  layer
                     ,                  int  addType
                     ,                 bool *thresholdWasAdded
                     ,                 bool *enclosedByStrand
@@ -495,16 +501,15 @@ void addThreshold ( PMEM ThresholdQueue *tQ
                   ,                bool *enclosedByStrand
                   );
 
-bool traverseTree ( SMEM    float2 *strandHeap
+bool traverseTree ( GMEM    float2 *strandHeap
                   ,            int  currentSize
-                  ,           Shape shape
                   ,          float2 threadDelta
                   ,      Traversal *l
                   ,      Traversal *r
                   );
 
 void searchTree(      Traversal *trav
-               , SMEM    float4 *tree
+               , GMEM    float4 *tree
                ,            int  treeSize
                ,         float4  threadDelta4
                ,           bool  isLeft
@@ -512,7 +517,7 @@ void searchTree(      Traversal *trav
 
 void spawnThresholds ( PMEM  ThresholdQueue *tQ
                      , PMEM       TileState *tileS
-                     ,             SHAPEBIT  shapeBit
+                     ,              LAYERID  layer
                      ,            Traversal *l
                      ,            Traversal *r
                      ,                 bool *thresholdWasAdded
@@ -526,9 +531,11 @@ inline THRESHOLD lineToThreshold ( float2  left
                                  , float2  right
                                  );
 
-inline HEADER lineToHeader (  SHAPEBIT shapeBit
-                           ,   float2 left
-                           ,   float2 right
+inline HEADER lineToHeader ( float2 left
+                           , float2 right
+                           , bool isFacet
+                           , LAYERID shapeId
+                           , SHAPEID facetId
                            );
 
 float thresholdIntersectX(    HEADER header
@@ -615,16 +622,11 @@ inline void passHeaderBottom( PMEM ShapeState *shS
                             );
 
 COLOR readColor ( PMEM ColorState *cS
-                , SMEM  Substance *substances
-                ,     SUBSTANCEID  substanceId
-                ,            bool  isSolidColor
+                , SUBSTANCETAG tag
                 );
 
-COLOR determineColor( PMEM   ShapeState *shS
-                    , PMEM   ColorState *cS
-                    , SMEM    Substance *substances
-                    , SMEM        Shape *shapeHeap
-                    ,         GEO_ENTRY  shapeStart
+COLOR determineColor( PMEM    ShapeState *shS
+                    , PMEM    ColorState *cS
                     );
 
 void verticalAdvance( PMEM ThresholdQueue *tQ
@@ -646,10 +648,13 @@ void writePixelGlobal ( PMEM TileState *tileS
 void buildThresholdArray ( PMEM       TileState *tileS
                          , PMEM  ThresholdQueue *tQ
                          , PMEM      ShapeState *shS
-                         , SMEM          float4 *geometryHeap
-                         , SMEM           Shape *shapeHeap
-                         ,            GEO_ENTRY  shapeStart
-                         ,            GEO_ENTRY  numShapes
+                         , GMEM          float4 *geometryHeap
+                         , GMEM       HardFacet *facetHeap
+                         , GMEM           Slice *geoRefHeap
+                         , GMEM         ITEMTAG *itemTagHeap
+                         , GMEM    SUBSTANCETAG *substanceTagHeap
+                         ,            ITEMTAGID  itemStart
+                         ,            ITEMTAGID  numItems
                          ,               float2  threadDelta
                          );
 
@@ -696,7 +701,7 @@ void initParseState ( PMEM ParseState *pS
                     , CMEM      float *randomField
                     );
 
-GMEM TileInfo *getTileInfo ( SMEM  TileInfo *tileHeap
+GMEM TileInfo *getTileInfo ( GMEM  TileInfo *tileHeap
                            ,  int  tileIndex
                            );
 
@@ -713,9 +718,6 @@ bool isActiveThread ( PMEM TileState *tileS);
 float8 sectionColor ( PMEM     ParseState *pS
                     , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
-                    , SMEM      Substance *substances
-                    , SMEM          Shape *shapeHeap
-                    ,           GEO_ENTRY  shapeStart
                     );
 
 void calculatePixel ( PMEM      TileState *tileS
@@ -723,8 +725,6 @@ void calculatePixel ( PMEM      TileState *tileS
                     , PMEM     ShapeState *shS
                     , PMEM     ParseState *pS
                     , PMEM     ColorState *cS
-                    , SMEM      Substance *substances
-                    , SMEM          Shape *shapeHeap
                     );
 
 
@@ -738,75 +738,23 @@ void sortThresholdArray ( PMEM  ThresholdQueue *tQ);
 void renderThresholdArray ( PMEM       TileState *tileS
                           , PMEM  ThresholdQueue *tQ
                           , PMEM      ShapeState *shS
+                          , GMEM       HardFacet *facetHeap
                           , GMEM           uchar *pictureData
-                          , CMEM      PictureUse *pictureRefs
-                          , SMEM       Substance *substances
-                          , SMEM           Shape *shapeHeap
+                          , GMEM         PictUse *pictureRefs
+                          , GMEM           COLOR *solidColors
+                          , CMEM           float *randomField
                           ,                COLOR  backgroundColor
                           ,                  int  frameNumber
                           , GMEM            uint *out
-                          , CMEM           float *randomField
                           );
 
 void initColorState ( PMEM  ColorState *init
                     ,            COLOR  backgroundColor
                     , GMEM       uchar *pictureData
-                    , CMEM  PictureUse *pictureRefs
+                    , GMEM     PictUse *pictureRefs
+                    , GMEM       COLOR *solidColors
                     ,             int2  absolutePosition
                     );
-
-// Debug Functions
-void showTraversal(Traversal t);
-void showTree(            Traversal t
-             , SMEM       float4 *tree
-             ,            int     treeSize
-             ) ;
-void showPixelBuffer(__local uint *pixelBuffer, int sectionWidth, int height);
-void showTileInfoAlignment (int tileIndex, SMEM TileInfo *tileHeap);
-void showShape (Shape shape);
-void showSubstance(Substance substance);
-void showPictUsage(CMEM PictureUse *use, int i);
-void showShapeIndices(ShapeState *shS, int numShapes);
-void showShapeColors(     ShapeState *shS
-                   , SMEM  Substance *substances
-                   , SMEM      Shape *shapeHeap
-                   ,             int  numShapes
-                   );
-void showSubstances(SMEM Substance *substances, int numSubstances);
-void showPictUsages(CMEM PictureUse *uses, int numPicts);
-void showShapeRefs(SMEM REF *shapeRefs, int numShapes);
-void showShapes (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *substances, int numShapes);
-void showShapeStack(SHAPESTACK *shapeStack);
-void showShapeAlignment (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *substances, int numShapes);
-void showData (GMEM uchar *pictData, int width, int height);
-void showThresholdHeader( HEADER header);
-void showThresholdGeo (THRESHOLD threshold);
-
-void showThreshold( HEADER header
-                  , THRESHOLD threshold
-                  );
-
-
-void showThresholds (PMEM   ThresholdQueue *tQ);
-void showActiveThresholds(PMEM ThresholdQueue *tQ, int num);
-
-// Output for parsings by GudniTraceVisualizer
-float infiniteZero(float x);
-void sliceHs (Slice slice);
-void shapeHs (Shape shape);
-void tileInfoHs (TileInfo tileInfo);
-void boxHs (int4 box);
-void colorHs (COLOR color);
-void colorStateHs (ColorState colorState);
-void thresholdHs(int i, THRESHOLD threshold, HEADER header);
-void thresholdListHs ( PMEM ThresholdQueue tQ );
-void thresholdQueueHs (ThresholdQueue tQ);
-inline void shapeStackSectionHs (SHAPESTACK section);
-inline void shapeIndexHs (int i, int shapeIndex);
-void shapeStateHs (ShapeState shapeState);
-void parseStateHs (ParseState pS);
-void tileStateHs (TileState tileS);
-void traversalHs(Traversal t);
 
 // ------------------- Inline Function Bodies -----------------------------
 // get the position of a pixel in a 2d bitmap
@@ -1136,9 +1084,15 @@ inline THRESHOLD lineToThreshold ( float2  left
     return makeThreshold(tTop, tBottom, left.x, right.x);
 }
 
-inline HEADER lineToHeader ( SHAPEBIT shapeBit
-                           ,  float2 left
-                           ,  float2 right
+inline HEADER defaultShapeHeader(LAYERID layerId) {
+  return (HEADER)layerId;
+}
+
+inline HEADER lineToHeader ( float2 left
+                           , float2 right
+                           , bool isFacet
+                           , LAYERID layerId
+                           , SHAPEID facetId
                            ) {
     bool  positiveSlope = left.y <= right.y;
     bool  notVertical = left.x != right.x;
@@ -1146,7 +1100,24 @@ inline HEADER lineToHeader ( SHAPEBIT shapeBit
     bool  isPersistent = notVertical && touchingLeftBorder;
     HEADER slopeBit = positiveSlope ? POSITIVE_SLOPE : NEGATIVE_SLOPE;
     HEADER persistantBit = isPersistent ? PERSIST : NONPERSIST;
-    return slopeBit | persistantBit | shapeBit;
+    HEADER facetBit = isFacet ? FACETFLAGSET : FACETFLAGNOTSET;
+    HEADER facetIdBits = ((HEADER) facetId) << FACETIDSHIFT;
+    return slopeBit | persistantBit | facetBit | facetIdBits | (HEADER) layerId;
+}
+
+inline HEADER lineToFacetHeader ( float2 left
+                                , float2 right
+                                , FACETID facetId
+                                , LAYERID layer
+                                ) {
+    return lineToHeader(left,right,true,layer,facetId);
+}
+
+inline HEADER lineToShapeHeader ( LAYERID layer
+                                ,  float2 left
+                                ,  float2 right
+                                ) {
+    return lineToHeader (left, right,false,layer,0);
 }
 
 // determine if a threshold should be added to the stack,
@@ -1156,7 +1127,7 @@ void addLineSegment ( PMEM  ThresholdQueue *tQ
                     , PMEM       TileState *tileS
                     ,               float2  left
                     ,               float2  right
-                    ,             SHAPEBIT  shapeBit
+                    ,              LAYERID  layer
                     ,                  int  addType
                     ,                 bool *thresholdWasAdded
                     ,                 bool *enclosedByStrand
@@ -1165,10 +1136,10 @@ void addLineSegment ( PMEM  ThresholdQueue *tQ
     THRESHOLD newThreshold = lineToThreshold( left
                                             , right
                                             );
-    HEADER newHeader = lineToHeader( shapeBit
-                                   , left
-                                   , right
-                                   );
+    HEADER newHeader = lineToShapeHeader( layer
+                                        , left
+                                        , right
+                                        );
     addThreshold(tQ, tileS, newHeader, newThreshold, addType, thresholdWasAdded, enclosedByStrand);
 }
 
@@ -1263,7 +1234,7 @@ void bifurcateCurve( Traversal *t
 // and potentially two vertical thresholds called the wings
 void spawnThresholds ( PMEM  ThresholdQueue *tQ
                      , PMEM       TileState *tileS
-                     ,             SHAPEBIT  shapeBit
+                     ,              LAYERID  layer
                      ,            Traversal *l
                      ,            Traversal *r
                      ,                 bool *thresholdWasAdded
@@ -1284,7 +1255,7 @@ void spawnThresholds ( PMEM  ThresholdQueue *tQ
                        ,  tileS
                        ,  (float2) (l->travXPos, y_L)
                        ,  l->travRight
-                       ,  shapeBit
+                       ,  layer
                        ,  0
                        ,  thresholdWasAdded
                        ,  enclosedByStrand
@@ -1307,7 +1278,7 @@ void spawnThresholds ( PMEM  ThresholdQueue *tQ
                        ,  tileS
                        ,  r->travLeft
                        ,  (float2) (r->travXPos, y_R)
-                       ,  shapeBit
+                       ,  layer
                        ,  1
                        ,  thresholdWasAdded
                        ,  enclosedByStrand
@@ -1324,7 +1295,7 @@ void spawnThresholds ( PMEM  ThresholdQueue *tQ
                        ,  tileS
                        ,  bridge_L
                        ,  bridge_R
-                       ,  shapeBit
+                       ,  layer
                        ,  2
                        ,  thresholdWasAdded
                        ,  enclosedByStrand
@@ -1335,7 +1306,7 @@ void spawnThresholds ( PMEM  ThresholdQueue *tQ
 // move to the next position in the tree based on the relationship between an XPosition and the current
 // node in the tree. (test is either <= or < depending on if the search is biased to the left or the right.
 void searchTree( Traversal *trav
-               , SMEM float4 *tree
+               , GMEM float4 *tree
                , int treeSize
                , float4 threadDelta4
                , bool isLeft
@@ -1375,23 +1346,21 @@ bool checkInRange ( Traversal *t
 // |                                   | ending curve point| leftmost curve point                    | complete binary tree of point control point pairs     | rest of tree
 // | strandHeap + 0                    | strandHeap + 1    | strandHeap + 2                          | strandHeap + 4                                        | strandHeap + 6
 
-bool traverseTree( SMEM    float2 *strandHeap
+bool traverseTree( GMEM    float2 *strandHeap
                  ,            int  currentSize
-                 ,          Shape  shape
                  ,         float2  threadDelta
                  ,      Traversal *l
                  ,      Traversal *r
                  ) {
     int    treeSize    =  (currentSize - 4) / 2; // take the total size in 64 bit parts and subtract the header and the left and right points. Divide by 2 becasue each left+control is 128 bytes
     float4 threadDelta4  =  (float4)(threadDelta, threadDelta); // create a double vector that can be used to offset reads of two simultaneous reads
-    l->travRight       = *((SMEM float2 *)(strandHeap + 1)) - threadDelta; // load the rightmost point of the strand.
-    l->travLeftControl = *((SMEM float4 *)(strandHeap + 2)) - threadDelta4; // load the leftmost point of the strand and it's control point.
-    SMEM float4 *tree =   (SMEM float4 *)(strandHeap + 4); // Move to tree portion of strand array.
-    //DEBUG_IF(printf("shape: %i strand: %i -------------\n", shapeIndex, strandIndex);)
+    l->travRight       = *((GMEM float2 *)(strandHeap + 1)) - threadDelta; // load the rightmost point of the strand.
+    l->travLeftControl = *((GMEM float4 *)(strandHeap + 2)) - threadDelta4; // load the leftmost point of the strand and it's control point.
+    GMEM float4 *tree =   (GMEM float4 *)(strandHeap + 4); // Move to tree portion of strand array.
     //DEBUG_IF(printf("l->travLeftX: %f l->travRightX: %f \n", l->travLeftX, l->travRightX);)
     bool inRange = checkInRange(l);
     if (inRange) { // determine if the strand interacts at all with this column.
-        //DEBUG_IF(showShape(shape);printf("--TREE--\n");showTree(*((float4 *)(strandHeap + 2)), *((float2 *)(strandHeap + 1)), tree, treeSize);)
+        //DEBUG_IF(printf("--TREE--\n");showTree(*((float4 *)(strandHeap + 2)), *((float2 *)(strandHeap + 1)), tree, treeSize);)
         // now execute two tree traversals for the left and right borders of the pixel.
         *r = *l;
         // if the left side of the strand is within the pixel, treat the left side border as the tree traversal axis
@@ -1409,21 +1378,17 @@ bool traverseTree( SMEM    float2 *strandHeap
 
 // read a color value depending on the substance and absolute position.
 COLOR readColor ( PMEM ColorState *cS
-                , SMEM  Substance *substances
-                ,     SUBSTANCEID  substanceId
-                ,            bool  isSolidColor
+                , SUBSTANCETAG tag
                 ) {
-    Substance substance = substances[substanceId];
-    //DEBUG_IF(showShape(shape);)
-    if (isSolidColor) {
-        return substance.substanceColor;
+    if (substanceTagIsSolidColor(tag)) {
+        return cS->csSolidColors[substanceTagColorId(tag)];
     } else { // its a picture reference
-        uint pictId = (as_uint4(substance.substanceColor)).x;
-        PictureUse pRef = cS->csPictureRefs[pictId];
-        float scale = pRef.pictScale;
+        uint pictId = substanceTagTextureMemId(tag);
+        PictUse pRef = cS->csPictureRefs[pictId];
+        float scale = 1.0f;//pRef.pictScale;
         scale = scale < 0.0000001 ? 0.0000001 : scale;
         //DEBUG_IF(printf("scale %f \n", scale);)
-        int2 relativePosition = convert_int2((convert_float2(cS->absolutePosition) / scale) - pRef.pictTranslate);
+        int2 relativePosition = convert_int2((convert_float2(cS->absolutePosition) / scale) /* - (pRef.pictTranslate*/);
         //DEBUG_IF(printf("pictId %i pRef.pictSize %v2i pRef.memOffset %i relativePosition %v2i \n", pictId, pRef.pictSize, pRef.pictMemOffset, relativePosition);)
         if (relativePosition.x >= 0 &&
             relativePosition.y >= 0 &&
@@ -1441,65 +1406,49 @@ COLOR readColor ( PMEM ColorState *cS
     }
 }
 
-#define NULLINDEX 0xFFFFFFFFFFFFFFFF
+#define NULLINDEX 0xFFFFFFFF
 
-// determine the current color based on the shape stack
+// determine the current color based on the layer stack
 COLOR determineColor( PMEM    ShapeState *shS
                     , PMEM    ColorState *cS
-                    , SMEM     Substance *substances
-                    , SMEM         Shape *shapeHeap
-                    ,          GEO_ENTRY  shapeStart
                     ) {
-    int topBit = MAXSHAPE;
+    int topLayer = MAXLAYERS;
     COLOR baseColor = TRANSPARENT_COLOR;
     COLOR nextColor;
     bool done = false;
     SUBSTANCEID lastId = NULLINDEX;
-    bool lastIsContinue = true;
     bool lastIsSet = false;
     while (!done) {
         SUBSTANCEID substanceId = NULLINDEX;
         bool shouldComposite = true;
-        topBit = findTop(shS->shapeStack, topBit);
-        //DEBUG_IF(printf("topBit %i ", topBit);showShapeStack(shS->shapeStack);printf("\n");)
-        if (topBit < 0) {
+        topLayer = findTop(shS->layerStack, topLayer, shS->layerCount);
+        //DEBUG_IF(printf("topLayer %i ", topLayer);showLayerFlags(shS->layerFlags);printf("\n");)
+        if (topLayer < 0) {
             nextColor = cS->csBackgroundColor;
             done = true;
             shouldComposite = true;
             lastIsSet = true;
         }
         else {
-            int referenceFromBit = shS->shapeIndices[topBit];
-            SHAPETAG tag = shapeHeap[referenceFromBit].shapeTag;
-            substanceId = shapeTagSubstanceId(tag);
-            //DEBUG_IF(printf("topBit %i substanceId %i lastId %i ",
-            //                 topBit,   substanceId,   lastId   );)
+            int localSubstance = layerSubstance(shS, topLayer);
+            SUBSTANCETAG substanceTag = shS->substanceTagStack[localSubstance];
+            //DEBUG_IF(printf("topLayer %i substanceId %i lastId %i ",
+            //                 topLayer,   substanceId,   lastId   );)
+            lastIsSet = layerIsAdditive(shS, topLayer);
             if (substanceId == lastId) {
-                if (lastIsContinue) {
-                    if (!shapeTagIsContinue(tag)) {
-                        lastIsSet = shapeTagIsAdd(tag);
-                        lastIsContinue = false;
-                    }
-                    else {
-                        lastIsSet = !lastIsSet;
-                    }
-                }
                 shouldComposite = false;
             }
             if (substanceId != lastId) {
                 nextColor = readColor ( cS
-                                      , substances
-                                      , substanceId
-                                      , shapeTagIsSolidColor(tag)
+                                      , substanceTag
                                       );
                 shouldComposite = true;
-                lastIsSet = shapeTagIsAdd(tag) || shapeTagIsContinue(tag);
             }
             lastId = substanceId;
 
         }
-        //DEBUG_IF(printf("done %i lastIsContinue %i lastIsSet %i shouldComposite %i baseColor %2.2v4f nextColor %2.2v4f \n",
-        //                 done,   lastIsContinue,   lastIsSet,   shouldComposite,   baseColor,        nextColor          );)
+        //DEBUG_IF(printf("done %i lastIsSet %i shouldComposite %i baseColor %2.2v4f nextColor %2.2v4f \n",
+        //                 done,   lastIsSet,   shouldComposite,   baseColor,        nextColor          );)
         if (shouldComposite) {
             if (lastIsSet) {
                 baseColor = composite(baseColor, nextColor);
@@ -1515,7 +1464,20 @@ COLOR determineColor( PMEM    ShapeState *shS
 inline void passHeader( PMEM ShapeState *shS
                       ,          HEADER  header
                       ) {
-    flipBit(headerShapeBit(header), shS->shapeStack);
+    if (headerIsFacet(header)) {
+      LOCALSUBSTANCE localSubstance = headerLocalSubstance(header);
+      FACETID facetId = headerFacetId(header);
+      FACETID current = shS->substanceActiveFacet[localSubstance];
+      FACETID newId = current =! facetId ? facetId : NOFACET;
+      // this works because we don't know the order that a facetId will be reached
+      // we might be exiting the current facet or entering a new one first so this
+      // ignores exits that occur after we enter a new facet
+      shS->substanceActiveFacet[localSubstance] = newId;
+    }
+    else {
+      LAYERID layer = headerLayerId(header);
+      toggleLayerActive(shS, layer);
+    }
 }
 
 inline void passHeaderTop( PMEM ShapeState *shS
@@ -1540,57 +1502,73 @@ inline void passHeaderBottom( PMEM ShapeState *shS
 void buildThresholdArray ( PMEM       TileState *tileS
                          , PMEM  ThresholdQueue *tQ
                          , PMEM      ShapeState *shS
-                         , SMEM          float4 *geometryHeap
-                         , SMEM           Shape *shapeHeap
-                         ,            GEO_ENTRY  shapeStart
-                         ,            GEO_ENTRY  numShapes
+                         , GMEM          float4 *geometryHeap
+                         , GMEM       HardFacet *facetHeap
+                         , GMEM           Slice *geoRefHeap
+                         , GMEM         ITEMTAG *itemTagHeap
+                         , GMEM    SUBSTANCETAG *substanceTagHeap
+                         ,            ITEMTAGID  itemStart
+                         ,            ITEMTAGID  numItems
                          ,               float2  threadDelta
                          ) {
     bool thresholdWasAdded;
-    for (GEO_ENTRY n = 0; n < numShapes && shS->shapeBits < MAXSHAPE; n++) { // iterate over every shape in the current shape.
-        GEO_ENTRY shapeIndex = shapeStart + n;
+    int lastSubstance = -1;
+    for (ITEMTAGID n = 0; n < numItems /*&& shS->layerCount < MAXLAYERS*/; n++) { // iterate over every item in the current tile.
+        ITEMTAGID itemIndex = itemStart + n;
+        ITEMTAG itemTag = itemTagHeap[itemIndex]; // get the current shape.
         thresholdWasAdded = false;
-        Shape shape = shapeHeap[shapeIndex]; // get the current shape.
-         // if you don't shift the shape to the tile size there will be accuracy errors with height floating point geometric values
-        SMEM float2 *strandHeap = (SMEM float2 *)&geometryHeap[getGeometryStart(shape)];
-        bool enclosedByShape = false;
-        for (int currentStrand = 0; currentStrand < getNumStrands(shape); currentStrand++) {
-            uchar4 header = *((SMEM uchar4 *)strandHeap);
-            ushort currentSize = as_ushort(header.xy); // size of current strand being parsed.
-            bool enclosedByStrand = false; // is the start of the render area inside of the shape.
-            Traversal left;
-            Traversal right;
-            // search the tree on the left and right sides of the pixel (or strand) and return 2 traversal result structures.
-            bool inRange = traverseTree(  strandHeap
-                                       ,  currentSize
-                                       ,  shape
-                                       ,  threadDelta
-                                       , &left
-                                       , &right
-                                       );
-            if (inRange) {
-                spawnThresholds (  tQ
-                                ,  tileS
-                                ,  shS->shapeBits
-                                , &left
-                                , &right
-                                , &thresholdWasAdded
-                                , &enclosedByStrand
-                                );
+        if (itemTagIsShape(itemTag)) {
+             // if you don't shift the shape to the tile size there will be accuracy errors with height floating point geometric values
+            Slice geoRef = geoRefHeap[itemTagShapeId(itemTag)];
+            GMEM float2 *strandHeap = (GMEM float2 *)&geometryHeap[getGeometryStart(geoRef)];
+            bool enclosedByShape = false;
+            for (int currentStrand = 0; currentStrand < getNumStrands(geoRef); currentStrand++) {
+                uchar4 header = *((GMEM uchar4 *)strandHeap);
+                ushort currentSize = as_ushort(header.xy); // size of current strand being parsed.
+                bool enclosedByStrand = false; // is the start of the render area inside of the shape.
+                Traversal left;
+                Traversal right;
+                // search the tree on the left and right sides of the pixel (or strand) and return 2 traversal result structures.
+                bool inRange = traverseTree(  strandHeap
+                                           ,  currentSize
+                                           ,  threadDelta
+                                           , &left
+                                           , &right
+                                           );
+                if (inRange) {
+                    spawnThresholds (  tQ
+                                    ,  tileS
+                                    ,  shS->layerCount
+                                    , &left
+                                    , &right
+                                    , &thresholdWasAdded
+                                    , &enclosedByStrand
+                                    );
+                }
+                strandHeap += currentSize;
+                enclosedByShape = enclosedByShape != enclosedByStrand; // using not equal as exclusive or.
+            } // for currentStrand
+            if (enclosedByShape) {
+                passHeader(shS, defaultShapeHeader(shS->layerCount)); // a default header has no flags for geometry and just changes the shapeState for a threshold above the boundaries.
             }
-            strandHeap += currentSize;
-            enclosedByShape = enclosedByShape != enclosedByStrand; // using not equal as exclusive or.
-        } // for currentStrand
-        if (enclosedByShape) {
-            passHeader(shS, shS->shapeBits);
-        }
-        if (thresholdWasAdded || enclosedByShape) {
-            if (shS->shapeBits < MAXSHAPE) {
-               shS->shapeIndices[shS->shapeBits] = shapeIndex;
+            if (thresholdWasAdded || enclosedByShape) {
+                if (shS->layerCount < MAXLAYERS) {
+                   shS->layerStack[shS->layerCount] = createLayerEntry(itemTagIsAdd(itemTag),shS->substanceCount);
+                   shS->layerCount += 1;
+                }
+                if (lastSubstance != (int)itemTagSubstanceId(itemTag)) {
+                  // add this new substance.
+                  shS->substanceTagStack[shS->substanceCount] = substanceTagHeap[itemTagSubstanceId(itemTag)];
+                  shS->substanceCount += 1;
+                }
             }
-            shS->shapeBits += 1;
+            // tS->lastShape  = n;
         }
-        // tS->lastShape  = n;
+        else { // itemTagIsFacet
+           if (lastSubstance == (int)itemTagSubstanceId(itemTag)) {
+             // only add a facet if it has the same substance as the most recently added shape.
+           }
+        }
     }
 }
 
@@ -1632,8 +1610,8 @@ void initThresholdQueue( PMEM ThresholdQueue  *tQ
 
 void initShapeState (PMEM    ShapeState *shS
                     ) {
-  shS->shapeBits = 0;
-  clearShapeStack(shS->shapeStack);
+  shS->layerCount = 0;
+  shS->substanceCount = 0;
 }
 
 ShapeState loadShapeState( GMEM ShapeState  *shapeStateHeap
@@ -1681,7 +1659,7 @@ void initParseState ( PMEM ParseState *pS
     initRandomField(pS,tileS,randomField);
 }
 
-GMEM TileInfo *getTileInfo ( SMEM  TileInfo *tileHeap
+GMEM TileInfo *getTileInfo ( GMEM  TileInfo *tileHeap
                            , int  tileIndex
                            ) {
     return (&tileHeap[tileIndex]);
@@ -1696,8 +1674,8 @@ void initTileState ( PMEM  TileState *tileS
                    ,             int  jobIndex
                    ,             int  computeDepth
                    ) {
-    tileS->tileShapeStart = tileInfo->tileShapeSlice.sStart;
-    tileS->tileNumShapes  = tileInfo->tileShapeSlice.sLength;
+    tileS->tileItemStart = tileInfo->tileShapeSlice.sStart;
+    tileS->tileNumItems  = tileInfo->tileShapeSlice.sLength;
     tileS->bitmapSize    = bitmapSize;
     tileS->threadId      = tileInfo->tileColumnAllocation + column;
     tileS->column        = column;
@@ -1724,17 +1702,10 @@ bool isActiveThread ( PMEM TileState *tileS) {
 float8 sectionColor ( PMEM     ParseState *pS
                     , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
-                    , SMEM      Substance *substances
-                    , SMEM          Shape *shapeHeap
-                    ,           GEO_ENTRY  shapeStart
                     ) {
     COLOR color = determineColor( shS
                                 , cS
-                                , substances
-                                , shapeHeap
-                                , shapeStart
                                 );
-    // COLOR color = (COLOR)(0.5,0.5,0.5,1.0);
     float random = getRandom(pS);
     float area = (pS->sectionEnd.x - pS->sectionStart.x) * (pS->sectionEnd.y - pS->sectionStart.y);
     float4 adjustedArea = (float4) (area + (area * random * STOCHASTIC_FACTOR));
@@ -1754,7 +1725,7 @@ void verticalAdvance( PMEM ThresholdQueue *tQ
         // Revert all horizontal border crossing from the lass vertical advances.
         //DEBUG_IF(printf("rev->");)
         for (int i = 0; i < pS->numActive; i++) {
-            //DEBUG_IF(printf("back %i %i\n",i,headerShapeBit(getHeader(tQ, i)));)
+            //DEBUG_IF(printf("back %i %i\n",i,headerLayerId(getHeader(tQ, i)));)
             passHeader(shS, getHeader(tQ, i));
         }
         //DEBUG_IF(printf("<-rev");)
@@ -1767,7 +1738,7 @@ void verticalAdvance( PMEM ThresholdQueue *tQ
             // then pass over the bottom of all the active thresholds.
             //DEBUG_IF(printf("pS->numActive %i\n", pS->numActive);)
             while(pS->numActive > 0) {
-                //DEBUG_IF(if (headerPersistBottom(getHeader(tQ, i))) {printf("bott %i %i\n",i,headerShapeBit(getHeader(tQ, i)));})
+                //DEBUG_IF(if (headerPersistBottom(getHeader(tQ, i))) {printf("bott %i %i\n",i,headerLayerId(getHeader(tQ, i)));})
                 passHeaderBottom(shS, getHeader(tQ, 0));
                 popTop(tQ);
                 pS->numActive -= 1;
@@ -1795,14 +1766,14 @@ void verticalAdvance( PMEM ThresholdQueue *tQ
                 //DEBUG_IF(printf("splitNext \n");showThresholds(tQ);)
                 // pass over any leading horizontal thresholds (non persistance horizontal are never added).
                 while (pS->numActive > 0 && tIsHorizontal(getThreshold(tQ, 0))) {
-                    //DEBUG_IF(if (headerPersistTop(getHeader(tQ, pS->numActive))) {printf("topH %i %i\n",pS->numActive,headerShapeBit(getHeader(tQ, pS->numActive)));})
+                    //DEBUG_IF(if (headerPersistTop(getHeader(tQ, pS->numActive))) {printf("topH %i %i\n",pS->numActive,headerLayerId(getHeader(tQ, pS->numActive)));})
                     passHeaderTop(shS, getHeader(tQ, 0));
                     popTop(tQ);
                     pS->numActive -= 1;
                 }
                 for (int i = 0; i < pS->numActive; i++) {
                     if (tTop(getThreshold(tQ, i)) > RENDERSTART) { // TODO: Can probably get rid of this check.
-                        //DEBUG_IF(if (headerPersistTop(getHeader(tQ, i))) {printf("top  %i %i\n", i, headerShapeBit(getHeader(tQ, i)));})
+                        //DEBUG_IF(if (headerPersistTop(getHeader(tQ, i))) {printf("top  %i %i\n", i, headerLayerId(getHeader(tQ, i)));})
                         passHeaderTop(shS, getHeader(tQ, i));
                     }
                 }
@@ -1817,7 +1788,7 @@ void verticalAdvance( PMEM ThresholdQueue *tQ
         pS->sectionStart.x = pS->sectionEnd.x = LEFTBORDER;
         // reset the cursor
         pS->currentThreshold = 0;
-        //DEBUG_IF(showShapeStack(shS->shapeStack); printf("  ");
+        //DEBUG_IF(showLayerFlags(shS->layerFlags); printf("  ");
         //         showActiveThresholds(tQ,pS->numActive);)
 
     }
@@ -1871,7 +1842,7 @@ void writePixelGlobal ( PMEM TileState *tileS
                                      , pS->sectionStart \
                                      , pS->sectionEnd \
                                      , pS->accColorArea); \
-                               showShapeStack(shS->shapeStack); \
+                               showLayerFlags(shS->layerFlags); \
                                printf("\n"); \
                                )
 
@@ -1883,8 +1854,6 @@ void calculatePixel ( PMEM      TileState *tileS
                     , PMEM     ShapeState *shS
                     , PMEM     ParseState *pS
                     , PMEM     ColorState *cS
-                    , SMEM      Substance *substances
-                    , SMEM          Shape *shapeHeap
                     ) {
     //DEBUG_IF(printf("                                              pixelY: %f \n", pS->pixelY);)
     while (((pS->sectionEnd.x < RIGHTBORDER) || (pS->sectionEnd.y < pS->pixelY))/*&& count > 0*/) { // process all sections that do not reach the bottom of the pixel.
@@ -1897,15 +1866,12 @@ void calculatePixel ( PMEM      TileState *tileS
         float8 colorArea = sectionColor( pS
                                        , shS
                                        , cS
-                                       , substances
-                                       , shapeHeap
-                                       , tileS->tileShapeStart
                                        );
         pS->accColorArea += colorArea;
         //DEBUG_IF(printf("accColor %v8f", pS->accColorArea);)
         DEBUG_TRACE_ITEM(parseStateHs(*pS);)
         if (pS->currentThreshold < pS->numActive) {
-            //DEBUG_IF(printf("pass %i %i\n",pS->currentThreshold,headerShapeBit(getHeader(tQ, pS->currentThreshold)));)
+            //DEBUG_IF(printf("pass %i %i\n",pS->currentThreshold,headerLayerId(getHeader(tQ, pS->currentThreshold)));)
             passHeader(shS, getHeader(tQ, pS->currentThreshold));
         }
         pS->currentThreshold += 1;
@@ -1919,12 +1885,14 @@ void calculatePixel ( PMEM      TileState *tileS
 void initColorState( PMEM   ColorState *init
                    ,             COLOR  backgroundColor
                    , GMEM        uchar *pictureData
-                   , CMEM   PictureUse *pictureRefs
+                   , GMEM      PictUse *pictureRefs
+                   , GMEM        COLOR *solidColors
                    ,              int2  pos
                    ) {
   init->csBackgroundColor = backgroundColor;
   init->csPictureData = pictureData;
   init->csPictureRefs = pictureRefs;
+  init->csSolidColors = solidColors;
   init->absolutePosition = pos;
 }
 
@@ -1975,19 +1943,19 @@ void sortThresholdArray( PMEM  ThresholdQueue *tQ
       }
  }
 
-void renderThresholdArray ( PMEM       TileState *tileS
-                          , PMEM  ThresholdQueue *tQ
-                          , PMEM      ShapeState *shS
-                          , GMEM           uchar *pictureData
-                          , CMEM      PictureUse *pictureRefs
-                          , SMEM       Substance *substances
-                          , SMEM           Shape *shapeHeap
-                          ,                COLOR  backgroundColor
-                          ,                  int  frameNumber
-                          , GMEM            uint *out
-                          , CMEM           float *randomField
-                          ) {
-    //DEBUG_IF(printf("INDEX %i gTileIndex %i numShapes %i \n", INDEX, gTileIndex, tileS->numShapes);)
+ void renderThresholdArray ( PMEM       TileState *tileS
+                           , PMEM  ThresholdQueue *tQ
+                           , PMEM      ShapeState *shS
+                           , GMEM       HardFacet *facetHeap
+                           , GMEM           uchar *pictureData
+                           , GMEM         PictUse *pictureRefs
+                           , GMEM           COLOR *solidColors
+                           , CMEM           float *randomField
+                           ,                COLOR  backgroundColor
+                           ,                  int  frameNumber
+                           , GMEM            uint *out
+                           ) {
+    //DEBUG_IF(printf("INDEX %i gTileIndex %i numItems %i \n", INDEX, gTileIndex, tileS->numItems);)
     //barrier (CLK_LOCAL_MEM_FENCE);
     ParseState pS;
     initParseState( &pS
@@ -2000,6 +1968,7 @@ void renderThresholdArray ( PMEM       TileState *tileS
                   ,  backgroundColor
                   ,  pictureData
                   ,  pictureRefs
+                  ,  solidColors
                   ,  tileS->threadDelta
                   );
     int yInt = -1;
@@ -2010,8 +1979,6 @@ void renderThresholdArray ( PMEM       TileState *tileS
                        ,  shS
                        , &pS
                        , &cS
-                       ,  substances
-                       ,  shapeHeap
                        );
         // write the accumulated color information to the pixel buffer.
         float4 color = pS.accColorArea.s0123 / pS.accColorArea.s4567;
@@ -2027,17 +1994,20 @@ void renderThresholdArray ( PMEM       TileState *tileS
     DEBUG_TRACE_END
 }
 
-__kernel void generateThresholds( SMEM     float4  *geometryHeap
-                                , SMEM      Shape  *shapeHeap
-                                , SMEM   TileInfo  *tileHeap
-                                ,            int2   bitmapSize
-                                ,             int   computeDepth
-                                ,             int   frameNumber
-                                ,             int   jobIndex
-                                , GMEM  THRESHOLD  *thresholdHeap
-                                , GMEM     HEADER  *headerHeap
-                                , GMEM ShapeState  *shapeStateHeap
-                                , GMEM      Slice  *qSliceHeap
+__kernel void generateThresholds( GMEM      float4  *geometryHeap
+                                , GMEM       Slice  *geoRefHeap
+                                , GMEM   HardFacet  *facetHeap
+                                , GMEM     ITEMTAG  *itemTagHeap
+                                , GMEM SUBSTANCETAG *substanceTagHeap
+                                , GMEM     TileInfo  *tileHeap
+                                ,              int2   bitmapSize
+                                ,               int   computeDepth
+                                ,               int   frameNumber
+                                ,               int   jobIndex
+                                , GMEM    THRESHOLD  *thresholdHeap
+                                , GMEM       HEADER  *headerHeap
+                                , GMEM   ShapeState  *shapeStateHeap
+                                , GMEM        Slice  *qSliceHeap
                                 ) {
     int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
     int   column     = COLUMN;
@@ -2051,12 +2021,6 @@ __kernel void generateThresholds( SMEM     float4  *geometryHeap
                   ,  jobIndex
                   ,  computeDepth
                   );
-    //DEBUG_IF(printf("tileS->floatHeight %f\n", tileS.floatHeight);)
-    //DEBUG_IF(tileStateHs(tileS);)
-    //DEBUG_IF(showPictUsages(pictureRefs, 1);)
-    //testShapeStack();
-    //testDeleteBit();
-    //DEBUG_IF(showShapes(shapeHeap, tileS.tileShapeStart, substances, tileS.tileNumShapes);)
     if (isActiveThread(&tileS)) {
         DEBUG_TRACE_BEGIN
         ThresholdQueue tQ;
@@ -2067,12 +2031,15 @@ __kernel void generateThresholds( SMEM     float4  *geometryHeap
                             , &tQ
                             , &shS
                             ,  geometryHeap
-                            ,  shapeHeap
-                            ,  tileS.tileShapeStart
-                            ,  tileS.tileNumShapes
+                            ,  facetHeap
+                            ,  geoRefHeap
+                            ,  itemTagHeap
+                            ,  substanceTagHeap
+                            ,  tileS.tileItemStart
+                            ,  tileS.tileNumItems
                             ,  convert_float2(tileS.threadDelta)
                             );
-        //DEBUG_IF(showShapeStack(shS.shapeStack);)
+        //DEBUG_IF(showLayerFlags(shS.layerFlags);)
         DEBUG_IF(showThresholds(&tQ);)
         //DEBUG_TRACE_ITEM(thresholdStateHs(&tQ);)
         storeShapeState(shapeStateHeap, &shS, &tileS);
@@ -2084,7 +2051,7 @@ __kernel void generateThresholds( SMEM     float4  *geometryHeap
 __kernel void sortThresholds( GMEM  THRESHOLD *thresholdHeap
                             , GMEM     HEADER *headerHeap
                             , GMEM      Slice *qSliceHeap
-                            , SMEM   TileInfo *tileHeap
+                            , GMEM   TileInfo *tileHeap
                             ,            int2  bitmapSize
                             ,             int  computeDepth
                             ,             int  frameNumber
@@ -2114,22 +2081,22 @@ __kernel void sortThresholds( GMEM  THRESHOLD *thresholdHeap
     }
 }
 
-__kernel void renderThresholds( GMEM  THRESHOLD *thresholdHeap
-                              , GMEM     HEADER *headerHeap
-                              , GMEM ShapeState *shapeStateHeap
-                              , GMEM      Slice *qSliceHeap
-                              , SMEM  Substance *substances
-                              , GMEM      uchar *pictureData
-                              , CMEM PictureUse *pictureRefs
-                              , CMEM      float *randomField
-                              , SMEM      Shape *shapeHeap
-                              , SMEM   TileInfo *tileHeap
-                              ,           COLOR  backgroundColor
-                              ,            int2  bitmapSize
-                              ,             int  computeDepth
-                              ,             int  frameNumber
-                              ,             int  jobIndex
-                              , GMEM        uint *out
+__kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
+                              , GMEM       HEADER *headerHeap
+                              , GMEM   ShapeState *shapeStateHeap
+                              , GMEM        Slice *qSliceHeap
+                              , GMEM    HardFacet *facetHeap
+                              , GMEM        uchar *pictureData
+                              , GMEM      PictUse *pictureRefs
+                              , GMEM        COLOR *solidColors
+                              , CMEM        float *randomField
+                              , GMEM     TileInfo *tileHeap
+                              ,             COLOR  backgroundColor
+                              ,              int2  bitmapSize
+                              ,               int  computeDepth
+                              ,               int  frameNumber
+                              ,               int  jobIndex
+                              , GMEM         uint *out
                               ) {
     int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
     int   column     = COLUMN;
@@ -2154,399 +2121,14 @@ __kernel void renderThresholds( GMEM  THRESHOLD *thresholdHeap
         renderThresholdArray ( &tileS
                              , &tQ
                              , &shS
+                             ,  facetHeap
                              ,  pictureData
                              ,  pictureRefs
-                             ,  substances
-                             ,  shapeHeap
+                             ,  solidColors
+                             ,  randomField
                              ,  backgroundColor
                              ,  frameNumber
                              ,  out
-                             ,  randomField
                              );
     }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////////
-// Functions for Exporting Debugging Information in human readable forms.
-//////////////////////////////////////////////////////////////////////////////////////////////
-
-void showTraversal(Traversal t) {
-  printf("travLeft %v2f travControl %v2f travRight %v2f travXPos %f travIndex %i\n"
-       ,t.travLeft   ,t.travControl   ,t.travRight   ,t.travXPos ,t.travIndex     );
-}
-
-void showTree(            Traversal t
-             , SMEM       float4 *tree
-             ,            int     treeSize
-             ) {
-    printf("right   %v2f\n", t.travRight);
-    printf("left    %v2f\n", t.travLeft);
-    printf("control %v2f\n", t.travControl);
-    for (int i = 0; i < treeSize; i++) {
-        printf("%02i    %v2f\n", i, tree[i].xy);
-        printf("        %v2f\n",    tree[i].zw);
-    }
-}
-
-void showPixelBuffer(__local uint *pixelBuffer, int sectionWidth, int height) {
-    printf ("PixelBuffer: sectionWidth %2i height: %2i\n", sectionWidth, height);
-    for (int y = 0; y < height; y++) {
-        for (int x = 0 ; x < sectionWidth; x++) {
-           printf(" %08x ", pixelBuffer[pos2(x,y,sectionWidth)]);
-        }
-        printf("\n");
-    }
-}
-
-void showThresholdHeader( HEADER header
-                        ) {
-    //printf("Raw: %08x ",header);
-    if (headerPositiveSlope(header)) {
-      printf("[+] ");
-    }
-    else {
-      printf("[-] ");
-    }
-    if      (headerPersistTop(header)   ) {printf("pTop ");}
-    else if (headerPersistBottom(header)) {printf("pBot ");}
-    else                                  {printf("pNon ");}
-    printf(" sIx:%03i ", headerShapeBit(header));
-}
-
-void showThresholdGeo (THRESHOLD threshold) {
-  //printf("tTop: %2.2f tBottom: %2.2f tLeft: %2.2f tRight: %2.2f "
-  printf("tLeft: %f tTop: %f tRight: %f tBottom: %f height: %f"
-        , tLeft(threshold)
-        , tTop(threshold)
-        , tRight(threshold)
-        , tBottom(threshold)
-        , tHeight(threshold)
-        );
-}
-
-void showThreshold( HEADER header,
-                    THRESHOLD threshold) {
-    showThresholdHeader(header);
-    showThresholdGeo(threshold);
-}
-
-void showThresholds (PMEM ThresholdQueue *tQ) {
-    printf ("Thresholds numThresholds %2i \n", tQ->qSlice.sLength);
-    for (int t = 0; t < tQ->qSlice.sLength; t++) {
-        if (t < MAXTHRESHOLDS) {
-        printf("t: %2i ", t);
-        showThreshold( getHeader(tQ, t)
-                     , getThreshold(tQ, t)
-                     );
-        printf("\n");
-        }
-        else {printf("out of bounds\n\n\n");}
-    }
-}
-
-void showActiveThresholds(PMEM ThresholdQueue *tQ, int num) {
-    printf ("------Thresholds numThresholds %2i------- \n", num);
-    for (int t = 0; t < num; t++) {
-      printf("t: %2i ", t);
-      showThreshold( getHeader(tQ, t)
-                   , getThreshold(tQ, t));
-      printf("\n");
-    }
-}
-
-void showTileInfoAlignment (int gTileIndex, SMEM TileInfo *tileHeap) {
-    //printf ("%i :            threadDelta %2i %2hi,%2hi\n", gTileIndex, (long)&tileHeap[gTileIndex].threadDelta - (long)&tileHeap[gTileIndex], tileHeap[gTileIndex].threadDelta.x / FIXEDFACTORINT, tileHeap[gTileIndex].threadDelta.y / FIXEDFACTORINT);
-    //printf ("%i :     tileMaxThresholds %2i %i   \n", gTileIndex, (long)&tileHeap[gTileIndex].tileMaxThresholds     - (long)&tileHeap[gTileIndex], tileHeap[gTileIndex].tileMaxThresholds     );
-    printf ("%i : tileInfo.tileBox       %2i %2v4i  \n", gTileIndex, (long)&tileHeap[gTileIndex].tileBox    - (long)&tileHeap[gTileIndex], tileHeap[gTileIndex].tileBox     );
-    printf ("%i : tileInfo.tileHDepth    %2i %i     \n", gTileIndex, (long)&tileHeap[gTileIndex].tileHDepth - (long)&tileHeap[gTileIndex], tileHeap[gTileIndex].tileHDepth  );
-    printf ("%i : tileInfo.tileVDepth    %2i %i     \n", gTileIndex, (long)&tileHeap[gTileIndex].tileVDepth - (long)&tileHeap[gTileIndex], tileHeap[gTileIndex].tileVDepth  );
-    printf ("%i : tileInfo.tileColumnAl..%2i %i     \n", gTileIndex, (long)&tileHeap[gTileIndex].tileColumnAllocation - (long)&tileHeap[gTileIndex], tileHeap[gTileIndex].tileColumnAllocation  );
-    printf ("%i : tileInfo.tileShapeSlice.sStart  %2i %hi    \n", gTileIndex, (long)&tileHeap[gTileIndex].tileShapeSlice.sStart  - (long)&tileHeap[gTileIndex], tileHeap[gTileIndex+1].tileShapeSlice.sStart  );
-    printf ("%i : tileInfo.tileShapeSlice.sLength %2i %hi    \n", gTileIndex, (long)&tileHeap[gTileIndex].tileShapeSlice.sLength - (long)&tileHeap[gTileIndex], tileHeap[gTileIndex+1].tileShapeSlice.sLength );
-    printf ("%i :              alignment %2i        \n", gTileIndex, (long)&tileHeap[gTileIndex+1]       - (long)&tileHeap[gTileIndex]);
-}
-
-
-
-void showSubstance(Substance substance) {
-    printf ("     substanceColor %2i  %2.2v4f \n", (long) &substance.substanceColor - (long)&substance, substance.substanceColor);
-}
-
-void showPictUsage(CMEM PictureUse *uses, int i) {
-    printf (" pictTranslate %2i  %2.2v2f \n", (long)&uses[i].pictTranslate - (long)&uses[i], uses[i].pictTranslate);
-    printf ("      pictSize %2i  %v2i    \n", (long)&uses[i].pictSize      - (long)&uses[i], uses[i].pictSize     );
-    printf (" pictMemOffset %2i  %i      \n", (long)&uses[i].pictMemOffset - (long)&uses[i], uses[i].pictMemOffset);
-    printf ("     pictScale %2i  %f      \n", (long)&uses[i].pictScale     - (long)&uses[i], uses[i].pictScale    );
-    printf ("     alignment %2i          \n", (long)&uses[i+1]             - (long)&uses[i]);
-}
-
-void showShapeIndices( ShapeState *shS
-                     ,        int  numShapes
-                     ) {
-    int num = min(numShapes, MAXSHAPE);
-    printf("Substance indices %i\n", num);
-    for (int i = 0; i < num; i++) {
-        printf("        [%02i] -> %02i\n", i, shS->shapeIndices[i]);
-    }
-}
-
-void showShapeColors(     ShapeState *shS
-                   , SMEM  Substance *substances
-                   , SMEM      Shape *shapeHeap
-                   ,             int  numShapes
-                   ) {
-    int num = min(numShapes, MAXSHAPE);
-    printf("Substance indices %i\n", num);
-    for (int i = 0; i < num; i++) {
-        Shape shape = shapeHeap[shS->shapeIndices[i]];
-        SHAPETAG tag = shape.shapeTag;
-        SUBSTANCEID substanceId = shapeTagSubstanceId(tag);
-        Substance substance = substances[substanceId];
-        COLOR color = substance.substanceColor;
-        printf("        [%02i] -> %02i (%2.2v4f)\n", i, shS->shapeIndices[i], color);
-    }
-}
-
-
-void showSubstances(SMEM Substance *substances, int numSubstances) {
-  printf("substances: num = %i\n", numSubstances);
-  for (int n = 0; n < numSubstances; n++) {
-    printf(" %i\n", n);
-    showSubstance(substances[n]);
-    //printf ("      alignment %2i \n", (long) &substances[n+1] - (long)&substances[n]);
-  }
-}
-
-void showPictUsages(CMEM PictureUse *uses, int numPicts) {
-  printf("pictUsages: num = %i\n", numPicts);
-  for (int n = 0; n < numPicts; n++) {
-    showPictUsage(uses, n);
-  }
-}
-
-void showShapeRefs(SMEM REF *shapeRefs, int numShapes) {
-  printf("shapeRefs: numShapes = %i\n", numShapes);
-  for (int n = 0; n < numShapes; n ++ ) {
-      printf ("shapeRef %2i:%2i\n", n, shapeRefs[n]);
-    }
-}
-
-void showShapes(SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *substances, int numShapes) {
-    for (int n = 0; n < numShapes; n ++ ) {
-        Shape shape = shapeHeap[shapeStart + n];
-        printf("%i: ", n);
-        if (shapeTagIsAdd(shape.shapeTag)) {
-            printf("add ");
-        }
-        else if (shapeTagIsSubtract(shape.shapeTag)) {
-            printf ("sub ");
-        }
-        else if (shapeTagIsContinue(shape.shapeTag)) {
-            printf("con ");
-        }
-        else {
-            printf("    ");
-        }
-        printf("isSolid %i ",shapeTagIsSolidColor(shape.shapeTag));
-        printf("start %i num %i tag %lX \n", shape.shapeSlice.sStart, shape.shapeSlice.sLength, shape.shapeTag);
-    }
-}
-
-void showShapeStack(SHAPESTACK *shapeStack) {
-  for (int i = SHAPESTACKSECTIONS - 1; i >= 0; i--) {
-    printf(" %016lX", shapeStack[i]);
-  }
-}
-
-void showShape(Shape shape) {
-    printf (" shapeTag %2i %lX \n"    , (long) &shape.shapeTag      - (long)&shape, shape.shapeTag      );
-    printf ("  shapeSlice.s %2i %i \n"     , (long) &shape.shapeSlice.sStart  - (long)&shape, shape.shapeSlice.sStart  );
-    printf ("  shapeSlice.l %2i %i \n"     , (long) &shape.shapeSlice.sLength - (long)&shape, shape.shapeSlice.sLength );
-}
-
-void showShapeAlignment (SMEM Shape *shapeHeap, GEO_ENTRY shapeStart, SMEM Substance *substances, int numShapes) {
-    printf("Shape Alignment: numShapes = %i\n", numShapes);
-    for (int n = 0; n < numShapes; n ++ ) {
-        printf ("%2i ----------------------------------------------------------------\n",n );
-        Shape shape = shapeHeap[shapeStart + n];
-        showShape(shape);
-        printf ("       alignment %2i \n"        , (long) &shapeHeap[shapeStart + n + 1]                 - (long)&shapeHeap[shapeStart + n] );
-        showSubstance(substances[shapeTagSubstanceId(shape.shapeTag)]);
-    }
-}
-
-void showData (GMEM uchar *pictData, int width, int height) {
-    for (int y = 0; y < height; y ++) {
-      for (int x = 0; x < width; x++ ) {
-          printf ("%2.2v4f ", getPicturePixel(pictData, width, x, y));
-      }
-      printf ("\n");
-    }
-}
-
-////////////////////////////////////////////////
-// Functions for exporting debugging information
-// parsable by GudniTraceVisualizer.hs
-////////////////////////////////////////////////
-
-float infiniteZero(float x) {return isinf(x) ? 0 : x;} // default infinite values to zero to prevent parse error.
-
-void sliceHs (Slice slice) {
-    printf("SliceHs\n");
-    printf("{ sStart  = %i\n", slice.sStart);
-    printf(", sLength = %i\n", slice.sLength);
-    printf("}\n");
-}
-
-void shapeHs (Shape shape) {
-    printf("ShapeHs\n");
-    printf("{ shapeTag = %u\n", shape.shapeTag);
-    printf(", ");sliceHs(shape.shapeSlice);
-    printf("}\n");
-}
-
-void tileInfoHs (TileInfo tileInfo) {
-    printf("TileInfoHs\n");
-    printf("{ tileBox = "); boxHs(tileInfo.tileBox); printf("\n");
-    printf(", tileHDepth = %i\n", tileInfo.tileHDepth);
-    printf(", tileVDepth = %i\n", tileInfo.tileVDepth);
-    printf(", tileShapeSlice = "); sliceHs(tileInfo.tileShapeSlice); printf("\n");
-    printf("}\n");
-}
-
-void boxHs (int4 box) {
-    printf("(%i, %i, %i, %i)",box.x,box.y,box.z,box.w);
-}
-
-void colorHs( COLOR color) {
-  printf ("ColorHs\n");
-  printf ("{ redChan   = %f\n", color.s0);
-  printf (", greenChan = %f\n", color.s1);
-  printf (", blueChan  = %f\n", color.s2);
-  printf (", alphaChan = %f\n", color.s3);
-  printf ("} \n");
-}
-
-void colorStateHs (ColorState colorState) {
-    printf("ColorStateHs\n");
-    printf("{ csBackgroundColor = ");colorHs(colorState.csBackgroundColor);printf("\n");
-    printf(", csPictureData = %i\n", colorState.csPictureData);
-    printf(", csPictureRefs = %i\n", colorState.csPictureRefs);
-    printf(", csIsConstant = %i\n", colorState.csIsConstant);
-    printf(", absolutePosition = (%f, %f)\n", colorState.absolutePosition.x, colorState.absolutePosition.y);
-    printf("}\n");
-}
-
-void thresholdHs(int i, THRESHOLD threshold, HEADER header) {
-  printf("ThresholdHs\n");
-  printf("{ thrIndex         = %i\n", i                                );
-  printf(", thrTop           = %f\n", infiniteZero (tTop(threshold)   ));
-  printf(", thrBottom        = %f\n", infiniteZero (tBottom(threshold)));
-  printf(", thrLeft          = %f\n", infiniteZero (tLeft(threshold)  ));
-  printf(", thrRight         = %f\n", infiniteZero (tRight(threshold) ));
-  printf(", thrPositiveSlope = %i\n", headerPositiveSlope(header)      );
-  printf(", thrTopPersist    = %i\n", headerPersistTop(header)         );
-  printf(", thrBottomPersist = %i\n", headerPersistBottom(header)      );
-  printf(", thrShapeIndex    = %i\n", headerShapeBit(header)           );
-  printf("}\n");
-}
-
-void thresholdListHs ( PMEM ThresholdQueue tQ ) {
-  for (int t = 0; t < tQ.qSlice.sLength; t++) {
-      if (t==0) {printf ("[");} else {printf (",");}
-      thresholdHs(t, getThreshold(&tQ, t), getHeader(&tQ, t));
-      printf ("\n");
-  }
-  printf("]");
-}
-
-void thresholdQueueHs (ThresholdQueue tQ) {
-    printf("ThresholdStateHs\n");
-    printf("{ thresholds = "); thresholdListHs(tQ); printf("\n");
-    //printf(", qSlice.sStart = %i\n", tQ.qSlice.sStart);
-    //printf(", qSlice.sLength = %i\n", tQ.qSlice.sLength);
-    printf("}\n");
-}
-
-inline void shapeStackSectionHs (SHAPESTACK section) {
-  printf(" %lu\n", section);
-}
-
-inline void shapeIndexHs (int i, int shapeIndex) {
-  printf("(%i,%i)\n", i, shapeIndex);
-}
-
-void shapeStateHs (ShapeState shapeState) {
-      int num = min((int)shapeState.shapeBits, MAXSHAPE);
-      printf("ShapeStateHs\n");
-      printf("{ shapeBits = %i\n", num);
-      printf(", shapeIndices = \n");
-      printf("[ ");shapeIndexHs(0,shapeState.shapeIndices[0]);
-      for (int i = 1; i < num; i++) {
-          printf(", ");shapeIndexHs(i,shapeState.shapeIndices[i]);
-      }
-      printf("]\n");
-      printf(", shapeStack = \n");
-      printf("[");shapeStackSectionHs(shapeState.shapeStack[SHAPESTACKSECTIONS - 1]);
-      for (int i = SHAPESTACKSECTIONS - 2; i >= 0; i--) {
-          printf(",");shapeStackSectionHs(shapeState.shapeStack[i]);
-      }
-      printf("]\n");
-      printf("}\n");
-}
-
-
-void parseStateHs (ParseState pS) {
-    printf("ParseStateHs\n");
-    printf("{ currentThreshold = %i\n",   pS.currentThreshold                  );
-    //printf(", numActive = %i\n",          pS.numActive                         );
-    printf(", sectionStart = (%f, %f)\n", pS.sectionStart.x, pS.sectionStart.y );
-    printf(", sectionEnd = (%f, %f)\n",   pS.sectionEnd.x, pS.sectionEnd.y     );
-    //printf(", pixelY = %f\n",             pS.pixelY                            );
-    printf(", accColorArea = (%f,%f,%f,%f,%f,%f,%f,%f)\n"
-            , pS.accColorArea.s0
-            , pS.accColorArea.s1
-            , pS.accColorArea.s2
-            , pS.accColorArea.s3
-            , pS.accColorArea.s4
-            , pS.accColorArea.s5
-            , pS.accColorArea.s6
-            , pS.accColorArea.s7
-            );
-    //printf(", sectionCount = %i\n",      pS.sectionCount     );
-    //printf(", frameNumber = %i\n",       pS.frameNumber      );
-    //printf(", buildCount = %i\n",        pS.buildCount       );
-    //printf(", randomFieldCursor = %i\n", pS.randomFieldCursor);
-    //printf(", randomField = %i\n",       pS.randomField      );
-    printf("}\n");
-}
-
-void tileStateHs (TileState tileS) {
-    printf("TileStateHs\n");
-    printf("{ tileShapeStart = %i\n"    ,  tileS.tileShapeStart);
-    printf(", tileNumShapes = %i\n"     ,  tileS.tileNumShapes);
-    printf(", tileSize = (%i,%i)\n"     ,  tileS.tileSize.x, tileS.tileSize.y);
-    printf(", bitmapSize = (%i,%i)\n"   ,  tileS.bitmapSize.x,  tileS.bitmapSize.y);
-    printf(", internalDelta = (%i,%i)\n",  tileS.internalDelta.x,  tileS.internalDelta.y);
-    printf(", threadDelta = (%i,%i)\n"  ,  tileS.threadDelta.x, tileS.threadDelta.y);
-    printf(", tileIndex = %i\n"         ,  tileS.tileIndex);
-    printf(", intHeight = %i\n"         ,  tileS.intHeight);
-    printf(", floatHeight = %f\n"       ,  tileS.floatHeight);
-    printf(", threadUnique = %i\n"      ,  tileS.threadUnique);
-    printf(", column = %i\n"            ,  tileS.column);
-    printf("}\n");
-}
-
-void traversalHs(Traversal t) {
-    printf("TraversalHs\n");
-    printf("{ travLeftControl = (%f, %f, %f, %f)\n"
-          , t.travLeftControl.x
-          , t.travLeftControl.y
-          , t.travLeftControl.z
-          , t.travLeftControl.w
-          );
-    printf(", travRight = (%f, %f)\n", t.travRight.x, t.travRight.y);
-    printf(", travXPos = %f\n", t.travXPos);
-    printf(", travIndex = %i\n", t.travIndex);
-    printf("}\n");
 }

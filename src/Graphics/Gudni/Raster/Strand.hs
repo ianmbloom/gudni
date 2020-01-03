@@ -145,7 +145,8 @@ splitShape table maxSectionSize beziers =
           ) .
     V.concatMap (splitTooLarge maxSectionSize) . -- Divide any long strands into smaller sections.
     splitIntoStrands . -- Divide curves into horizontal strands.
-    replaceKnobs $   -- Split curve sections that bulge in the x direction to two curve sections that do not bulge.
+    join .
+    fmap deKnob $   -- Split curve sections that bulge in the x direction to two curve sections that do not bulge.
     beziers
 
 -- | Build a list of strands from an outline.

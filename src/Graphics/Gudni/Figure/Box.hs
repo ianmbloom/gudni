@@ -57,13 +57,12 @@ import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.StorableM
 
 import Control.DeepSeq
-import Foreign.Storable
 import Foreign.C.Types
 
 import Control.Lens
 import Control.Applicative
 
---import Data.ShapeInfo.SIMD
+--import Data.ItemInfo.SIMD
 import Data.Traversable
 import Data.Hashable
 import Control.DeepSeq

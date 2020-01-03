@@ -57,7 +57,6 @@ import Data.List
 import Data.Map.Strict ((!))
 import qualified Data.Map.Strict as M
 
-import Foreign.Storable
 import Foreign.C.Types
 import qualified Foreign as F
 import Linear.V4

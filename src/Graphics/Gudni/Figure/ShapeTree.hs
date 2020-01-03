@@ -27,16 +27,12 @@
 module Graphics.Gudni.Figure.ShapeTree
   ( STree(..)
   , SRep(..)
-  , translateBy
-  , translateByXY
-  , scaleBy
-  , rotateBy
-  , shapeSubstanceType
-  , shapeToken
-  , shapeCompoundTree
-  , Substance (..)
+  , sRepToken
+  , sRepSubstance
+  , sRep
   , Compound (..)
   , ShapeTree(..)
+  , Shape(..)
   , CompoundTree(..)
   , Scene(..)
   , sceneBackgroundColor
@@ -56,6 +52,7 @@ import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.OpenCurve
 --import Graphics.Gudni.Figure.Glyph
+import Graphics.Gudni.Figure.Substance
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Transformer
@@ -78,7 +75,6 @@ import Data.Traversable
 import qualified Data.Map as M
 
 import Foreign.C.Types (CInt, CFloat, CUInt)
-import Foreign.Storable
 
 -- | Polymorphic data structure for trees of shapes. The meld type is the operations for combining two subtrees,
 -- the trans type defines transformations that can be applied across to subtree and the leaf type the component elements of
@@ -90,7 +86,7 @@ data STree meld leaf where
   SLeaf      :: leaf -> STree meld leaf
   SEmpty     :: STree meld leaf
 
-deriving instance (Show meld, Show leaf, Show (SpaceOf leaf)) => Show (STree meld leaf)
+deriving instance (Show meld, Show leaf, Show (SpaceOf leaf), Space (SpaceOf leaf)) => Show (STree meld leaf)
 
 instance HasSpace leaf => HasSpace (STree meld leaf) where
   type SpaceOf (STree meld leaf) = SpaceOf leaf
@@ -114,35 +110,18 @@ instance HasDefault Compound where
 instance HasDefault Overlap where
   defaultValue = ()
 
-data NamedTexture
-  = NewTexture PictureName Picture
-  | SharedTexture PictureName
-
-instance Show NamedTexture where
-    show (NewTexture name pict)  = "NewTexture "    ++ name ++ " " ++ show pict
-    show (SharedTexture name) = "SharedTexture " ++ name
-
-instance NFData NamedTexture where
-    rnf (NewTexture name _  ) = name `deepseq` ()
-    rnf (SharedTexture name ) = name `deepseq` ()
-
--- | Type of filling for overlapping shapes.
-data Substance n = Solid Color | Texture n
-
-instance Show n => Show (Substance n) where
-  show (Solid color) = "Solid " ++ show color
-  show (Texture name) = "Texture " ++ show name
-
 -- | An SRep defines an individual shape and it's metadata.
-data SRep token rep = SRep
-  { _shapeToken         :: token
-  , _shapeSubstanceType :: Substance NamedTexture
-  , _shapeCompoundTree  :: rep
-  } deriving (Show)
+data SRep token textureLabel rep = SRep
+  { _sRepToken     :: token
+  , _sRepSubstance :: Substance textureLabel (SpaceOf rep)
+  , _sRep          :: rep
+  }
 makeLenses ''SRep
 
-instance HasSpace rep => HasSpace (SRep token rep) where
-  type SpaceOf (SRep token rep) = SpaceOf rep
+deriving instance (Space (SpaceOf rep), Show token, Show rep, Show textureLabel) => Show (SRep token textureLabel rep)
+
+instance HasSpace rep => HasSpace (SRep token textureLabel rep) where
+  type SpaceOf (SRep token textureLabel rep) = SpaceOf rep
 
 instance (HasSpace leaf) => SimpleTransformable (STree o leaf) where
   translateBy delta tree = if delta == zeroPoint then tree else STransform (Translate delta) tree
@@ -152,23 +131,23 @@ instance (HasSpace leaf) => SimpleTransformable (STree o leaf) where
 instance (HasSpace leaf) => Transformable (STree o leaf) where
   rotateBy angle tree = if angle == (0 @@ rad) then tree else STransform (Rotate angle) tree
 
-instance (Space s, CanProject (BezierSpace s) f leaf) => CanProject (OpenCurve s) f (STree o leaf) where
-    projectionWithStepsAccuracy max_steps m_accuracy path tree = pure . STransform (Project path) $ tree
+instance (Space s, s ~ (SpaceOf leaf)) => CanProject (BezierSpace s) (STree o leaf) where
+  projectionWithStepsAccuracy max_steps m_accuracy path tree = STransform (Project path) $ tree
 
-instance Functor (SRep token) where
-  fmap f (SRep token substance rep) = SRep token substance (f rep)
+-- instance (Space s) => CanProject (BezierSpace s) [Outline s] where
+--   projectionWithStepsAccuracy max_steps m_accuracy path tree = STransform (Project path) $ tree
 
-instance NFData n => NFData (Substance n) where
-  rnf (Solid color) = color `deepseq` ()
-  rnf (Texture texture) = texture `deepseq` ()
+-- instance Functor (SRep token) where
+--   fmap f (SRep token substance rep) = SRep token substance (f rep)
 
-type CompoundTree s = STree Compound [Outline s]
-type ShapeTree token s = STree () (SRep token (CompoundTree s))
+type Shape s = [Outline s]
+type CompoundTree s = STree Compound (Shape s)
+type ShapeTree token s = STree () (SRep token NamedTexture (CompoundTree s))
 
 -- | A container for a ShapeTree that indicates the background color.
-data Scene token = Scene
+data Scene tree = Scene
   { _sceneBackgroundColor :: Color
-  , _sceneShapeTree       :: ShapeTree token SubSpace
+  , _sceneShapeTree       :: tree
   } deriving (Show)
 makeLenses ''Scene
 

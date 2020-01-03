@@ -107,7 +107,7 @@ segmentsToCurvePairs' first segs = case segs of
       []                              -> []
 
 -- | Convert a list of lists of segments to a list of outlines.
-segmentsToOutline :: (Fractional s) => [[Segment s]] -> [Outline s]
+segmentsToOutline :: (Fractional s) => [[Segment s]] -> Shape s
 segmentsToOutline = map (Outline . pairsToBeziers . V.fromList . segmentsToCurvePairs)
 
 -- | Typeclass for shape representations that can be created from a list of segments.
@@ -120,7 +120,7 @@ instance Space s => HasFromSegments (CompoundTree s) where
 
 -- | Instance for creating a glyph wrapped shape from a list of segments.
 instance Space s => HasFromSegments (Glyph (CompoundTree s)) where
-  fromSegments = glyphWrapOutline . segmentsToOutline . pure
+  fromSegments = glyphWrapShape . segmentsToOutline . pure
 
 instance NFData s => NFData (Segment s) where
   rnf (Seg o c) = o `deepseq` c `deepseq` ()
