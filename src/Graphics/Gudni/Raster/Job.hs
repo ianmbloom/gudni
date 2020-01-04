@@ -45,7 +45,7 @@ import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Raster.TileTree
-import Graphics.Gudni.Raster.TileEntry
+import Graphics.Gudni.Raster.Tile
 import Graphics.Gudni.Raster.Serialize
 import Graphics.Gudni.Raster.ReorderTable
 import Graphics.Gudni.Raster.TraverseShapeTree
@@ -130,7 +130,7 @@ addTileToRasterJob :: MonadIO m
                    -> StateT RasterJob m ()
 addTileToRasterJob tile =
   do  -- get the list of new shapes from the tile entry
-      let items = tile ^. tileRep . tileShapes
+      let items = map (view itemEntryTag) $ tile ^. tileRep . tileItems
       -- add the stripped shapes to the raster job and get the range of the added shapes
       slice <- appendItems items
       -- strip the tile down so just the range of shapes is left

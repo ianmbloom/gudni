@@ -67,7 +67,7 @@ type ItemTag_ = CULong
 newtype ItemTag
     = ItemTag
     { unItemTag :: ItemTag_
-    } deriving (Show, Ord, Eq, Num, Enum)
+    } deriving (Ord, Eq, Num, Enum)
 
 itemSubstanceIdBits :: SubstanceId -> ItemTag_
 itemSubstanceIdBits (SubstanceId substanceId) =
@@ -132,8 +132,11 @@ data ItemInfo
     { _itemFacetId        :: FacetId
     , _itemFacetSubstance :: SubstanceId
     }
-    deriving (Show)
 makeLenses ''ItemInfo
+
+instance Show ItemInfo where
+  show (ShapeInfo compound geoId substanceId) = "ShapeInfo "++show compound ++ " " ++ show geoId ++ " " ++ show substanceId
+  show (FacetInfo facetId substanceId) = "FacetInfo " ++ show facetId ++ " " ++ show substanceId
 
 -- | Extract the 'ItemInfo' from the 'ItemTag'.
 extractItemInfo :: ItemTag -> ItemInfo
@@ -147,6 +150,9 @@ extractItemInfo tag =
        let combineType = tagToCompound tag
            geoId       = tagToGeoId tag
        in  ShapeInfo combineType geoId substanceId
+
+instance Show ItemTag where
+  show = show . extractItemInfo
 
 instance NFData GeoId where
   rnf (GeoId a) = a `deepseq` ()

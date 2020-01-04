@@ -51,10 +51,14 @@ import Data.Word
 import Linear.V4
 
 type THRESHOLDTYPE = V4 CFloat
-type HEADERTYPE    = CUInt
+type HEADERTYPE    = CULong
 
 tAXICABfLATNESS    = 0.25 :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
-sIZEoFsHAPEbIT     = 4 :: Int -- sizof(uint)
+sIZEoFlAYERiD         = 4 :: Int -- sizof(uint)
+sIZEoFlOCALsUBSTANCEiD = 4 :: Int -- sizof(uint)
+sIZEoFlAYEReNTRY = 2 :: Int -- sizeof(ushort)
+sIZEoFsUBSTANCETAG = 8 :: Int -- sizeof(ulong)
+sIZEoFfACETiD = 4 :: Int -- sizeof(uint)
 lAYERfLAGSsECTIONS = 8 :: Int
 sIZEoFsUBSTANCEiD  = 8 :: Int --sizeof(ulong)
 sIZEoFlAYERfLAGSsECTION = 8 :: Int -- sizeof(ulong)
@@ -64,10 +68,13 @@ sHAPElIMIT       = 127 :: Int -- a hard limit on the number of shapes based on t
 
 mAXlAYERS        = sHAPElIMIT
 
-sIZEoFsHAPEsTATE = mAXlAYERS * sIZEoFsUBSTANCEiD + --
-                   lAYERfLAGSsECTIONS * sIZEoFlAYERfLAGSsECTION +
-                   sIZEoFsHAPEbIT +
-                   4 -- padding
+
+sIZEoFsHAPEsTATE = sIZEoFlAYERiD
+                 + sIZEoFlAYEReNTRY * mAXlAYERS
+                 + sIZEoFlOCALsUBSTANCEiD
+                 + sIZEoFsUBSTANCETAG * mAXlAYERS
+                 + sIZEoFfACETiD * mAXlAYERS
+                 + 6 -- padding
 
 mAXtILEsIZE      = Point2 512 512 :: Point2 PixelSpace
 mINtILEsIZE      = Point2 8  8  :: Point2 PixelSpace

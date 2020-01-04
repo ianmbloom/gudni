@@ -45,7 +45,7 @@ makeLenses ''BenchmarkState
 initialModel pictureMap =
     BenchmarkState
     { _stateBase = BasicSceneState
-        { _stateScale       = 1
+        { _stateScale       = 1.5
         , _stateDelta       = Point2 0 0
         , _stateAngle       = 0 @@ deg -- 0.02094 @@ rad -- 0 @@ turn-- quarterTurn
         , _statePaused      = True
@@ -60,7 +60,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 17
+    , _stateCurrentTest = 30
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
@@ -155,7 +155,7 @@ fuzzyCircles2 state = return $
                let time = view (stateBase . stateLastTime) state
                in  translateByXY 0 0 .
                    overlap $
-                   evalRand (sequence . replicate (state ^. stateBase . stateStep) $ fuzzyCircle (makePoint 200 200) 5 10) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
+                   evalRand (sequence . replicate (state ^. stateBase . stateStep) $ fuzzyCircle (makePoint 20 20) 5 10) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
 
 -- | A random field of transparent circles.
 millionFuzzyCircles :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
@@ -178,7 +178,7 @@ fuzzySquares2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpac
 fuzzySquares2 state = return $
                let time = view (stateBase . stateLastTime) state
                in  overlap $
-                   evalRand (sequence . replicate 2000 $ fuzzySquare (makePoint 300 300) 10 60) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+                   evalRand (sequence . replicate 20 $ fuzzySquare (makePoint 30 30) 10 60) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 fuzzyGlyphs :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyGlyphs state =
@@ -249,7 +249,7 @@ simpleKnob :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 simpleKnob state = return $
         -- translateByXY 10 10 .
         scaleBy 10 .
-        solid (transparent 1.0 (dark $ dark gray)) .
+        solid (transparent 1.0 (red)) .
         fromSegments $
         [ curvedXY 0 0 1 1
         , straightXY 0 2

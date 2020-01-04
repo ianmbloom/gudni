@@ -122,7 +122,7 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
           maxThresholds  = fromIntegral $ params ^. rpDevice . rasterSpec . specMaxThresholds
           -- adjusted log2 of the number of threads
           computeDepth = adjustedLog threadsPerTile :: CInt
-      --liftIO $ outputGeometryState (params ^. rpGeometryState)
+      liftIO $ outputGeometryState (params ^. rpGeometryState)
       --liftIO $ outputSubstanceState(params ^. rpSubstanceState)
       thresholdBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdBuffer " $ columnsToAlloc * maxThresholds) :: CL (CLBuffer THRESHOLDTYPE))
       headerBuffer    <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize headerBuffer    " $ columnsToAlloc * maxThresholds) :: CL (CLBuffer HEADERTYPE   ))
@@ -201,6 +201,7 @@ raster params bic frameCount job jobIndex =
             buffer = targetBuffer (params ^. rpTarget)
         liftIO $ putStrLn $ ">>> rasterCall jobIndex: "++ show jobIndex ++ " frameCount: " ++ show frameCount
         -- generate a kernel call for that buffer type.
+        --liftIO $ outputRasterJob job
         case buffer of
             HostBitmapTarget outputPtr ->
                 -- In this case the resulting bitmap will be stored in memory at outputPtr.

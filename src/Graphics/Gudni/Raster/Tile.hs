@@ -18,7 +18,7 @@
 --
 -- Storable Tile Record
 
-module Graphics.Gudni.Raster.TileEntry
+module Graphics.Gudni.Raster.Tile
   ( Tile (..)
   , tileBox
   , tileHDepth

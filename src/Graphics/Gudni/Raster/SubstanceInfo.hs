@@ -44,16 +44,16 @@ type SubstanceTag_ = CULong
 newtype SubstanceTag
     = SubstanceTag
     { unSubstanceTag :: SubstanceTag_
-    } deriving (Show, Ord, Eq, Num, Enum)
+    } deriving (Ord, Eq, Num, Enum)
 
 newtype SubstanceId = SubstanceId {unSubstanceId :: Reference SubstanceTag} deriving (Ord, Eq, Num, Enum)
 
 instance Show SubstanceId where
     show (SubstanceId i) = show i ++ "sid"
 
-newtype ColorId = ColorId {unColorId :: Reference Color} deriving (Ord, Eq, Num, Enum)
+newtype ColorId = ColorId {unColorId :: Reference Color} deriving (Show, Ord, Eq, Num, Enum)
 
-newtype TextureId = TextureId {unTextureId :: Reference PictureMemoryReference} deriving (Ord, Eq, Num, Enum)
+newtype TextureId = TextureId {unTextureId :: Reference PictureMemoryReference} deriving (Show, Ord, Eq, Num, Enum)
 
 data SubstanceInfo
     = SolidInfo
@@ -61,7 +61,7 @@ data SubstanceInfo
     }
     | TextureInfo
     { _itemSubstanceMem :: TextureId
-    }
+    } deriving (Show)
 makeLenses ''SubstanceInfo
 
 -- | Make a SubstanceTag from a SubstanceInfo
@@ -83,6 +83,9 @@ substanceTagToInfo (SubstanceTag tag) =
         if substanceType == sUBSTANCEtAGtYPEtEXTURE
         then TextureInfo . TextureId . Ref . fromIntegral $ ref
         else error "substanceType not supported"
+
+instance Show SubstanceTag where
+  show = show . substanceTagToInfo
 
 instance NFData ColorId where
   rnf (ColorId a) = rnf a

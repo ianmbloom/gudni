@@ -124,10 +124,11 @@ inline SHAPEID itemTagShapeId(ITEMTAG tag) {return (uint) (tag & ITEMTAG_ITEM_ID
 //  A substance tag determines the type of a substance and contains a pointer to the substance description.
 #define SUBSTANCETAG ulong
 
+inline bool substanceTagType(SUBSTANCETAG tag) {return (tag & SUBSTANCETAG_TYPE_BITMASK) >> 56;}
 inline bool substanceTagIsSolidColor(SUBSTANCETAG tag) {return (tag & SUBSTANCETAG_TYPE_BITMASK) == SUBSTANCETAG_TYPE_SOLID_COLOR;}
 inline bool substanceTagIsTexture(SUBSTANCETAG tag)    {return (tag & SUBSTANCETAG_TYPE_BITMASK) == SUBSTANCETAG_TYPE_TEXTURE;}
-inline bool substanceTagColorId(SUBSTANCETAG tag)      {return (tag & SUBSTANCETAG_REF_BITMASK);}
-inline bool substanceTagTextureMemId(SUBSTANCETAG tag) {return (tag & SUBSTANCETAG_REF_BITMASK);} // this is the same but here for consistency.
+inline SUBSTANCETAG substanceTagColorId(SUBSTANCETAG tag)      {return (tag & SUBSTANCETAG_REF_BITMASK);}
+inline SUBSTANCETAG substanceTagTextureMemId(SUBSTANCETAG tag) {return (tag & SUBSTANCETAG_REF_BITMASK);} // this is the same but here for consistency.
 
 // A shape bit is the number of each shape assigned as it is added to a column, each shape number corresponds to a bit in the shape stack
 // so the number of possible shape bits is limited to the size (in bits) of the shape stack.
@@ -355,7 +356,6 @@ inline void pushTopSlot(ThresholdQueue *tQ) {
 inline void popTop(ThresholdQueue *tQ) {
   tQ->qSlice.sStart = cycleLocation(tQ->qSlice.sStart + 1);
   tQ->qSlice.sLength -= 1;
-  //DEBUG_IF(printf("popTop\n");)
 }
 
 #define RANDOMFIELDMASK RANDOMFIELDSIZE - 1
@@ -384,9 +384,11 @@ inline void popTop(ThresholdQueue *tQ) {
 inline bool layerEntryIsActive (LAYERENTRY entry) {return (entry & LAYERACTIVEMASK) == LAYERISACTIVE;}
 inline LAYERENTRY layerEntrySetActive(LAYERENTRY entry) {return (entry | LAYERISACTIVE);}
 inline LAYERENTRY layerEntrySetNotActive(LAYERENTRY entry) {return (entry & LAYERNOTACTIVEBITMASK);}
-inline LAYERENTRY layerEntryToggleActive(LAYERENTRY entry) {return (~(entry & LAYERACTIVEMASK)) | (entry & LAYERNOTACTIVEBITMASK);}
-inline bool layerEntryIsAdditive(LAYERENTRY entry) {return (entry & LAYERADDITIVEMASK) == LAYERISADDITIVE;}
-inline LOCALSUBSTANCE layerEntryLocalSubstance(LAYERENTRY entry) {return (entry & LAYERLOCALSUBSTANCEBITMASK);}
+// inline LAYERENTRY layerEntryToggleActive(LAYERENTRY entry) {return (((~entry) & LAYERACTIVEMASK)) | (entry & LAYERNOTACTIVEBITMASK);}
+inline LAYERENTRY layerEntryToggleActive(LAYERENTRY entry) {return (entry ^ LAYERACTIVEMASK);}
+inline bool layerEntryIsAdditive(LAYERENTRY entry) {return ((entry & LAYERADDITIVEMASK) == LAYERISADDITIVE);}
+inline bool layerEntryIsSubtractive(LAYERENTRY entry) {return ((entry & LAYERADDITIVEMASK) == LAYERISSUBTRACTIVE);}
+inline LOCALSUBSTANCE layerEntryLocalSubstance(LAYERENTRY entry) {return (LOCALSUBSTANCE) (entry & LAYERLOCALSUBSTANCEBITMASK);}
 inline LAYERENTRY createLayerEntry(bool isAdditive, LOCALSUBSTANCE substance) {
   LAYERENTRY additiveBit = isAdditive ? LAYERISADDITIVE : LAYERISSUBTRACTIVE;
   return additiveBit | ((LAYERENTRY)substance);
@@ -395,7 +397,7 @@ inline LAYERENTRY createLayerEntry(bool isAdditive, LOCALSUBSTANCE substance) {
 typedef struct ShapeState {
             LAYERID layerCount;                      // the number of shapes and thus layers added to the column.
          LAYERENTRY layerStack[MAXLAYERS];            // a stack of layer entries
-                int substanceCount;                  // the number of substances that have been added to the tile.
+     LOCALSUBSTANCE substanceCount;                  // the number of substances that have been added to the tile.
        SUBSTANCETAG substanceTagStack[MAXLAYERS];     // a stack of all substances in the column
             FACETID substanceActiveFacet[MAXLAYERS];  // a mapping each substance to the active facet of that texture or -1 for no facet
 } ShapeState;
@@ -406,9 +408,9 @@ inline void clearLayerFlags(LAYERENTRY *stack, int numLayers) {
     }
 }
 
-inline int findTop(LAYERENTRY *stack, int numLayers, int ignoreAbove) {
-   int i = ignoreAbove;
-   while (i < numLayers && (!layerEntryIsActive(stack[i]))) {
+inline LAYERID findTopLayer(ShapeState *shS, LAYERID ignoreAbove) {
+   LAYERID i = ignoreAbove;
+   while (i < shS->layerCount && (!layerEntryIsActive(shS->layerStack[i]))) {
      i++;
    }
    return i;
@@ -422,7 +424,7 @@ inline LOCALSUBSTANCE layerSubstance(ShapeState *shS, int layer) {
   return layerEntryLocalSubstance(shS->layerStack[layer]);
 }
 
-inline bool layerIsAdditive(ShapeState *shS, int layer) {
+inline bool layerIsAdditive(ShapeState *shS, LAYERID layer) {
   return layerEntryIsAdditive(shS->layerStack[layer]);
 }
 
@@ -625,9 +627,9 @@ COLOR readColor ( PMEM ColorState *cS
                 , SUBSTANCETAG tag
                 );
 
-COLOR determineColor( PMEM    ShapeState *shS
-                    , PMEM    ColorState *cS
-                    );
+COLOR compositeLayers( PMEM    ShapeState *shS
+                     , PMEM    ColorState *cS
+                     );
 
 void verticalAdvance( PMEM ThresholdQueue *tQ
                     , PMEM      TileState *tileS
@@ -756,6 +758,21 @@ void initColorState ( PMEM  ColorState *init
                     ,             int2  absolutePosition
                     );
 
+
+// Debug Functions
+
+void showShapeState( ShapeState *shS);
+void showLayerEntry(LAYERENTRY entry);
+void showSubstanceTag(SUBSTANCETAG tag);
+void showItemTag(ITEMTAG tag);
+
+void showThresholdHeader( HEADER header);
+void showThresholdGeo (THRESHOLD threshold);
+void showThreshold( HEADER header,
+                    THRESHOLD threshold);
+void showThresholds (PMEM ThresholdQueue *tQ);
+void tileStateHs (TileState tileS);
+
 // ------------------- Inline Function Bodies -----------------------------
 // get the position of a pixel in a 2d bitmap
 inline int pos2 (x, y, width) {
@@ -825,13 +842,13 @@ inline float fixNegativeZero(float x) {
 // composite two colors where the background color may also be transparent.
 inline COLOR composite(COLOR foreground, COLOR background) {
   float alphaOut = ALPHA(foreground) + ALPHA(background) * (1.0f - ALPHA(foreground));
-  if (alphaOut > 0) {
+  //if (alphaOut > 0) {
      COLOR color = ((foreground * ALPHA(foreground)) + (background * ALPHA(background) * (1.0f - ALPHA(foreground)))) / alphaOut;
      return (COLOR) (RED(color),GREEN(color),BLUE(color),alphaOut);
-  }
-  else {
-    return TRANSPARENT_COLOR;
-  }
+  //}
+  //else {
+  //  return TRANSPARENT_COLOR;
+  //}
 }
 
 // composite two colors where the background is forced to be opaque.
@@ -1008,7 +1025,7 @@ void sliceActive( PMEM ThresholdQueue *tQ
             setThreshold(tQ, cursor, current);
             if (tKeep(splitHeader,split)) {
                 insertThreshold(tQ, splitHeader, split);
-                DEBUG_IF(printf("split and insert\n");showThresholds(tQ);)
+                //DEBUG_IF(printf("split and insert\n");showThresholds(tQ);)
             }
         }
     }
@@ -1155,7 +1172,7 @@ void addThreshold ( PMEM  ThresholdQueue *tQ
     //DEBUG_IF(printf("original ");showThreshold(newHeader, newThreshold);printf("\n");)
     // in the beggining the slot at position numThresholds is free, we are either at the end of the list or just picked up the top
     // threshold from the holding queue
-    DEBUG_IF(printf("addThreshold  ");showThreshold(newHeader, newThreshold);)
+    //DEBUG_IF(printf("addThreshold  ");showThreshold(newHeader, newThreshold);)
     if (tKeep(newHeader, newThreshold)) {
         // horizontal thresholds that have no persistance can be ignored.
         *enclosedByStrand = *enclosedByStrand ||
@@ -1168,25 +1185,26 @@ void addThreshold ( PMEM  ThresholdQueue *tQ
             }
             if (tRight(newThreshold) <= LEFTBORDER) {
                 *enclosedByStrand = true;
-                DEBUG_IF(printf(" LEFT");)
+                //DEBUG_IF(printf(" LEFT");)
             }
             else {
                 // if the threshold is entirely below the bottom of the render area is can be ignored
                 // otherwise add it to the threshold array, and see if the bottom of the render area needs to be adjusted because the threshold array is not
                 // large enough.g
-                DEBUG_IF(printf("  ADD");)
+                //DEBUG_IF(printf("  ADD");)
                 *thresholdWasAdded = true;
+                //DEBUG_IF(printf("************** %016lx",newHeader);)
                 pushThreshold(tQ, newHeader, newThreshold);
             }
         }
         else {
-            DEBUG_IF(printf("  OUT");)
+            //DEBUG_IF(printf("  OUT");)
         }
     }
     else {
-      DEBUG_IF(printf("  NON");)
+      //DEBUG_IF(printf("  NON");)
     }
-    DEBUG_IF(printf(" qSlice.sLength %i qSlice.sStart %i \n", tQ->qSlice.sLength, tQ->qSlice.sStart);)
+    //DEBUG_IF(printf(" qSlice.sLength %i qSlice.sStart %i \n", tQ->qSlice.sLength, tQ->qSlice.sStart);)
     //tS->addThresholdCount -= 1; // This is just for debugging, it can be removed.
 }
 
@@ -1409,70 +1427,44 @@ COLOR readColor ( PMEM ColorState *cS
 #define NULLINDEX 0xFFFFFFFF
 
 // determine the current color based on the layer stack
-COLOR determineColor( PMEM    ShapeState *shS
-                    , PMEM    ColorState *cS
-                    ) {
-    int topLayer = MAXLAYERS;
-    COLOR baseColor = TRANSPARENT_COLOR;
-    COLOR nextColor;
-    bool done = false;
-    SUBSTANCEID lastId = NULLINDEX;
-    bool lastIsSet = false;
-    while (!done) {
-        SUBSTANCEID substanceId = NULLINDEX;
-        bool shouldComposite = true;
-        topLayer = findTop(shS->layerStack, topLayer, shS->layerCount);
-        //DEBUG_IF(printf("topLayer %i ", topLayer);showLayerFlags(shS->layerFlags);printf("\n");)
-        if (topLayer < 0) {
-            nextColor = cS->csBackgroundColor;
-            done = true;
-            shouldComposite = true;
-            lastIsSet = true;
-        }
-        else {
-            int localSubstance = layerSubstance(shS, topLayer);
-            SUBSTANCETAG substanceTag = shS->substanceTagStack[localSubstance];
-            //DEBUG_IF(printf("topLayer %i substanceId %i lastId %i ",
-            //                 topLayer,   substanceId,   lastId   );)
-            lastIsSet = layerIsAdditive(shS, topLayer);
-            if (substanceId == lastId) {
-                shouldComposite = false;
-            }
-            if (substanceId != lastId) {
-                nextColor = readColor ( cS
-                                      , substanceTag
-                                      );
-                shouldComposite = true;
-            }
-            lastId = substanceId;
-
-        }
-        //DEBUG_IF(printf("done %i lastIsSet %i shouldComposite %i baseColor %2.2v4f nextColor %2.2v4f \n",
-        //                 done,   lastIsSet,   shouldComposite,   baseColor,        nextColor          );)
-        if (shouldComposite) {
-            if (lastIsSet) {
-                baseColor = composite(baseColor, nextColor);
-                if (OPAQUE(baseColor)) {
-                   done = true;
-                }
-            }
-        }
+COLOR compositeLayers( PMEM    ShapeState *shS
+                     , PMEM    ColorState *cS
+                     ) {
+    COLOR color = TRANSPARENT_COLOR;
+    LAYERID topLayer = findTopLayer(shS,0);
+    bool subtractionOnOrAbove = false;
+    LOCALSUBSTANCE lastSubstance = NULLINDEX;
+    while (topLayer < shS->layerCount && !(OPAQUE(color))) {
+        LAYERENTRY currentLayer = shS->layerStack[topLayer];
+        LOCALSUBSTANCE currentSubstance = layerEntryLocalSubstance(currentLayer);
+        bool isSubtractive = layerEntryIsSubtractive(currentLayer);
+        subtractionOnOrAbove =  ((currentSubstance == lastSubstance) && (subtractionOnOrAbove || isSubtractive))
+                             || ((currentSubstance != lastSubstance) && (!isSubtractive));
+        float multiplier = subtractionOnOrAbove ? 0.0f : 1.0f;
+        SUBSTANCETAG substanceTag = shS->substanceTagStack[currentSubstance];
+        COLOR nextColor = readColor ( cS
+                                    , substanceTag
+                                    );
+        color = composite(color, nextColor); // * multiplier);
+        topLayer = findTopLayer(shS,topLayer+1);
+        lastSubstance = currentSubstance;
     }
-    return baseColor;
+    color = composite(color, cS->csBackgroundColor);
+    return color;
 }
 
 inline void passHeader( PMEM ShapeState *shS
                       ,          HEADER  header
                       ) {
     if (headerIsFacet(header)) {
-      LOCALSUBSTANCE localSubstance = headerLocalSubstance(header);
+      LOCALSUBSTANCE currentSubstance = headerLocalSubstance(header);
       FACETID facetId = headerFacetId(header);
-      FACETID current = shS->substanceActiveFacet[localSubstance];
+      FACETID current = shS->substanceActiveFacet[currentSubstance];
       FACETID newId = current =! facetId ? facetId : NOFACET;
       // this works because we don't know the order that a facetId will be reached
       // we might be exiting the current facet or entering a new one first so this
       // ignores exits that occur after we enter a new facet
-      shS->substanceActiveFacet[localSubstance] = newId;
+      shS->substanceActiveFacet[currentSubstance] = newId;
     }
     else {
       LAYERID layer = headerLayerId(header);
@@ -1517,6 +1509,7 @@ void buildThresholdArray ( PMEM       TileState *tileS
         ITEMTAGID itemIndex = itemStart + n;
         ITEMTAG itemTag = itemTagHeap[itemIndex]; // get the current shape.
         thresholdWasAdded = false;
+        //DEBUG_IF(printf("n %i ",n);showItemTag(itemTag);printf("\n");)
         if (itemTagIsShape(itemTag)) {
              // if you don't shift the shape to the tile size there will be accuracy errors with height floating point geometric values
             Slice geoRef = geoRefHeap[itemTagShapeId(itemTag)];
@@ -1548,17 +1541,20 @@ void buildThresholdArray ( PMEM       TileState *tileS
                 strandHeap += currentSize;
                 enclosedByShape = enclosedByShape != enclosedByStrand; // using not equal as exclusive or.
             } // for currentStrand
-            if (enclosedByShape) {
-                passHeader(shS, defaultShapeHeader(shS->layerCount)); // a default header has no flags for geometry and just changes the shapeState for a threshold above the boundaries.
-            }
             if (thresholdWasAdded || enclosedByShape) {
                 if (shS->layerCount < MAXLAYERS) {
                    shS->layerStack[shS->layerCount] = createLayerEntry(itemTagIsAdd(itemTag),shS->substanceCount);
+                   if (enclosedByShape) {
+                       passHeader(shS, defaultShapeHeader(shS->layerCount)); // a default header has no flags for geometry and just changes the shapeState for a threshold above the boundaries.
+                       //DEBUG_IF(printf("passHeader\n");showShapeState(shS);)
+                   }
                    shS->layerCount += 1;
                 }
                 if (lastSubstance != (int)itemTagSubstanceId(itemTag)) {
                   // add this new substance.
-                  shS->substanceTagStack[shS->substanceCount] = substanceTagHeap[itemTagSubstanceId(itemTag)];
+                  SUBSTANCETAG tag = substanceTagHeap[itemTagSubstanceId(itemTag)];
+                  //DEBUG_IF(printf("subCount %i itemTagSub %i ",shS->substanceCount,itemTagSubstanceId(itemTag));showSubstanceTag(tag);printf("\n");)
+                  shS->substanceTagStack[shS->substanceCount] = tag;
                   shS->substanceCount += 1;
                 }
             }
@@ -1703,9 +1699,9 @@ float8 sectionColor ( PMEM     ParseState *pS
                     , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
                     ) {
-    COLOR color = determineColor( shS
-                                , cS
-                                );
+    COLOR color = compositeLayers( shS
+                                 , cS
+                                 );
     float random = getRandom(pS);
     float area = (pS->sectionEnd.x - pS->sectionStart.x) * (pS->sectionEnd.y - pS->sectionStart.y);
     float4 adjustedArea = (float4) (area + (area * random * STOCHASTIC_FACTOR));
@@ -1868,7 +1864,7 @@ void calculatePixel ( PMEM      TileState *tileS
                                        , cS
                                        );
         pS->accColorArea += colorArea;
-        //DEBUG_IF(printf("accColor %v8f", pS->accColorArea);)
+        //DEBUG_IF(printf("accColor %v8f\n", pS->accColorArea);)
         DEBUG_TRACE_ITEM(parseStateHs(*pS);)
         if (pS->currentThreshold < pS->numActive) {
             //DEBUG_IF(printf("pass %i %i\n",pS->currentThreshold,headerLayerId(getHeader(tQ, pS->currentThreshold)));)
@@ -2012,6 +2008,7 @@ __kernel void generateThresholds( GMEM      float4  *geometryHeap
     int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
     int   column     = COLUMN;
     //DEBUG_IF(printf("sizeof(ThresholdQueue)=%i\n", sizeof(ThresholdQueue));)
+    //DEBUG_IF(printf("sizeof(ShapeState)=%i\n", sizeof(ShapeState));)
     GMEM TileInfo *tileInfo = getTileInfo(tileHeap, tileIndex);
     TileState tileS;
     initTileState ( &tileS
@@ -2040,10 +2037,11 @@ __kernel void generateThresholds( GMEM      float4  *geometryHeap
                             ,  convert_float2(tileS.threadDelta)
                             );
         //DEBUG_IF(showLayerFlags(shS.layerFlags);)
-        DEBUG_IF(showThresholds(&tQ);)
+        //DEBUG_IF(showThresholds(&tQ);)
         //DEBUG_TRACE_ITEM(thresholdStateHs(&tQ);)
         storeShapeState(shapeStateHeap, &shS, &tileS);
-        DEBUG_IF(printf("qSliceHeap %p column %i tQ.qSlice.sStart %i tQ.qSlice.sLength %i\n", qSliceHeap, column, tQ.qSlice.sStart, tQ.qSlice.sLength);)
+        //DEBUG_IF(showShapeState(&shS);)
+        //DEBUG_IF(printf("qSliceHeap %p column %i tQ.qSlice.sStart %i tQ.qSlice.sLength %i\n", qSliceHeap, column, tQ.qSlice.sStart, tQ.qSlice.sLength);)
         storeQueueSlice(qSliceHeap, tQ.qSlice, &tileS);
     }
 }
@@ -2071,13 +2069,13 @@ __kernel void sortThresholds( GMEM  THRESHOLD *thresholdHeap
     if (isActiveThread(&tileS)) {
         DEBUG_TRACE_BEGIN
         Slice qSlice = loadQueueSlice(qSliceHeap, &tileS);
-        DEBUG_IF(printf("qSliceHeap %p column %i qSlice.sStart %i qSlice.sLength %i\n", qSliceHeap, column, qSlice.sStart, qSlice.sLength);)
+        //DEBUG_IF(printf("qSliceHeap %p column %i qSlice.sStart %i qSlice.sLength %i\n", qSliceHeap, column, qSlice.sStart, qSlice.sLength);)
         ThresholdQueue tQ;
         initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, qSlice);
 
-        DEBUG_IF(printf("before------------\n");showThresholds(&tQ);)
+        //DEBUG_IF(printf("before------------\n");showThresholds(&tQ);)
         sortThresholdArray(&tQ);
-        DEBUG_IF(printf("after------------\n");showThresholds(&tQ);)
+        //DEBUG_IF(printf("after------------\n");showThresholds(&tQ);)
     }
 }
 
@@ -2101,7 +2099,7 @@ __kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
     int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
     int   column     = COLUMN;
     GMEM TileInfo *tileInfo = getTileInfo(tileHeap, tileIndex);
-    DEBUG_IF(showTileInfoAlignment(0,tileInfo);)
+    //DEBUG_IF(showTileInfoAlignment(0,tileInfo);)
     TileState tileS;
     initTileState ( &tileS
                   ,  tileInfo
@@ -2110,13 +2108,17 @@ __kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
                   ,  jobIndex
                   ,  computeDepth
                   );
+    //DEBUG_IF(tileStateHs(tileS);)
     if (isActiveThread(&tileS)) {
         DEBUG_TRACE_BEGIN
         Slice qSlice = loadQueueSlice(qSliceHeap, &tileS);
-        DEBUG_IF(printf("qSliceHeap %p column %i qSlice.sStart %i qSlice.sLength %i\n", qSliceHeap, column, qSlice.sStart, qSlice.sLength);)
+        //DEBUG_IF(printf("qSliceHeap %p column %i qSlice.sStart %i qSlice.sLength %i\n", qSliceHeap, column, qSlice.sStart, qSlice.sLength);)
         ThresholdQueue tQ;
         initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, qSlice);
         ShapeState shS = loadShapeState(shapeStateHeap, &tileS);
+        //DEBUG_IF(printf("render shapeState\n");)
+        //DEBUG_IF(showShapeState(&shS);)
+        //DEBUG_IF(showThresholds(&tQ);)
         //DEBUG_TRACE_ITEM(thresholdStateHs(&tQ);)
         renderThresholdArray ( &tileS
                              , &tQ
@@ -2131,4 +2133,89 @@ __kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
                              ,  out
                              );
     }
+}
+
+void showShapeState(ShapeState *shS) {
+   printf("--- Layers --- \n");
+   for (LAYERID i = 0; i < shS->layerCount; i++) {
+     printf("%i ",i);showLayerEntry(shS->layerStack[i]);printf("\n");
+   }
+   printf("--- SubstanceTags --- \n");
+   for (LOCALSUBSTANCE i = 0; i < shS->substanceCount; i++) {
+     printf("%i ",i);showSubstanceTag(shS->substanceTagStack[i]);printf(" facet %i \n",shS->substanceActiveFacet[i]);
+   }
+}
+
+void showLayerEntry(LAYERENTRY entry) {
+  printf("act %i add %i substance %i", layerEntryIsActive(entry), layerEntryIsAdditive(entry), layerEntryLocalSubstance(entry));
+}
+
+void showSubstanceTag(SUBSTANCETAG tag) {
+  printf("type %i ref %i ", substanceTagType(tag), substanceTagTextureMemId(tag));
+}
+
+void showItemTag(ITEMTAG tag) {
+  printf("isFacet %i add %i substanceid %i facetid %i", itemTagIsFacet(tag), itemTagIsAdd(tag), itemTagSubstanceId(tag), itemTagFacetId(tag));
+}
+
+void showThresholdHeader( HEADER header
+                        ) {
+    //printf("Raw: %08x ",header);
+    if (headerPositiveSlope(header)) {
+      printf("[+] ");
+    }
+    else {
+      printf("[-] ");
+    }
+    if      (headerPersistTop(header)   ) {printf("pTop ");}
+    else if (headerPersistBottom(header)) {printf("pBot ");}
+    else                                  {printf("pNon ");}
+    printf(" layerId:%03i localSubstance: %03i ", headerLayerId(header), headerLocalSubstance(header));
+}
+
+void showThresholdGeo (THRESHOLD threshold) {
+  //printf("tTop: %2.2f tBottom: %2.2f tLeft: %2.2f tRight: %2.2f "
+  printf("tLeft: %f tTop: %f tRight: %f tBottom: %f height: %f"
+        , tLeft(threshold)
+        , tTop(threshold)
+        , tRight(threshold)
+        , tBottom(threshold)
+        , tHeight(threshold)
+        );
+}
+
+void showThreshold( HEADER header,
+                    THRESHOLD threshold) {
+    showThresholdHeader(header);
+    showThresholdGeo(threshold);
+}
+
+void showThresholds (PMEM ThresholdQueue *tQ) {
+    printf ("Thresholds numThresholds %2i \n", tQ->qSlice.sLength);
+    for (int t = 0; t < tQ->qSlice.sLength; t++) {
+        if (t < MAXTHRESHOLDS) {
+        printf("t: %2i ", t);
+        showThreshold( getHeader(tQ, t)
+                     , getThreshold(tQ, t)
+                     );
+        printf("\n");
+        }
+        else {printf("out of bounds\n\n\n");}
+    }
+}
+
+void tileStateHs (TileState tileS) {
+    printf("TileStateHs\n");
+    printf("{ tileItemStart = %i\n"     ,  tileS.tileItemStart);
+    printf(", tileNumItems = %i\n"      ,  tileS.tileNumItems);
+    printf(", tileSize = (%i,%i)\n"     ,  tileS.tileSize.x, tileS.tileSize.y);
+    printf(", bitmapSize = (%i,%i)\n"   ,  tileS.bitmapSize.x,  tileS.bitmapSize.y);
+    printf(", internalDelta = (%i,%i)\n",  tileS.internalDelta.x,  tileS.internalDelta.y);
+    printf(", threadDelta = (%i,%i)\n"  ,  tileS.threadDelta.x, tileS.threadDelta.y);
+    printf(", tileIndex = %i\n"         ,  tileS.tileIndex);
+    printf(", intHeight = %i\n"         ,  tileS.intHeight);
+    printf(", floatHeight = %f\n"       ,  tileS.floatHeight);
+    printf(", threadUnique = %i\n"      ,  tileS.threadUnique);
+    printf(", column = %i\n"            ,  tileS.column);
+    printf("}\n");
 }

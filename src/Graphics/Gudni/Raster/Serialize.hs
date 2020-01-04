@@ -154,7 +154,7 @@ onShape substanceId combineType transformer outlines =
   do let transformedOutlines = V.fromList . map (applyTransformer transformer) $ outlines
          boundingBox = boxOf transformedOutlines
      canvasSize <- use geoCanvasSize
-     if excludeBox canvasSize boundingBox
+     if tr ("boundingBox " ++ show boundingBox ++ " ") $ excludeBox canvasSize boundingBox
      then return ()
      else do -- Table used to convert strands of coordinates to trees.
              reorderTable <- use geoReorderTable
@@ -176,10 +176,8 @@ onShape substanceId combineType transformer outlines =
              let itemTag = shapeInfoTag combineType substanceId (GeoId geoId)
              -- Add the shape to the tile tree.
              geoTileTree .= addItemToTree maxStrandsPerTile
-                                          (enclosureNumStrands enclosure)
-                                          boundingBox
                                           tileTree
-                                          itemTag
+                                          (ItemEntry itemTag (enclosureNumStrands enclosure) boundingBox)
 
 -- | Constructor for holding the state of serializing substance information from the scene.
 data SubstanceState token s = SubstanceState
@@ -227,10 +225,8 @@ addItem boundingBox itemTag =
   do maxStrandsPerTile <- use geoMaxStrandsPerTile
      tileTree <- use geoTileTree
      geoTileTree .= addItemToTree maxStrandsPerTile
-                                  (NumStrands 3) -- the maximum strands a facet can create is 3
-                                  boundingBox
                                   tileTree
-                                  itemTag
+                                  (ItemEntry itemTag (NumStrands 3) boundingBox) -- the maximum strands a facet can create is 3
 
 addHardFacet :: MonadIO m
              => SubstanceId
@@ -311,22 +307,28 @@ buildOverScene scene =
 
 outputGeometryState :: GeometryState -> IO ()
 outputGeometryState state =
-  do  putStrLn "---------------- geoGeometryPile -----------------------"
-      putStr =<< fmap unlines (bytePileToGeometry . view geoGeometryPile $ state)
-      putStrLn "---------------- ReorderTable --------------------------"
-      putStrLn . show . view geoReorderTable     $ state
-      putStrLn . show . view geoMaxStrandSize $ state
+  do  --putStrLn "---------------- geoGeometryPile -----------------------"
+      --putStr =<< fmap unlines (bytePileToGeometry . view geoGeometryPile $ state)
+      --putStrLn "---------------- geoReorderTable --------------------------"
+      --putStrLn . show . view geoReorderTable     $ state
+      --putStrLn "---------------- geoMaxStrandSize -----------------------"
+      --putStrLn . show . view geoMaxStrandSize $ state
+      putStrLn "---------------- geoTileTree -----------------------"
       putStrLn . show . view geoTileTree       $ state
-      putStrLn . show . view geoCanvasSize     $ state
-      putStrLn . show . view geoRandomField    $ state
+      --putStrLn "---------------- geoCanvasSize -----------------------"
+      --putStrLn . show . view geoCanvasSize     $ state
+      --putStrLn . show . view geoRandomField    $ state
 
 outputSubstanceState :: (Show s, Show token, Storable (HardFacet_ s TextureSpace))
                      => SubstanceState token s -> IO ()
 outputSubstanceState state =
   do  putStrLn $ "suTokenMap         " ++ (show . view suTokenMap            $ state)
       putStrLn $ "suBackgroundColor  " ++ (show . view suBackgroundColor     $ state)
-      putStrLn "---------------- suSubstancePile -----------------------"
+      putStrLn "---------------- suPictureMems -----------------------"
       putStrList =<< (pileToList . view suPictureMems      $ state)
+      putStrLn "---------------- suFacetPile -----------------------"
       putStrList =<< (pileToList . view suFacetPile        $ state)
+      putStrLn "---------------- suSubstanceTagPile -----------------------"
       putStrList =<< (pileToList . view suSubstanceTagPile $ state)
+      putStrLn "---------------- suSolidColorPile -----------------------"
       putStrList =<< (pileToList . view suSolidColorPile   $ state)

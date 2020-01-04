@@ -113,7 +113,7 @@ library
                      , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.SubstanceInfo
                      , Graphics.Gudni.Raster.TextureReference
-                     , Graphics.Gudni.Raster.TileEntry
+                     , Graphics.Gudni.Raster.Tile
                      , Graphics.Gudni.Layout.Glyph
                      , Graphics.Gudni.Layout.Draw
                      , Graphics.Gudni.Layout.Grid

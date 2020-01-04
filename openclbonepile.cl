@@ -581,3 +581,58 @@ instance Storable (PictureFacet PictUsageId SubSpace) where
       printf(", travIndex = %i\n", t.travIndex);
       printf("}\n");
   }
+
+  // determine the current color based on the layer stack
+  COLOR compositeLayers( PMEM    ShapeState *shS
+                       , PMEM    ColorState *cS
+                       ) {
+      LOCALSUBSTANCE currentSubstance;
+      COLOR baseColor = TRANSPARENT_COLOR;
+      COLOR nextColor;
+      LOCALSUBSTANCE lastSubstance = NULLINDEX;
+      bool lastIsSet = false;
+      LAYERID topLayer = 0;
+      bool done = false;
+      while (!done) {
+          bool shouldComposite = true;
+          topLayer = findTopLayer(shS, topLayer);
+          DEBUG_IF(printf("topLayer %i ", topLayer);/*showLayerFlags(shS->layerFlags);*/printf("\n");)
+          if (topLayer > shS->layerCount) {
+              nextColor = cS->csBackgroundColor;
+              done = true;
+              shouldComposite = true;
+              lastIsSet = true;
+          }
+          else {
+              currentSubstance = layerSubstance(shS, topLayer);
+              SUBSTANCETAG substanceTag = shS->substanceTagStack[currentSubstance];
+              //DEBUG_IF(printf("topLayer %i substanceId %i lastSubstance %i ",
+              //                 topLayer,   substanceId,   lastSubstance   );)
+              lastIsSet = false; // layerIsAdditive(shS, topLayer);
+              shouldComposite = (bool) (currentSubstance != lastSubstance);
+              if (shouldComposite) {
+                   //nextColor = (COLOR) (0.0,0.5,0.4,1.0);
+                   nextColor = readColor ( cS
+                                         , substanceTag
+                                         );
+              }
+              // shouldComposite = true; // delete this
+              lastSubstance = currentSubstance;
+              topLayer += 1;
+              done = false;
+          }
+          DEBUG_IF(printf("done %i lastIsSet %i shouldComposite %i baseColor %2.2v4f nextColor %2.2v4f \n",
+                           done,   lastIsSet,   shouldComposite,   baseColor,        nextColor          );)
+          if (shouldComposite) {
+              if (lastIsSet) {
+                  baseColor = composite(baseColor, nextColor);
+                  if (OPAQUE(baseColor)) {
+                     done = true;
+                  }
+              }
+          }
+          // done = true; // delete this
+      }
+      return baseColor;
+      //return (COLOR)(0.0,0.0,0.5,1.0);
+  }
