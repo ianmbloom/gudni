@@ -46,8 +46,6 @@
 
 #define MINCROP 0.2f
 // Debugging
-#define DEBUGCOLUMN 0 // Determines the column for DEBUG_IF macro
-#define DEBUGINDEX  0 // Determines the index for DEBUG_IF macro
 #define INDEX get_global_id(0)
 #define COLUMN get_global_id(1)
 
@@ -2108,7 +2106,7 @@ __kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
                   ,  jobIndex
                   ,  computeDepth
                   );
-    //DEBUG_IF(tileStateHs(tileS);)
+    DEBUG_IF(tileStateHs(tileS);)
     if (isActiveThread(&tileS)) {
         DEBUG_TRACE_BEGIN
         Slice qSlice = loadQueueSlice(qSliceHeap, &tileS);
@@ -2116,8 +2114,8 @@ __kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
         ThresholdQueue tQ;
         initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, qSlice);
         ShapeState shS = loadShapeState(shapeStateHeap, &tileS);
-        //DEBUG_IF(printf("render shapeState\n");)
-        //DEBUG_IF(showShapeState(&shS);)
+        DEBUG_IF(printf("render shapeState\n");)
+        DEBUG_IF(showShapeState(&shS);)
         //DEBUG_IF(showThresholds(&tQ);)
         //DEBUG_TRACE_ITEM(thresholdStateHs(&tQ);)
         renderThresholdArray ( &tileS

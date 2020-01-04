@@ -271,14 +271,14 @@ hourGlass state = return $
 -- | Test for loading a texture.
 testPict :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 testPict state =
-    let w = 200
-        h = 200
+    let w = 1000
+        h = 300
         f (Point2 x y) = hslColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
         size = Point2 w h
     in  return $
         overlap [ translateByXY 100 50 $ textureWith (SharedTexture "flowers") $ cSubtract (scaleBy 200 circle) (cAdd (translateByXY 100 100 $ scaleBy 100 circle) (scaleBy 100 circle))
-                , translateByXY 100 50 $ textureWith (NewTexture "gradient" (PictureFunction f size)) $ translateByXY 0 0 $ (scaleBy 200 circle)
-                , translateByXY 100 50 $ solid (transparent 0.2 blue) $ rectangle (Point2 40 2000)
+                , translateByXY 100 50 $ textureWith (NewTexture "gradient" (PictureFunction f size)) $ translateByXY 0 50 $ (scaleBy 50 circle)
+                -- , translateByXY 100 50 $ solid (transparent 0.2 blue) $ rectangle (Point2 40 2000)
                 ]
 
 -- | Simple stack of squares.

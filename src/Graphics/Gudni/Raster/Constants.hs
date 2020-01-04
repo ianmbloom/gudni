@@ -76,7 +76,7 @@ sIZEoFsHAPEsTATE = sIZEoFlAYERiD
                  + sIZEoFfACETiD * mAXlAYERS
                  + 6 -- padding
 
-mAXtILEsIZE      = Point2 512 512 :: Point2 PixelSpace
+mAXtILEsIZE      = Point2 8  8 :: Point2 PixelSpace
 mINtILEsIZE      = Point2 8  8  :: Point2 PixelSpace
 mAXsECTIONsIZE   = 32   :: Int
 rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2

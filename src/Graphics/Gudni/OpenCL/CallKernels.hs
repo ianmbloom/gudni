@@ -122,7 +122,7 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
           maxThresholds  = fromIntegral $ params ^. rpDevice . rasterSpec . specMaxThresholds
           -- adjusted log2 of the number of threads
           computeDepth = adjustedLog threadsPerTile :: CInt
-      --liftIO $ outputGeometryState (params ^. rpGeometryState)
+      liftIO $ outputGeometryState (params ^. rpGeometryState)
       liftIO $ outputSubstanceState(params ^. rpSubstanceState)
       thresholdBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdBuffer " $ columnsToAlloc * maxThresholds) :: CL (CLBuffer THRESHOLDTYPE))
       headerBuffer    <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize headerBuffer    " $ columnsToAlloc * maxThresholds) :: CL (CLBuffer HEADERTYPE   ))

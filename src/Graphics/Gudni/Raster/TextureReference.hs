@@ -138,9 +138,11 @@ instance StorableM PictureMemoryReference where
   sizeOfM _ =
     do sizeOfM (undefined :: Point2 PixelSpace)
        sizeOfM (undefined :: MemOffset_     )
+       sizeOfM (undefined :: CUInt     ) -- padding
   alignmentM _ =
     do alignmentM (undefined :: Point2 PixelSpace)
        alignmentM (undefined :: MemOffset_     )
+       alignmentM (undefined :: CUInt     ) -- padding
   peekM = do size      <- peekM
              memOffset <- peekM
              return (PictureMemory size memOffset)
