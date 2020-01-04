@@ -27,7 +27,6 @@ module Graphics.Gudni.Raster.TextureReference
   , pictureTextureSize
   --, makePictData
   , collectPictureMemory
-  , collectPictureReferences
   , assignScenePictureMemory
   )
 where
@@ -118,18 +117,6 @@ collectPictureMemory :: PictureMap -> IO (PictureMemoryMap, Pile Word8)
 collectPictureMemory mapping =
   do pictPile <- newPile
      runStateT (mapM accumulatePicture mapping) pictPile
-
-accumulatePictureReference :: PictureMemoryReference -> StateT (Pile PictureMemoryReference) IO PictMemId
-accumulatePictureReference memory =
-  do refPile <- get
-     let currentId = refPile ^. pileCursor
-     refPile' <- liftIO $ addToPile "refPile" refPile memory
-     return (fromIntegral currentId)
-
-collectPictureReferences :: PictureMemoryMap -> IO (PictureIdMap, Pile PictureMemoryReference)
-collectPictureReferences mapping =
-   do refPile <- newPile
-      runStateT (mapM accumulatePictureReference mapping) refPile
 
 assignPictUsage :: PictureMemoryMap -> SRep token PictureName rep -> SRep token PictureMemoryReference rep
 assignPictUsage mapping (SRep token substance rep) =

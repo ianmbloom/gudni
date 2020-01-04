@@ -1,3 +1,15 @@
+accumulatePictureReference :: PictureMemoryReference -> StateT (Pile PictureMemoryReference) IO PictMemId
+accumulatePictureReference memory =
+  do refPile <- get
+     let currentId = refPile ^. pileCursor
+     refPile' <- liftIO $ addToPile "refPile" refPile memory
+     return (fromIntegral currentId)
+
+collectPictureReferences :: PictureMemoryMap -> IO (PictureIdMap, Pile PictureMemoryReference)
+collectPictureReferences mapping =
+   do refPile <- newPile
+      runStateT (mapM accumulatePictureReference mapping) refPile
+
 
 inline HEADER makeHeaderIndex(int shapeBit) {
     return THRESHOLDENABLE | shapeBit;
