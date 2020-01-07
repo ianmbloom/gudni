@@ -261,8 +261,8 @@ buildRasterJobs params =
   do  -- Get the tile tree from the geometryState
       tileTree <- use geoTileTree
       -- Determine the maximum number of tiles per RasterJob
-      let tilesPerCall = fromIntegral $ params ^. rpDevice . rasterSpec . specMaxTilesPerCall
-          threadsPerTile = fromIntegral $ params ^. rpDevice . rasterSpec . specThreadsPerTile
+      let tilesPerCall = tr "tilesPerCall" $ fromIntegral $ params ^. rpDevice . rasterSpec . specMaxTilesPerCall
+          threadsPerTile = tr "threadsPerTile" $ fromIntegral $ params ^. rpDevice . rasterSpec . specThreadsPerTile
       -- Build all of the RasterJobs by traversing the TileTree.
       finalState <- execBuildJobsMonad (traverseTileTree (accumulateRasterJobs threadsPerTile tilesPerCall) tileTree)
       return $ trWith (show . length) "num jobs" $ (finalState ^. bsCurrentJob : finalState ^. bsJobs)

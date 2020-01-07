@@ -182,7 +182,7 @@ addItemToTree maxStrandsPerTile tree = {-tr "result" .-} insertShapeV tree {-. t
       let tileEntry = tile ^. tileRep
           withAddedStrands = (tileEntry ^. tileStrandCount + (itemEntry ^. itemStrandCount))
       in     tileEntry ^. tileItemCount < mAXlAYERS - 1 -- the total shapes would be less than the maximum
-          && withAddedStrands < (maxStrandsPerTile) -- the total strands would be less than the maximum.
+          && withAddedStrands < maxStrandsPerTile -- the total strands would be less than the maximum.
 
     -- | Split a tile into two horizontal sections and put its contents into both sides in the proper order (reversed)
     hSplit :: Tile TileEntry -> HTree
