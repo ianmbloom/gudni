@@ -2,7 +2,7 @@ accumulatePictureReference :: PictureMemoryReference -> StateT (Pile PictureMemo
 accumulatePictureReference memory =
   do refPile <- get
      let currentId = refPile ^. pileCursor
-     refPile' <- liftIO $ addToPile "refPile" refPile memory
+     refPile <- liftIO $ addToPile "refPile" refPile memory
      return (fromIntegral currentId)
 
 collectPictureReferences :: PictureMemoryMap -> IO (PictureIdMap, Pile PictureMemoryReference)

@@ -117,13 +117,6 @@ freeRasterJob job =
 freeRasterJobs :: MonadIO m => [RasterJob] -> m ()
 freeRasterJobs jobs = liftIO $ mapM_ freeRasterJob jobs
 
--- | Add the shape to the pile of shapes in a RasterJob and return a reference to it.
-appendItems :: MonadIO m
-            => [ItemTag]
-            -> StateT RasterJob m (Slice ItemTag)
-appendItems shapes =
-       addListToPileState rJItemTagPile shapes
-
 -- | Add a tile to a RasterJob
 addTileToRasterJob :: MonadIO m
                    => Tile TileEntry
@@ -132,7 +125,7 @@ addTileToRasterJob tile =
   do  -- get the list of new shapes from the tile entry
       let items = map (view itemEntryTag) $ tile ^. tileRep . tileItems
       -- add the stripped shapes to the raster job and get the range of the added shapes
-      slice <- appendItems items
+      slice <- addListToPileState rJItemTagPile items
       -- strip the tile down so just the range of shapes is left
       columnAllocation <- use rJColumnAllocation
       let tileInfo = set tileRep (slice, columnAllocation) tile

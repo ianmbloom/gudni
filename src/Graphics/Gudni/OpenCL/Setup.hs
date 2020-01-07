@@ -63,9 +63,9 @@ cppDefines spec =
   ,Cpp "SUBSTANCETAG_TYPE_SOLID_COLOR"  (CppHex64 sUBSTANCEtAGtYPEsOLIDcOLOR  )
   ,Cpp "SUBSTANCETAG_TYPE_TEXTURE"      (CppHex64 sUBSTANCEtAGtYPEtEXTURE     )
   ,Cpp "SUBSTANCETAG_REF_BITMASK"       (CppHex64 sUBSTANCEtAGrEFbITMASK      )
-  ,Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
+--,Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
 --,Cpp "DEBUG_TRACE"                    (CppNothing) -- uncomment this to turn on parsable debugging output
-  ,Cpp "DEBUGCOLUMN"                    (CppInt 511) -- determines the column for DEBUG_IF macro
+  ,Cpp "DEBUGCOLUMN"                    (CppInt 0) -- determines the column for DEBUG_IF macro
   ,Cpp "DEBUGINDEX"                     (CppInt 0)   -- determines the index for DEBUG_IF macro
   ]
 

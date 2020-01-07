@@ -61,7 +61,7 @@ class Compoundable a where
 -- | Instance for combining simple compound shapes.
 instance Compoundable (STree Compound leaf) where
   cAdd      = SMeld CompoundAdd
-  cSubtract = flip (SMeld CompoundSubtract) -- the subtracted shape must be above what is being subtracted in the stack.
+  cSubtract = SMeld CompoundSubtract -- the subtracted shape must be above what is being subtracted in the stack.
 
 -- | Instance for combining with glyph wrapped compound shapes.
 instance HasSpace leaf => Compoundable (Glyph (STree Compound leaf)) where

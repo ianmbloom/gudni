@@ -45,12 +45,12 @@ makeLenses ''BenchmarkState
 initialModel pictureMap =
     BenchmarkState
     { _stateBase = BasicSceneState
-        { _stateScale       = 1.5
-        , _stateDelta       = Point2 0 0
+        { _stateScale       = 1
+        , _stateDelta       = Point2 (-1) 1
         , _stateAngle       = 0 @@ deg -- 0.02094 @@ rad -- 0 @@ turn-- quarterTurn
         , _statePaused      = True
         , _stateSpeed       = 0.1
-        , _statePace        = 0.1
+        , _statePace        = 0.5
         , _stateLastTime    = 0
         , _stateDirection   = True
         , _statePlayhead    = 0
@@ -60,7 +60,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 7
+    , _stateCurrentTest = 16
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
@@ -213,7 +213,7 @@ benchmark1 state =
        return $ translateByXY 0 0 .
                 scaleBy 50 .
                 solid (transparent 1.0 black) $
-                cSubtract textGrid subtractor
+                cSubtract subtractor textGrid
 
 -- | A grid of rectangles.
 rectGrid :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
@@ -294,16 +294,17 @@ stackOfSquares state = return $
 -- | Basic test for shape subtraction.
 openSquare :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 openSquare state = return $
-    solid (transparent 0.5 orange) $
-          cSubtract (rectangle (Point2 5 5))
-                    (translateBy (Point2 1 1) $ rectangle (Point2 3 3))
+    solid (transparent 1 orange) $
+          cSubtract (translateBy (Point2 1 1) $ rectangle (Point2 3 3))
+                    (rectangle (Point2 5 5))
+
 
 -- | Basic test for shape subtraction and transparency.
 openSquareOverlap2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 openSquareOverlap2 state = return $
         scaleBy 20 $
-        overlap [ (translateByXY 0 0 . solid (transparent 0.25 blue  ) $ cSubtract (rectangle (Point2 16 16)) (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) )
-                , (translateByXY 8 8 . solid (transparent 1.0  orange) $ cSubtract (rectangle (Point2 16 16)) (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) )
+        overlap [ (translateByXY 0 0 . solid (transparent 0.25 blue  ) $ cSubtract (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
+                , (translateByXY 8 8 . solid (transparent 1.0  orange) $ cSubtract (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
                 ]
 
 -- | Basic test for shape subtraction and muliple transparency.
@@ -312,24 +313,24 @@ openSquareOverlap3 state = return $
     let angle = view (stateBase . statePlayhead) state @@ turn
     in  translateByXY 400 400 .
         scaleBy 50 $
-        overlap [ (translateByXY 0 0 . rotateBy angle        $ solid (transparent 0.5 blue   ) $ cSubtract (rectangle (Point2 16 16)) (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) )
-                , (translateByXY 4 4 . rotateBy (angle ^/ 2) $ solid (transparent 0.5 orange ) $ cSubtract (rectangle (Point2 16 16)) (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) )
-                , (translateByXY 8 8 . rotateBy (angle ^/ 3) $ solid (transparent 0.5 green  ) $ cSubtract (rectangle (Point2 16 16)) (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) )
+        overlap [ (translateByXY 0 0 . rotateBy angle        $ solid (transparent 0.5 blue   ) $ cSubtract (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
+                , (translateByXY 4 4 . rotateBy (angle ^/ 2) $ solid (transparent 0.5 orange ) $ cSubtract (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
+                , (translateByXY 8 8 . rotateBy (angle ^/ 3) $ solid (transparent 0.5 green  ) $ cSubtract (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
                 ]
 
 -- | Test for shape edges that abut.
 concentricSquares2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 concentricSquares2 state = return $
-        overlap [ (translateByXY 0 0 . solid (transparent 1.0 red ) $ cSubtract (rectangle (Point2 5 5)) (translateBy (Point2 1 1) $ rectangle (Point2 3 3) ) )
-                , (translateByXY 1 1 . solid (transparent 1.0 blue) $ cSubtract (rectangle (Point2 3 3)) (translateBy (Point2 1 1) $ rectangle (Point2 1 1) ) )
+        overlap [ (translateByXY 0 0 . solid (transparent 1.0 red ) $ cSubtract (translateBy (Point2 1 1) $ rectangle (Point2 3 3) ) (rectangle (Point2 5 5)) )
+                , (translateByXY 1 1 . solid (transparent 1.0 blue) $ cSubtract (translateBy (Point2 1 1) $ rectangle (Point2 1 1) ) (rectangle (Point2 3 3)) )
                 ]
 
 -- | Another test for shape edges that abut.
 concentricSquares3 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 concentricSquares3 state = return $
-        overlap [ (translateByXY 0 0 . solid (transparent 1.0 red   ) $ cSubtract (rectangle (Point2 10 10)) (translateBy (Point2 2 2) $ rectangle (Point2 6 6) ) )
-                , (translateByXY 2 2 . solid (transparent 1.0 green ) $ cSubtract (rectangle (Point2  6  6)) (translateBy (Point2 2 2) $ rectangle (Point2 2 2) ) )
-                , (translateByXY 4 4 . solid (transparent 1.0 blue  ) $            rectangle (Point2  2  2))
+        overlap [ (translateByXY 0 0 . solid (transparent 1.0 red   ) $ cSubtract (translateBy (Point2 2 2) $ rectangle (Point2 6 6) ) (rectangle (Point2 10 10)) )
+                , (translateByXY 2 2 . solid (transparent 1.0 green ) $ cSubtract (translateBy (Point2 2 2) $ rectangle (Point2 2 2) ) (rectangle (Point2  6  6)) )
+                , (translateByXY 4 4 . solid (transparent 1.0 blue  ) $                                                                 rectangle (Point2  2  2))
                 ]
 
 -- | Simple test one glyph.
@@ -412,7 +413,7 @@ subtractDiamond :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSp
 subtractDiamond state = return .
     rotateBy (45 @@ deg) .
     solid white $
-    cSubtract unitSquare (translateByXY 1 1 $ unitSquare)
+    cSubtract (translateByXY 1 1 $ unitSquare) unitSquare
 
 instance Show BenchmarkState where
   show state =

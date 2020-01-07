@@ -122,8 +122,8 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
           maxThresholds  = fromIntegral $ params ^. rpDevice . rasterSpec . specMaxThresholds
           -- adjusted log2 of the number of threads
           computeDepth = adjustedLog threadsPerTile :: CInt
-      liftIO $ outputGeometryState (params ^. rpGeometryState)
-      liftIO $ outputSubstanceState(params ^. rpSubstanceState)
+      --liftIO $ outputGeometryState (params ^. rpGeometryState)
+      --liftIO $ outputSubstanceState(params ^. rpSubstanceState)
       thresholdBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdBuffer " $ columnsToAlloc * maxThresholds) :: CL (CLBuffer THRESHOLDTYPE))
       headerBuffer    <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize headerBuffer    " $ columnsToAlloc * maxThresholds) :: CL (CLBuffer HEADERTYPE   ))
       shapeStateBuffer<- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize shapeStateBuffer" $ columnsToAlloc * tr "sIZEoFsHAPEsTATE" sIZEoFsHAPEsTATE) :: CL (CLBuffer CChar))
@@ -158,7 +158,7 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
                 jobIndex
                 (Work2D numTiles (fromIntegral threadsPerTile))
                 (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
-      liftIO $ putStrLn ("rasterRenderThresholdsKernel XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
+      liftIO $ putStrLn ("rasterRenderThresholdsKernel   XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
       runKernel (params ^. rpDevice . rasterRenderThresholdsKernel)
                 thresholdBuffer
                 headerBuffer

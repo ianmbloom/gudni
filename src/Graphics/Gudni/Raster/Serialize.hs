@@ -154,7 +154,7 @@ onShape substanceId combineType transformer outlines =
   do let transformedOutlines = V.fromList . map (applyTransformer transformer) $ outlines
          boundingBox = boxOf transformedOutlines
      canvasSize <- use geoCanvasSize
-     if tr ("boundingBox " ++ show boundingBox ++ " ") $ excludeBox canvasSize boundingBox
+     if excludeBox canvasSize boundingBox
      then return ()
      else do -- Table used to convert strands of coordinates to trees.
              reorderTable <- use geoReorderTable

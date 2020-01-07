@@ -17,9 +17,9 @@ module Graphics.Gudni.Raster.TileTree
   ( TileTree(..)
   , TileEntry(..)
   , ItemEntry(..)
-  , itemEntryTag   
+  , itemEntryTag
   , itemStrandCount
-  , itemBox        
+  , itemBox
   , tileItems
   , tileStrandCount
   , tileItemCount
@@ -168,7 +168,7 @@ addItemToTree maxStrandsPerTile tree = {-tr "result" .-} insertShapeV tree {-. t
     insertShapeTile tile itemEntry =
       let tileEntry = tile ^. tileRep
           newEntry = TileEntry { -- append the shape.
-                                 _tileItems = itemEntry:tileEntry ^. tileItems
+                                 _tileItems = tileEntry ^. tileItems ++ [itemEntry]
                                  -- add to the total strand count.
                                , _tileStrandCount = tileEntry ^. tileStrandCount + itemEntry ^. itemStrandCount
                                  -- increment the shape count.
@@ -191,7 +191,7 @@ addItemToTree maxStrandsPerTile tree = {-tr "result" .-} insertShapeV tree {-. t
           lEmpty = emptyTile (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set rightSide cut (tile ^. tileBox))
           rEmpty = emptyTile (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set leftSide cut (tile ^. tileBox))
           hTree = HTree (fromIntegral cut) (VLeaf lEmpty) (VLeaf rEmpty)
-      in  {-tr "hSplit" $-} foldl insertShapeH hTree $ reverse (tile ^. tileRep . tileItems)
+      in  {-tr "hSplit" $-} foldl insertShapeH hTree $ (tile ^. tileRep . tileItems)
 
     -- | Split a tile into two vertical sections and put its contents into both sides in the proper order (reversed)
     vSplit :: Tile TileEntry -> VTree
@@ -200,7 +200,7 @@ addItemToTree maxStrandsPerTile tree = {-tr "result" .-} insertShapeV tree {-. t
           tEmpty = emptyTile (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set bottomSide cut (tile ^. tileBox))
           bEmpty = emptyTile (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set topSide    cut (tile ^. tileBox))
           vTree = VTree (fromIntegral cut) (HLeaf tEmpty) (HLeaf bEmpty)
-      in  {-tr "vSplit" $-} foldl insertShapeV vTree $ reverse (tile ^. tileRep . tileItems)
+      in  {-tr "vSplit" $-} foldl insertShapeV vTree $ (tile ^. tileRep . tileItems)
 
 -- | Traverse a TileTree with a monadic function.
 traverseTileTree :: Monad m => (Tile TileEntry -> m t) -> TileTree -> m t
@@ -221,8 +221,7 @@ showTile tile = " (" ++ show (widthOf $ tile ^. tileBox)
               ++ "X" ++ show (heightOf $ tile ^. tileBox)
               ++ ") Shapes " ++ show (tile ^. tileRep . tileItemCount)
               ++ " Strands " ++ show (tile ^. tileRep . tileStrandCount)
-
-              -- ++ " Shapes " ++ show (map (view shapeBox . view shRep) $ tile ^. tileRep . tileItems)
+              ++ " Shapes " ++ show (tile ^. tileRep . tileItems)
 
 -- | Display a TileTree by converting it first to a data tree and drawing it.
 toDataTreeH (HLeaf tile) = Node (showTile tile) []
