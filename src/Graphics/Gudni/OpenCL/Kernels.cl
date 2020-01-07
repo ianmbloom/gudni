@@ -1704,8 +1704,8 @@ void initTileState ( PMEM  TileState *tileS
     tileS->tileItemStart = tileInfo->tileShapeSlice.sStart;
     tileS->tileNumItems  = tileInfo->tileShapeSlice.sLength;
     tileS->bitmapSize    = bitmapSize;
-    tileS->jobThread      = tileInfo->tileThreadAllocation + tileThread;
-    tileS->tileThread        = tileThread;
+    tileS->jobThread     = tileInfo->tileThreadAllocation + tileThread;
+    tileS->tileThread    = tileThread;
     int hDepth = (int)tileInfo->tileHDepth;
     int vDepth = (int)tileInfo->tileVDepth;
     int diffDepth = max(0, vDepth - (computeDepth - hDepth));

@@ -28,7 +28,7 @@ module Graphics.Gudni.Raster.Job
   , bsJobs
   , rJItemTagPile
   , rJTilePile
-  , rJColumnAllocation
+  , rJThreadAllocation
   , freeRasterJobs
   , accumulateRasterJobs
   , outputRasterJob
@@ -66,13 +66,15 @@ import Foreign.C.Types
 import Data.List (intercalate)
 import Data.Maybe
 import qualified Data.Map as M
+import qualified Data.Sequence as S
+import Data.Foldable
 
 -- | A RasterJob stores the information needed to transfer data to OpenCL, to render a group of tiles∘
 -- Each job corresponds to an individual rasterizer kernel call.
 data RasterJob = RasterJob
   { _rJItemTagPile :: !(Pile ItemTag)
   , _rJTilePile  :: !(Pile (Tile (Slice ItemTag, Int)))
-  , _rJColumnAllocation :: Int -- number of columns allocated for this job.
+  , _rJThreadAllocation :: Int -- total number of threads allocated for this job.
   } deriving (Show)
 makeLenses ''RasterJob
 
@@ -104,7 +106,7 @@ newRasterJob = liftIO $
         return RasterJob
             { _rJItemTagPile = initItemTagPile
             , _rJTilePile  = initTilePile
-            , _rJColumnAllocation = 0
+            , _rJThreadAllocation = 0
             }
 
 -- | Free all memory allocated by the 'RasterJob'
@@ -119,16 +121,16 @@ freeRasterJobs jobs = liftIO $ mapM_ freeRasterJob jobs
 
 -- | Add a tile to a RasterJob
 addTileToRasterJob :: MonadIO m
-                   => Tile TileEntry
+                   => Tile EntrySequence
                    -> StateT RasterJob m ()
 addTileToRasterJob tile =
   do  -- get the list of new shapes from the tile entry
-      let items = map (view itemEntryTag) $ tile ^. tileRep . tileItems
+      let items = toList . fmap (view itemEntryTag) $ tile ^. tileRep
       -- add the stripped shapes to the raster job and get the range of the added shapes
       slice <- addListToPileState rJItemTagPile items
       -- strip the tile down so just the range of shapes is left
-      columnAllocation <- use rJColumnAllocation
-      let tileInfo = set tileRep (slice, columnAllocation) tile
+      threadAllocation <- use rJThreadAllocation
+      let tileInfo = set tileRep (slice, threadAllocation) tile
       -- add it to the pile of tiles for the job.
       addToPileState rJTilePile tileInfo
       return ()
@@ -137,7 +139,7 @@ addTileToRasterJob tile =
 accumulateRasterJobs :: MonadIO m
                      => Int
                      -> Int
-                     -> Tile TileEntry
+                     -> Tile EntrySequence
                      -> BuildJobsMonad m ()
 accumulateRasterJobs maxTilesPerJob threadsPerTile tile =
   do  -- get the current stack of jobs
@@ -161,7 +163,7 @@ accumulateRasterJobs maxTilesPerJob threadsPerTile tile =
 
               -- increment the counter
               bsTileCount += 1
-              bsCurrentJob . rJColumnAllocation += threadsPerTile -- (fromIntegral . widthOf $ tile ^. tileBox)
+              bsCurrentJob . rJThreadAllocation += threadsPerTile -- (fromIntegral . widthOf $ tile ^. tileBox)
 
 
 -- | Output a RasterJob in IO

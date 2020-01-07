@@ -116,7 +116,7 @@ generateCall  :: forall a b token .
               -> CL ()
 generateCall params bic job bitmapSize frameCount jobIndex target =
   do  let numTiles     = job ^. rJTilePile . pileSize
-          columnsToAlloc = fromIntegral $ job ^. rJColumnAllocation
+          threadsToAlloc = fromIntegral $ job ^. rJThreadAllocation
           -- ideal number of threads per tile
           threadsPerTile = fromIntegral $ params ^. rpDevice . rasterSpec . specThreadsPerTile
           maxThresholds  = fromIntegral $ params ^. rpDevice . rasterSpec . specMaxThresholds
@@ -124,10 +124,10 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
           computeDepth = adjustedLog threadsPerTile :: CInt
       --liftIO $ outputGeometryState (params ^. rpGeometryState)
       --liftIO $ outputSubstanceState(params ^. rpSubstanceState)
-      thresholdBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdBuffer " $ columnsToAlloc * maxThresholds) :: CL (CLBuffer THRESHOLDTYPE))
-      headerBuffer    <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize headerBuffer    " $ columnsToAlloc * maxThresholds) :: CL (CLBuffer HEADERTYPE   ))
-      shapeStateBuffer<- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize shapeStateBuffer" $ columnsToAlloc * tr "sIZEoFsHAPEsTATE" sIZEoFsHAPEsTATE) :: CL (CLBuffer CChar))
-      thresholdQueueSliceBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdQueueBuffer" $ columnsToAlloc * 2) :: CL (CLBuffer (Slice Int)))
+      thresholdBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdBuffer " $ threadsToAlloc * maxThresholds) :: CL (CLBuffer THRESHOLDTYPE))
+      headerBuffer    <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize headerBuffer    " $ threadsToAlloc * maxThresholds) :: CL (CLBuffer HEADERTYPE   ))
+      shapeStateBuffer<- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize shapeStateBuffer" $ threadsToAlloc * tr "sIZEoFsHAPEsTATE" sIZEoFsHAPEsTATE) :: CL (CLBuffer CChar))
+      thresholdQueueSliceBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdQueueBuffer" $ threadsToAlloc * 2) :: CL (CLBuffer (Slice Int)))
       liftIO $ putStrLn ("rasterGenerateThresholdsKernel XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
       runKernel (params ^. rpDevice . rasterGenerateThresholdsKernel)
                 (bicGeoBuffer    bic)
@@ -261,8 +261,10 @@ buildRasterJobs params =
   do  -- Get the tile tree from the geometryState
       tileTree <- use geoTileTree
       -- Determine the maximum number of tiles per RasterJob
-      let tilesPerCall = tr "tilesPerCall" $ fromIntegral $ params ^. rpDevice . rasterSpec . specMaxTilesPerCall
+      let maxThresholds = NumStrands $ fromIntegral $ params ^. rpDevice . rasterSpec . specMaxThresholds
+          tilesPerCall = tr "tilesPerCall" $ fromIntegral $ params ^. rpDevice . rasterSpec . specMaxTilesPerJob
           threadsPerTile = tr "threadsPerTile" $ fromIntegral $ params ^. rpDevice . rasterSpec . specThreadsPerTile
+          splitTree = splitTreeTiles maxThresholds tileTree
       -- Build all of the RasterJobs by traversing the TileTree.
-      finalState <- execBuildJobsMonad (traverseTileTree (accumulateRasterJobs threadsPerTile tilesPerCall) tileTree)
+      finalState <- execBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall threadsPerTile) splitTree)
       return $ trWith (show . length) "num jobs" $ (finalState ^. bsCurrentJob : finalState ^. bsJobs)

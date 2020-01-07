@@ -15,18 +15,18 @@
 
 module Graphics.Gudni.Raster.TileTree
   ( TileTree(..)
+  , EntrySequence(..)
   , TileEntry(..)
   , ItemEntry(..)
   , itemEntryTag
   , itemStrandCount
   , itemBox
   , tileItems
-  , tileStrandCount
-  , tileItemCount
   , buildTileTree
   , addItemToTree
   , traverseTileTree
   , adjustedLog
+  , splitTreeTiles
   )
 where
 
@@ -41,6 +41,8 @@ import Graphics.Gudni.Util.Debug
 import Control.Lens
 
 import Data.Tree
+import qualified Data.Sequence as S
+import Data.Sequence ((|>),(<|))
 
 type Width  = X SubSpace
 type Height = Y SubSpace
@@ -54,45 +56,46 @@ data ItemEntry = ItemEntry
     } deriving (Show)
 makeLenses ''ItemEntry
 
+type EntrySequence = S.Seq ItemEntry
+
 -- | A tile entry is the intermediate storage for the contents of a tile.
 data TileEntry = TileEntry
-    { _tileItems      :: [ItemEntry]
-    , _tileStrandCount :: NumStrands
-    , _tileItemCount   :: Size
+    { _tileItems      :: EntrySequence
     } deriving (Show)
 makeLenses ''TileEntry
 
+
 -- | A TileTree is a XY partition tree for dividing the canvas into tiles.
-type TileTree = VTree
+type TileTree item = VTree item
 
 -- | HTrees divide the space into two horiztonally adjacent partitions
 -- left and right of the cut line.
-data HTree = HTree
+data HTree item = HTree
     { hCut        :: Width
-    , leftBranch  :: VTree
-    , rightBranch :: VTree
+    , leftBranch  :: VTree item
+    , rightBranch :: VTree item
     }
-    | HLeaf (Tile TileEntry)
+    | HLeaf (Tile item)
 
 -- | VTrees divide the space into two vertically adjacent partitions
 -- above and below the cut line.
-data VTree = VTree
+data VTree item = VTree
     { vCut         :: Height
-    , topBranch    :: HTree
-    , bottomBranch :: HTree
+    , topBranch    :: HTree item
+    , bottomBranch :: HTree item
     }
-    | VLeaf (Tile TileEntry)
+    | VLeaf (Tile item)
 
 -- | Return the ceiling value of a log2 x adjusted to zero for x < 1.
 adjustedLog :: (Integral s, Integral v )=> s -> v
 adjustedLog x = if x < 1 then 0 else ceiling . logBase 2 . fromIntegral $ x
 
 -- | Create an initial empty tile
-emptyTile :: Int -> Int -> Box PixelSpace -> Tile TileEntry
-emptyTile hDepth vDepth box = Tile box hDepth vDepth (TileEntry [] 0 0)
+emptyTile :: a -> Int -> Int -> Box PixelSpace -> Tile a
+emptyTile emptyRep hDepth vDepth box = Tile box hDepth vDepth emptyRep
 
-buildTileTree :: PixelSpace -> Point2 PixelSpace -> TileTree
-buildTileTree tileSize canvasSize = goV canvasDepth box
+buildTileTree :: a -> PixelSpace -> Point2 PixelSpace -> TileTree a
+buildTileTree emptyRep  tileSize canvasSize = goV canvasDepth box
     where
     -- Choose the largest dimension of the canvas as the square side dimension of the area covered by the tileTree.
     maxCanvasDimension = max (unOrtho $ canvasSize ^. pX) (unOrtho $ canvasSize ^. pY)
@@ -111,7 +114,7 @@ buildTileTree tileSize canvasSize = goV canvasDepth box
       in  if depth > tileDepth
           then VTree vCut (goH depth (set bottomSide vIntCut box))
                           (goH depth (set topSide    vIntCut box))
-          else VLeaf $ emptyTile depth depth box
+          else VLeaf $ emptyTile emptyRep depth depth box
     -- split the tile by dividing into a horizontal row.
     goH depth box =
       let hIntCut = box ^. leftSide + (2 ^ (depth - 1))
@@ -119,99 +122,99 @@ buildTileTree tileSize canvasSize = goV canvasDepth box
       in  if depth > tileDepth
           then HTree hCut (goV (depth - 1) (set rightSide hIntCut box))
                           (goV (depth - 1) (set leftSide  hIntCut box))
-          else HLeaf $ emptyTile depth depth box
+          else HLeaf $ emptyTile emptyRep depth depth box
 
--- | Add a shape to a tile tree by choosing one side of each branch or copying a shape
--- that bridges the cut.
-addItemToTree :: NumStrands -> TileTree -> ItemEntry -> TileTree
-addItemToTree maxStrandsPerTile tree = {-tr "result" .-} insertShapeV tree {-. tr "addShape"-}
+-- | Add an itemEntry to a tile.
+insertItemTile :: Tile EntrySequence -> ItemEntry -> Tile EntrySequence
+insertItemTile tile itemEntry = over tileRep (flip (S.|>) itemEntry) tile
+
+-- | Add an itemEntry to a tile tree.
+
+addItemToTree :: TileTree EntrySequence -> ItemEntry -> TileTree EntrySequence
+addItemToTree tree = insertItemV tree
+
+-- | Add a shape to an HTree
+insertItemH :: HTree EntrySequence -> ItemEntry -> HTree EntrySequence
+insertItemH (HTree cut left right) itemEntry =
+    let left'  = -- if the left side of the shape is left of the cut add it to the left branch
+                 if itemEntry ^. itemBox . leftSide < cut
+                 then insertItemV left itemEntry
+                 else left
+        right' = -- if the right side of the shape is right of the cut add it to the right branch
+                 if itemEntry ^. itemBox . rightSide > cut
+                 then insertItemV right itemEntry
+                 else right
+    in  HTree cut left' right'
+insertItemH (HLeaf tile) itemEntry =
+       HLeaf $ insertItemTile tile itemEntry
+
+
+insertItemV :: VTree EntrySequence -> ItemEntry -> VTree EntrySequence
+insertItemV (VTree cut top bottom) itemEntry =
+    let top'    = if itemEntry ^. itemBox . topSide < cut
+                  then insertItemH top itemEntry
+                  else top
+        bottom' = if itemEntry ^. itemBox . bottomSide > cut
+                  then insertItemH bottom itemEntry
+                  else bottom
+    in  VTree cut top' bottom'
+insertItemV (VLeaf tile) itemEntry =
+    VLeaf $ insertItemTile tile itemEntry
+
+splitTreeTiles :: NumStrands -> TileTree EntrySequence -> TileTree EntrySequence
+splitTreeTiles maxThresholds tree = goV tree
     where
-    -- | Add a shape to an HTree
-    insertShapeH :: HTree -> ItemEntry -> HTree
-    insertShapeH (HTree cut left right) itemEntry =
-        let left'  = -- if the left side of the shape is left of the cut add it to the left branch
-                     if itemEntry ^. itemBox . leftSide < cut
-                     then insertShapeV left itemEntry
-                     else left
-            right' = -- if the right side of the shape is right of the cut add it to the right branch
-                     if itemEntry ^. itemBox . rightSide > cut
-                     then insertShapeV right itemEntry
-                     else right
-        in  HTree cut left' right'
-    insertShapeH (HLeaf tile) itemEntry =
-      if -- the tile has room for more shapes or its to small to be split again
-         checkTileSpace tile itemEntry || widthOf (tile ^. tileBox) <= mINtILEsIZE ^. pX
-      then -- then simple add it.
-           HLeaf $ insertShapeTile tile itemEntry
-      else -- otherwise split the tile in half and then add the shape to the split tiles.
-           insertShapeH (hSplit tile) itemEntry
+        goH tree =
+           case tree of
+             (HTree cut left right) -> HTree cut (goV left) (goV right)
+             (HLeaf tile) -> if shouldSplitH maxThresholds tile
+                             then goH $ hSplit tile
+                             else HLeaf tile
+        goV tree =
+           case tree of
+             (VTree cut top bottom) -> VTree cut (goH top) (goH bottom)
+             (VLeaf tile) -> if shouldSplitV maxThresholds tile
+                             then goV $ vSplit tile
+                             else VLeaf tile
 
-    insertShapeV :: VTree -> ItemEntry -> VTree
-    insertShapeV (VTree cut top bottom) itemEntry =
-        let top'    = if itemEntry ^. itemBox . topSide < cut
-                      then insertShapeH top itemEntry
-                      else top
-            bottom' = if itemEntry ^. itemBox . bottomSide > cut
-                      then insertShapeH bottom itemEntry
-                      else bottom
-        in  VTree cut top' bottom'
-    insertShapeV (VLeaf tile) itemEntry =
-        if -- the tile has room for more shapes or its to small to be split again
-           checkTileSpace tile itemEntry || heightOf (tile ^. tileBox) <= mINtILEsIZE ^. pY
-        then -- then simple add it.
-             VLeaf $ insertShapeTile tile itemEntry
-        else -- otherwise split the tile in half and then add the shape to the split tiles.
-             insertShapeV (vSplit tile) itemEntry
+hSplit :: Tile EntrySequence -> HTree EntrySequence
+hSplit tile =
+  let cut = tile ^. tileBox . leftSide + (widthOf (tile ^. tileBox) `div` 2)
+      lEmpty = emptyTile S.empty (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set rightSide cut (tile ^. tileBox))
+      rEmpty = emptyTile S.empty (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set leftSide cut (tile ^. tileBox))
+      hTree = HTree (fromIntegral cut) (VLeaf lEmpty) (VLeaf rEmpty)
+  in  foldl insertItemH hTree $ (tile ^. tileRep)
 
-    -- | Add a shape to a tile.
-    insertShapeTile :: Tile TileEntry -> ItemEntry -> Tile TileEntry
-    insertShapeTile tile itemEntry =
-      let tileEntry = tile ^. tileRep
-          newEntry = TileEntry { -- append the shape.
-                                 _tileItems = tileEntry ^. tileItems ++ [itemEntry]
-                                 -- add to the total strand count.
-                               , _tileStrandCount = tileEntry ^. tileStrandCount + itemEntry ^. itemStrandCount
-                                 -- increment the shape count.
-                               , _tileItemCount = tileEntry ^. tileItemCount + 1
-                               }
-      in  set tileRep newEntry tile
+vSplit :: Tile EntrySequence -> VTree EntrySequence
+vSplit tile =
+  let cut = tile ^. tileBox . topSide + (heightOf (tile ^. tileBox) `div` 2)
+      tEmpty = emptyTile S.empty (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set bottomSide cut (tile ^. tileBox))
+      bEmpty = emptyTile S.empty (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set topSide    cut (tile ^. tileBox))
+      vTree = VTree (fromIntegral cut) (HLeaf tEmpty) (HLeaf bEmpty)
+  in  foldl insertItemV vTree $ (tile ^. tileRep)
 
-    -- | Check if the tile can hold an additional shape without splitting.
-    checkTileSpace :: Tile TileEntry -> ItemEntry -> Bool
-    checkTileSpace tile itemEntry =
-      let tileEntry = tile ^. tileRep
-          withAddedStrands = (tileEntry ^. tileStrandCount + (itemEntry ^. itemStrandCount))
-      in     tileEntry ^. tileItemCount < mAXlAYERS - 1 -- the total shapes would be less than the maximum
-          && withAddedStrands < maxStrandsPerTile -- the total strands would be less than the maximum.
+shouldSplitV :: NumStrands -> Tile EntrySequence -> Bool
+shouldSplitV maxThresholds tile =
+   heightOf (tile ^. tileBox) > mINtILEsIZE ^. pY &&
+   (length (tile ^. tileRep) > mAXlAYERS ||
+   sum (fmap (view itemStrandCount) (tile ^. tileRep)) > maxThresholds)
 
-    -- | Split a tile into two horizontal sections and put its contents into both sides in the proper order (reversed)
-    hSplit :: Tile TileEntry -> HTree
-    hSplit tile =
-      let cut = tile ^. tileBox . leftSide + (widthOf (tile ^. tileBox) `div` 2)
-          lEmpty = emptyTile (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set rightSide cut (tile ^. tileBox))
-          rEmpty = emptyTile (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set leftSide cut (tile ^. tileBox))
-          hTree = HTree (fromIntegral cut) (VLeaf lEmpty) (VLeaf rEmpty)
-      in  {-tr "hSplit" $-} foldl insertShapeH hTree $ (tile ^. tileRep . tileItems)
-
-    -- | Split a tile into two vertical sections and put its contents into both sides in the proper order (reversed)
-    vSplit :: Tile TileEntry -> VTree
-    vSplit tile =
-      let cut = tile ^. tileBox . topSide + (heightOf (tile ^. tileBox) `div` 2)
-          tEmpty = emptyTile (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set bottomSide cut (tile ^. tileBox))
-          bEmpty = emptyTile (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set topSide    cut (tile ^. tileBox))
-          vTree = VTree (fromIntegral cut) (HLeaf tEmpty) (HLeaf bEmpty)
-      in  {-tr "vSplit" $-} foldl insertShapeV vTree $ (tile ^. tileRep . tileItems)
+shouldSplitH :: NumStrands -> Tile EntrySequence -> Bool
+shouldSplitH maxThresholds tile =
+   widthOf (tile ^. tileBox) > mINtILEsIZE ^. pX &&
+   (length (tile ^. tileRep) > mAXlAYERS ||
+   sum (fmap (view itemStrandCount) (tile ^. tileRep)) > maxThresholds)
 
 -- | Traverse a TileTree with a monadic function.
-traverseTileTree :: Monad m => (Tile TileEntry -> m t) -> TileTree -> m t
+traverseTileTree :: Monad m => (Tile a -> m t) -> TileTree a -> m t
 traverseTileTree = traverseTileTreeV
 
-traverseTileTreeH :: Monad m => (Tile TileEntry -> m t) -> HTree -> m t
+traverseTileTreeH :: Monad m => (Tile a -> m t) -> HTree a -> m t
 traverseTileTreeH f (HTree _ left right) = do traverseTileTreeV f left
                                               traverseTileTreeV f right
 traverseTileTreeH f (HLeaf tile) = f tile
 
-traverseTileTreeV :: Monad m => (Tile TileEntry -> m t) -> VTree -> m t
+traverseTileTreeV :: Monad m => (Tile a -> m t) -> VTree a -> m t
 traverseTileTreeV f (VTree _ top bottom) = do traverseTileTreeH f top
                                               traverseTileTreeH f bottom
 traverseTileTreeV f (VLeaf tile) = f tile
@@ -219,9 +222,7 @@ traverseTileTreeV f (VLeaf tile) = f tile
 -- | Display the contents of a tile.
 showTile tile = " (" ++ show (widthOf $ tile ^. tileBox)
               ++ "X" ++ show (heightOf $ tile ^. tileBox)
-              ++ ") Shapes " ++ show (tile ^. tileRep . tileItemCount)
-              ++ " Strands " ++ show (tile ^. tileRep . tileStrandCount)
-              ++ " Shapes " ++ show (tile ^. tileRep . tileItems)
+              ++ " tileRep " ++ show (tile ^. tileRep)
 
 -- | Display a TileTree by converting it first to a data tree and drawing it.
 toDataTreeH (HLeaf tile) = Node (showTile tile) []
@@ -230,8 +231,8 @@ toDataTreeH (HTree hCut left right) = Node ("H" ++ show hCut) [toDataTreeV left,
 toDataTreeV (VLeaf tile) = Node (showTile tile) []
 toDataTreeV (VTree vCut top bottom) = Node ("V" ++ show vCut) [toDataTreeH top, toDataTreeH bottom]
 
-instance Show HTree where
+instance Show a => Show (HTree a) where
   show = drawTree . toDataTreeH
 
-instance Show VTree where
+instance Show a => Show (VTree a) where
   show = drawTree . toDataTreeV

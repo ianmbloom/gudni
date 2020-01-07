@@ -21,7 +21,6 @@ module Graphics.Gudni.Raster.Serialize
   , GeometryState(..)
   , geoReorderTable
   , geoMaxStrandSize
-  , geoMaxStrandsPerTile
   , geoGeometryPile
   , geoRefPile
   , geoTileTree
@@ -112,10 +111,9 @@ excludeBox canvasSize box =
 data GeometryState = GeometryState
     { _geoReorderTable      :: ReorderTable
     , _geoMaxStrandSize     :: Int
-    , _geoMaxStrandsPerTile :: NumStrands
     , _geoGeometryPile      :: GeometryPile
     , _geoRefPile           :: Pile GeoReference
-    , _geoTileTree          :: TileTree
+    , _geoTileTree          :: TileTree EntrySequence
     , _geoCanvasSize        :: Point2 SubSpace
     , _geoRandomField       :: RandomField
     }
@@ -135,7 +133,7 @@ runGeometryMonad rasterSpec randomField mf =
   do geometryPile <- liftIO (newPileSize iNITgEOMETRYpILEsIZE :: IO BytePile)
      geoRefPile <- liftIO (newPile :: IO (Pile GeoReference))
      let reorderTable = buildReorderTable mAXsECTIONsIZE
-     let geometryState = GeometryState reorderTable mAXsECTIONsIZE (NumStrands . fromIntegral $ rasterSpec ^. specMaxStrandsPerTile) geometryPile geoRefPile undefined undefined randomField
+     let geometryState = GeometryState reorderTable mAXsECTIONsIZE geometryPile geoRefPile undefined undefined randomField
      evalStateT mf geometryState
 
 -- | Reuse the geometry monad without reallocating the geometry pile.
@@ -160,8 +158,6 @@ onShape substanceId combineType transformer outlines =
              reorderTable <- use geoReorderTable
              -- Maximum size of a strand.
              maxStrandSize <- use geoMaxStrandSize
-             -- Maximum strands per tile
-             maxStrandsPerTile <- use geoMaxStrandsPerTile
              -- Build an enclosure from the outlines.
              let enclosure = enclose reorderTable maxStrandSize transformedOutlines
              -- Get the geometry pile.
@@ -175,8 +171,7 @@ onShape substanceId combineType transformer outlines =
              tileTree <- use geoTileTree
              let itemTag = shapeInfoTag combineType substanceId (GeoId geoId)
              -- Add the shape to the tile tree.
-             geoTileTree .= addItemToTree maxStrandsPerTile
-                                          tileTree
+             geoTileTree .= addItemToTree tileTree
                                           (ItemEntry itemTag (enclosureNumStrands enclosure) boundingBox)
 
 -- | Constructor for holding the state of serializing substance information from the scene.
@@ -222,10 +217,8 @@ addItem :: Monad m
         -> ItemTag
         -> GeometryMonad m ()
 addItem boundingBox itemTag =
-  do maxStrandsPerTile <- use geoMaxStrandsPerTile
-     tileTree <- use geoTileTree
-     geoTileTree .= addItemToTree maxStrandsPerTile
-                                  tileTree
+  do tileTree <- use geoTileTree
+     geoTileTree .= addItemToTree tileTree
                                   (ItemEntry itemTag (NumStrands 3) boundingBox) -- the maximum strands a facet can create is 3
 
 addHardFacet :: MonadIO m

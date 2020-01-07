@@ -82,15 +82,14 @@ determineRasterSpec device =
       maxBufferSize <- clGetDeviceMaxConstantBufferSize device
       globalMemSize <- clGetDeviceGlobalMemSize         device
       maxMemAllocSize <- clGetDeviceMaxMemAllocSize     device
-      let maxTilesPerCall = 128
+      let maxThresholds = 1024
       -- The maximum number of threads that each tile can store is the maximum allocation size
-      let maxThresholds = fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize ^ 2) * sizeOf (undefined :: THRESHOLDTYPE))
+      let maxTilesPerJob = fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize * maxThresholds) * sizeOf (undefined :: THRESHOLDTYPE))
       return RasterSpec { _specMaxTileSize     = fromIntegral maxGroupSize
                         , _specThreadsPerTile  = fromIntegral maxGroupSize
-                        , _specMaxTilesPerCall = fromIntegral maxGroupSize
-                        , _specMaxThresholds   = tr "maxThresholds" $ maxThresholds
-                        , _specMaxStrandsPerTile = tr "maxStrandsPerTile" $ maxThresholds - 2
-                        , _specMaxLayers         = mAXlAYERS
+                        , _specMaxTilesPerJob  = maxTilesPerJob
+                        , _specMaxThresholds   = maxThresholds
+                        , _specMaxLayers       = mAXlAYERS
                         }
 
 -- | Order Devices based on the number of compute units

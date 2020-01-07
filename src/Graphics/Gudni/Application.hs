@@ -78,6 +78,7 @@ import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.RandomField
 
 import qualified Data.Vector.Storable as VS
+import qualified Data.Sequence as S
 import System.Info
 
 -- | The model typeclass is the primary interface to the application functions in Gudni
@@ -222,7 +223,7 @@ drawFrame frameCount scene =
         let canvasSize = P (targetArea target)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
         let maxTileSize = rasterizer ^. rasterSpec . specMaxTileSize
-        lift (geoTileTree .= buildTileTree maxTileSize (fromIntegral <$> canvasSize))
+        lift (geoTileTree .= buildTileTree S.empty maxTileSize (fromIntegral <$> canvasSize))
         markAppTime "Build TileTree"
         (scenePictMem, pictDataPile) <- liftIO $ assignScenePictureMemory pictureMap scene
         substanceState <- lift ( execSubstanceMonad $ buildOverScene scenePictMem)

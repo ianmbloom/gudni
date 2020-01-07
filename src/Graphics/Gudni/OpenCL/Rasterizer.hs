@@ -15,9 +15,8 @@ module Graphics.Gudni.OpenCL.Rasterizer
   ( RasterSpec(..)
   , specMaxTileSize
   , specThreadsPerTile
-  , specMaxTilesPerCall
+  , specMaxTilesPerJob
   , specMaxThresholds
-  , specMaxStrandsPerTile
   , specMaxLayers
   , Rasterizer(..)
   , rasterClState
@@ -39,10 +38,8 @@ data RasterSpec = RasterSpec
       _specMaxTileSize  :: PixelSpace
       -- | The number of threads to execute per tile. This must be >= specMaxTileSize and a power of two.
     , _specThreadsPerTile :: Int
-      -- | The maximum number of stands a tile can contain before it must be split.
-    , _specMaxStrandsPerTile :: Int
       -- | Determined best number of tiles per kernel call for this device.
-    , _specMaxTilesPerCall :: Int
+    , _specMaxTilesPerJob :: Int
       -- | Determined best maximum number of thresholds per thread for this device.
     , _specMaxThresholds :: Int
       -- | Determined best maximum number of shapes per thread for this device∘
