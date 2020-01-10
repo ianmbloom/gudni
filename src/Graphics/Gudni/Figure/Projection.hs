@@ -211,11 +211,15 @@ projectOffsetCurve max_steps m_accuracy start sPoint sNormal end ePoint eNormal 
         correctX x  = inverseArcLength max_steps m_accuracy sourceCurve (x - unOrtho start) -- /unOrtho len
         (V3 t0 tc t1) = fmap (correctX . unOrtho . view pX) . view bzPoints $ bz
         (V3 y0 yC y1) = fmap (unOrtho . view pY) . view bzPoints $ bz
-        (normal0, normal1, s0, sC, s1) =
+        (normal0, normal1, s0, sC, s1) = tr ("normals starts " ++ show bz ++ "=>") $
             if t0 == t1
-            then let (Bez s0 sC s1) = dropBezier t0 sourceCurve
-                     n0 = normalize (perp (sC .-. s0))
-                 in  (n0, n0, s0, s0, s0)
+            then if t0 < 0.5
+                 then let (Bez s0 sC s1) = dropBezier t0 sourceCurve
+                          n0 = normalize (perp (sC .-. s0))
+                      in  (n0, n0, s0, s0, s0)
+                 else let (Bez s0 sC s1) = takeBezier t0 sourceCurve
+                          n0 = normalize (perp (s1 .-. sC))
+                      in  (n0, n0, s1, s1, s1)
             else let (Bez s0 sC s1) = sliceBezier t0 t1 sourceCurve
                      n0 = normalize (perp (sC .-. s0))
                      n1 = normalize (perp (s1 .-. sC))

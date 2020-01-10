@@ -53,17 +53,17 @@ instance Model StrokeState where
         transformFromState (state ^. stateBase) $
         overlap ([projected, stroked])
       where
-        bz = Bez (Point2 0 0) (Point2 20 0) (Point2 40 0) :: Bezier SubSpace
-        --bz  = Bez (Point2 0 0) (Point2 40 0) (Point2 20 40)
-        --bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)
-        --bz3 = Bez (Point2 40 80) (Point2 50 90) (Point2 20 20)
-        path = makeOpenCurve $ [bz{-,bz2,bz3-}]
+        bz  = Bez (Point2 0 0) (Point2 40 0) (Point2 20 40)
+        bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)
+        bz3 = Bez (Point2 40 80) (Point2 50 90) (Point2 20 20)
+        path = makeOpenCurve $ [bz,bz2,bz3]
         stroked :: ShapeTree Int SubSpace
         stroked =
                solid blue .
                stroke 10 $ path
+        projected :: ShapeTree Int SubSpace
         projected =
-          projection path . translateByXY 0 (-5) . solid (transparent 0.5 red) . tr "rectangle" . compoundLeaf . pure . rectangle $ (Point2 40 10 :: Point2 SubSpace)
+          projection path . translateByXY 0 (-5) . solid (transparent 0.5 red) . tr "rectangle" . compoundLeaf . pure . rectangle $ (Point2 100 10 :: Point2 SubSpace)
 
 
     providePictureMap _ = noPictures
