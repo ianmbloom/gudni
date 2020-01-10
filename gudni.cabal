@@ -125,6 +125,7 @@ library
                      , Graphics.Gudni.Util.Util
                      , Graphics.Gudni.Util.Pile
                      , Graphics.Gudni.Util.Chain
+                     , Graphics.Gudni.Util.Loop
                      , Graphics.Gudni.Util.RandomField
 
   -- LANGUAGE extensions used by modules in this package.
@@ -202,7 +203,7 @@ library
 
   -- Directories containing source files.
   hs-source-dirs:   src
-  ghc-options:
+  ghc-options:      -fprint-potential-instances
   ld-options:       -headerpad_max_install_names
 
   -- Base language which the package is written in.
@@ -287,6 +288,7 @@ executable projection-example
   ghc-options: -main-is ProjectDemo
                -O3
                -threaded
+               -fprint-potential-instances
 
 executable plot-example
    -- other-modules:

@@ -36,6 +36,7 @@ module Graphics.Gudni.Figure.Point
   , normalize
   , norm
   , pointArea
+  , taxiDistance
   , mid
   , isLeftOf
   , isRightOf
@@ -92,6 +93,11 @@ instance Random s => Random (Point2 s) where
                                                       return (Point2 x y)
 
 -- Convenience functions for reasoning about points
+
+taxiDistance :: (Space s) => Point2 s -> Point2 s -> s
+taxiDistance v0 v1 =
+  abs(unOrtho $ v1 ^. pX - v0 ^. pX) + abs(unOrtho $ v1 ^. pY - v0 ^. pY)
+
 
 -- | Make a mid point from two points.
 mid :: (Fractional s, Num s) => Point2 s -> Point2 s -> Point2 s

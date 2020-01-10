@@ -41,6 +41,8 @@ module Graphics.Gudni.Util.Util
   , withIO
   , lpad
   , putStrList
+  , orNothing
+  , opMaybe
   )
 where
 
@@ -176,6 +178,16 @@ putStrList ls =
     forM_ ls $ \ x ->
       putStrLn $ "   " ++ show x
     putStrLn "]"
+
+orNothing :: Bool -> b -> Maybe b
+orNothing cond val = if cond then Just val else Nothing
+
+opMaybe :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
+opMaybe f (Just x) Nothing  = Just x
+opMaybe f Nothing  (Just y) = Just y
+opMaybe f Nothing  Nothing  = Nothing
+opMaybe f (Just x) (Just y) = Just (f x y)
+
 {-
 
 liftIOState :: IO a -> StateT (Job) IO a

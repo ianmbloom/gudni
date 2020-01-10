@@ -22,6 +22,7 @@
 module Graphics.Gudni.Figure.OpenCurve
   ( OpenCurve_(..)
   , OpenCurve(..)
+  , makeOpenCurve
   , curveSegments
   , terminator
   , outset
@@ -30,7 +31,7 @@ module Graphics.Gudni.Figure.OpenCurve
   , overCurvePoints
   )
 where
-import Prelude hiding (last, reverse)
+import Prelude hiding (reverse)
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
@@ -56,12 +57,16 @@ import Control.DeepSeq
 import Control.Applicative
 import Control.Lens
 import Data.Traversable
+import Data.Foldable
 
 -- | An (almost) typesafe representation of an open bezier curve.
 data OpenCurve_ t s = OpenCurve
     { _curveSegments :: t (Bezier s)
     }
 makeLenses ''OpenCurve_
+
+makeOpenCurve :: Foldable t => t (Bezier s) -> OpenCurve s
+makeOpenCurve = OpenCurve . V.fromList . toList
 
 deriving instance (Show (t (Bezier s))) => Show (OpenCurve_ t s)
 deriving instance (Eq   (t (Bezier s))) => Eq (OpenCurve_ t s)
@@ -80,13 +85,13 @@ instance (Functor t, Foldable t, Space s) => HasArcLength (OpenCurve_ t s) where
 -- | The first point on the curve of an open curve.
 outset :: (Chain t) => Lens' (OpenCurve_ t s) (Point2 s)
 outset elt_fn (OpenCurve segments) =
-    let (Bez v0 control v1) = first segments
+    let (Bez v0 control v1) = firstLink segments
     in  (\v0' -> OpenCurve $ pure (Bez v0' control v1) <|> rest segments) <$> elt_fn v0
 
  -- | The last poinr on the curve of an open curve.
 terminator :: (Chain t) => Lens' (OpenCurve_ t s) (Point2 s)
 terminator elt_fn (OpenCurve segments) =
-    let (Bez v0 control v1) = last segments
+    let (Bez v0 control v1) = lastLink segments
     in  (\v1' -> OpenCurve $ notLast segments <|> pure (Bez v0 control v1')) <$> elt_fn v1
 
 -- | Map over every point in an OpenCurve
@@ -95,7 +100,7 @@ overCurvePoints f = over curveSegments (fmap (over bzPoints $ fmap f))
 
 -- | Return the same curve in the opposite order.
 reverseCurve :: (Chain t) => OpenCurve_ t s -> OpenCurve_ t s
-reverseCurve = over curveSegments (reverse . fmap reverseBezier)
+reverseCurve = over curveSegments (reverseChain . fmap reverseBezier)
 
 -- | Connect two curves end to end by translating c1 so that the starting point of 'c1' is equal to the terminator of 'c0'
 (<^>) :: (Chain t, Space s) => OpenCurve_ t s -> OpenCurve_ t s -> OpenCurve_ t s

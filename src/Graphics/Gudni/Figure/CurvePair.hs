@@ -18,6 +18,7 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Bezier
+import Graphics.Gudni.Util.Loop
 
 import Control.Lens
 import Linear.V2
@@ -57,19 +58,9 @@ pairPoints [v0] = []
 makeBezier :: CurvePair s -> CurvePair s -> Bezier s
 makeBezier a b = Bez (a ^. onCurve) (a ^. offCurve) (b ^. onCurve)
 
-class (Functor t) => Loop t where
-    overNeighbors :: (a -> a -> b) -> t a -> t b
-
--- | Zip each element with its next neighbor or the first element.
-
-instance Loop V.Vector where
-    overNeighbors f vector =
-      let rotated = (V.++) (V.drop 1 vector) (V.take 1 vector)
-      in  V.zipWith f vector rotated
-
 -- | Turn a sequence of curve pairs into a sequence of curve sections (called beziers)
 pairsToBeziers :: Loop t => t (CurvePair s) -> t (Bezier s)
-pairsToBeziers  = overNeighbors makeBezier
+pairsToBeziers  = overLoopNeighbors makeBezier
 
 bezierToCurvePair :: Bezier s -> CurvePair s
 bezierToCurvePair (Bez v0 c _) = CurvePair v0 c

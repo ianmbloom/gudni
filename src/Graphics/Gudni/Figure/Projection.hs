@@ -9,10 +9,12 @@
 module Graphics.Gudni.Figure.Projection
   ( CanProject(..)
   , BezierSpace(..)
+  , fixBezierNeighbor
   )
 where
 
 import Graphics.Gudni.Figure.Space
+import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Bezier
@@ -22,6 +24,8 @@ import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Util.Chain
+import Graphics.Gudni.Util.Loop
+import Graphics.Gudni.Util.Debug
 
 import Control.Lens
 import Linear
@@ -32,105 +36,221 @@ import qualified Data.Vector as V
 import Control.Applicative
 import Control.Monad
 import Data.Functor.Classes
-
-projectPoint :: Space s => Int -> Maybe s -> Bezier s -> Point2 s -> Point2 s
-projectPoint max_steps m_accuracy bz@(Bez anchor control endpoint) (Point2 x y) =
-  (onCurve .+^ (y *^ normal)) where
-      len = (inverseArcLength max_steps m_accuracy bz x)
-      (_, Bez onCurve tangent _) = splitBezier x bz
-      normal = normalize (perp (tangent .-. onCurve))
+import Data.Maybe (fromMaybe, fromJust)
 
 -- | In most cases, it is sufficient to define
 -- @projectionWithStepsAccuracy@, and use default implementations for the
 -- remaining functions.  You may also want to define a default
 -- accuracy by overriding @project@.
 class (SpaceOf u ~ SpaceOf t, Space (SpaceOf t)) => CanProject u t where
-  projection :: u -> t -> t
-  default projection :: u -> t -> t
-  projection = projectionWithAccuracy 1e-3
+    projection :: u -> t -> t
+    default projection :: u -> t -> t
+    projection = projectionWithAccuracy 1e-3
 
-  projectionWithAccuracy :: SpaceOf t -> u -> t -> t
-  default projectionWithAccuracy :: SpaceOf t -> u -> t -> t
-  projectionWithAccuracy accuracy =
-      projectionWithStepsAccuracy (maxStepsFromAccuracy accuracy) (Just accuracy)
+    projectionWithAccuracy :: SpaceOf t -> u -> t -> t
+    default projectionWithAccuracy :: SpaceOf t -> u -> t -> t
+    projectionWithAccuracy accuracy =
+        projectionWithStepsAccuracy (maxStepsFromAccuracy accuracy) (Just accuracy)
 
-  projectionWithSteps :: Int -> u -> t -> t
-  projectionWithSteps max_steps = projectionWithStepsAccuracy max_steps Nothing
+    projectionWithSteps :: Int -> u -> t -> t
+    projectionWithSteps max_steps = projectionWithStepsAccuracy max_steps Nothing
 
-  projectionWithStepsAccuracy :: Int -> Maybe (SpaceOf t) -> u -> t -> t
+    projectionWithStepsAccuracy :: Int -> Maybe (SpaceOf t) -> u -> t -> t
 
-instance (Space s) => CanProject (Bezier s) (Bezier s) where
-    projectionWithStepsAccuracy max_steps m_accuracy path =
-       over bzPoints (fmap (projectPoint max_steps m_accuracy path))
+fixBezierNeighbor :: Bezier s -> Bezier s -> Bezier s
+fixBezierNeighbor bz0 bz1 = set bzEnd (view bzStart bz1) bz0
 
-instance (s ~ (SpaceOf (f (Bezier s))), Space s, Monad f, Alternative f) => CanProject (BezierSpace s) (f (Bezier s)) where
+instance (s ~ (SpaceOf (f (Bezier s))), Space s, Show (f (Bezier s)), Chain f) => CanProject (BezierSpace s) (f (Bezier s)) where
     projectionWithStepsAccuracy max_steps m_accuracy bSpace beziers =
-      let stretchProject :: (Monad f, Alternative f) => s -> Bezier s -> Bezier s -> Bezier s
-          stretchProject len path = projectionWithStepsAccuracy max_steps m_accuracy path . stretchBy (Point2 (1/len) 1)
-          fixed :: f (Bezier s)
+      let fixed :: f (Bezier s)
           fixed = join . fmap deKnob $ beziers
-      in  join . fmap (traverseBezierSpace splitBezierX stretchProject bSpace) $ fixed
+      in  join . fmap (traverseBezierSpace max_steps m_accuracy
+                       bSpace) $ fixed
 
-instance (s ~ (SpaceOf (f (Bezier s))), Space s, Monad f, Alternative f) => CanProject (BezierSpace s) (OpenCurve_ f s) where
+instance (s ~ (SpaceOf (f (Bezier s))), Space s, Monad f, Alternative f, Show (f (Bezier s)), Chain f) => CanProject (BezierSpace s) (OpenCurve_ f s) where
     projectionWithStepsAccuracy max_steps m_accuracy bSpace curve =
-         OpenCurve . join . fmap (projectionWithStepsAccuracy max_steps m_accuracy bSpace . pure) . view curveSegments $ curve
+         OpenCurve . overChainNeighbors fixBezierNeighbor . projectionWithStepsAccuracy max_steps m_accuracy bSpace . view curveSegments $ curve
 
-instance (Eq1 f, Chain f, Space s, CanProject (BezierSpace s) t) => CanProject (OpenCurve_ f s) t where
+instance (Eq1 f, Chain f, Space s, CanProject (BezierSpace s) t, Show (f (Bezier s)), Chain f) => CanProject (OpenCurve_ f s) t where
     projectionWithStepsAccuracy max_steps m_accuracy path t =
-      let bSpace = makeBezierSpace arcLength (view curveSegments $ path)
+      let bSpace = makeBezierSpace (Ortho . arcLength) (view curveSegments path)
       in  projectionWithStepsAccuracy max_steps m_accuracy bSpace t
 
+
+
 data BezierSpace s = BezierSpace
-  { bsTree   :: RangeTree (Bezier s)
-  , bsLength :: s
+  { bsStart  :: Point2 s
+  , bsStartNormal :: Diff Point2 s
+  , bsEnd    :: Point2 s
+  , bsEndNormal :: Diff Point2 s
+  , bsTree   :: BezierTree s
+  , bsLength :: X s
   } deriving (Show)
 
 instance Space s => HasSpace (BezierSpace s) where
-  type SpaceOf (BezierSpace s) = s
+  type SpaceOf (BezierSpace s ) = s
 
-data HasSpace t => RangeTree t
-  = RangeSplit (SpaceOf t) (RangeTree t) (RangeTree t)
-  | RangeLeaf { rangeLength :: (SpaceOf t)
-              , rangeItem :: t
-              }
-  | RangeEmpty
+data BezierTree s
+  = BezierSplit
+         { bzTreeSplitX :: X s
+         , bzTreeSplitPoint :: Point2 s
+         , bzTreeLeftNormal  :: Diff Point2 s
+         , bzTreeRightNormal :: Diff Point2 s
+         , bzTreeLeft  :: BezierTree s
+         , bzTreeRight :: BezierTree s
+         }
+  | BezierLeaf
+         { bzTreeLength :: X s
+         , bzTreeControlPoint :: Point2 s
+         }
   deriving (Show)
 
-makeBezierSpace :: forall f s . (Eq1 f, Chain f, Space s) => (Bezier s -> s) -> f (Bezier s) -> BezierSpace s
-makeBezierSpace lengthFun = uncurry BezierSpace . go 0
+subdivideAcuteBezier :: (Space s, Alternative f) => Bezier s -> f (Bezier s)
+subdivideAcuteBezier bz@(Bez v0 vC v1) =
+  let tan0 = v0 .-. vC
+      tan1 = v1 .-. vC
+  in  if angleBetween tan0 tan1 <= 135 @@ deg -- this can probably be optimized with something simpler.
+      then let (left, right) = splitClosestControl bz
+           in  subdivideAcuteBezier left <|> subdivideAcuteBezier right
+      else pure bz
+
+makeBezierSpace :: forall f s . (Eq1 f, Chain f, Space s, Show (f (Bezier s))) => (Bezier s -> X s) -> f (Bezier s) -> BezierSpace s
+makeBezierSpace lengthFun chain =
+  fromJust . go 0 $ fixedChain
   where
-  go :: s -> f (Bezier s) -> (RangeTree (Bezier s), s)
+  fixedChain = join . fmap (subdivideAcuteBezier) $ chain
+  go :: X s -> f (Bezier s) -> Maybe (BezierSpace s)
   go start vector =
     let (left, right) = halfSplit vector
     in if right `eq1` empty
        then if left `eq1` empty
-            then (RangeEmpty, start)
-            else let curve = first left
-                     curveLength = lengthFun curve
-                 in  (RangeLeaf curveLength curve, start + curveLength)
+            then Nothing
+            else let (Bez v0 vC v1) = firstLink left
+                     curveLength :: X s
+                     curveLength = lengthFun (Bez v0 vC v1)
+                     normal0 = normalize (perp (vC .-. v0))
+                     normal1 = normalize (perp (v1 .-. vC))
+                     node :: BezierTree s
+                     node = BezierLeaf curveLength vC
+                 in  Just $ BezierSpace v0 normal0 v1 normal1 node (start + curveLength)
         else
-           let (leftBranch,  leftSplit ) = go start     left
-               (rightBranch, rightSplit) = go leftSplit right
-           in  (RangeSplit leftSplit leftBranch rightBranch, rightSplit)
+           let makeSplit (BezierSpace lLPoint  lLNormal lRPoint lRNormal leftTree  leftOffset )
+                         (BezierSpace _rLPoint rLNormal rRPoint rRNormal rightTree rightOffset) =
+                         let node = BezierSplit
+                                      { bzTreeSplitX = leftOffset
+                                      , bzTreeSplitPoint = lRPoint
+                                      , bzTreeLeftNormal = lRNormal
+                                      , bzTreeRightNormal = rLNormal
+                                      , bzTreeLeft  = leftTree
+                                      , bzTreeRight = rightTree
+                                      }
+                         in BezierSpace lLPoint lLNormal rRPoint rRNormal node rightOffset
+           in  case go start left of
+                   Just leftSpace ->
+                       case go (bsLength leftSpace) right of
+                           Just rightSpace -> Just $ makeSplit leftSpace rightSpace
+                           Nothing -> Just $ leftSpace
+                   Nothing -> Nothing
 
-traverseBezierSpace :: forall f t a
-                    .  (Space (SpaceOf t), Alternative f, HasBox t)
-                    => (SpaceOf t -> t -> (t, t))
-                    -> (SpaceOf t -> Bezier (SpaceOf t) -> t -> a)
-                    -> BezierSpace (SpaceOf t) -> t -> f a
-traverseBezierSpace splitFun f (BezierSpace tree totalLen) item =
-  go item tree
+traverseBezierSpace :: forall s f
+                    .  (Space s, Alternative f, Chain f)
+                    => Int
+                    -> Maybe s
+                    -> BezierSpace s
+                    -> Bezier s
+                    -> f (Bezier s)
+traverseBezierSpace max_steps m_accuracy bSpace@(BezierSpace sPoint sNormal ePoint eNormal tree len) item =
+  if bezierIsForward item
+  then go 0 sPoint sNormal len ePoint eNormal tree item
+  else reverseChain . fmap (reverseBezier) . go 0 sPoint sNormal len ePoint eNormal tree . reverseBezier $ item
   where
-  go :: t -> RangeTree (Bezier (SpaceOf t)) -> f a
-  go item tree =
-    let box = boxOf item in
-      case tree of
-        RangeSplit splitPoint left right ->
-          if (unOrtho (box ^. leftSide) < splitPoint)
-          then if (unOrtho (box ^. rightSide) > splitPoint)
-               then let (leftItem, rightItem) = splitFun splitPoint item
-                    in  go leftItem left <|> go rightItem right
-               else go item left
-          else go item right
-        RangeEmpty -> empty
-        RangeLeaf len controlCurve -> pure (f len controlCurve item)
+  go :: X s -> Point2 s -> Diff Point2 s -> X s -> Point2 s -> Diff Point2 s -> BezierTree s -> Bezier s -> f (Bezier s)
+  go start sPoint sNormal end ePoint eNormal tree bz =
+     let box = boxOf bz
+     in
+     case tree of
+       BezierSplit splitX splitPoint leftNormal rightNormal leftTree rightTree ->
+           if box ^. leftSide < splitX
+           then
+               if box ^. rightSide > splitX
+               then let (leftBz, rightBz) = splitBezierX splitX bz
+                        leftResult  = go start  sPoint     sNormal     splitX splitPoint leftNormal leftTree  leftBz
+                        rightResult = go splitX splitPoint rightNormal end    ePoint     eNormal    rightTree rightBz
+                    in  leftResult <|> rightResult
+               else go start  sPoint     sNormal     splitX splitPoint leftNormal leftTree  bz
+           else      go splitX splitPoint rightNormal end    ePoint     eNormal   rightTree bz
+       BezierLeaf curveLength control ->
+         if box ^. leftSide < start
+         then
+              if box ^. rightSide > start
+              then let (leftBz, rightBz) = splitBezierX start bz
+                       leftResult  = pure (projectTangentBezier start sPoint sNormal leftBz)
+                       rightResult = go start sPoint sNormal end ePoint eNormal tree rightBz
+                   in  leftResult <|> rightResult
+              else pure (projectTangentBezier start sPoint sNormal bz)
+         else if box ^. rightSide > end
+              then
+                  if box ^. leftSide < end
+                  then let (leftBz, rightBz)  = splitBezierX end bz
+                           leftResult  = go start sPoint sNormal end ePoint eNormal tree leftBz
+                           rightResult = pure (projectTangentBezier end ePoint eNormal rightBz)
+                       in  leftResult <|> rightResult
+                  else pure (projectTangentBezier end ePoint eNormal bz)
+              else pure (mkOffsetCurve max_steps m_accuracy start sPoint sNormal end ePoint eNormal control curveLength bz)
+
+projectTangentPoint :: Space s => X s -> Point2 s -> Diff Point2 s -> Point2 s -> Point2 s
+projectTangentPoint offset v0 normal (Point2 x y) =
+  let t = x - unOrtho offset
+      tangent = negate $ perp normal
+  in  v0 .+^ (t *^ tangent) .+^ (y *^ normal)
+
+projectTangentBezier :: Space s => X s -> Point2 s -> Diff Point2 s -> Bezier s -> Bezier s
+projectTangentBezier offset v0 normal bz = overBezier (projectTangentPoint offset v0 normal) bz
+
+projectOffsetCurve :: Space s
+                   => Int
+                   -> Maybe s
+                   -> X s
+                   -> Point2 s
+                   -> Diff Point2 s
+                   -> X s
+                   -> Point2 s
+                   -> Diff Point2 s
+                   -> Point2 s
+                   -> X s
+                   -> Bezier s
+                   -> Bezier s
+projectOffsetCurve max_steps m_accuracy start sPoint sNormal end ePoint eNormal control len bz =
+    let sourceCurve = Bez sPoint control ePoint
+        correctX x  = inverseArcLength max_steps m_accuracy sourceCurve (x - unOrtho start) -- /unOrtho len
+        (V3 t0 tc t1) = fmap (correctX . unOrtho . view pX) . view bzPoints $ bz
+        (V3 y0 yC y1) = fmap (unOrtho . view pY) . view bzPoints $ bz
+        (normal0, normal1, s0, sC, s1) =
+            if t0 == t1
+            then let (Bez s0 sC s1) = dropBezier t0 sourceCurve
+                     n0 = normalize (perp (sC .-. s0))
+                 in  (n0, n0, s0, s0, s0)
+            else let (Bez s0 sC s1) = sliceBezier t0 t1 sourceCurve
+                     n0 = normalize (perp (sC .-. s0))
+                     n1 = normalize (perp (s1 .-. sC))
+                 in  (n0, n1, s0, sC, s1)
+        m = normal0 ^+^ normal1
+        sOffset = normal0 ^* y0
+        cOffset = m ^* (2 * yC / m `dot` m) -- probably wrong
+        eOffset = normal1 ^* y1
+        s = s0 .+^ sOffset
+        c = sC .+^ cOffset
+        e = s1 .+^ eOffset
+    in  Bez s c e
+
+bezierIsForward (Bez v0 _ v1) = v0 ^. pX <= v1 ^. pX
+
+mkOffsetCurve max_steps m_accuracy start sPoint sNormal end ePoint eNormal control len bz =
+  let prj = projectOffsetCurve max_steps m_accuracy start sPoint sNormal end ePoint eNormal control len
+  in
+  if bezierIsForward bz
+  then prj bz
+  else reverseBezier .
+       prj .
+       reverseBezier $
+       bz

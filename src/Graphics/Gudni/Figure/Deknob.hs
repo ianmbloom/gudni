@@ -15,7 +15,6 @@
 
 module Graphics.Gudni.Figure.Deknob
   ( CanDeKnob(..)
-  , deKnob
   )
 where
 

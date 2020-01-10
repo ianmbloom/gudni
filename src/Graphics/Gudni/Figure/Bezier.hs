@@ -15,6 +15,9 @@ module Graphics.Gudni.Figure.Bezier
   , overBezier
   , reverseBezier
   , maxStepsFromAccuracy
+  , dropBezier
+  , takeBezier
+  , sliceBezier
   , splitBezier
   , insideBezier
   , inverseArcLength
@@ -40,8 +43,11 @@ import Control.DeepSeq
 import Control.Lens hiding ((...))
 import Control.Applicative
 
-data Bezier s = Bezier {unBezier :: V3 (Point2 s)} deriving (Show, Eq, Ord)
+data Bezier s = Bezier {unBezier :: V3 (Point2 s)} deriving (Eq, Ord)
 pattern Bez x y z = Bezier (V3 x y z)
+
+instance Show s => Show (Bezier s) where
+  show (Bez v0 c v1) = "\nBez " ++ show v0 ++ " " ++ show c ++ " " ++ show v1
 
 -- | Lens for the start point of a bezier.
 bzStart :: Lens' (Bezier s) (Point2 s)
@@ -135,8 +141,29 @@ instance Space s => HasArcLength (Bezier s) where
                     * (4.0 * c * a - b * b)
                     * log (((2.0 * a + b) * a2 + 2.0 * sabc) / ba_c2)
 
+{-# INLINE dropBezier #-}
+-- | Analogous to dropping the beginning of a list but drop the part of a bezier up
+-- to parameter t.
+dropBezier :: Space s => s -> Bezier s -> Bezier s
+dropBezier t (Bez v0 c v1) =
+  let (Bez _ onCurve mid1) = insideBezier t (Bez v0 c v1)
+  in  (Bez onCurve mid1 v1)
+
+{-# INLINE takeBezier #-}
+-- | Analogous to taking the beginning of a list but take the part of a bezier up
+-- to parameter t.
+takeBezier :: Space s => s -> Bezier s -> Bezier s
+takeBezier t (Bez v0 c v1) =
+ let (Bez mid0 onCurve _) = insideBezier t (Bez v0 c v1)
+  in (Bez v0 mid0 onCurve)
+
+{-# INLINE sliceBezier #-}
+-- | Get a slice of the bezier curve between the two parameters t0 and t1
+sliceBezier :: Space s => s -> s -> Bezier s -> Bezier s
+sliceBezier t0 t1 = takeBezier ((t1 - t0) / (1 - t0)) . dropBezier t0
 
 {-# INLINE splitBezier #-}
+-- | Split a bezier at parameter t
 splitBezier :: (Floating s, Ord s) => s -> Bezier s -> (Bezier s, Bezier s)
 splitBezier t (Bez p0 c p1) = (Bez p0 mid0 onCurve, Bez onCurve mid1 p1) where
     (Bez mid0 onCurve mid1 ) = insideBezier t (Bez p0 c p1)

@@ -38,6 +38,7 @@ import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Util.Chain
+import Graphics.Gudni.Util.Loop
 import Graphics.Gudni.Util.Util
 import Control.Lens
 import Linear.V2
@@ -74,14 +75,11 @@ closeOpenCurve curve =
                      -- else insert a straight segment from the end to the beggining.
   in  Outline . connect . view curveSegments $ curve
 
-instance (s ~ SpaceOf (f (Bezier s)), Monad f, Alternative f, Space s) => CanProject (BezierSpace s) (Outline_ f s) where
+instance (s ~ SpaceOf (f (Bezier s)), Monad f, Alternative f, Space s, Show (f (Bezier s)), Loop f) => CanProject (BezierSpace s) (Outline_ f s) where
     projectionWithStepsAccuracy max_steps m_accuracy bSpace curve =
-         Outline . join . fmap (projectionWithStepsAccuracy max_steps m_accuracy bSpace . pure) . view shapeSegments $ curve
-
+         Outline . overLoopNeighbors fixBezierNeighbor .projectionWithStepsAccuracy max_steps m_accuracy bSpace . view shapeSegments $ curve
 
 -- * Instances
-
-
 instance (SimpleSpace s) => HasSpace (Outline_ t s) where
   type SpaceOf (Outline_ t s) = s
 

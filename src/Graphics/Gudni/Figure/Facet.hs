@@ -67,10 +67,6 @@ makeLenses ''HardFacet_
 
 type HardFacet = HardFacet_ SubSpace TextureSpace
 
-taxiDistance :: (Space s) => Point2 s -> Point2 s -> s
-taxiDistance v0 v1 =
-  abs(unOrtho $ v1 ^. pX - v0 ^. pX) + abs(unOrtho $ v1 ^. pY - v0 ^. pY)
-
 shouldSubdivideBezier :: (Space s) => s -> Bezier s -> Bool
 shouldSubdivideBezier tolerance bez =
   let midPoint = mid (bez ^. bzStart) (bez ^. bzEnd)
