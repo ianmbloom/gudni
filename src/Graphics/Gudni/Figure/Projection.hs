@@ -9,7 +9,8 @@
 module Graphics.Gudni.Figure.Projection
   ( CanProject(..)
   , BezierSpace(..)
-  , fixBezierNeighbor
+  , makeBezierSpace
+  , bezierSpaceLengths
   )
 where
 
@@ -20,7 +21,6 @@ import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Split
-import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Util.Chain
@@ -57,26 +57,12 @@ class (SpaceOf u ~ SpaceOf t, Space (SpaceOf t)) => CanProject u t where
 
     projectionWithStepsAccuracy :: Int -> Maybe (SpaceOf t) -> u -> t -> t
 
-fixBezierNeighbor :: Bezier s -> Bezier s -> Bezier s
-fixBezierNeighbor bz0 bz1 = set bzEnd (view bzStart bz1) bz0
-
 instance (s ~ (SpaceOf (f (Bezier s))), Space s, Show (f (Bezier s)), Chain f) => CanProject (BezierSpace s) (f (Bezier s)) where
     projectionWithStepsAccuracy max_steps m_accuracy bSpace beziers =
       let fixed :: f (Bezier s)
           fixed = join . fmap deKnob $ beziers
       in  join . fmap (traverseBezierSpace max_steps m_accuracy
                        bSpace) $ fixed
-
-instance (s ~ (SpaceOf (f (Bezier s))), Space s, Monad f, Alternative f, Show (f (Bezier s)), Chain f) => CanProject (BezierSpace s) (OpenCurve_ f s) where
-    projectionWithStepsAccuracy max_steps m_accuracy bSpace curve =
-         OpenCurve . overChainNeighbors fixBezierNeighbor . projectionWithStepsAccuracy max_steps m_accuracy bSpace . view curveSegments $ curve
-
-instance (Eq1 f, Chain f, Space s, CanProject (BezierSpace s) t, Show (f (Bezier s)), Chain f) => CanProject (OpenCurve_ f s) t where
-    projectionWithStepsAccuracy max_steps m_accuracy path t =
-      let bSpace = makeBezierSpace (Ortho . arcLength) (view curveSegments path)
-      in  projectionWithStepsAccuracy max_steps m_accuracy bSpace t
-
-
 
 data BezierSpace s = BezierSpace
   { bsStart  :: Point2 s
@@ -254,3 +240,11 @@ mkOffsetCurve max_steps m_accuracy start sPoint sNormal end ePoint eNormal contr
        prj .
        reverseBezier $
        bz
+
+bezierSpaceLengths :: Alternative t => BezierSpace s -> t s
+bezierSpaceLengths = go . bsTree
+ where
+ go node =
+   case node of
+    BezierSplit {} -> go (bzTreeLeft node) <|> go (bzTreeRight node)
+    BezierLeaf {} -> pure . unOrtho . bzTreeLength $ node

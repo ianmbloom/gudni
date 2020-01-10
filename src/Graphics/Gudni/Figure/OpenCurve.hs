@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -39,6 +40,7 @@ import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Transformable
+import Graphics.Gudni.Figure.Projection
 import qualified Graphics.Gudni.Figure.Bezier as BZ
 --import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Chain
@@ -113,3 +115,12 @@ instance (Hashable s, Hashable (t (Bezier s))) => Hashable (OpenCurve_ t s) wher
 
 instance (NFData s, NFData (t (Bezier s))) => NFData (OpenCurve_ t s) where
     rnf (OpenCurve a ) = a `deepseq` ()
+
+instance (s ~ (SpaceOf (f (Bezier s))), Space s, Monad f, Alternative f, Show (f (Bezier s)), Chain f) => CanProject (BezierSpace s) (OpenCurve_ f s) where
+    projectionWithStepsAccuracy max_steps m_accuracy bSpace curve =
+         OpenCurve . overChainNeighbors fixBezierNeighbor . projectionWithStepsAccuracy max_steps m_accuracy bSpace . view curveSegments $ curve
+
+instance (Chain f, Space s, CanProject (BezierSpace s) t, Show (f (Bezier s)), Chain f) => CanProject (OpenCurve_ f s) t where
+    projectionWithStepsAccuracy max_steps m_accuracy path t =
+      let bSpace = makeBezierSpace (Ortho . arcLength) (view curveSegments path)
+      in  projectionWithStepsAccuracy max_steps m_accuracy bSpace t

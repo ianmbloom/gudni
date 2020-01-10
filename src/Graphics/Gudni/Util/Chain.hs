@@ -4,11 +4,12 @@ module Graphics.Gudni.Util.Chain
   )
 where
 
+import Data.Functor.Classes
 import Control.Monad
 import Control.Applicative
 import qualified Data.Vector as V
 
-class (Alternative t, Monad t, Functor t) => Chain t where
+class (Alternative t, Monad t, Functor t, Foldable t, Eq1 t) => Chain t where
   firstLink:: t a -> a
   rest     :: t a -> t a
   lastLink :: t a -> a
@@ -17,6 +18,7 @@ class (Alternative t, Monad t, Functor t) => Chain t where
   halfSplit :: t a -> (t a, t a)
   segregate :: (a -> Bool) -> t a -> (t a, t a)
   zipWithChain :: (a -> a -> b) -> t a -> t a -> t b
+  scanlChain :: (b -> a -> b) -> b -> t a -> t b
   overChainNeighbors :: (a -> a -> a) -> t a -> t a
   overChainNeighbors f chain = zipWithChain f chain (rest chain) <|> pure (lastLink chain)
 
@@ -33,6 +35,7 @@ instance Chain V.Vector where
                           in (V.take half vector, V.drop half vector)
   segregate = V.span
   zipWithChain = V.zipWith
+  scanlChain = V.scanl
 
 
 instance Chain [] where
@@ -47,3 +50,4 @@ instance Chain [] where
                           in (take half list, drop half list)
   segregate = span
   zipWithChain = zipWith
+  scanlChain = scanl

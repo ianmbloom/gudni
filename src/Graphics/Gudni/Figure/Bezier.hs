@@ -22,6 +22,7 @@ module Graphics.Gudni.Figure.Bezier
   , insideBezier
   , inverseArcLength
   , eval
+  , fixBezierNeighbor
   )
 where
 
@@ -217,3 +218,6 @@ instance Hashable s => Hashable (Bezier s) where
 
 instance NFData s => NFData (Bezier s) where
     rnf (Bezier v3) = v3 `deepseq` ()
+
+fixBezierNeighbor :: Bezier s -> Bezier s -> Bezier s
+fixBezierNeighbor bz0 bz1 = set bzEnd (view bzStart bz1) bz0

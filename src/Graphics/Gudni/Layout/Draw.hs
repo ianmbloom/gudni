@@ -32,6 +32,7 @@ module Graphics.Gudni.Layout.Draw
   , cSubtract
   , glyphWrapShape
   , testPlot
+  , compoundLeaf
   )
 where
 
@@ -46,6 +47,7 @@ import Graphics.Gudni.Util.Debug
 import Data.Char (ord)
 import Control.Lens
 import qualified Data.Vector as V
+import Control.Applicative
 
 
 glyphWrapShape :: Space s => Shape s -> Glyph (CompoundTree s)
@@ -69,13 +71,13 @@ instance HasSpace leaf => Compoundable (Glyph (STree Compound leaf)) where
   cSubtract = combineGlyph cSubtract
 
 -- | Create a series of segments based on the size of a rectangle.
-rectangleCurve :: Space s => Point2 s -> [Bezier s]
+rectangleCurve :: Alternative t => Space s => Point2 s -> t (Bezier s)
 rectangleCurve v =
-    [ straight (makePoint 0         0        ) (makePoint (v ^. pX) 0        )
-    , straight (makePoint (v ^. pX) 0        ) (makePoint (v ^. pX) (v ^. pY))
-    , straight (makePoint (v ^. pX) (v ^. pY)) (makePoint 0         (v ^. pY))
-    , straight (makePoint 0         (v ^. pY)) (makePoint 0         0        )
-    ]
+        pure (straight (makePoint 0         0        ) (makePoint (v ^. pX) 0        ) )
+    <|> pure (straight (makePoint (v ^. pX) 0        ) (makePoint (v ^. pX) (v ^. pY)) )
+    <|> pure (straight (makePoint (v ^. pX) (v ^. pY)) (makePoint 0         (v ^. pY)) )
+    <|> pure (straight (makePoint 0         (v ^. pY)) (makePoint 0         0        ) )
+
 
 -- | Typeclass of shape representations that can create a rectangle.
 class HasSpace a => HasRectangle a where
@@ -83,7 +85,10 @@ class HasSpace a => HasRectangle a where
 
 -- | Basic instance of a rectangle.
 instance Space s => HasRectangle (CompoundTree s) where
-    rectangle v = SLeaf . pure . Outline . V.fromList . rectangleCurve $ v
+    rectangle v = SLeaf . pure . Outline . rectangleCurve $ v
+
+instance (Alternative t, Space s) => HasRectangle (Outline_ t s) where
+    rectangle v = Outline . rectangleCurve $ v
 
 -- | Glyph wrapper instance around a rectangle.
 instance Space s => HasRectangle (Glyph (CompoundTree s)) where
@@ -167,7 +172,7 @@ instance Space s => HasCircle (Glyph (CompoundTree s)) where
   circle = centerCircle . glyphWrapShape $ circleCurve
 
 -- | Typeclass of shape representations that can be filled with a color or texture.
-class CanFill a b | b -> a where
+class CanFill a b where
     solid :: Color -> a -> b
     textureWith :: NamedTexture -> a -> b
 
@@ -191,6 +196,11 @@ instance {-# Overlappable #-} (Functor f, SpaceOf (f (Glyph (CompoundTree s))) ~
     solid color      = fmap (solid color)
     textureWith pict = fmap (textureWith pict)
 
+compoundLeaf :: Shape s -> CompoundTree s
+compoundLeaf = SLeaf
+instance CanFill (Outline s) (ShapeTree Int s) where
+  solid color      = solid color      . compoundLeaf . pure
+  textureWith pict = textureWith pict . compoundLeaf . pure
 -- | Placeholder function to take a plot out of the curveLibrary and substitute a square on Nothing.
 testPlot :: String
          -> Glyph (CompoundTree SubSpace)

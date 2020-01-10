@@ -120,6 +120,7 @@ library
                      , Graphics.Gudni.Layout.Adjacent
                      , Graphics.Gudni.Layout.Font
                      , Graphics.Gudni.Layout.Scaffolding
+                     , Graphics.Gudni.Layout.Stroke
                      , Graphics.Gudni.Layout.Text
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util
@@ -286,6 +287,23 @@ executable projection-example
   main-is: ProjectDemo.hs
   default-language: Haskell2010
   ghc-options: -main-is ProjectDemo
+               -O3
+               -threaded
+               -fprint-potential-instances
+
+executable stroke-example
+  if flag(benchmarks)
+    build-depends:   gudni
+                   , base
+                   , lens
+                   , linear
+                   , mtl
+  else
+    buildable: False
+  hs-source-dirs: ./examples
+  main-is: StrokeDemo.hs
+  default-language: Haskell2010
+  ghc-options: -main-is StrokeDemo
                -O3
                -threaded
                -fprint-potential-instances
