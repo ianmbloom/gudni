@@ -227,7 +227,7 @@ buildThresholdHs threshold =
   color      = black  -- if shapeIndex == 0
                       -- then colorModifier $ colors !! shapeIndex
                       -- else transparent 0.01 $ black
-  in  overlap [(solid color :: Glyph (CompoundTree SubSpace) -> Glyph (ShapeTree Int SubSpace)) $ line adjustedStroke startPoint endPoint
+  in  overlap [(mask color :: Glyph (CompoundTree SubSpace) -> Glyph (ShapeTree Int SubSpace)) $ line adjustedStroke startPoint endPoint
               --,translateBy (Point2 (DSpace . realToFrac . thrLeft  $ threshold) (DSpace . realToFrac . thrTop $ threshold)) .
               -- SLeaf (Left $ transparent 0.25 $ light blue) 0 $
               -- rectangle (Point2 ((DSpace . realToFrac . thrRight  $ threshold) - (DSpace . realToFrac . thrLeft $ threshold))
@@ -286,7 +286,7 @@ buildParseStateHs action =
     --  buildCount        action -- Int
     --  randomFieldCursor action -- Int
     --  randomField       action -- Int
-    in translateBy start . solid color . rectangle $ end - start
+    in translateBy start . mask color . rectangle $ end - start
 
 buildTileStateHs :: Action -> Glyph (ShapeTree Int SubSpace)
 buildTileStateHs action = undefined
@@ -317,7 +317,7 @@ buildActionState state = overlap $ catMaybes
     , fmap buildParseStateHs     (tsParseState     state)
     , fmap buildTileStateHs      (tsTileStateHs    state)
     , fmap buildTraversalHs      (tsTraversal      state)
-    --, Just . solid blue . rectangle $ Point2 10 10
+    --, Just . mask blue . rectangle $ Point2 10 10
     ]
 
 instance Model TraceState where
@@ -351,7 +351,7 @@ statusDisplay :: Monad m => TraceState -> String -> FontMonad m (Glyph (ShapeTre
 statusDisplay state status =
     translateByXY 3100 2000 .
     scaleBy 24 .
-    fmap (solid (redish $ dark gray)) .
+    fmap (mask (redish $ dark gray)) .
     paragraph 0.1 0.1 AlignMin AlignMin $
     status
 

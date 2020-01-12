@@ -57,7 +57,7 @@ makeLenses ''Segment
 
 -- | Pattern synonym for a segment with no control point.
 pattern Straight p = Seg p Nothing
--- | Make a straight segment from the component dimensions
+-- | Make a straiight segment from the component dimensions
 straightXY :: X s -> Y s -> Segment s
 straightXY x y = Seg (makePoint x y) Nothing
 

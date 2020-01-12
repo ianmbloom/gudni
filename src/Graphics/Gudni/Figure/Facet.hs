@@ -139,7 +139,7 @@ hardenFacet facet =
     in  HardFacet { _hardFace = sceneFacet, _hardTexture = textureFacet}
 
 linesToFacetSide :: Space s => Point2 s -> Point2 s -> Point2 t -> Point2 t -> FacetSide s t
-linesToFacetSide p0 p1 t0 t1 = FacetSide (straight p0 p1) (V2 t0 t1)
+linesToFacetSide p0 p1 t0 t1 = FacetSide (line p0 p1) (V2 t0 t1)
 
 triangleToFacet :: Space s => V3 (Point2 s) -> V3 (Point2 t) -> Facet_ s t
 triangleToFacet (V3 p0 p1 p2) (V3 t0 t1 t2) =

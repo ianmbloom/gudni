@@ -82,11 +82,11 @@ instance Fuzzy CompoundTree where
                           0 -> do (aboveSize, belowSize) <- fuzzyBreak (size - 1)
                                   above <- fuzz aboveSize
                                   below <- fuzz belowSize
-                                  return $ cAdd above below
+                                  return $ addOver above below
                           1 -> do (aboveSize, belowSize) <- fuzzyBreak (size - 1)
                                   above <- fuzz aboveSize
                                   below <- fuzz belowSize
-                                  return $ cSubtract above below
+                                  return $ subtractFrom above below
                           2 -> do (aboveSize, belowSize) <- fuzzyBreak (size - 1)
                                   above <- fuzz aboveSize
                                   below <- fuzz belowSize
@@ -156,4 +156,4 @@ fuzzySquare range minRad maxRad = do
   token <- getRandomR(0,32768)
   radius<- getRandomR(minRad,maxRad)
   point <- getRandomR(makePoint 0 0, range)
-  return . translateBy point . scaleBy radius . SLeaf . SRep token color $ unitSquare
+  return . translateBy point . scaleBy radius . SLeaf . SRep token color $ rectangle (Point2 1 1)

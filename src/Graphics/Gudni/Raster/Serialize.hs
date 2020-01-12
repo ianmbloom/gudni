@@ -187,7 +187,7 @@ data SubstanceState token s = SubstanceState
     , _suBackgroundColor   :: Color
       -- | A pile of every substance collected from the scene.
     , _suSubstanceTagPile     :: Pile SubstanceTag
-    -- | A list of solid colors referenced by substanceTags
+    -- | A list of mask colors referenced by substanceTags
     , _suSolidColorPile       :: Pile Color
     }
 makeLenses ''SubstanceState

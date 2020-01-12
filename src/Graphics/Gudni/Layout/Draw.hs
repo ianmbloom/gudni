@@ -20,26 +20,23 @@
 
 module Graphics.Gudni.Layout.Draw
   ( rectangle
-  , unitSquare
-  , openRectangle
   , line
-  , arc
   , overlap
   , circle
-  , solid
+  , colorWith
   , textureWith
-  , cAdd
-  , cSubtract
-  , glyphWrapShape
-  , testPlot
-  , compoundLeaf
+  , addOver
+  , subtractFrom
+  , mask
   )
 where
 
 import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Util.Util
+import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Plot
+
 import Graphics.Gudni.Layout.Glyph
 import Graphics.Gudni.Layout.Adjacent
 import Graphics.Gudni.Util.Debug
@@ -49,162 +46,133 @@ import Control.Lens
 import qualified Data.Vector as V
 import Control.Applicative
 
+-- | Typeclass of objects that can represent a mask (a filled in area) or a combination of filled
+-- in areas that are repesented by CompoundTree.
+class CanMask a b | b -> a where
+    mask :: a -> b
 
-glyphWrapShape :: Space s => Shape s -> Glyph (CompoundTree s)
-glyphWrapShape outlines =
-   let box = foldl1 minMaxBox $ map boxOf $ outlines
-   in  Glyph box (SLeaf $ outlines)
+instance CanMask (Shape s) (CompoundTree s) where
+    mask = SLeaf
+
+instance CanMask (Glyph (Shape s)) (Glyph (CompoundTree s)) where
+    mask = mapGlyph mask
+
+instance (Functor f) => CanMask (f (Shape s)) (f (CompoundTree s)) where
+    mask = fmap mask
+
+
+-- | Typeclass of shape representations that can be filled with a color or texture.
+class CanFill a b | b -> a where
+    colorWith :: Color -> a -> b
+    textureWith :: NamedTexture -> a -> b
+
+-- | Instance for filling a compound shape and creating a normal shapeTree leaf.
+instance CanFill (CompoundTree s) (ShapeTree Int s) where
+    colorWith color     = SLeaf . SRep 0 (Solid color)
+    textureWith texture = SLeaf . SRep 0 (Texture texture)
+
+-- | Instance for filling a compound shape and creating a glyph wrapped shapeTree leaf.
+instance CanFill (Glyph (CompoundTree s)) (Glyph (ShapeTree Int s)) where
+    colorWith color     = mapGlyph (colorWith color)
+    textureWith texture = mapGlyph (textureWith texture)
+
+-- | Instance for filling a functor of a compound shapetrees such as a list.
+instance {-# Overlappable #-} (Functor f, SpaceOf (f (CompoundTree s)) ~ s) => CanFill (f (CompoundTree s)) (f (ShapeTree Int s)) where
+    colorWith color     = fmap (colorWith color)
+    textureWith texture = fmap (textureWith texture)
 
 -- | Typeclass of shape representations that can be combined with other shapes.
 class Compoundable a where
-  cAdd      :: a -> a -> a
-  cSubtract :: a -> a -> a
+  addOver      :: a -> a -> a
+  subtractFrom :: a -> a -> a
 
 -- | Instance for combining simple compound shapes.
 instance Compoundable (STree Compound leaf) where
-  cAdd      = SMeld CompoundAdd
-  cSubtract = SMeld CompoundSubtract -- the subtracted shape must be above what is being subtracted in the stack.
+  addOver      = SMeld CompoundAdd
+  subtractFrom = SMeld CompoundSubtract -- the subtracted shape must be above what is being subtracted in the stack.
 
 -- | Instance for combining with glyph wrapped compound shapes.
 instance HasSpace leaf => Compoundable (Glyph (STree Compound leaf)) where
-  cAdd      = combineGlyph cAdd
-  cSubtract = combineGlyph cSubtract
+  addOver      = combineGlyph addOver
+  subtractFrom = combineGlyph subtractFrom
+
+-- | Instance for functors of compound shapes.
+instance (Applicative f, HasSpace leaf) => Compoundable (f (STree Compound leaf)) where
+  addOver      = liftA2 addOver
+  subtractFrom = liftA2 subtractFrom
 
 -- | Create a series of segments based on the size of a rectangle.
-rectangleCurve :: Alternative t => Space s => Point2 s -> t (Bezier s)
+rectangleCurve :: (Alternative f, Space s) => Point2 s -> f (Bezier s)
 rectangleCurve v =
-        pure (straight (makePoint 0         0        ) (makePoint (v ^. pX) 0        ) )
-    <|> pure (straight (makePoint (v ^. pX) 0        ) (makePoint (v ^. pX) (v ^. pY)) )
-    <|> pure (straight (makePoint (v ^. pX) (v ^. pY)) (makePoint 0         (v ^. pY)) )
-    <|> pure (straight (makePoint 0         (v ^. pY)) (makePoint 0         0        ) )
-
+        ( pure $ line (makePoint 0         0        ) (makePoint (v ^. pX) 0        ) )
+    <|> ( pure $ line (makePoint (v ^. pX) 0        ) (makePoint (v ^. pX) (v ^. pY)) )
+    <|> ( pure $ line (makePoint (v ^. pX) (v ^. pY)) (makePoint 0         (v ^. pY)) )
+    <|> ( pure $ line (makePoint 0         (v ^. pY)) (makePoint 0         0        ) )
 
 -- | Typeclass of shape representations that can create a rectangle.
 class HasSpace a => HasRectangle a where
   rectangle :: Point2 (SpaceOf a) -> a
 
 -- | Basic instance of a rectangle.
-instance Space s => HasRectangle (CompoundTree s) where
-    rectangle v = SLeaf . pure . Outline . rectangleCurve $ v
-
-instance (Alternative t, Space s) => HasRectangle (Outline_ t s) where
+instance (Alternative f, Space s) => HasRectangle (Outline_ f s) where
     rectangle v = Outline . rectangleCurve $ v
+
+instance (Space s) => HasRectangle (Shape s) where
+    rectangle v = pure . rectangle $ v
+
+instance Space s => HasRectangle (CompoundTree s) where
+    rectangle v = mask . rectangle $ v
 
 -- | Glyph wrapper instance around a rectangle.
 instance Space s => HasRectangle (Glyph (CompoundTree s)) where
     rectangle v = Glyph (Box zeroPoint v) . rectangle $ v
 
--- | Unit square rectangle.
-unitSquare :: HasRectangle a => a
-unitSquare = rectangle (Point2 1 1)
+-- | A rectangle can also inhabit any applicative functor as a compound tree.
+instance (HasSpace (f (CompoundTree s)),s ~ SpaceOf (f (CompoundTree s)), Applicative f, Space s)
+         => HasRectangle (f (CompoundTree s)) where
+    rectangle v = pure . rectangle $ v
 
--- | Open rectangle (Temporary until stroke implemented)
-openRectangle :: Space s
-              => s
-              -> Point2 s
-              -> Glyph (CompoundTree s)
-openRectangle s p = let strokeDelta = Point2 s s in
-                    cSubtract (rectangle p)
-                              (mapGlyph (translateBy strokeDelta) $ rectangle (p ^-^ (strokeDelta ^* 2)))
-
--- | Typeclass of shape representations that can create a line between two points.
-class HasLine a where
-  line :: (SpaceOf a ~ s)
-       => s
-       -> Point2 s
-       -> Point2 s
-       -> a
-
--- | Basic curve definition for a simple line (Temporary until stroke implemented.)
-lineCurve :: (Space s) => s -> Point2 s -> Point2 s -> [Bezier s]
-lineCurve stroke p0 p1 =
-  let vector = p0 ^-^ p1
-      normal = vector ^/ norm vector
-      leftNormal = rotate90 normal ^* stroke
-      rightNormal = rotate270 normal ^* stroke
-  in  [ straight (p0 ^+^ rightNormal) (p0 ^+^ leftNormal )
-      , straight (p0 ^+^ leftNormal ) (p1 ^+^ leftNormal )
-      , straight (p1 ^+^ leftNormal ) (p1 ^+^ rightNormal)
-      , straight (p1 ^+^ rightNormal) (p0 ^+^ rightNormal)
-      ]
-
--- | Basic instance of a simple line.
-instance (Space s) => HasLine (CompoundTree s) where
-  line stroke p0 p1 = SLeaf . pure $ line stroke p0 p1
-
-instance (Space s) => HasLine (Outline s) where
-  line stroke p0 p1 = Outline $ V.fromList $ lineCurve stroke p0 p1
--- | Glyph wrapper instance around a basic line.
-instance (Space s) => HasLine (Glyph (CompoundTree s)) where
-  line stroke p0 p1 = glyphWrapShape . pure $ line stroke p0 p1
-
-arcCurve angle = pure . closeOpenCurve . makeArc $ angle
-
--- | Typeclass of shape representations that implement an arc.
-class HasArc a where
-  arc :: Angle (SpaceOf a) -> a
-
--- | Basic instance of an arc.
-instance Space s => HasArc (CompoundTree s) where
-  arc = SLeaf . arcCurve
-
--- | Glyph wrapper instance around and arc.
-instance Space s => HasArc (Glyph (CompoundTree s)) where
-  arc = glyphWrapShape . arcCurve
-
--- | Typeclass of shape representations that implement a circle.
-class HasArc a => HasCircle a where
-  circle :: a
+-- | And a rectangle can also inhabit any applicative functor as a glyphwrapped compound tree.
+instance (HasSpace (f (Glyph (CompoundTree s))),s ~ SpaceOf (f (Glyph (CompoundTree s))), Applicative f, Space s)
+         => HasRectangle (f (Glyph (CompoundTree s))) where
+    rectangle v = pure . Glyph (Box zeroPoint v) . rectangle $ v
 
 -- | Basic circleCurve
-circleCurve :: Space s => Shape s
-circleCurve = arcCurve fullTurn
+circleCurve :: (Space s, Chain f) => OpenCurve_ f s
+circleCurve = makeArc fullTurn
 centerCircle :: (Fractional (SpaceOf a), SimpleTransformable a) => a -> a
 centerCircle = id -- scaleBy 0.5 . translateByXY 0.5 0.5 -- . scaleBy 0.5
 
+-- | Typeclass of shape representations that implement a circle.
+class HasCircle a where
+  circle :: a
 
--- | Basic instance of a circle.
+-- | Basic instance of a rectangle.
+instance (Chain f, Space s) => HasCircle (Outline_ f s) where
+    circle = closeOpenCurve circleCurve
+
+instance (Space s) => HasCircle (Shape s) where
+    circle = pure circle
+
 instance Space s => HasCircle (CompoundTree s) where
-  circle = centerCircle . SLeaf $ circleCurve
+    circle = mask circle
 
--- | Glyph wrapper around a circle.
+-- | Glyph wrapper instance around a rectangle.
 instance Space s => HasCircle (Glyph (CompoundTree s)) where
-  circle = centerCircle . glyphWrapShape $ circleCurve
+    circle = glyphWrapShape $ circle
 
--- | Typeclass of shape representations that can be filled with a color or texture.
-class CanFill a b where
-    solid :: Color -> a -> b
-    textureWith :: NamedTexture -> a -> b
+-- | A rectangle can also inhabit any applicative functor as a compound tree.
+instance (HasSpace (f (CompoundTree s)),s ~ SpaceOf (f (CompoundTree s)), Applicative f, Space s)
+         => HasCircle (f (CompoundTree s)) where
+    circle = pure circle
 
--- | Instance for filling a compound shape and creating a normal shapeTree leaf.
-instance CanFill (CompoundTree s) (ShapeTree Int s) where
-    solid color         = SLeaf . SRep 0 (Solid color)
-    textureWith texture = SLeaf . SRep 0 (Texture texture)
+-- | And a rectangle can also inhabit any applicative functor as a glyphwrapped compound tree.
+instance (HasSpace (f (Glyph (CompoundTree s))),s ~ SpaceOf (f (Glyph (CompoundTree s))), Applicative f, Space s)
+         => HasCircle (f (Glyph (CompoundTree s))) where
+    circle = pure . glyphWrapShape $ circle
 
--- | Instance for filling a compound shape and creating a glyph wrapped shapeTree leaf.
-instance CanFill (Glyph (CompoundTree s)) (Glyph (ShapeTree Int s)) where
-    solid color         = mapGlyph (solid color)
-    textureWith texture = mapGlyph (textureWith texture)
-
--- | Instance for filling a functor of a compound shapetrees such as a list.
-instance {-# Overlappable #-} (Functor f, SpaceOf (f (CompoundTree s)) ~ s) => CanFill (f (CompoundTree s)) (f (ShapeTree Int s)) where
-    solid color         = fmap (solid color)
-    textureWith texture = fmap (textureWith texture)
 
 -- | Instance for filling a functor of a glyph-wrapped compound shapetrees such as a list.
 instance {-# Overlappable #-} (Functor f, SpaceOf (f (Glyph (CompoundTree s))) ~ s) => CanFill (f (Glyph (CompoundTree s))) (f (Glyph (ShapeTree Int s))) where
-    solid color      = fmap (solid color)
+    colorWith color  = fmap (colorWith color)
     textureWith pict = fmap (textureWith pict)
-
-compoundLeaf :: Shape s -> CompoundTree s
-compoundLeaf = SLeaf
-instance CanFill (Outline s) (ShapeTree Int s) where
-  solid color      = solid color      . compoundLeaf . pure
-  textureWith pict = textureWith pict . compoundLeaf . pure
--- | Placeholder function to take a plot out of the curveLibrary and substitute a square on Nothing.
-testPlot :: String
-         -> Glyph (CompoundTree SubSpace)
-testPlot name =
-  case curveLibrary name of
-    Just path -> glyphWrapShape . pure . closeOpenCurve $ path
-    Nothing -> unitSquare

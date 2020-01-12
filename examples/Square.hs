@@ -50,7 +50,7 @@ instance Model SquareState where
         translateBy (Point2 100 100) .     -- translate the child ShapeTree
         scaleBy  (state ^. stateScale) .   -- scale the child ShapeTree based on the current state.
         rotateBy (state ^. stateAngle) .   -- rotate the child ShapeTree based on the current state.
-        solid yellow $                    -- create a leaf of the ShapeTree and fill the contained CompoundTree with a solid color.
+        colorWith yellow $                    -- create a leaf of the ShapeTree and fill the contained CompoundTree with a color.
         unitSquare                        -- create new compoundTree with just one leaf that is the outline of a unit square.
     providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target

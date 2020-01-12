@@ -323,3 +323,17 @@ traverseBezierSpace (BezierSpace tree len) bz =
                         tangent = v1 .-. c
                         start  = v1 .+^ (normalize tangent ^* t)
                         normal = normalize (perp tangent)
+
+-- | Instance for filling a functor of a glyph-wrapped compound shapetrees such as a list.
+instance {-# Overlappable #-} (Functor f, SpaceOf (f (Glyph (CompoundTree s))) ~ s) => CanFill (f (Glyph (CompoundTree s))) (f (Glyph (ShapeTree Int s))) where
+    colorWith color    = fmap (colorWith color)
+    textureWith pict = fmap (textureWith pict)
+
+-- | Open rectangle (Temporary until stroke implemented)
+openRectangle :: Space s
+              => s
+              -> Point2 s
+              -> Glyph (CompoundTree s)
+openRectangle s p = let strokeDelta = Point2 s s in
+                    subtractFrom (rectangle p)
+                              (mapGlyph (translateBy strokeDelta) $ rectangle (p ^-^ (strokeDelta ^* 2)))

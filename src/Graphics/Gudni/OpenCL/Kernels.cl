@@ -281,7 +281,7 @@ typedef struct TileInfo
 
 // A substance contains information about the substance of a group of combined shapes.
 typedef struct Substance
-  { COLOR  substanceColor; // this is either the solid color of the shape or a reference to a picture ref.
+  { COLOR  substanceColor; // this is either the mask color of the shape or a reference to a picture ref.
   } Substance;
 
 // A picture reference is a reference to bitmap data that can be the substance of a shape.

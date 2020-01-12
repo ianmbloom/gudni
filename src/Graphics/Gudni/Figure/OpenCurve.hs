@@ -27,7 +27,7 @@ module Graphics.Gudni.Figure.OpenCurve
   , curveSegments
   , terminator
   , outset
-  , (<^>)
+  , (>*<)
   , reverseCurve
   , overCurvePoints
   )
@@ -105,8 +105,8 @@ reverseCurve :: (Chain t) => OpenCurve_ t s -> OpenCurve_ t s
 reverseCurve = over curveSegments (reverseChain . fmap reverseBezier)
 
 -- | Connect two curves end to end by translating c1 so that the starting point of 'c1' is equal to the terminator of 'c0'
-(<^>) :: (Chain t, Space s) => OpenCurve_ t s -> OpenCurve_ t s -> OpenCurve_ t s
-(<^>) c0 c1 = let delta = c0 ^. terminator ^-^ c1 ^. outset
+(>*<) :: (Chain t, Space s) => OpenCurve_ t s -> OpenCurve_ t s -> OpenCurve_ t s
+(>*<) c0 c1 = let delta = c0 ^. terminator ^-^ c1 ^. outset
                   transC1 = overCurvePoints (translateBy delta) c1
               in  over curveSegments (c0 ^. curveSegments <|>) transC1
 

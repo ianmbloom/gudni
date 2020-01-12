@@ -63,8 +63,8 @@ instance Model ProjectionState where
                translateBy (Point2 (state ^. stateOffset) 0) .
                translateByXY 0 (-10) $
                overlap
-                 [ solid blue $ overlap . makeGrid 2 80 10 . repeat . rectangle $ Point2 1 1
-                 , solid yellow $ rectangle (Point2 200 19)]
+                 [ colorWith blue $ overlap . gridOf 2 80 10 . repeat . rectangle $ Point2 1 1
+                 , colorWith yellow $ rectangle (Point2 200 19)]
 
     providePictureMap _ = noPictures
     handleOutput state target = do
@@ -85,7 +85,7 @@ instance HandlesInput ProjectionState where
           )
 
 marker :: Color -> Point2 SubSpace -> ShapeTree Int SubSpace
-marker color center = solid (transparent 0.5 color) $ translateBy center marker0
+marker color center = colorWith (transparent 0.5 color) $ translateBy center marker0
 
 marker0 :: CompoundTree SubSpace
 marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square

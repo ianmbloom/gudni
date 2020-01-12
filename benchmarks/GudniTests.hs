@@ -83,19 +83,18 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("simpleKnob"        , simpleKnob          ) -- 17 -
            , ("hourGlass"         , hourGlass           ) -- 18 -
            , ("simpleGlyph"       , simpleGlyph         ) -- 19 -
-           , ("simpleArc"         , simpleArc           ) -- 20 -
-           , ("sixPointRectangle" , sixPointRectangle   ) -- 21 -
-           , ("tinySquare"        , tinySquare          ) -- 22 -
-           , ("mediumSequare"     , mediumSquare        ) -- 23 -
-           , ("simpleRectangle"   , simpleRectangle     ) -- 24 -
-           , ("tallRectangle"     , tallRectangle       ) -- 25 -
-           , ("twoBrackets"       , twoBrackets         ) -- 26 -
-           , ("fuzzySquares2"     , fuzzySquares2       ) -- 27 -
-           , ("maxThresholdTest"  , maxThresholdTest    ) -- 28 -
-           , ("maxShapeTest"      , maxShapeTest        ) -- 29 -
-           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 30 -
-           , ("fullRectangle"     , fullRectangle       ) -- 31 -
-           , ("1 Million Circles" , millionFuzzyCircles ) -- 32 -
+           , ("sixPointRectangle" , sixPointRectangle   ) -- 20 -
+           , ("tinySquare"        , tinySquare          ) -- 21 -
+           , ("mediumSequare"     , mediumSquare        ) -- 22 -
+           , ("simpleRectangle"   , simpleRectangle     ) -- 23 -
+           , ("tallRectangle"     , tallRectangle       ) -- 24 -
+           , ("twoBrackets"       , twoBrackets         ) -- 25 -
+           , ("fuzzySquares2"     , fuzzySquares2       ) -- 26 -
+           , ("maxThresholdTest"  , maxThresholdTest    ) -- 27 -
+           , ("maxShapeTest"      , maxShapeTest        ) -- 28 -
+           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 29 -
+           , ("fullRectangle"     , fullRectangle       ) -- 30 -
+           , ("1 Million Circles" , millionFuzzyCircles ) -- 31 -
            ]
 
 maxThresholdTest :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
@@ -104,9 +103,9 @@ maxThresholdTest state =
     translateByXY (-1) 1 .
     rotateBy (0.2 @@ rad) .
     scaleBy 0.1 .
-    solid (transparent 1.0 . light $ purple) .
+    colorWith (transparent 1.0 . light $ purple) .
     overlap .
-    makeGrid 2 1 2 .
+    gridOf 2 1 2 .
     repeat .
     rectangle $
     Point2 1000 1
@@ -117,12 +116,12 @@ maxShapeTest ::  Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpac
 maxShapeTest state =
     return .
     overlap .
-    makeGrid 1 1 (state ^. stateBase . stateStep + 2000 + 1) .
+    gridOf 1 1 (state ^. stateBase . stateStep + 2000 + 1) .
     concat .
     repeat $
-        [ solid (transparent 1.0 (pureRed    )) $ rectangle (Point2 10000 1)
-        , solid (transparent 1.0 (pureGreen  )) $ rectangle (Point2 10000 1)
-        , solid (transparent 1.0 (pureBlue   )) $ rectangle (Point2 10000 1)
+        [ colorWith (transparent 1.0 (pureRed    )) $ rectangle (Point2 10000 1)
+        , colorWith (transparent 1.0 (pureGreen  )) $ rectangle (Point2 10000 1)
+        , colorWith (transparent 1.0 (pureBlue   )) $ rectangle (Point2 10000 1)
         ]
 
 -- | A fuzz test of random curves where the random points are all within a donut shape.
@@ -207,41 +206,41 @@ benchmark1 state =
            defaultString = cycle $ defaultGlyphs
            angles        = {-repeat (0 @@ deg) -} map (normalizeAngle . (angle ^+^) . (^*0.5) . (@@ deg) ) [0..]
            textGrid  :: CompoundTree SubSpace
-           textGrid   = scaleBy dSize . overlap . makeGrid 0.5 50 50 . zipWith (\a -> rotateBy a) angles $ defaultString
+           textGrid   = scaleBy dSize . overlap . gridOf 0.5 50 50 . zipWith (\a -> rotateBy a) angles $ defaultString
            subtractor:: CompoundTree SubSpace
-           subtractor = scaleBy (dSize * 15) . overlap . makeGrid 0.5 4 4 . cycle $ subtractorGlyphs
+           subtractor = scaleBy (dSize * 15) . overlap . gridOf 0.5 4 4 . cycle $ subtractorGlyphs
        return $ translateByXY 0 0 .
                 scaleBy 50 .
-                solid (transparent 1.0 black) $
-                cSubtract subtractor textGrid
+                colorWith (transparent 1.0 black) $
+                subtractFrom subtractor textGrid
 
 -- | A grid of rectangles.
 rectGrid :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 rectGrid state = return $
     let grid  :: CompoundTree SubSpace
-        grid   = overlap . makeGrid 1 200 200 . repeat . rectangle $ Point2 0.5 0.5
+        grid   = overlap . gridOf 1 200 200 . repeat . rectangle $ Point2 0.5 0.5
     in
-        solid (transparent 1.0 white) $
+        colorWith (transparent 1.0 white) $
         grid
 
 -- | A grid of rectangles in direct contact
 solidGrid :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 solidGrid state = return $
     let grid  :: CompoundTree SubSpace
-        grid   = overlap . makeGrid 1 200 200 . repeat . rectangle $ Point2 1 1
+        grid   = overlap . gridOf 1 200 200 . repeat . rectangle $ Point2 1 1
     in
-        solid (transparent 1.0 white) $
+        colorWith (transparent 1.0 white) $
         grid
 
 -- | A grid of rectangles.
 checkerBoard :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 checkerBoard state = return $
     let grid  :: CompoundTree SubSpace
-        grid = overlap . makeGrid 1 200 200 . repeat $ overlap[                        rectangle $ Point2 0.5 0.5
+        grid = overlap . gridOf 1 200 200 . repeat $ overlap[                        rectangle $ Point2 0.5 0.5
                                                               , translateByXY 0.5 0.5 . rectangle $ Point2 0.5 0.5
                                                               ]
     in
-        solid (transparent 1.0 white) $
+        colorWith (transparent 1.0 white) $
         grid
 
 -- | A knob is a vertical curve section whose control point sticks out further in the x direction than it's other points
@@ -249,7 +248,7 @@ simpleKnob :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 simpleKnob state = return $
         -- translateByXY 10 10 .
         scaleBy 10 .
-        solid (transparent 1.0 (red)) .
+        colorWith (transparent 1.0 (red)) .
         fromSegments $
         [ curvedXY 0 0 1 1
         , straightXY 0 2
@@ -260,7 +259,7 @@ hourGlass :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 hourGlass state = return $
   let step = fromIntegral $ state ^. stateBase . stateStep
   in    scaleBy 8 .
-        solid (transparent 1.0 (dark $ dark gray)) .
+        colorWith (transparent 1.0 (dark $ dark gray)) .
         fromSegments $
         [ straightXY 0 0
         , straightXY 1 1
@@ -276,26 +275,26 @@ testPict state =
         f (Point2 x y) = hslColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
         size = Point2 w h
     in  return $
-        overlap [ translateByXY 100 50 $ textureWith (SharedTexture "flowers") $ cSubtract (scaleBy 200 circle) (cAdd (translateByXY 100 100 $ scaleBy 100 circle) (scaleBy 100 circle))
+        overlap [ translateByXY 100 50 $ textureWith (SharedTexture "flowers") $ subtractFrom (scaleBy 200 circle) (addOver (translateByXY 100 100 $ scaleBy 100 circle) (scaleBy 100 circle))
                 , translateByXY 100 50 $ textureWith (NewTexture "gradient" (PictureFunction f size)) $ translateByXY 0 50 $ (scaleBy 50 circle)
-                -- , translateByXY 100 50 $ solid (transparent 0.2 blue) $ rectangle (Point2 40 2000)
+                -- , translateByXY 100 50 $ colorWith (transparent 0.2 blue) $ rectangle (Point2 40 2000)
                 ]
 
 -- | Simple stack of squares.
 stackOfSquares :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 stackOfSquares state = return $
         overlap
-          [ (translateByXY 0 0  . solid (transparent 1.0 red    ) $ rectangle (Point2 4 4) )
-          , (translateByXY 0 4  . solid (transparent 1.0 green  ) $ rectangle (Point2 4 4) )
-          --, (translateByXY 0 8  . solid (transparent 1.0 blue   ) $ rectangle (Point2 4 4) )
-          --, (translateByXY 0 12 . solid (transparent 1.0 purple ) $ rectangle (Point2 4 4) )
+          [ (translateByXY 0 0  . colorWith (transparent 1.0 red    ) $ rectangle (Point2 4 4) )
+          , (translateByXY 0 4  . colorWith (transparent 1.0 green  ) $ rectangle (Point2 4 4) )
+          --, (translateByXY 0 8  . colorWith (transparent 1.0 blue   ) $ rectangle (Point2 4 4) )
+          --, (translateByXY 0 12 . colorWith (transparent 1.0 purple ) $ rectangle (Point2 4 4) )
           ]
 
 -- | Basic test for shape subtraction.
 openSquare :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 openSquare state = return $
-    solid (transparent 1 orange) $
-          cSubtract (translateBy (Point2 1 1) $ rectangle (Point2 3 3))
+    colorWith (transparent 1 orange) $
+          subtractFrom (translateBy (Point2 1 1) $ rectangle (Point2 3 3))
                     (rectangle (Point2 5 5))
 
 
@@ -303,8 +302,8 @@ openSquare state = return $
 openSquareOverlap2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 openSquareOverlap2 state = return $
         scaleBy 20 $
-        overlap [ (translateByXY 0 0 . solid (transparent 0.25 blue  ) $ cSubtract (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
-                , (translateByXY 8 8 . solid (transparent 1.0  orange) $ cSubtract (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
+        overlap [ (translateByXY 0 0 . colorWith (transparent 0.25 blue  ) $ subtractFrom (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
+                , (translateByXY 8 8 . colorWith (transparent 1.0  orange) $ subtractFrom (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
                 ]
 
 -- | Basic test for shape subtraction and muliple transparency.
@@ -313,24 +312,24 @@ openSquareOverlap3 state = return $
     let angle = view (stateBase . statePlayhead) state @@ turn
     in  translateByXY 400 400 .
         scaleBy 50 $
-        overlap [ (translateByXY 0 0 . rotateBy angle        $ solid (transparent 0.5 blue   ) $ cSubtract (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
-                , (translateByXY 4 4 . rotateBy (angle ^/ 2) $ solid (transparent 0.5 orange ) $ cSubtract (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
-                , (translateByXY 8 8 . rotateBy (angle ^/ 3) $ solid (transparent 0.5 green  ) $ cSubtract (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
+        overlap [ (translateByXY 0 0 . rotateBy angle        $ colorWith (transparent 0.5 blue   ) $ subtractFrom (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
+                , (translateByXY 4 4 . rotateBy (angle ^/ 2) $ colorWith (transparent 0.5 orange ) $ subtractFrom (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
+                , (translateByXY 8 8 . rotateBy (angle ^/ 3) $ colorWith (transparent 0.5 green  ) $ subtractFrom (translateBy (Point2 4 4) $ rectangle (Point2 8 8) ) (rectangle (Point2 16 16)) )
                 ]
 
 -- | Test for shape edges that abut.
 concentricSquares2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 concentricSquares2 state = return $
-        overlap [ (translateByXY 0 0 . solid (transparent 1.0 red ) $ cSubtract (translateBy (Point2 1 1) $ rectangle (Point2 3 3) ) (rectangle (Point2 5 5)) )
-                , (translateByXY 1 1 . solid (transparent 1.0 blue) $ cSubtract (translateBy (Point2 1 1) $ rectangle (Point2 1 1) ) (rectangle (Point2 3 3)) )
+        overlap [ (translateByXY 0 0 . colorWith (transparent 1.0 red ) $ subtractFrom (translateBy (Point2 1 1) $ rectangle (Point2 3 3) ) (rectangle (Point2 5 5)) )
+                , (translateByXY 1 1 . colorWith (transparent 1.0 blue) $ subtractFrom (translateBy (Point2 1 1) $ rectangle (Point2 1 1) ) (rectangle (Point2 3 3)) )
                 ]
 
 -- | Another test for shape edges that abut.
 concentricSquares3 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 concentricSquares3 state = return $
-        overlap [ (translateByXY 0 0 . solid (transparent 1.0 red   ) $ cSubtract (translateBy (Point2 2 2) $ rectangle (Point2 6 6) ) (rectangle (Point2 10 10)) )
-                , (translateByXY 2 2 . solid (transparent 1.0 green ) $ cSubtract (translateBy (Point2 2 2) $ rectangle (Point2 2 2) ) (rectangle (Point2  6  6)) )
-                , (translateByXY 4 4 . solid (transparent 1.0 blue  ) $                                                                 rectangle (Point2  2  2))
+        overlap [ (translateByXY 0 0 . colorWith (transparent 1.0 red   ) $ subtractFrom (translateBy (Point2 2 2) $ rectangle (Point2 6 6) ) (rectangle (Point2 10 10)) )
+                , (translateByXY 2 2 . colorWith (transparent 1.0 green ) $ subtractFrom (translateBy (Point2 2 2) $ rectangle (Point2 2 2) ) (rectangle (Point2  6  6)) )
+                , (translateByXY 4 4 . colorWith (transparent 1.0 blue  ) $                                                                 rectangle (Point2  2  2))
                 ]
 
 -- | Simple test one glyph.
@@ -340,20 +339,13 @@ simpleGlyph state =
      translateByXY 0 0 .
      rotateBy (6.28248 @@ rad) .
      scaleBy 20 .
-     solid (transparent 1.0 white) .
+     colorWith (transparent 1.0 white) .
      glyph . CodePoint . ord $ character
-
--- | Simple test one arc.
-simpleArc :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
-simpleArc state = return $
-        scaleBy 100 .
-        solid (transparent 1.0 $ dark gray) $
-        arc (0.3 @@ turn)
 
 -- | Test for straight vertical segments with multiple colinear points.
 sixPointRectangle :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 sixPointRectangle state = return $
-        solid (transparent 1.0 (dark gray)) $
+        colorWith (transparent 1.0 (dark gray)) $
         fromSegments [straightXY 0 0, straightXY 1 0, straightXY 2 0
                      ,straightXY 2 1, straightXY 1 1, straightXY 0 1
                      ]
@@ -362,21 +354,21 @@ sixPointRectangle state = return $
 tinySquare :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 tinySquare state = return $
         translateByXY 0.1 0.1 .
-        solid red $
+        colorWith red $
         rectangle (Point2 2 2)
 
 -- | Medium sized square with no rotation.
 mediumSquare :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 mediumSquare state = return $
         translateByXY 0.1 0.1 .
-        solid red $
+        colorWith red $
         rectangle (Point2 10 10)
 
 -- | Medium sized square with no rotation.
 fullRectangle :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fullRectangle state = return $
         translateByXY 0 0 .
-        solid red $
+        colorWith red $
         rectangle (makePoint 2880 1800)
 
 -- | Very simple rotated box.
@@ -385,7 +377,7 @@ simpleRectangle state = return $
   translateByXY (0.35 + 0.1) 0 .
   rotateBy (45 @@ deg) .
   scaleBy 1 .
-  solid (transparent 1.0 white) $
+  colorWith (transparent 1.0 white) $
   rectangle (Point2 2 2)
 
 -- | Simple rectangle test across multiple tiles.
@@ -393,13 +385,13 @@ tallRectangle :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpac
 tallRectangle state = return $
         translateByXY 0 1 .
         rotateBy (3 @@ deg) .
-        solid (transparent 1.0 white) $
+        colorWith (transparent 1.0 white) $
         rectangle (Point2 0.5 2000)
 
 -- | Simple multishape test useful for subpixel geometry.
 twoBrackets :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 twoBrackets state = return $
-    solid white $
+    colorWith white $
     overlap [ fromSegments [straightXY (-0.2) 0.0, straightXY   1.2  1.4
                            ,straightXY   1.2  1.6, straightXY (-0.2) 0.2
                            ]
@@ -408,12 +400,13 @@ twoBrackets state = return $
                            ]
             ]
 
+unitSquare = rectangle $ Point2 1 1
 -- | Very simple subtraction test.
 subtractDiamond :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 subtractDiamond state = return .
     rotateBy (45 @@ deg) .
-    solid white $
-    cSubtract (translateByXY 1 1 $ unitSquare) unitSquare
+    colorWith white $
+    subtractFrom (translateByXY 1 1 $ unitSquare) unitSquare
 
 instance Show BenchmarkState where
   show state =

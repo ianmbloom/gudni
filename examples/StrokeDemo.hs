@@ -55,15 +55,24 @@ instance Model StrokeState where
       where
         bz  = Bez (Point2 0 0) (Point2 40 0) (Point2 20 40)
         bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)
-        bz3 = Bez (Point2 40 80) (Point2 50 90) (Point2 20 20)
+        bz3 = Bez (Point2 40 80) (Point2 40 90) (Point2 40 100)
         path = makeOpenCurve $ [bz,bz2,bz3]
         stroked :: ShapeTree Int SubSpace
         stroked =
-               solid blue .
-               stroke 10 $ path
+            colorWith blue .
+            mask .
+            stroke 2 $ path
         projected :: ShapeTree Int SubSpace
         projected =
-          projection path . translateByXY 0 (-5) . solid (transparent 0.5 red) . tr "rectangle" . compoundLeaf . pure . rectangle $ (Point2 100 10 :: Point2 SubSpace)
+            projection path .
+            translateByXY 0 (-2.5) .
+            translateByXY (Ortho $ state ^. stateOffset) 0 .
+            colorWith (transparent 0.8 red) .
+            overlap .
+            gridOf 12 100 1 .
+            repeat .
+            rectangle $
+            (Point2 10 5 :: Point2 SubSpace)
 
 
     providePictureMap _ = noPictures
@@ -85,7 +94,7 @@ instance HandlesInput StrokeState where
           )
 
 marker :: Color -> Point2 SubSpace -> ShapeTree Int SubSpace
-marker color center = solid (transparent 0.5 color) $ translateBy center marker0
+marker color center = colorWith (transparent 0.5 color) $ translateBy center marker0
 
 marker0 :: CompoundTree SubSpace
 marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square

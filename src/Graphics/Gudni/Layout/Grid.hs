@@ -17,7 +17,7 @@
 module Graphics.Gudni.Layout.Grid
   ( rowOf
   , columnOf
-  , makeGrid
+  , gridOf
   )
 where
 
@@ -32,10 +32,10 @@ rowOf s = zipWith ($) (map translateBy $ iterate (^+^ Point2 s 0) zeroPoint)
 columnOf :: SimpleTransformable a => SpaceOf a -> [a] -> [a]
 columnOf s = zipWith ($) (map translateBy $ iterate (^+^ Point2 0 s) zeroPoint)
 
-makeGrid :: (SimpleTransformable a)
+gridOf :: (SimpleTransformable a)
          => SpaceOf a
          -> Int
          -> Int
          -> [a]
          -> [a]
-makeGrid s width height = concat . take height . columnOf s . map (take width . rowOf s) . breakList width
+gridOf s width height = concat . take height . columnOf s . map (take width . rowOf s) . breakList width

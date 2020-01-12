@@ -64,15 +64,15 @@ instance (Show (t (Bezier s))) => Show (Outline_ t s) where
 mapOutlinePoints :: Functor t => (Point2 s -> Point2 s) -> Outline_ t s -> Outline_ t s
 mapOutlinePoints f ps = over shapeSegments (fmap (over bzPoints (fmap f))) ps
 
--- | Close an open curve and convert it to an shape. An additional straight segment is added if the outset and the terminator of
+-- | Close an open curve and convert it to an shape. An additional line segment is added if the outset and the terminator of
 -- the curve are not the same.
 closeOpenCurve :: forall f s . (Chain f, Space s) => OpenCurve_ f s -> Outline_ f s
 closeOpenCurve curve =
   let connect :: f (Bezier s) -> f (Bezier s)
       connect = if curve ^. terminator == curve ^. outset
                  then id  -- if the beggining of the curve is the same as the end, ignore the end
-                 else (pure (straight (curve ^. terminator) (curve ^. outset)) <|>)
-                     -- else insert a straight segment from the end to the beggining.
+                 else (pure (line (curve ^. terminator) (curve ^. outset)) <|>)
+                     -- else insert a line segment from the end to the beggining.
   in  Outline . connect . view curveSegments $ curve
 
 instance (s ~ SpaceOf (f (Bezier s)), Monad f, Alternative f, Space s, Show (f (Bezier s)), Loop f) => CanProject (BezierSpace s) (Outline_ f s) where

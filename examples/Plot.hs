@@ -68,10 +68,10 @@ main = runApplication (PlotState (0 @@ turn) 50)
 -- | All the turtle plots from the plot module.
 plots :: Monad m => PlotState -> FontMonad m (ShapeTree Int SubSpace)
 plots state = return .
-              translateByXY 100 100 .
+              translateByXY 100 300 .
               scaleBy 30 .
               overlap .
-              makeGrid 10 16 1 .
+              gridOf 10 16 1 .
               catMaybes .
-              map (fmap (solid yellow . SLeaf . segmentsToOutline . pure . closeOpenCurve) . curveLibrary) $
+              map (fmap (colorWith yellow . mask . stroke 0.5) . (curveLibrary :: String -> Maybe (OpenCurve SubSpace))) $
               turtleNames

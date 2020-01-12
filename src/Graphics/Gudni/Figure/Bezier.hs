@@ -5,7 +5,7 @@
 -- | Functions on quadratic Bézier curves
 module Graphics.Gudni.Figure.Bezier
   ( Bezier(..)
-  , straight
+  , line
   , curved
   , bzStart
   , bzControl
@@ -80,8 +80,8 @@ overBezier f (Bezier v3) =  Bezier (fmap f v3)
 reverseBezier :: Bezier s -> Bezier s
 reverseBezier (Bez a b c) = Bez c b a
 
-straight :: Space s => Point2 s -> Point2 s -> Bezier s
-straight v0 v1 = Bez v0 (mid v0 v1) v1
+line :: Space s => Point2 s -> Point2 s -> Bezier s
+line v0 v1 = Bez v0 (mid v0 v1) v1
 
 curved :: Space s => Point2 s -> Point2 s -> Point2 s -> Bezier s
 curved v0 c v1 = Bez v0 c v1
@@ -96,7 +96,7 @@ eval (Bez p0 p1 p2) t = let mt = 1 - t in
 -- | Arc length of a single quadratic Bézier segment.
 -- From https://github.com/linebender/kurbo
 -- This computation is based on an analytical formula. Since that formula suffers
--- from numerical instability when the curve is very close to a straight line, we
+-- from numerical instability when the curve is very close to a line line, we
 -- detect that case and fall back to Legendre-Gauss quadrature.
 -- arcLength runtime increases ~50x without the SPECIALIZE
 --{-# SPECIALIZE arcLength :: Bezier SubSpace -> SubSpace #-}
@@ -108,7 +108,7 @@ instance Space s => HasArcLength (Bezier s) where
         c = quadrance d1
         in if a < 5e-4 * c
         then
-            -- This case happens for nearly straight Béziers.
+            -- This case happens for nearly line Béziers.
             --
             -- Calculate arclength using Legendre-Gauss quadrature using formula from Behdad
             -- in https:--github.com/Pomax/BezierInfo-2/issues/77

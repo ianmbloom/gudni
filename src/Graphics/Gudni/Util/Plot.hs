@@ -53,7 +53,7 @@ makeArc :: (Chain t, Space s) => Angle s -> OpenCurve_ t s
 makeArc angle
     | abs (angle ^. deg) < 45 = makeArcSegment angle
     | abs (angle ^. deg) == 0 = OpenCurve empty
-    | otherwise = makeArc (angle ^/ 2) <^> overCurvePoints (rotateBy (angle ^/ 2)) (makeArc (angle ^/ 2))
+    | otherwise = makeArc (angle ^/ 2) >*< overCurvePoints (rotateBy (angle ^/ 2)) (makeArc (angle ^/ 2))
 
 data Turn = Hard | Smooth deriving (Ord, Eq, Show)
 data LR s = L | R | UTurn | Arb (Angle s) deriving (Ord, Eq, Show)
@@ -86,7 +86,7 @@ initialTurtleState = TurtleState 1 (0 @@ deg)
 plotTurtle :: (Chain t, Space s) => TurtleState s -> [Turtle s] -> OpenCurve_ t s
 plotTurtle state ss = let (m_plots, s) = runState (mapM plotTurtle' ss) initialTurtleState
                           plots = catMaybes m_plots
-                      in  foldl1 (<^>) plots
+                      in  foldl1 (>*<) plots
 
 -- | Follow turtle moves across a monad.
 plotTurtle' :: (Chain t, Space s) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve_ t s))
@@ -100,7 +100,7 @@ plotTurtle' simp =
 
 
 plotTurtle'' :: (Chain t, Space s) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve_ t s))
-plotTurtle'' (TGo distance) = do r <- use turtleRadius ; return $ Just $ OpenCurve $ pure $ straight (Point2 0 0) (Point2 distance 0)
+plotTurtle'' (TGo distance) = do r <- use turtleRadius ; return $ Just $ OpenCurve $ pure $ line (Point2 0 0) (Point2 distance 0)
 plotTurtle'' (TRadius r) = do turtleRadius .= r; return Nothing
 plotTurtle'' (TTurn t lr) =
   do
@@ -122,7 +122,7 @@ plotTurtle'' (TReverse pl) =
 plotTurtle'' (TMirror pl) =
   do state <- get
      let pl' = plotTurtle state pl
-     return $ Just $ pl' <^> (reverseCurve $ overCurvePoints flipH pl')
+     return $ Just $ pl' >*< (reverseCurve $ overCurvePoints flipH pl')
 
 -- | Convert an LR  (left right direction to an angle.
 lrToAngle :: (Floating s, Num s) => LR s -> Angle s

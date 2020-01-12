@@ -115,7 +115,7 @@ iTEMtAGiTEMiDbITMASK           = 0x00000000FFFFFFFF :: CULong
 -- Desc | substancetype  | substance info record offset     |
 
 -- Bits 63 - 56
-sUBSTANCEtAGtYPEbITmASK    = 0xFF00000000000000 :: CULong -- & with this to determine if the shapetag is for solid colored shape or a picture.
+sUBSTANCEtAGtYPEbITmASK    = 0xFF00000000000000 :: CULong -- & with this to determine if the shapetag is for mask colorWith shape or a picture.
 sUBSTANCEtAGtYPEsOLIDcOLOR = 0x0000000000000000 :: CULong -- & with this to determine if the shapetag is additive.
 sUBSTANCEtAGtYPEtEXTURE    = 0x0100000000000000 :: CULong
 
