@@ -117,9 +117,9 @@ library
                      , Graphics.Gudni.Layout.Glyph
                      , Graphics.Gudni.Layout.Draw
                      , Graphics.Gudni.Layout.Grid
+                     , Graphics.Gudni.Layout.Overlappable
                      , Graphics.Gudni.Layout.Adjacent
                      , Graphics.Gudni.Layout.Font
-                     , Graphics.Gudni.Layout.Scaffolding
                      , Graphics.Gudni.Layout.Stroke
                      , Graphics.Gudni.Layout.Text
                      , Graphics.Gudni.Util.StorableM
@@ -127,6 +127,7 @@ library
                      , Graphics.Gudni.Util.Pile
                      , Graphics.Gudni.Util.Chain
                      , Graphics.Gudni.Util.Loop
+                     , Graphics.Gudni.Util.Representation
                      , Graphics.Gudni.Util.RandomField
 
   -- LANGUAGE extensions used by modules in this package.

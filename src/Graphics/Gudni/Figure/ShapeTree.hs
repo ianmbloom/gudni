@@ -33,6 +33,7 @@ module Graphics.Gudni.Figure.ShapeTree
   , Compound (..)
   , ShapeTree(..)
   , Shape(..)
+  , shapeOutlines
   , CompoundTree(..)
   , Scene(..)
   , sceneBackgroundColor
@@ -75,6 +76,13 @@ import Data.Traversable
 import qualified Data.Map as M
 
 import Foreign.C.Types (CInt, CFloat, CUInt)
+
+newtype Shape s = Shape {_shapeOutlines :: [Outline s]} deriving (Show)
+makeLenses ''Shape
+
+instance Space s => HasSpace (Shape s) where
+  type SpaceOf (Shape s) = s
+
 
 -- | Polymorphic data structure for trees of shapes. The meld type is the operations for combining two subtrees,
 -- the trans type defines transformations that can be applied across to subtree and the leaf type the component elements of
@@ -135,7 +143,7 @@ instance forall o s leaf .(Space s, s ~ (SpaceOf leaf), CanProject (BezierSpace 
   projectionWithStepsAccuracy max_steps m_accuracy path tree = STransform (Project path) $ tree
 
 instance (Space s) => CanProject (BezierSpace s) (Shape s) where
-  projectionWithStepsAccuracy max_steps m_accuracy path shapes = fmap (projectionWithStepsAccuracy max_steps m_accuracy path) shapes
+  projectionWithStepsAccuracy max_steps m_accuracy path shapes = over shapeOutlines (fmap (projectionWithStepsAccuracy max_steps m_accuracy path)) shapes
 
 instance (Space s) => CanProject (BezierSpace s) (SRep token NamedTexture (CompoundTree s)) where
   projectionWithStepsAccuracy max_steps m_accuracy path (SRep token substance rep) =
@@ -144,7 +152,6 @@ instance (Space s) => CanProject (BezierSpace s) (SRep token NamedTexture (Compo
 -- instance Functor (SRep token) where
 --   fmap f (SRep token substance rep) = SRep token substance (f rep)
 
-type Shape s = [Outline s]
 type CompoundTree s = STree Compound (Shape s)
 type ShapeTree token s = STree () (SRep token NamedTexture (CompoundTree s))
 

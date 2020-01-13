@@ -82,7 +82,7 @@ scafTree (Branch l r) =
       right = SLeaf $ Named "right" $ scafTree r
   in  SLeaf $ Named "origin" $
       overlap [ stack AlignMin [left, right]
-              , SLeaf $ Build2 (line 0.1) (From ["left" , "origin"]) (Offset zeroPoint)
-              , SLeaf $ Build2 (line 0.1) (From ["right", "origin"]) (Offset zeroPoint)
+              , SLeaf $ Build2 (\x y -> stroke 0.1 $ line x y) (From ["left" , "origin"]) (Offset zeroPoint)
+              , SLeaf $ Build2 (\x y -> stroke 0.1 $ line x y) (From ["right", "origin"]) (Offset zeroPoint)
               ]
 scafTree (Leaf i) = SLeaf $ Named "origin" $ SLeaf $ Build circle

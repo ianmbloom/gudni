@@ -52,22 +52,22 @@ findSplit f = search 0.0 1.0 0.5
 
 
 -- | Split a curve across a vertical axis
-splitBezierX :: (Show s, Space s) => X s -> Bezier s -> (Bezier s, Bezier s)
+splitBezierX :: (Show s, Space s) => s -> Bezier s -> (Bezier s, Bezier s)
 splitBezierX cut bezier =
   let splitT =
           if (bezier ^. bzStart . pX <= bezier ^. bzEnd . pX)
-          then findSplit (\t -> unOrtho $ cut - (view (bzControl . pX) . insideBezier t $ bezier))
-          else findSplit (\t -> unOrtho $ negate (cut - (view (bzControl . pX) . insideBezier t $ bezier)))
+          then findSplit (\t -> cut - (view (bzControl . pX) . insideBezier t $ bezier))
+          else findSplit (\t -> negate (cut - (view (bzControl . pX) . insideBezier t $ bezier)))
       (left,right) = splitBezier splitT bezier
       -- correct the split to be exactly the x of the cutpoint
  in   (set (bzEnd . pX) cut left, set (bzStart . pX) cut right)
 
-splitBezierY :: (Space s) => Y s -> Bezier s -> (Bezier s, Bezier s)
+splitBezierY :: (Space s) => s -> Bezier s -> (Bezier s, Bezier s)
 splitBezierY cut bezier =
   let splitT =
           if (bezier ^. bzStart . pY <= bezier ^. bzEnd . pY)
-          then findSplit (\t -> unOrtho $ cut - (view (bzControl . pY) . insideBezier t $ bezier))
-          else findSplit (\t -> unOrtho $ negate (cut - (view (bzControl . pY) . insideBezier t $ bezier)))
+          then findSplit (\t -> cut - (view (bzControl . pY) . insideBezier t $ bezier))
+          else findSplit (\t -> negate (cut - (view (bzControl . pY) . insideBezier t $ bezier)))
       (left,right) = splitBezier splitT bezier
       -- correct the split to be exactly the y of the cutpoint
  in   (set (bzEnd . pY) cut left, set (bzStart . pY) cut right)

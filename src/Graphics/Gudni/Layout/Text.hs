@@ -15,8 +15,8 @@ import Graphics.Gudni.Layout.Adjacent
 import Control.Monad.State
 
 paragraph :: forall m . (MonadState FontCache m, Monad m)
-          => X SubSpace
-          -> Y SubSpace
+          => SubSpace
+          -> SubSpace
           -> Alignment
           -> Alignment
           -> String
@@ -28,7 +28,7 @@ paragraph gapX gapY alignX alignY string =
       return . stack alignX . distributeStack gapY $ glyphRacks
 
 blurb :: forall m . (MonadState FontCache m, Monad m)
-      => X SubSpace
+      => SubSpace
       -> Alignment
       -> String
       -> m (Glyph (CompoundTree SubSpace))

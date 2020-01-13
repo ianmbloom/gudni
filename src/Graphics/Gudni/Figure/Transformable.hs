@@ -52,7 +52,7 @@ class (HasSpace t) => SimpleTransformable t where
 class (SimpleTransformable t) => Transformable t where
   rotateBy    :: Angle (SpaceOf t) -> t -> t
 
-translateByXY :: (HasSpace t, SimpleTransformable t) => X (SpaceOf t) -> Y (SpaceOf t) -> t -> t
+translateByXY :: (HasSpace t, SimpleTransformable t) =>SpaceOf t -> SpaceOf t -> t -> t
 translateByXY x y = translateBy $ makePoint x y
 
 instance (SimpleSpace s) => SimpleTransformable (Point2 s) where

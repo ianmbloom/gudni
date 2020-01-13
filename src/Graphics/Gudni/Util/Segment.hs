@@ -58,14 +58,14 @@ makeLenses ''Segment
 -- | Pattern synonym for a segment with no control point.
 pattern Straight p = Seg p Nothing
 -- | Make a straiight segment from the component dimensions
-straightXY :: X s -> Y s -> Segment s
+straightXY :: s -> s -> Segment s
 straightXY x y = Seg (makePoint x y) Nothing
 
 -- | Pattern synonym for a segment with a control point.
 pattern Curved p c = Seg p (Just c)
 
 -- | Make a curved segment from the component dimensions.
-curvedXY :: X s -> Y s -> X s -> Y s -> Segment s
+curvedXY :: s -> s -> s -> s -> Segment s
 curvedXY x y cx cy = Seg (makePoint x y) (Just (makePoint cx cy))
 
 -- | Map over the points of a segment.
@@ -108,7 +108,7 @@ segmentsToCurvePairs' first segs = case segs of
 
 -- | Convert a list of lists of segments to a list of outlines.
 segmentsToOutline :: (Fractional s) => [[Segment s]] -> Shape s
-segmentsToOutline = map (Outline . pairsToBeziers . V.fromList . segmentsToCurvePairs)
+segmentsToOutline = Shape . map (Outline . pairsToBeziers . V.fromList . segmentsToCurvePairs)
 
 -- | Typeclass for shape representations that can be created from a list of segments.
 class HasFromSegments a where

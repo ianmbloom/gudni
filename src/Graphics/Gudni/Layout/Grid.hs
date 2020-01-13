@@ -15,22 +15,21 @@
 -- Functions for simple grid layouts.
 
 module Graphics.Gudni.Layout.Grid
-  ( rowOf
-  , columnOf
+  ( horizontallySpacedBy
+  , verticallySpacedBy
   , gridOf
   )
 where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout.Glyph
-import Graphics.Gudni.Layout.Scaffolding
 import Graphics.Gudni.Util.Util
 
-rowOf :: SimpleTransformable a => SpaceOf a -> [a] -> [a]
-rowOf s = zipWith ($) (map translateBy $ iterate (^+^ Point2 s 0) zeroPoint)
+horizontallySpacedBy :: SimpleTransformable a => SpaceOf a -> [a] -> [a]
+horizontallySpacedBy s = zipWith ($) (map translateBy $ iterate (^+^ Point2 s 0) zeroPoint)
 
-columnOf :: SimpleTransformable a => SpaceOf a -> [a] -> [a]
-columnOf s = zipWith ($) (map translateBy $ iterate (^+^ Point2 0 s) zeroPoint)
+verticallySpacedBy :: SimpleTransformable a => SpaceOf a -> [a] -> [a]
+verticallySpacedBy s = zipWith ($) (map translateBy $ iterate (^+^ Point2 0 s) zeroPoint)
 
 gridOf :: (SimpleTransformable a)
          => SpaceOf a
@@ -38,4 +37,4 @@ gridOf :: (SimpleTransformable a)
          -> Int
          -> [a]
          -> [a]
-gridOf s width height = concat . take height . columnOf s . map (take width . rowOf s) . breakList width
+gridOf s width height = concat . take height . verticallySpacedBy s . map (take width . horizontallySpacedBy s) . breakList width

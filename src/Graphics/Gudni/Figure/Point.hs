@@ -27,6 +27,7 @@ module Graphics.Gudni.Figure.Point
   , pX
   , pY
   , makePoint
+  , by
   , (^+^)
   , (^-^)
   , (^*)
@@ -70,17 +71,21 @@ instance (SimpleSpace s) => HasSpace (Point2 s) where
 zeroPoint :: Num s => Point2 s
 zeroPoint = Point2 0 0
 -- | Lens for the x element of a point.
-pX :: Lens' (Point2 s) (X s)
-pX elt_fn (Point2 x y) = (\x' -> Point2 (unOrtho x') y) <$> (elt_fn . Ortho $ x)
+pX :: Lens' (Point2 s) s
+pX elt_fn (Point2 x y) = (\x' -> Point2 x' y) <$> (elt_fn x)
 
 -- | Lens for the y element of a point.
-pY :: Lens' (Point2 s) (Y s)
-pY elt_fn (Point2 x y) = (\y' -> Point2 x (unOrtho y')) <$> (elt_fn . Ortho $ y)
+pY :: Lens' (Point2 s) s
+pY elt_fn (Point2 x y) = (\y' -> Point2 x y') <$> (elt_fn y)
 
 {-# INLINE makePoint #-}
+
 -- | Make a point from two orthogonal dimensions.
-makePoint :: X s -> Y s -> Point2 s
-makePoint (Ortho x) (Ortho y) = P (V2 x y)
+makePoint :: s -> s -> Point2 s
+makePoint x y = P (V2 x y)
+
+by :: s -> s -> Point2 s
+by = makePoint
 
 -- | Calculate the area of a box defined by the origin and this point.
 pointArea :: Num s => Point2 s -> s
@@ -96,7 +101,7 @@ instance Random s => Random (Point2 s) where
 
 taxiDistance :: (Space s) => Point2 s -> Point2 s -> s
 taxiDistance v0 v1 =
-  abs(unOrtho $ v1 ^. pX - v0 ^. pX) + abs(unOrtho $ v1 ^. pY - v0 ^. pY)
+  abs(v1 ^. pX - v0 ^. pX) + abs(v1 ^. pY - v0 ^. pY)
 
 
 -- | Make a mid point from two points.
@@ -105,16 +110,16 @@ mid = lerp 0.5
 
 -- | Return true if a is left of b in screen axis space.
 isLeftOf :: (Space s) => Point2 s -> Point2 s -> Bool
-a `isLeftOf` b  = a ^. pX < b ^. pX
+a `isLeftOf` b  = a ^. pX - b ^. pX < 0
 
 -- | Return true if a is right of b in screen axis space.
 isRightOf :: (Space s) => Point2 s -> Point2 s -> Bool
-a `isRightOf` b = a ^. pX > b ^. pX
+a `isRightOf` b = a ^. pX - b ^. pX > 0
 
 -- | Return true if a is above b in screen axis space.
 isAbove :: (Space s) => Point2 s -> Point2 s -> Bool
-a `isAbove` b  = a ^. pY < b ^. pY
+a `isAbove` b  = a ^. pY - b ^. pY < 0
 
 -- | Return true if a is below b in screen axis space.
 isBelow :: (Space s) => Point2 s -> Point2 s -> Bool
-a `isBelow` b = a ^. pY > b ^. pY
+a `isBelow` b = a ^. pY - b ^. pY > 0

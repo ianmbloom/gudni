@@ -20,6 +20,7 @@
 module Graphics.Gudni.Figure.Facet
   ( Facet_(..)
   , HardFacet_(..)
+  , FacetSide(..)
   , hardenFacet
   , tesselateFacet
   , rectangleToFacets

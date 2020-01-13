@@ -95,11 +95,11 @@ instance (Functor f, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Foldable f, HasB
 
 
 -- | Get the width of a box.
-widthOf :: (HasBox a) => a -> X (SpaceOf a)
+widthOf :: (HasBox a) => a -> SpaceOf a
 widthOf a = let box = boxOf a in box ^. rightSide - box ^. leftSide
 
 -- | Get the height of a box.
-heightOf :: (Num (SpaceOf a), HasBox a) => a -> Y (SpaceOf a)
+heightOf :: (Num (SpaceOf a), HasBox a) => a -> SpaceOf a
 heightOf a = let box = boxOf a in box ^. bottomSide - box ^. topSide
 
 -----------------------------------------------------------------------------
@@ -120,31 +120,31 @@ bottomLeftBox :: Lens' (Box s) (Point2 s)
 bottomLeftBox elt_fn (Box (Point2 left top) (Point2 right bottom)) =
   (\(Point2 left' bottom') -> Box (Point2 left' top) (Point2 right bottom')) <$> elt_fn (Point2 left bottom)
 
-widthBox :: Num s => Lens' (Box s) (X s)
+widthBox :: Num s => Lens' (Box s) s
 widthBox elt_fn (Box (Point2 left top) (Point2 right bottom)) =
-  (\width -> Box (Point2 left top) (Point2 (left + unOrtho width) bottom)) <$> (elt_fn . Ortho) (right - left)
+  (\width -> Box (Point2 left top) (Point2 (left + width) bottom)) <$> elt_fn (right - left)
 
-heightBox :: Num s => Lens' (Box s) (Y s)
+heightBox :: Num s => Lens' (Box s) s
 heightBox elt_fn (Box (Point2 left top) (Point2 right bottom)) =
-  (\height -> Box (Point2 left top) (Point2 right (top + unOrtho height))) <$> (elt_fn . Ortho) (bottom - top)
+  (\height -> Box (Point2 left top) (Point2 right (top + height))) <$> elt_fn (bottom - top)
 -- | 'Lens' for the left side of a box.
-leftSide       :: Lens' (Box s) (X s)
+leftSide       :: Lens' (Box s) s
 leftSide = topLeftBox . pX
 -- | 'Lens' for the right side of a box.
-rightSide      :: Lens' (Box s) (X s)
+rightSide      :: Lens' (Box s) s
 rightSide = bottomRightBox . pX
 -- | 'Lens' for the top of a box.
-topSide         :: Lens' (Box s) (Y s)
+topSide         :: Lens' (Box s) s
 topSide  = topLeftBox . pY
 -- | 'Lens' for the bottom of a box.
-bottomSide      :: Lens' (Box s) (Y s)
+bottomSide      :: Lens' (Box s) s
 bottomSide = bottomRightBox . pY
 
 -----------------------------------------------------------------------------
 -- Functions for creating and manipulating boxes∘
 
 -- | Make a box from its four sides.
-makeBox        :: X s -> Y s -> X s -> Y s -> Box s
+makeBox        :: s -> s -> s -> s -> Box s
 makeBox l t r b = Box (makePoint l t) (makePoint r b)
 -- | Make a box from the origin to a point.
 pointToBox :: Num s => Point2 s -> Box s
@@ -164,7 +164,7 @@ sizeBox :: (HasBox (Box s), Num s) => Box s -> Point2 s
 sizeBox   box = makePoint (widthOf box ) (heightOf box)
 -- | Calculate the area of a box.
 areaBox :: (HasBox (Box s), Num s) => Box s -> s
-areaBox   box = unOrtho (widthOf box) * unOrtho (heightOf box)
+areaBox   box = widthOf box * heightOf box
 -- | Calculate the smallest box that contains two boxes.
 minMaxBox :: (Num s, Ord s) => Box s -> Box s -> Box s
 minMaxBox a b = makeBox (min (a ^. leftSide ) (b ^. leftSide )) (min (a ^. topSide   ) (b ^. topSide   ))

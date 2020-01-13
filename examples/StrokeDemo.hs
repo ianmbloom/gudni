@@ -12,7 +12,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Demonstration of equal-distance projection, and equal spacing in t-paramater.
+-- Demonstration of equal-distance projectOnto, and equal spacing in t-paramater.
 
 module StrokeDemo
   ( main
@@ -64,15 +64,15 @@ instance Model StrokeState where
             stroke 2 $ path
         projected :: ShapeTree Int SubSpace
         projected =
-            projection path .
+            projectOnto path .
             translateByXY 0 (-2.5) .
-            translateByXY (Ortho $ state ^. stateOffset) 0 .
+            translateByXY (state ^. stateOffset) 0 .
             colorWith (transparent 0.8 red) .
             overlap .
-            gridOf 12 100 1 .
-            repeat .
+            horizontallySpacedBy 12 .
+            replicate 100 .
             rectangle $
-            (Point2 10 5 :: Point2 SubSpace)
+            10 `by` 5
 
 
     providePictureMap _ = noPictures

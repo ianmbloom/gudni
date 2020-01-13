@@ -43,9 +43,9 @@ import Data.Maybe (fromMaybe, fromJust)
 -- remaining functions.  You may also want to define a default
 -- accuracy by overriding @project@.
 class (SpaceOf u ~ SpaceOf t, Space (SpaceOf t)) => CanProject u t where
-    projection :: u -> t -> t
-    default projection :: u -> t -> t
-    projection = projectionWithAccuracy 1e-3
+    projectOnto :: u -> t -> t
+    default projectOnto :: u -> t -> t
+    projectOnto = projectionWithAccuracy 1e-3
 
     projectionWithAccuracy :: SpaceOf t -> u -> t -> t
     default projectionWithAccuracy :: SpaceOf t -> u -> t -> t
@@ -62,7 +62,7 @@ instance (s ~ (SpaceOf (f (Bezier s))), Space s, Show (f (Bezier s)), Chain f) =
       let fixed :: f (Bezier s)
           fixed = join . fmap deKnob $ beziers
       in  join . fmap (traverseBezierSpace max_steps m_accuracy
-                       bSpace) $ fixed
+                       (tr "bSpace" bSpace)) $ fixed
 
 data BezierSpace s = BezierSpace
   { bsStart  :: Point2 s
@@ -70,7 +70,7 @@ data BezierSpace s = BezierSpace
   , bsEnd    :: Point2 s
   , bsEndNormal :: Diff Point2 s
   , bsTree   :: BezierTree s
-  , bsLength :: X s
+  , bsLength :: s
   } deriving (Show)
 
 instance Space s => HasSpace (BezierSpace s) where
@@ -78,7 +78,7 @@ instance Space s => HasSpace (BezierSpace s) where
 
 data BezierTree s
   = BezierSplit
-         { bzTreeSplitX :: X s
+         { bzTreeSplitX :: s
          , bzTreeSplitPoint :: Point2 s
          , bzTreeLeftNormal  :: Diff Point2 s
          , bzTreeRightNormal :: Diff Point2 s
@@ -86,7 +86,7 @@ data BezierTree s
          , bzTreeRight :: BezierTree s
          }
   | BezierLeaf
-         { bzTreeLength :: X s
+         { bzTreeLength :: s
          , bzTreeControlPoint :: Point2 s
          }
   deriving (Show)
@@ -100,19 +100,19 @@ subdivideAcuteBezier bz@(Bez v0 vC v1) =
            in  subdivideAcuteBezier left <|> subdivideAcuteBezier right
       else pure bz
 
-makeBezierSpace :: forall f s . (Eq1 f, Chain f, Space s, Show (f (Bezier s))) => (Bezier s -> X s) -> f (Bezier s) -> BezierSpace s
+makeBezierSpace :: forall f s . (Eq1 f, Chain f, Space s, Show (f (Bezier s))) => (Bezier s -> s) -> f (Bezier s) -> BezierSpace s
 makeBezierSpace lengthFun chain =
   fromJust . go 0 $ fixedChain
   where
   fixedChain = join . fmap (subdivideAcuteBezier) $ chain
-  go :: X s -> f (Bezier s) -> Maybe (BezierSpace s)
+  go :: s -> f (Bezier s) -> Maybe (BezierSpace s)
   go start vector =
     let (left, right) = halfSplit vector
     in if right `eq1` empty
        then if left `eq1` empty
             then Nothing
             else let (Bez v0 vC v1) = firstLink left
-                     curveLength :: X s
+                     curveLength :: s
                      curveLength = lengthFun (Bez v0 vC v1)
                      normal0 = normalize (perp (vC .-. v0))
                      normal1 = normalize (perp (v1 .-. vC))
@@ -150,7 +150,7 @@ traverseBezierSpace max_steps m_accuracy bSpace@(BezierSpace sPoint sNormal ePoi
   then go 0 sPoint sNormal len ePoint eNormal tree item
   else reverseChain . fmap (reverseBezier) . go 0 sPoint sNormal len ePoint eNormal tree . reverseBezier $ item
   where
-  go :: X s -> Point2 s -> Diff Point2 s -> X s -> Point2 s -> Diff Point2 s -> BezierTree s -> Bezier s -> f (Bezier s)
+  go :: s -> Point2 s -> Diff Point2 s -> s -> Point2 s -> Diff Point2 s -> BezierTree s -> Bezier s -> f (Bezier s)
   go start sPoint sNormal end ePoint eNormal tree bz =
      let box = boxOf bz
      in
@@ -184,33 +184,33 @@ traverseBezierSpace max_steps m_accuracy bSpace@(BezierSpace sPoint sNormal ePoi
                   else pure (projectTangentBezier end ePoint eNormal bz)
               else pure (mkOffsetCurve max_steps m_accuracy start sPoint sNormal end ePoint eNormal control curveLength bz)
 
-projectTangentPoint :: Space s => X s -> Point2 s -> Diff Point2 s -> Point2 s -> Point2 s
+projectTangentPoint :: Space s => s -> Point2 s -> Diff Point2 s -> Point2 s -> Point2 s
 projectTangentPoint offset v0 normal (Point2 x y) =
-  let t = x - unOrtho offset
+  let t = x - offset
       tangent = negate $ perp normal
   in  v0 .+^ (t *^ tangent) .+^ (y *^ normal)
 
-projectTangentBezier :: Space s => X s -> Point2 s -> Diff Point2 s -> Bezier s -> Bezier s
+projectTangentBezier :: Space s => s -> Point2 s -> Diff Point2 s -> Bezier s -> Bezier s
 projectTangentBezier offset v0 normal bz = overBezier (projectTangentPoint offset v0 normal) bz
 
 projectOffsetCurve :: Space s
                    => Int
                    -> Maybe s
-                   -> X s
+                   -> s
                    -> Point2 s
                    -> Diff Point2 s
-                   -> X s
+                   -> s
                    -> Point2 s
                    -> Diff Point2 s
                    -> Point2 s
-                   -> X s
+                   -> s
                    -> Bezier s
                    -> Bezier s
 projectOffsetCurve max_steps m_accuracy start sPoint sNormal end ePoint eNormal control len bz =
     let sourceCurve = Bez sPoint control ePoint
-        correctX x  = inverseArcLength max_steps m_accuracy sourceCurve (x - unOrtho start) -- /unOrtho len
-        (V3 t0 tc t1) = fmap (correctX . unOrtho . view pX) . view bzPoints $ bz
-        (V3 y0 yC y1) = fmap (unOrtho . view pY) . view bzPoints $ bz
+        correctX x  = inverseArcLength max_steps m_accuracy sourceCurve (x - start)
+        (V3 t0 tc t1) = fmap (correctX . view pX) . view bzPoints $ bz
+        (V3 y0 yC y1) = fmap (view pY) . view bzPoints $ bz
         (normal0, normal1, s0, sC, s1) = tr ("normals starts " ++ show bz ++ "=>") $
             if t0 == t1
             then if t0 < 0.5
@@ -251,4 +251,4 @@ bezierSpaceLengths = go . bsTree
  go node =
    case node of
     BezierSplit {} -> go (bzTreeLeft node) <|> go (bzTreeRight node)
-    BezierLeaf {} -> pure . unOrtho . bzTreeLength $ node
+    BezierLeaf  {} -> pure . bzTreeLength $ node

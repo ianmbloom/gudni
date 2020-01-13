@@ -65,7 +65,7 @@ applyTransformer (Translate delta) = translateBy delta
 applyTransformer (Scale scale)     = scaleBy scale
 applyTransformer (Stretch size)    = stretchBy size
 applyTransformer (Rotate angle)    = rotateBy angle
-applyTransformer (Project curve)   = projection curve
+applyTransformer (Project curve)   = projectOnto curve
 applyTransformer (CombineTransform a b) = applyTransformer b . applyTransformer a
 
 -- * Instances

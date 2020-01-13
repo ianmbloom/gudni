@@ -29,11 +29,11 @@ module Graphics.Gudni.Layout.Adjacent
   , rack
   , stack
   , overlap
-  , combineGlyph
   )
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Layout.Overlappable
 import Graphics.Gudni.Layout.Glyph
 import Graphics.Gudni.Layout.Font
 import Graphics.Gudni.Util.Debug
@@ -162,32 +162,17 @@ distributeRack :: ( Show (SpaceOf rep)
                   , SimpleTransformable rep
                   , MaybeBoxed rep
                   , HasEmpty rep)
-               => X (SpaceOf rep)
+               => SpaceOf rep
                -> [rep]
                -> [rep]
 distributeRack gap = intersperse (blank (Box zeroPoint (makePoint gap 0)))
 
 distributeStack :: ( HasSpace rep
                    , HasEmpty rep)
-                => Y (SpaceOf rep)
+                => SpaceOf rep
                 -> [Glyph rep]
                 -> [Glyph rep]
 distributeStack gap = intersperse (blank (Box zeroPoint (makePoint 0 gap)))
-
-class Overlappable a where
-  combine :: a -> a -> a
-
-instance (HasSpace rep, HasDefault o) => Overlappable (Glyph (STree o rep)) where
-  combine = combineGlyph (SMeld defaultValue)
-
-instance (HasDefault o) => Overlappable (STree o rep) where
-  combine = SMeld defaultValue
-
-instance {-# Overlappable #-} (Applicative f, Overlappable a) => Overlappable (f a) where
-  combine = liftA2 (combine :: a -> a -> a)
-
-overlap :: (Overlappable a, HasEmpty a) => [a] -> a
-overlap = foldl combine emptyItem
 
 rack :: forall rep
      .  ( Show rep, Show (SpaceOf rep)

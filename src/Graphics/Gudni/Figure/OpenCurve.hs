@@ -32,6 +32,7 @@ module Graphics.Gudni.Figure.OpenCurve
   , overCurvePoints
   )
 where
+
 import Prelude hiding (reverse)
 
 import Graphics.Gudni.Figure.Space
@@ -76,7 +77,7 @@ deriving instance (Ord  (t (Bezier s))) => Ord (OpenCurve_ t s)
 
 type OpenCurve s = OpenCurve_ V.Vector s
 
-instance (SimpleSpace s) => HasSpace (OpenCurve_ t s) where
+instance (Space s) => HasSpace (OpenCurve_ t s) where
     type SpaceOf (OpenCurve_ t s) = s
 
 -- {-# SPECIALIZE arcLength :: OpenCurve Float  -> Float  #-}
@@ -122,5 +123,5 @@ instance (s ~ (SpaceOf (f (Bezier s))), Space s, Monad f, Alternative f, Show (f
 
 instance (Chain f, Space s, CanProject (BezierSpace s) t, Show (f (Bezier s)), Chain f) => CanProject (OpenCurve_ f s) t where
     projectionWithStepsAccuracy max_steps m_accuracy path t =
-      let bSpace = makeBezierSpace (Ortho . arcLength) (view curveSegments path)
+      let bSpace = makeBezierSpace arcLength (view curveSegments path)
       in  projectionWithStepsAccuracy max_steps m_accuracy bSpace t

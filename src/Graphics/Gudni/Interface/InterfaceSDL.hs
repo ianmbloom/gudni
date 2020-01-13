@@ -222,7 +222,7 @@ processEvent (SDL.Event _ payload) =
 
 -- | Make a PixelSpace point for two ints.
 makeIntPoint :: Int -> Int -> Point2 PixelSpace
-makeIntPoint x y = makePoint (Ortho . PSpace . fromIntegral $ x) (Ortho . PSpace . fromIntegral $ y)
+makeIntPoint x y = makePoint (PSpace . fromIntegral $ x) (PSpace . fromIntegral $ y)
 
 -- | Convert an input motion to a Gudni InputDetection
 motionToDetection :: SDL.InputMotion -> InputDetection

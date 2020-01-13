@@ -105,6 +105,6 @@ combineGlyph op a b =
   in  Glyph (Box tl br) (op (a ^?! unGlyph) (b ^?! unGlyph))
 
 glyphWrapShape :: Space s => Shape s -> Glyph (CompoundTree s)
-glyphWrapShape outlines =
-   let box = foldl1 minMaxBox $ map boxOf $ outlines
-   in  Glyph box (SLeaf $ outlines)
+glyphWrapShape shape =
+   let box = foldl1 minMaxBox $ map boxOf $ view shapeOutlines shape
+   in  Glyph box (SLeaf shape)

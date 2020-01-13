@@ -24,14 +24,6 @@ module Graphics.Gudni.Figure.Space
   ( SimpleSpace (..)
   , Space (..)
   , HasSpace (..)
-  , Ortho (..)
-  , XDim
-  , YDim
-  , X(..)
-  , Y(..)
-  , toXOrtho
-  , toYOrtho
-  , orthoganal
   , Iota (..)
   , SubSpace (..)
   , PixelSpace (..)
@@ -105,9 +97,6 @@ pixelSpaceToTextureSpace (PSpace x) = TSpace (fromIntegral x)
 class Iota s where
   iota :: s
 
-instance Iota s => Iota (Ortho d s) where
-  iota = Ortho iota
-
 instance Iota SubSpace where
   iota = SubSpace 0.0001
 
@@ -125,6 +114,73 @@ instance Random SubSpace where
 instance Random TextureSpace where
   random = runRand $ do value <-  getRandomR (-10, 2880); return $ TSpace value
   randomR (TSpace l, TSpace h)= runRand $ do value <- getRandomR (l, h); return $ TSpace value
+
+-------------------- Show --------------------------
+
+instance Show SubSpace where
+  show (SubSpace x) = showFl' 5 x
+
+instance Show TextureSpace where
+  show (TSpace x) = showFl' 5 x
+
+instance Show PixelSpace where
+  show (PSpace x) = show x
+
+------------------ Storable ------------------------
+
+instance Storable SubSpace where
+    sizeOf    _         = sizeOf    (undefined :: SubSpace_)
+    alignment _         = alignment (undefined :: SubSpace_)
+    peek ptr            = SubSpace . (realToFrac :: CFloat -> Float) <$> peek (castPtr ptr)
+    poke ptr (SubSpace x) = poke (castPtr ptr) $ (realToFrac :: Float -> CFloat) x
+
+instance Storable TextureSpace where
+    sizeOf    _         = sizeOf    (undefined :: TextureSpace_)
+    alignment _         = alignment (undefined :: TextureSpace_)
+    peek ptr            = TSpace . (realToFrac :: CFloat -> Float) <$> peek (castPtr ptr)
+    poke ptr (TSpace x) = poke (castPtr ptr) $ (realToFrac :: Float -> CFloat) x
+
+instance Storable PixelSpace where
+    sizeOf   _          = sizeOf    (undefined :: PixelSpace_)
+    alignment _         = alignment (undefined :: PixelSpace_)
+    peek ptr            = PSpace . fromIntegral <$> (peek (castPtr ptr) :: IO CInt)
+    poke ptr (PSpace x) = poke (castPtr ptr) (fromIntegral x :: CInt)
+
+----------- DeepSeq --------------------------------
+
+instance NFData SubSpace where
+  rnf (SubSpace x) = x `deepseq` ()
+
+instance NFData TextureSpace where
+  rnf (TSpace x) = x `deepseq` ()
+
+
+instance NFData PixelSpace where
+  rnf (PSpace x) = x `deepseq` ()
+
+------------- Hashable --------------------
+
+instance Hashable SubSpace where
+  hashWithSalt s (SubSpace x) = s `hashWithSalt` x
+
+instance Hashable TextureSpace where
+    hashWithSalt s (TSpace x) = s `hashWithSalt` x
+
+
+instance Hashable CFloat where
+  hashWithSalt s x = s `hashWithSalt` (realToFrac x :: Float)
+
+{-
+Bonepile
+
+, Ortho (..)
+, XDim
+, YDim
+, X(..)
+, Y(..)
+, toXOrtho
+, toYOrtho
+, orthoganal
 
 -------------------------------------
 -- Orthoganal Values
@@ -154,7 +210,11 @@ orthoganal (Ortho z) = Ortho z
 instance Functor (Ortho d) where
   fmap f (Ortho x) = Ortho (f x)
 
---------------------- Show --------------------------
+instance Storable a => Storable (Ortho d a) where
+    sizeOf    _ = sizeOf (undefined :: a)
+    alignment _ = alignment (undefined :: a)
+    peek ptr   = Ortho <$> peekByteOff ptr 0
+    poke ptr a = pokeByteOff ptr 0 (unOrtho a)
 
 instance Show a => Show (X a) where
   show (Ortho x) = "x:"++show x
@@ -162,56 +222,11 @@ instance Show a => Show (X a) where
 instance Show a => Show (Y a) where
   show (Ortho y) = "y:"++show y
 
-instance Show SubSpace where
-  show (SubSpace x) = showFl' 5 x
+instance Iota s => Iota (Ortho d s) where
+  iota = Ortho iota
 
-instance Show TextureSpace where
-  show (TSpace x) = showFl' 5 x
-
-
-instance Show PixelSpace where
-  show (PSpace x) = show x
-
------------------- Storable ------------------------
-
-instance Storable a => Storable (Ortho d a) where
-    sizeOf    _ = sizeOf (undefined :: a)
-    alignment _ = alignment (undefined :: a)
-    peek ptr   = Ortho <$> peekByteOff ptr 0
-    poke ptr a = pokeByteOff ptr 0 (unOrtho a)
-
-instance Storable SubSpace where
-    sizeOf    _         = sizeOf    (undefined :: SubSpace_)
-    alignment _         = alignment (undefined :: SubSpace_)
-    peek ptr            = SubSpace . (realToFrac :: CFloat -> Float) <$> peek (castPtr ptr)
-    poke ptr (SubSpace x) = poke (castPtr ptr) $ (realToFrac :: Float -> CFloat) x
-
-instance Storable TextureSpace where
-    sizeOf    _         = sizeOf    (undefined :: TextureSpace_)
-    alignment _         = alignment (undefined :: TextureSpace_)
-    peek ptr            = TSpace . (realToFrac :: CFloat -> Float) <$> peek (castPtr ptr)
-    poke ptr (TSpace x) = poke (castPtr ptr) $ (realToFrac :: Float -> CFloat) x
-
-instance Storable PixelSpace where
-    sizeOf   _          = sizeOf    (undefined :: PixelSpace_)
-    alignment _         = alignment (undefined :: PixelSpace_)
-    peek ptr            = PSpace . fromIntegral <$> (peek (castPtr ptr) :: IO CInt)
-    poke ptr (PSpace x) = poke (castPtr ptr) (fromIntegral x :: CInt)
-
------------ DeepSeq --------------------------------
-
-instance (NFData d, NFData a) => NFData (Ortho d a) where
-  rnf (Ortho x) = rnf x
-
-instance NFData SubSpace where
-  rnf (SubSpace x) = x `deepseq` ()
-
-instance NFData TextureSpace where
-  rnf (TSpace x) = x `deepseq` ()
-
-
-instance NFData PixelSpace where
-  rnf (PSpace x) = x `deepseq` ()
+instance Hashable s => Hashable (Ortho d s) where
+  hashWithSalt s (Ortho v) = s `hashWithSalt` v
 
 instance NFData XDim where
   rnf x = ()
@@ -219,17 +234,6 @@ instance NFData XDim where
 instance NFData YDim where
   rnf x = ()
 
-------------- Hashable --------------------
-
-instance Hashable s => Hashable (Ortho d s) where
-  hashWithSalt s (Ortho v) = s `hashWithSalt` v
-
-instance Hashable SubSpace where
-  hashWithSalt s (SubSpace x) = s `hashWithSalt` x
-
-instance Hashable TextureSpace where
-    hashWithSalt s (TSpace x) = s `hashWithSalt` x
-
-
-instance Hashable CFloat where
-  hashWithSalt s x = s `hashWithSalt` (realToFrac x :: Float)
+instance (NFData d, NFData a) => NFData (Ortho d a) where
+  rnf (Ortho x) = rnf x
+-}

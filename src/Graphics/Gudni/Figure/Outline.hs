@@ -24,7 +24,7 @@
 module Graphics.Gudni.Figure.Outline
   ( Outline(..)
   , Outline_(..)
-  , shapeSegments
+  , outlineSegments
   , mapOutlinePoints
   , closeOpenCurve
   )
@@ -51,7 +51,7 @@ import Control.Monad
 
 -- | An shape is just a wrapper for a list of beziers. It represents one curve loop∘
 newtype Outline_ t s = Outline
-  { _shapeSegments :: t (Bezier s)
+  { _outlineSegments :: t (Bezier s)
   }
 makeLenses ''Outline_
 
@@ -62,7 +62,7 @@ instance (Show (t (Bezier s))) => Show (Outline_ t s) where
 
 -- | Map over every point in an shape.
 mapOutlinePoints :: Functor t => (Point2 s -> Point2 s) -> Outline_ t s -> Outline_ t s
-mapOutlinePoints f ps = over shapeSegments (fmap (over bzPoints (fmap f))) ps
+mapOutlinePoints f ps = over outlineSegments (fmap (over bzPoints (fmap f))) ps
 
 -- | Close an open curve and convert it to an shape. An additional line segment is added if the outset and the terminator of
 -- the curve are not the same.
@@ -77,7 +77,7 @@ closeOpenCurve curve =
 
 instance (s ~ SpaceOf (f (Bezier s)), Monad f, Alternative f, Space s, Show (f (Bezier s)), Loop f) => CanProject (BezierSpace s) (Outline_ f s) where
     projectionWithStepsAccuracy max_steps m_accuracy bSpace curve =
-         Outline . overLoopNeighbors fixBezierNeighbor .projectionWithStepsAccuracy max_steps m_accuracy bSpace . view shapeSegments $ curve
+         Outline . overLoopNeighbors fixBezierNeighbor .projectionWithStepsAccuracy max_steps m_accuracy bSpace . view outlineSegments $ curve
 
 -- * Instances
 instance (SimpleSpace s) => HasSpace (Outline_ t s) where

@@ -58,23 +58,27 @@ curvePoint t (Bez v0 control v1) =
 
 
 -- | Find a new onCurve point and two new control points that divide the curve based on the convex function.
-findSplit :: forall s . (Show s, Fractional s, Ord s, Num s, Iota s) => (Point2 s -> Point2 s -> Bool) -> s -> Bezier s -> Bezier s
-findSplit staysRelativeTo t bezier = search 0.0 1.0 t
+findSplit :: forall s . (Show s, Fractional s, Ord s, Num s, Iota s) => (s -> s) -> s -> Bezier s -> s
+findSplit f t bezier = search 0.0 1.0 t
   where
   -- | Given a range of parameters along the curve determine if the are close enough to split the curve.
-  search :: s -> s -> s -> Bezier s
+  search :: s -> s -> s -> s
   search bottom top t
     -- So if the top and bottom parameters are close enough, return the points to divide the curve.
-    | top - bottom <= iota = innerBezier
+    | top - bottom <= iota = t
     -- Otherwise if the mid0 control point is still convex move the paramters to toward the top parameter and split again.
-    | mid1 `staysRelativeTo` onCurve =
+    | (\t -> let (Bez mid0 onCurve mid1) = curvePoint t bezier
+                 val = (axis mid1 - axis onCurve) 
+             in f val) t > 0 =
           search t top topSplit -- search closer to v0
     -- Otherwise if the mid1 control point is still convex move the paramters to toward the bottom parameter and split again.
-    | mid0 `staysRelativeTo` onCurve = -- if the mid1 control point is still convex.
+    | (\t -> let (Bez mid0 onCurve mid1) = curvePoint t bezier
+                 val = (axis mid0 - axis onCurve)
+             in f val) t < 0 = -- if the mid1 control point is still convex.
           search bottom t bottomSplit -- search closer to v1
     -- Otherwise it's not convex anymore so split it
-    | otherwise = innerBezier
-    where innerBezier@(Bez mid0 onCurve mid1) = curvePoint t bezier
+    | otherwise = t
+    where
           topSplit    = (t + ((top - t) / 2))
           bottomSplit = (bottom + ((t - bottom) / 2))
 
@@ -84,21 +88,29 @@ vector2 a b = pure a <|> pure b
 class HasSpace t => CanDeKnob t where
   deKnob :: (Alternative f) => t -> f t
 
+axis = (^. pX)
+isLeftOfX  a b = a - b < 0
+isRightOfX a b = a - b > 0
+
+meansLeftOfX v = v < 0
+meansRightOfX v = negate v < 0
 
 instance (Space s) => CanDeKnob (Bezier s) where
    -- | If a curve is a knob, split it.
-   deKnob (Bez v0 control v1) =
+   deKnob bezier@(Bez v0 control v1) =
        -- If both sides are convex in the left direction.
-       if control `isLeftOf` v0 && control `isLeftOf` v1
+       if meansLeftOfX (axis control - axis v0) && meansLeftOfX (axis control - axis v1)
        then-- This is a left bulging knob. Split it while one part maintains that bulge.
-           let (Bez mid0 onCurve mid1) = findSplit isLeftOf sPLIT (Bez v0 control v1)
+           let t = findSplit id sPLIT (Bez v0 control v1)
+               (left, right) = splitBezier t bezier
            -- And return the two resulting curves.
-           in vector2 (Bez v0 mid0 onCurve) (Bez onCurve mid1 v1)
+           in vector2 left right
        else-- Else if both sides are convex in the right direction
-           if control `isRightOf` v0 && control `isRightOf` v1
+           if meansRightOfX (axis control - axis v0) && meansRightOfX (axis control - axis v1)
            then-- This is a right bulging knob. Split it while one part maintains that bulge direction.
-               let (Bez mid0  onCurve  mid1) = findSplit isRightOf sPLIT  (Bez v0 control v1)
+               let t = findSplit negate sPLIT (Bez v0 control v1)
+                   (left, right) = splitBezier t bezier
                -- And return the two resulting curves.
-               in vector2 (Bez v0 mid0 onCurve) (Bez onCurve mid1 v1)
+               in vector2 left right
            else -- Otherwise return the curve unharmed.
                 pure (Bez v0 control v1)

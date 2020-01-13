@@ -51,11 +51,11 @@ instance Model ParagraphState where
     constructScene state status =
         do  para <- paragraph 0.2 0.2 AlignCenter AlignCenter mobyDick
 
-            let testScene :: Glyph (CompoundTree SubSpace)
+            let testScene :: ShapeTree Int SubSpace
                 testScene = (^?! unGlyph) . colorWith black . rack AlignMin $ distributeRack 0 $ [para, scaleBy 10 circle]
-            statusTree <- (^?! unGlyph) <$> statusDisplay (state ^. stateBase) "Test Paragraph" (lines status)
+            --statusTree <- (^?! unGlyph) <$> statusDisplay (state ^. stateBase) "Test Paragraph" (lines status)
             let tree = transformFromState (state ^. stateBase) testScene
-                withStatus = if False then overlap [statusTree, tree] else tree
+                withStatus = {-if False then overlap [statusTree, tree] else-} tree
             return $ (Scene (light gray) $ withStatus)
     providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target

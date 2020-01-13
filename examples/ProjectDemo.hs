@@ -12,7 +12,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Demonstration of equal-distance projection, and equal spacing in t-paramater.
+-- Demonstration of equal-distance projectOnto, and equal spacing in t-paramater.
 
 module ProjectDemo
   ( main
@@ -48,23 +48,38 @@ instance Model ProjectionState where
     fontFile _ = findDefaultFont
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     ioTask = return
-    constructScene state _status = return . Scene gray $
-        transformFromState (state ^. stateBase) $
-        overlap ([long] {-++ byT ++ byLength-})
+    constructScene state _status =
+        do text <- (^?! unGlyph) <$> blurb 0.1 AlignMin "e" -- "Georg Guðni Hauksson"
+           return . Scene gray $
+               transformFromState (state ^. stateBase) $
+               overlap [ colorWith (dark red) . projectOnto path . scaleBy 100 . translateByXY 1 (1) . mask . stroke 0.1 $ smallBz
+                       , colorWith (dark green) . scaleBy 100 . translateByXY 2 (1) . mask . stroke 0.1 $ smallBz
+                       --, doubleDotted path
+                       ]
       where
-        bz  = Bez (Point2 0 0) (Point2 40 0) (Point2 20 40)
-        bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)
-        bz3 = Bez (Point2 40 80) (Point2 50 90) (Point2 20 20)
-        l = arcLength bz
-        byT = map (marker blue . eval bz) [0, 0.1..1.0]
-        byLength = map (marker red . eval bz . inverseArcLength 8 (Just 1e-6) bz) [0, 0.1*l .. l]
-        long :: ShapeTree Int SubSpace
-        long = projection (makeOpenCurve [bz,bz2,bz3]) .
-               translateBy (Point2 (state ^. stateOffset) 0) .
-               translateByXY 0 (-10) $
-               overlap
-                 [ colorWith blue $ overlap . gridOf 2 80 10 . repeat . rectangle $ Point2 1 1
-                 , colorWith yellow $ rectangle (Point2 200 19)]
+        bz  = Bez (Point2 0 0) (Point2 100 0) (Point2 200 0)
+        --bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)
+        --bz3 = Bez (Point2 40 80) (Point2 80 80) (Point2 80 160)
+        smallBz = Bez (Point2 0 0) (Point2 1 0) (Point2 1 0.5)
+        path = makeOpenCurve [bz{-,bz2,bz3-}]
+        doubleDotted :: Space s => OpenCurve s -> ShapeTree Int s
+        doubleDotted path =
+           let thickness = 2
+               betweenGap = 1
+               dotLength = 8
+               dotGap = 2
+               numDots = floor (arcLength path / (dotLength + dotGap))
+           in  colorWith (light . greenish $ blue) .
+               projectOnto path .
+               translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
+               overlap .
+               horizontallySpacedBy (dotLength + dotGap) .
+               replicate numDots .
+               overlap .
+               verticallySpacedBy (thickness + betweenGap) .
+               replicate 2 .
+               rectangle $
+               dotLength `by` thickness
 
     providePictureMap _ = noPictures
     handleOutput state target = do
@@ -102,7 +117,7 @@ main = runApplication $ ProjectionState
            , _stateAngle       = 0 @@ deg -- 0.02094 @@ rad -- 0 @@ turn-- quarterTurn
            , _statePaused      = True
            , _stateSpeed       = 0.1
-           , _statePace        = 0.5
+           , _statePace        = 10
            , _stateLastTime    = 0
            , _stateDirection   = True
            , _statePlayhead    = 0

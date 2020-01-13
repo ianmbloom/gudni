@@ -44,8 +44,8 @@ import Data.Tree
 import qualified Data.Sequence as S
 import Data.Sequence ((|>),(<|))
 
-type Width  = X SubSpace
-type Height = Y SubSpace
+type Width  = SubSpace
+type Height = SubSpace
 type Size   = Int
 
 -- | A wrapper for ItemTags
@@ -98,7 +98,7 @@ buildTileTree :: a -> PixelSpace -> Point2 PixelSpace -> TileTree a
 buildTileTree emptyRep  tileSize canvasSize = goV canvasDepth box
     where
     -- Choose the largest dimension of the canvas as the square side dimension of the area covered by the tileTree.
-    maxCanvasDimension = max (unOrtho $ canvasSize ^. pX) (unOrtho $ canvasSize ^. pY)
+    maxCanvasDimension = max (canvasSize ^. pX) (canvasSize ^. pY)
     -- Canvas depth is the adjusted log2 of the larges side of the canvas.
     canvasDepth = adjustedLog maxCanvasDimension
     -- Initial tile depth is the adjusted log of the max tileSize

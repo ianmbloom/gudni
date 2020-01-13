@@ -19,15 +19,11 @@
 -- Basic functions for constructing drawings.
 
 module Graphics.Gudni.Layout.Draw
-  ( rectangle
-  , line
-  , overlap
-  , circle
-  , colorWith
-  , textureWith
-  , addOver
-  , subtractFrom
-  , mask
+  ( CanMask(..)
+  , CanFill(..)
+  , Compoundable(..)
+  , HasCircle(..)
+  , HasRectangle(..)
   )
 where
 
@@ -59,7 +55,6 @@ instance CanMask (Glyph (Shape s)) (Glyph (CompoundTree s)) where
 
 instance (Functor f) => CanMask (f (Shape s)) (f (CompoundTree s)) where
     mask = fmap mask
-
 
 -- | Typeclass of shape representations that can be filled with a color or texture.
 class CanFill a b | b -> a where
@@ -118,7 +113,7 @@ instance (Alternative f, Space s) => HasRectangle (Outline_ f s) where
     rectangle v = Outline . rectangleCurve $ v
 
 instance (Space s) => HasRectangle (Shape s) where
-    rectangle v = pure . rectangle $ v
+    rectangle v = Shape . pure . rectangle $ v
 
 instance Space s => HasRectangle (CompoundTree s) where
     rectangle v = mask . rectangle $ v
@@ -152,7 +147,7 @@ instance (Chain f, Space s) => HasCircle (Outline_ f s) where
     circle = closeOpenCurve circleCurve
 
 instance (Space s) => HasCircle (Shape s) where
-    circle = pure circle
+    circle = Shape . pure $ circle
 
 instance Space s => HasCircle (CompoundTree s) where
     circle = mask circle
@@ -161,6 +156,7 @@ instance Space s => HasCircle (CompoundTree s) where
 instance Space s => HasCircle (Glyph (CompoundTree s)) where
     circle = glyphWrapShape $ circle
 
+{-
 -- | A rectangle can also inhabit any applicative functor as a compound tree.
 instance (HasSpace (f (CompoundTree s)),s ~ SpaceOf (f (CompoundTree s)), Applicative f, Space s)
          => HasCircle (f (CompoundTree s)) where
@@ -170,7 +166,7 @@ instance (HasSpace (f (CompoundTree s)),s ~ SpaceOf (f (CompoundTree s)), Applic
 instance (HasSpace (f (Glyph (CompoundTree s))),s ~ SpaceOf (f (Glyph (CompoundTree s))), Applicative f, Space s)
          => HasCircle (f (Glyph (CompoundTree s))) where
     circle = pure . glyphWrapShape $ circle
-
+-}
 
 -- | Instance for filling a functor of a glyph-wrapped compound shapetrees such as a list.
 instance {-# Overlappable #-} (Functor f, SpaceOf (f (Glyph (CompoundTree s))) ~ s) => CanFill (f (Glyph (CompoundTree s))) (f (Glyph (ShapeTree Int s))) where
