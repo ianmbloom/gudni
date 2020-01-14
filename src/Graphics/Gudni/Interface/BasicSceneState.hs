@@ -15,6 +15,8 @@ module Graphics.Gudni.Interface.BasicSceneState
   , statePlayhead
   , stateFrameNumber
   , stateStep
+  , stateRepMode
+  , stateRepDk
 
   , transformFromState
   , simpleTransformFromState
@@ -28,6 +30,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Interface.Time
+import Graphics.Gudni.Util.Representation
 
 --import Data.Maybe(listToMaybe, fromMaybe, fromJust)
 import Control.Lens
@@ -49,6 +52,8 @@ data BasicSceneState = BasicSceneState
   , _statePlayhead    :: SubSpace
   , _stateFrameNumber :: Int
   , _stateStep        :: Int
+  , _stateRepMode     :: Bool
+  , _stateRepDk       :: Bool
   } deriving (Show)
 makeLenses ''BasicSceneState
 
@@ -111,6 +116,8 @@ instance HandlesInput BasicSceneState where
                         Key Number6 -> stateScale .= 32
                         Key Number0 -> stateScale .= 0.25
                         Key Number9 -> stateScale .= 0.125
+                        KeyCommand CommandTab -> stateRepMode %= not
+                        Key SymbolBackquote -> stateRepDk %= not
                         _                 -> return ()
             (InputMouse detection modifier clicks positionInfo) ->
                 case detection of

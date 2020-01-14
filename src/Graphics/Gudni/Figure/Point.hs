@@ -103,7 +103,6 @@ taxiDistance :: (Space s) => Point2 s -> Point2 s -> s
 taxiDistance v0 v1 =
   abs(v1 ^. pX - v0 ^. pX) + abs(v1 ^. pY - v0 ^. pY)
 
-
 -- | Make a mid point from two points.
 mid :: (Fractional s, Num s) => Point2 s -> Point2 s -> Point2 s
 mid = lerp 0.5

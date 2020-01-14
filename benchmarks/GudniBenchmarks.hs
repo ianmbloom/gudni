@@ -16,6 +16,7 @@ import Graphics.Gudni.Layout
 import Graphics.Gudni.Application
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Fuzzy
+import Graphics.Gudni.Util.Representation
 
 
 import Data.Word
@@ -50,8 +51,10 @@ instance Model BenchmarkState where
     constructScene state status =
         do  testScene <- (snd $ getTest state) state
             let testName = (fst $ getTest state)
+            let repMode = state ^. stateBase . stateRepMode
+                repDk   = state ^. stateBase . stateRepDk
             statusTree <- (^?! unGlyph) <$> statusDisplay (state ^. stateBase) testName (lines status)
-            let tree = transformFromState (state ^. stateBase) testScene
+            let tree = (if repMode then represent repDk else id) . transformFromState (state ^. stateBase) $ testScene
                 withStatus = if False then overlap [statusTree, tree] else tree
             return . Scene (light gray) $ withStatus
     providePictureMap state = return $ state ^. statePictureMap

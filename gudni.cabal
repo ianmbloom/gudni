@@ -66,6 +66,7 @@ library
                      , Graphics.Gudni.Util.Fuzzy
                      , Graphics.Gudni.Util.Plot
                      , Graphics.Gudni.Util.Segment
+                     , Graphics.Gudni.Util.Representation
                      , Graphics.Gudni.OpenCL.DeviceQuery
                      , Graphics.Gudni.Layout
                      , Graphics.Gudni.Figure.Angle
@@ -127,7 +128,6 @@ library
                      , Graphics.Gudni.Util.Pile
                      , Graphics.Gudni.Util.Chain
                      , Graphics.Gudni.Util.Loop
-                     , Graphics.Gudni.Util.Representation
                      , Graphics.Gudni.Util.RandomField
 
   -- LANGUAGE extensions used by modules in this package.

@@ -1,7 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Graphics.Gudni.Figure.Split
-  ( splitBezierX
+  ( findSplit
+  , splitBezierX
   , splitBezierY
   , splitClosestControl
   )
@@ -31,7 +32,7 @@ sPLIT = 1 / 2
 
 -- | Find a new onCurve point and two new control points that divide the curve based on the convex function.
 findSplit :: forall s . (Show s, Fractional s, Ord s, Num s, Iota s) => (s -> s) -> s
-findSplit f = search 0.0 1.0 0.5
+findSplit f = search 0.0 1.0 sPLIT
   where
   -- | Given a range of parameters along the curve determine if the are close enough to split the curve.
   search :: s -> s -> s -> s

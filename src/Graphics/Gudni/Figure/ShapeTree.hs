@@ -40,9 +40,7 @@ module Graphics.Gudni.Figure.ShapeTree
   , sceneShapeTree
   , HasDefault(..)
   , invertCompound
-  , PictureName(..)
-  , Picture(..)
-  , NamedTexture(..)
+  , Overlap(..)
   )
 where
 
@@ -52,7 +50,6 @@ import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.OpenCurve
---import Graphics.Gudni.Figure.Glyph
 import Graphics.Gudni.Figure.Substance
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.Transformable
@@ -110,13 +107,13 @@ data Compound
     deriving (Ord, Eq, Show)
 
 -- | Type of overlapping two seperate shapes.
-type Overlap = ()
+data Overlap = Overlap deriving (Show, Eq)
 
 instance HasDefault Compound where
   defaultValue = CompoundAdd
 
 instance HasDefault Overlap where
-  defaultValue = ()
+  defaultValue = Overlap
 
 -- | An SRep defines an individual shape and it's metadata.
 data SRep token textureLabel rep = SRep
@@ -153,7 +150,7 @@ instance (Space s) => CanProject (BezierSpace s) (SRep token NamedTexture (Compo
 --   fmap f (SRep token substance rep) = SRep token substance (f rep)
 
 type CompoundTree s = STree Compound (Shape s)
-type ShapeTree token s = STree () (SRep token NamedTexture (CompoundTree s))
+type ShapeTree token s = STree Overlap (SRep token NamedTexture (CompoundTree s))
 
 -- | A container for a ShapeTree that indicates the background color.
 data Scene tree = Scene

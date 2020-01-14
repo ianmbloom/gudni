@@ -62,7 +62,7 @@ instance (s ~ (SpaceOf (f (Bezier s))), Space s, Show (f (Bezier s)), Chain f) =
       let fixed :: f (Bezier s)
           fixed = join . fmap deKnob $ beziers
       in  join . fmap (traverseBezierSpace max_steps m_accuracy
-                       (tr "bSpace" bSpace)) $ fixed
+                       bSpace) $ fixed
 
 data BezierSpace s = BezierSpace
   { bsStart  :: Point2 s
@@ -211,7 +211,7 @@ projectOffsetCurve max_steps m_accuracy start sPoint sNormal end ePoint eNormal 
         correctX x  = inverseArcLength max_steps m_accuracy sourceCurve (x - start)
         (V3 t0 tc t1) = fmap (correctX . view pX) . view bzPoints $ bz
         (V3 y0 yC y1) = fmap (view pY) . view bzPoints $ bz
-        (normal0, normal1, s0, sC, s1) = tr ("normals starts " ++ show bz ++ "=>") $
+        (normal0, normal1, s0, sC, s1) = --tr ("normals starts " ++ show bz ++ "=>") $
             if t0 == t1
             then if t0 < 0.5
                  then let (Bez s0 sC s1) = dropBezier t0 sourceCurve

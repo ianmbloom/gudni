@@ -84,8 +84,8 @@ pictureTextureSize = fmap pixelSpaceToTextureSpace . pictSize
 instance NFData PictureMemoryReference where
   rnf (PictureMemory a b) = a `deepseq` b `deepseq` ()
 
-type ShapeTreeNamed token s = STree () (SRep token PictureName (CompoundTree s))
-type ShapeTreePictureMemory token s = STree () (SRep token PictureMemoryReference (CompoundTree s))
+type ShapeTreeNamed token s = STree Overlap (SRep token PictureName (CompoundTree s))
+type ShapeTreePictureMemory token s = STree Overlap (SRep token PictureMemoryReference (CompoundTree s))
 
 overRepSubstanceM :: Monad m => (a -> m b) -> SRep token a rep -> m (SRep token b rep)
 overRepSubstanceM f (SRep token a rep) =

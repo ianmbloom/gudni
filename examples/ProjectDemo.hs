@@ -25,6 +25,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.ShapeTree
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
+import Graphics.Gudni.Util.Representation
 
 import qualified Graphics.Gudni.Figure.Bezier as B
 
@@ -50,12 +51,14 @@ instance Model ProjectionState where
     ioTask = return
     constructScene state _status =
         do text <- (^?! unGlyph) <$> blurb 0.1 AlignMin "e" -- "Georg Guðni Hauksson"
+           let repMode = state ^. stateBase . stateRepMode
            return . Scene gray $
-               transformFromState (state ^. stateBase) $
+               (if repMode then represent else id) $
+               ((transformFromState (state ^. stateBase) $
                overlap [ colorWith (dark red) . projectOnto path . scaleBy 100 . translateByXY 1 (1) . mask . stroke 0.1 $ smallBz
                        , colorWith (dark green) . scaleBy 100 . translateByXY 2 (1) . mask . stroke 0.1 $ smallBz
                        --, doubleDotted path
-                       ]
+                       ]) :: ShapeTree Int SubSpace)
       where
         bz  = Bez (Point2 0 0) (Point2 100 0) (Point2 200 0)
         --bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)
@@ -123,5 +126,6 @@ main = runApplication $ ProjectionState
            , _statePlayhead    = 0
            , _stateFrameNumber = 0
            , _stateStep        = 69
+           , _stateRepMode     = False
            }
        ) 0

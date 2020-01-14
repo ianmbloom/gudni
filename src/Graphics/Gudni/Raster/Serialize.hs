@@ -231,7 +231,7 @@ addHardFacet substanceId hardFacet =
          boundingBox = boxOf hardFacet
      lift $ addItem boundingBox facetTag
 
--- | For each shape in the shapeTree add the serialize the substance metadata and serialize the compound subtree.
+-- | For each shape in the shapeTree serialize the substance metadata and serialize the compound subtree.
 onSubstance :: forall m item token .
              ( item ~ Shape SubSpace
              --, SpaceOf item ~ SpaceOf ShapeEntry
@@ -241,11 +241,11 @@ onSubstance :: forall m item token .
              , Ord token)
             => (TextureSpace -> SpaceOf item)
             -> (SpaceOf item)
-            -> ()
+            -> Overlap
             -> Transformer (SpaceOf item)
             -> SRep token PictureMemoryReference (STree Compound item)
             -> SubstanceMonad token (SpaceOf item) (GeometryMonad m) ()
-onSubstance fromTextureSpace tolerance () transformer (SRep token substance subTree) =
+onSubstance fromTextureSpace tolerance Overlap transformer (SRep token substance subTree) =
     do  -- Depending on the substance of the shape take appropriate actions.
         let (subTransform, baseSubstance) = breakdownSubstance substance
         substanceId <-
@@ -289,7 +289,7 @@ onSubstance fromTextureSpace tolerance () transformer (SRep token substance subT
         --         -> GeometryMonad m ()
         lift $ traverseCompoundTree defaultValue transformer (onShape substanceId) subTree
 
-buildOverScene :: (MonadIO m, Ord token)
+buildOverScene :: (MonadIO m, Ord token, Show token)
                => Scene (ShapeTreePictureMemory token SubSpace)
                -> SubstanceMonad token SubSpace (GeometryMonad m) ()
 buildOverScene scene =

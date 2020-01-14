@@ -26,12 +26,20 @@ module Graphics.Gudni.Raster.TraverseShapeTree
   , traverseShapeTree
   , mapSTree
   , mapMSTree
+  , flattenShapeTree
+  , flattenCompoundTree
   )
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Util.Debug
 
 import Control.Lens
+import qualified Data.Sequence as S
+import Control.Monad.State
+import Data.Foldable
+import Control.Lens
+
 
 -- | Operate on a compound junction.
 traverseCompound :: Compound -> Compound -> (Compound, Compound)
@@ -39,11 +47,11 @@ traverseCompound CompoundAdd      current = (current, current)
 traverseCompound CompoundSubtract current = (invertCompound current, current)
 
 -- | Operate on an overlay junction.
-traverseUnit :: () -> () -> ((), ())
-traverseUnit () () = ((),())
+traverseOverlap :: Overlap -> Overlap -> (Overlap, Overlap)
+traverseOverlap Overlap Overlap = (Overlap,Overlap)
 
 -- | Traverse across an STree monadically collecting metadata from
-traverseTree :: (Monad m, HasDefault o)
+traverseTree :: (Monad m, HasDefault o, Show o, Show rep, Space (SpaceOf rep))
              => (o -> o -> (o, o))
              -> (  Transformer (SpaceOf rep)
                 -> Transformer (SpaceOf rep)
@@ -66,7 +74,7 @@ traverseTree combineOp transformOp c t f tree = go c t tree
                   SEmpty -> return ()
 
 -- | Traverse a compound shape tree
-traverseCompoundTree :: (Num (SpaceOf rep), Monad m)
+traverseCompoundTree :: (Space (SpaceOf rep), Show rep, Monad m)
                      => Compound
                      -> Transformer (SpaceOf rep)
                      -> (Compound -> Transformer (SpaceOf rep) -> rep -> m ())
@@ -75,11 +83,11 @@ traverseCompoundTree :: (Num (SpaceOf rep), Monad m)
 traverseCompoundTree o t = traverseTree traverseCompound CombineTransform o t
 
 -- | Traverse an overlap shape tree
-traverseShapeTree :: (Num (SpaceOf rep), Monad m)
-                  => (() -> Transformer (SpaceOf rep) -> rep -> m ())
-                  -> STree () rep
+traverseShapeTree :: (Space (SpaceOf rep), Show rep, Monad m)
+                  => (Overlap -> Transformer (SpaceOf rep) -> rep -> m ())
+                  -> STree Overlap rep
                   -> m ()
-traverseShapeTree = traverseTree traverseUnit CombineTransform () IdentityTransform
+traverseShapeTree = traverseTree traverseOverlap CombineTransform Overlap IdentityTransform
 
 mapSTree :: (SpaceOf a ~ SpaceOf b)
          => (a -> b)
@@ -112,3 +120,24 @@ mapMSTree f tree = go  tree
                  return $ SMeld overlap a b
            STransform tOp child -> STransform tOp <$> go child
            SEmpty -> return SEmpty
+
+flattenShapeTree :: (Space s, Show token) => ShapeTree token s
+                 -> S.Seq (Shape s)
+flattenShapeTree tree =
+    execState (traverseShapeTree flattenSubstance tree) S.empty
+
+flattenCompoundTree :: Space s
+                    => Transformer s
+                    -> STree Compound (Shape s)
+                    -> State (S.Seq (Shape s)) ()
+flattenCompoundTree transformer =
+    traverseCompoundTree defaultValue transformer flattenShape
+
+flattenSubstance :: Space s => Overlap -> Transformer s -> SRep token sub (STree Compound (Shape s)) -> State (S.Seq (Shape s))  ()
+flattenSubstance Overlap transformer (SRep token substance subTree) =
+    flattenCompoundTree transformer subTree
+
+flattenShape :: (Space s, Show s) => Compound -> Transformer s -> Shape s -> State (S.Seq (Shape s)) ()
+flattenShape combineType transformer shape =
+    let shape' = Shape . map (applyTransformer transformer) $ view shapeOutlines shape
+    in  modify (flip (S.|>) shape')
