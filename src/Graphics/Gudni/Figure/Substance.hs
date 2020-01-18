@@ -62,7 +62,7 @@ instance Space s => Transformable (Substance n s) where
   rotateBy    a = TransformSubstance (Rotate a)
 
 instance Space s => CanProject (BezierSpace s) (Substance n s) where
-  projectionWithStepsAccuracy _ _  c = TransformSubstance (Project c)
+  projectionWithStepsAccuracy debug _ _  c = TransformSubstance (Project debug c)
 
 
 instance (Space s, Show n, Show s) => Show (Substance n s) where

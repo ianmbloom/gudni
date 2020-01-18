@@ -55,7 +55,7 @@ data Transformer s where
   Scale     :: s        -> Transformer s
   Stretch   :: Point2 s -> Transformer s
   Rotate    :: Angle s  -> Transformer s
-  Project   :: BezierSpace s -> Transformer s
+  Project   :: Bool -> BezierSpace s -> Transformer s
   CombineTransform :: Transformer s -> Transformer s -> Transformer s
   deriving (Show)
 
@@ -65,7 +65,7 @@ applyTransformer (Translate delta) = translateBy delta
 applyTransformer (Scale scale)     = scaleBy scale
 applyTransformer (Stretch size)    = stretchBy size
 applyTransformer (Rotate angle)    = rotateBy angle
-applyTransformer (Project curve)   = projectOnto curve
+applyTransformer (Project debug curve)   = projectOnto debug curve
 applyTransformer (CombineTransform a b) = applyTransformer b . applyTransformer a
 
 -- * Instances

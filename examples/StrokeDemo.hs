@@ -64,7 +64,7 @@ instance Model StrokeState where
             stroke 2 $ path
         projected :: ShapeTree Int SubSpace
         projected =
-            projectOnto path .
+            projectOnto False path .
             translateByXY 0 (-2.5) .
             translateByXY (state ^. stateOffset) 0 .
             colorWith (transparent 0.8 red) .
@@ -117,5 +117,7 @@ main = runApplication $ StrokeState
            , _statePlayhead    = 0
            , _stateFrameNumber = 0
            , _stateStep        = 69
+           , _stateRepMode     = False
+           , _stateRepDk       = False
            }
        ) 0

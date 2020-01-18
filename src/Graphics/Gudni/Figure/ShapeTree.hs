@@ -137,14 +137,14 @@ instance (HasSpace leaf) => Transformable (STree o leaf) where
   rotateBy angle tree = if angle == (0 @@ rad) then tree else STransform (Rotate angle) tree
 
 instance forall o s leaf .(Space s, s ~ (SpaceOf leaf), CanProject (BezierSpace s) leaf) => CanProject (BezierSpace s) (STree o leaf) where
-  projectionWithStepsAccuracy max_steps m_accuracy path tree = STransform (Project path) $ tree
+  projectionWithStepsAccuracy debug max_steps m_accuracy path tree = STransform (Project debug path) $ tree
 
 instance (Space s) => CanProject (BezierSpace s) (Shape s) where
-  projectionWithStepsAccuracy max_steps m_accuracy path shapes = over shapeOutlines (fmap (projectionWithStepsAccuracy max_steps m_accuracy path)) shapes
+  projectionWithStepsAccuracy debug max_steps m_accuracy path shapes = over shapeOutlines (fmap (projectionWithStepsAccuracy debug max_steps m_accuracy path)) shapes
 
 instance (Space s) => CanProject (BezierSpace s) (SRep token NamedTexture (CompoundTree s)) where
-  projectionWithStepsAccuracy max_steps m_accuracy path (SRep token substance rep) =
-      SRep token substance $ projectionWithStepsAccuracy max_steps m_accuracy path rep
+  projectionWithStepsAccuracy debug max_steps m_accuracy path (SRep token substance rep) =
+      SRep token substance $ projectionWithStepsAccuracy debug max_steps m_accuracy path rep
 
 -- instance Functor (SRep token) where
 --   fmap f (SRep token substance rep) = SRep token substance (f rep)

@@ -14,7 +14,7 @@
 --
 -- Demonstration of equal-distance projectOnto, and equal spacing in t-paramater.
 
-module ProjectDemo
+module DebugProjection
   ( main
   )
 where
@@ -46,6 +46,45 @@ data ProjectionState = ProjectionState
    deriving (Show)
 makeLenses ''ProjectionState
 
+debugScene :: ShapeTree Int SubSpace
+debugScene =
+  let bz = Bez (P (V2 0.86950 0.11950)) (P (V2 0.89814 0.14814)) (P (V2 0.92678 0.17678))
+      sourceCurve = Bez (P (V2 0.62500 0.46875)) (P (V2 0.81250 0.37500)) (P (V2 1.00000 0.00000))
+      bzCorrected =  Bez (P (V2 0.00000 0.11950)) (P (V2 0.06689 0.14814)) (P (V2 0.13097 0.17678))
+      (start, normal0) = (P (V2 0.62500 0.46875),V2 0.44722 0.89443)
+      s0 = P (V2 0.67844 0.57563)
+      (end,   normal1) = (P (V2 0.67411 0.43937),V2 0.57151 0.82060)
+      s1 = P (V2 0.77514 0.58443)
+      tangent0 = V2 0.91929 0.39358
+      tangent0Rotated = V2 0.99825 (-0.05910)
+      tangent1 = V2 0.91296 0.40806
+      tangent1Rotated = V2 0.98238 (-0.18691)
+      slope0 = (-0.05920)
+      slope1 = (-0.19026)
+      result = Bez (P (V2 0.67844 0.57563)) (P (V2 0.88596 0.56335)) (P (V2 0.77514 0.58443))
+  in
+  overlap [ colorWith green  . mask $ oldLine 0.001 start s0
+          , colorWith green  . mask $ oldLine 0.001 end   s1
+          , colorWith orange . mask $ oldLine 0.004 start (start .+^ normal0)
+          , colorWith orange . mask $ oldLine 0.004 end   (end   .+^ normal1)
+          --, colorWith red    . mask $ oldLine 0.003 (start) (curveSlice ^. bzControl)
+          --, colorWith red    . mask $ oldLine 0.003 (control) (curveSlice ^. bzEnd)
+          , colorWith (light purple)   . mask $ oldLine 0.005 (sourceCurve ^. bzStart)   (sourceCurve ^. bzControl)
+          , colorWith (light purple)   . mask $ oldLine 0.005 (sourceCurve ^. bzControl) (sourceCurve ^. bzEnd)
+          , colorWith (light red)     . mask $ oldLine 0.005  (result ^. bzStart)   (result ^. bzControl)
+          , colorWith (light red)     . mask $ oldLine 0.005  (result ^. bzControl) (result ^. bzEnd)
+
+          , colorWith (light green)    . mask $ oldLine 0.01  (bz ^. bzStart)   (bz ^. bzControl)
+          , colorWith (light green)    . mask $ oldLine 0.01  (bz ^. bzControl) (bz ^. bzEnd)
+
+          , colorWith (light blue)     . mask $ oldLine 0.01  (bzCorrected ^. bzStart)   (bzCorrected ^. bzControl)
+          , colorWith (light blue)     . mask $ oldLine 0.01  (bzCorrected ^. bzControl) (bzCorrected ^. bzEnd)
+
+          , colorWith (light yellow)   . mask $ oldLine 0.005 (bzCorrected ^. bzStart) (bzCorrected ^. bzStart .+^ tangent0)
+          , colorWith (light yellow)   . mask $ oldLine 0.005 (bzCorrected ^. bzEnd  ) (bzCorrected ^. bzEnd   .+^ tangent1)
+          , colorWith (light yellow)   . mask $ oldLine 0.005 s0 (s0 .+^ tangent0Rotated)
+          , colorWith (light yellow)   . mask $ oldLine 0.005 s1 (s1 .+^ tangent1Rotated)
+          ]
 
 instance Model ProjectionState where
     screenSize state = Window (Point2 500 250)
@@ -61,18 +100,12 @@ instance Model ProjectionState where
                offset  = state ^. stateOffset
            return . Scene gray $
                --(if repMode then represent repDk else id) $
-               ((--((transformFromState (set stateAngle (0 @@ deg) (state ^. stateBase)) $
-               overlap [
-                       overlap . fmap (represent False) . transformFromState (set stateAngle (0 @@ deg) (state ^. stateBase)) . projectOnto True path . (pure :: Bezier s -> [Bezier s]) . translateBy (offset `by` 0) . rotateBy angle $ (myline :: Bezier SubSpace)
-                       --colorWith (dark red) . projectOnto path . translateBy (offset `by` 0) . rotateBy angle . rectangle $ 0.125 `by` 0.125 -- {-scaleBy 100 . translateByXY 1 (1) .-} mask . stroke 200 $ smallBz
-                       --, colorWith (dark green) . scaleBy 100 . translateByXY 2 (1) . mask . stroke 0.1 $ smallBz
-                       --, doubleDotted path
-                       ]) :: ShapeTree Int SubSpace)
+               ((transformFromState (state ^. stateBase) $
+               debugScene) :: ShapeTree Int SubSpace)
       where
         bz  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0)
         --bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)
         --bz3 = Bez (Point2 40 80) (Point2 80 80) (Point2 80 160)
-        myline = line (0 `by` 0) (0.25 `by` 0)
         smallBz = Bez (Point2 0 0) (Point2 100 100) (Point2 10 100)
         path = makeOpenCurve [bz{-,bz2,bz3-}]
         doubleDotted :: Space s => OpenCurve s -> ShapeTree Int s
@@ -125,9 +158,9 @@ marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square
 main :: IO ()
 main = runApplication $ ProjectionState
        (BasicSceneState
-           { _stateScale       = 100
-           , _stateDelta       = Point2 0 0
-           , _stateAngle       = 45 @@ deg
+           { _stateScale       = 500
+           , _stateDelta       = Point2 100 100
+           , _stateAngle       = 0 @@ deg
            , _statePaused      = True
            , _stateSpeed       = 1
            , _statePace        = 10

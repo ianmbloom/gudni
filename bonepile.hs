@@ -337,3 +337,148 @@ openRectangle :: Space s
 openRectangle s p = let strokeDelta = Point2 s s in
                     subtractFrom (rectangle p)
                               (mapGlyph (translateBy strokeDelta) $ rectangle (p ^-^ (strokeDelta ^* 2)))
+
+{-
+projectOffsetCurve :: Space s
+                   => Int
+                   -> Maybe s
+                   -> s
+                   -> Point2 s
+                   -> Diff Point2 s
+                   -> s
+                   -> Point2 s
+                   -> Diff Point2 s
+                   -> Point2 s
+                   -> s
+                   -> Bezier s
+                   -> Bezier s
+projectOffsetCurve max_steps m_accuracy start sPoint sNormal end ePoint eNormal control len bz =
+    let sourceCurve = Bez sPoint control ePoint
+        correctX x  = inverseArcLength max_steps m_accuracy sourceCurve (x - start)
+        (V3 t0 tC t1) = fmap (correctX . view pX) . view bzPoints $ bz
+        (V3 y0 yC y1) = fmap (view pY) . view bzPoints $ bz
+        (s0, normal0) = bezierPointAndNormal t0 sourceCurve
+        (sC, normalC) = bezierPointAndNormal tC sourceCurve
+        (s1, normal1) = bezierPointAndNormal t1 sourceCurve
+        m = normal0 ^+^ normal1
+        cCurve = Bez (normal0 ^* yC)
+                     (m ^* (2 * yC / m `dot` m)) -- probably wrong
+                     (normal1 ^* yC)
+        s = s0 .+^ normal0 ^* y0
+        c = sC .+^ cOffset
+        e = s1 .+^ normal1 ^* y1
+    in  Bez s c e
+-}
+
+offsetCurve d bz@(Bez v0 c v1) =
+  let normal0 = bezierStartNormal bz
+      normal1 = bezierEndNormal   bz
+      m = normal0 ^+^ normal1
+      k = m ^* ((2 * d) / (m `dot` m))
+  in  Bez (v0 .+^ (normal0 ^* d))
+          (c  .+^ k)
+          (v1 .+^ (normal1 ^* d))
+
+
+
+
+          projectOffsetCurve :: forall s
+                             .  Space s
+                             => Int
+                             -> Maybe s
+                             -> s
+                             -> Point2 s
+                             -> Diff Point2 s
+                             -> s
+                             -> Point2 s
+                             -> Diff Point2 s
+                             -> Point2 s
+                             -> s
+                             -> Bezier s
+                             -> Bezier s
+          projectOffsetCurve max_steps m_accuracy start sPoint sNormal end ePoint eNormal control len bz =
+              let sourceCurve = tr "sourceCurve =" $ Bez sPoint control ePoint
+                  correctX x  = inverseArcLength max_steps m_accuracy sourceCurve (x - start)
+                  correctBz :: Bezier s
+                  correctBz = tr "correctBz = " $ over bzPoints (fmap (over pX correctX)) $ tr "bz =" bz
+                  (V3 t0 tC t1) = fmap (view pX) . view bzPoints $ correctBz
+                  (V3 y0 yC y1) = fmap (view pY) . view bzPoints $ correctBz
+                  curveSlice = tr "curveSlice =" $ sliceBezier t0 t1 sourceCurve
+              in  if t0 == t1
+                  then let (s0, normal0) = bezierPointAndNormal t0 sourceCurve
+                           s = s0 .+^ (normal0 ^* y0)
+                           e = s0 .+^ (normal0 ^* y1)
+                           c = mid s e
+                       in  Bez s c e
+                  else let tangent0 = tr "tangent0 =" $ bezierStartTangent bz
+                           tangent1 = tr "tangent1 =" $ bezierEndTangent   bz
+                           normal0  = tr "normal0 ="  $ bezierStartNormal curveSlice
+                           normal1  = tr "normal1 ="  $ bezierEndNormal   curveSlice
+                           tangent0Rotated = tr "tangent0Rotated =" $ ontoVector normal0 tangent0
+                           tangent1Rotated = tr "tangent1Rotated =" $ ontoVector normal1 tangent1
+                           slope0 = tr "slope0 =" $ slopeOf tangent0Rotated
+                           slope1 = tr "slope1 =" $ slopeOf tangent1Rotated
+                           s0 = tr "s0 =" $ (tr "sliceStart=" $ curveSlice ^. bzStart) .+^ (normal0 ^* y0)
+                           s1 = tr "s1 =" $ (tr "sliceEnd ="  $ curveSlice ^. bzEnd  ) .+^ (normal1 ^* y1)
+                           c
+                             | tangent0Rotated ^. _x == 0 && tangent1Rotated ^. _x == 0 = mid s0 s1
+                             | tangent0Rotated ^. _x == 0 = Point2 (s0^.pX) (yInterceptSlope s1 slope1 (s0 ^. pX))
+                             | tangent1Rotated ^. _x == 0 = Point2 (s1^.pX) (yInterceptSlope s0 slope0 (s1 ^. pX))
+                             | abs (slope0 - slope1) < 0.1 = mid s0 s1
+                             | otherwise = over pY (clamp (-1000) 1000) $ arbitraryIntersection s0 slope0 s1 slope1
+                       in  tr "result =" $ Bez s0 c s1
+
+
+
+--- Most recent
+
+projectOffsetCurve :: forall s
+                   .  Space s
+                   => Bool
+                   -> Int
+                   -> Maybe s
+                   -> s
+                   -> Point2 s
+                   -> Diff Point2 s
+                   -> s
+                   -> Point2 s
+                   -> Diff Point2 s
+                   -> Point2 s
+                   -> s
+                   -> Bezier s
+                   -> Bezier s
+projectOffsetCurve debug max_steps m_accuracy start sPoint sNormal end ePoint eNormal control len bz =
+    let sourceCurve = trWhen debug  "sourceCurve =" $ Bez sPoint control ePoint
+        correctX x  = inverseArcLength max_steps m_accuracy sourceCurve (x - start)
+        bzCorrected :: Bezier s
+        bzCorrected = trWhen debug  "bzCorrected = " $ over bzPoints (fmap (over pX correctX)) $ trWhen debug  "bz =" bz
+        (V3 t0 tC t1) = fmap (view pX) . view bzPoints $ bzCorrected
+        (V3 y0 yC y1) = fmap (view pY) . view bzPoints $ bzCorrected
+        --curveSlice = trWhen debug  "curveSlice =" $ sliceBezier t0 t1 sourceCurve
+    in  if t0 == t1 -- the curve is vertical.
+        then let (s0, normal0) = bezierPointAndNormal sourceCurve t0
+                 s = s0 .+^ (normal0 ^* y0)
+                 e = s0 .+^ (normal0 ^* y1)
+                 c = mid s e
+             in  Bez s c e
+        else let tangent0 = trWhen debug "tangent0 =" $ bezierStartTangent bz
+                 tangent1 = trWhen debug "tangent1 =" $ bezierEndTangent   bz
+
+                 (start, normal0)  = trWhen debug "(start, normal0) ="  $ bezierPointAndNormal sourceCurve t0
+                 (end,   normal1)  = trWhen debug "(end,   normal1) ="  $ bezierPointAndNormal sourceCurve t1
+
+                 s0 = trWhen debug "s0 =" $ start .+^ (normal0 ^* y0)
+                 s1 = trWhen debug "s1 =" $ end .+^ (normal1 ^* y1)
+
+
+                 tangent0Rotated = trWhen debug "tangent0Rotated =" $ ontoVector normal0 tangent0
+                 tangent1Rotated = trWhen debug "tangent1Rotated =" $ ontoVector normal1 tangent1
+                 slope0 = trWhen debug "slope0 =" $ slopeOf tangent0Rotated
+                 slope1 = trWhen debug "slope1 =" $ slopeOf tangent1Rotated
+                 c
+                   | tangent0Rotated ^. _x == 0 && tangent1Rotated ^. _x == 0 = mid s0 s1
+                   | tangent0Rotated ^. _x == 0 = Point2 (s0^.pX) (yInterceptSlope s1 slope1 (s0 ^. pX))
+                   | tangent1Rotated ^. _x == 0 = Point2 (s1^.pX) (yInterceptSlope s0 slope0 (s1 ^. pX))
+                   | abs (slope0 - slope1) < 0.01 = mid s0 s1
+                   | otherwise = over pY (clamp (-1000) 1000) $ arbitraryIntersection s0 slope0 s1 slope1
+             in  trWhen debug "result =" $ Bez s0 {-c-} sC s1

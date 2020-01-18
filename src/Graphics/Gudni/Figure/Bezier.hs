@@ -48,7 +48,7 @@ data Bezier s = Bezier {unBezier :: V3 (Point2 s)} deriving (Eq, Ord)
 pattern Bez x y z = Bezier (V3 x y z)
 
 instance Show s => Show (Bezier s) where
-  show (Bez v0 c v1) = "\nBez " ++ show v0 ++ " " ++ show c ++ " " ++ show v1
+  show (Bez v0 c v1) = "Bez (" ++ show v0 ++ ") (" ++ show c ++ ") (" ++ show v1 ++ ")"
 
 -- | Lens for the start point of a bezier.
 bzStart :: Lens' (Bezier s) (Point2 s)

@@ -118,7 +118,7 @@ instance Random TextureSpace where
 -------------------- Show --------------------------
 
 instance Show SubSpace where
-  show (SubSpace x) = showFl' 5 x
+  show (SubSpace x) = (if x < 0 then \string -> "("++string++")" else id) $ showFl' 5 x 
 
 instance Show TextureSpace where
   show (TSpace x) = showFl' 5 x

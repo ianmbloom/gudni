@@ -292,6 +292,23 @@ executable projection-example
                -threaded
                -fprint-potential-instances
 
+executable debug-projection
+  if flag(benchmarks)
+    build-depends:   gudni
+                   , base
+                   , lens
+                   , linear
+                   , mtl
+  else
+    buildable: False
+  hs-source-dirs: ./examples
+  main-is: DebugProjection.hs
+  default-language: Haskell2010
+  ghc-options: -main-is DebugProjection
+               -O3
+               -threaded
+               -fprint-potential-instances
+
 executable stroke-example
   if flag(benchmarks)
     build-depends:   gudni

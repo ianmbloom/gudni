@@ -76,8 +76,8 @@ closeOpenCurve curve =
   in  Outline . connect . view curveSegments $ curve
 
 instance (s ~ SpaceOf (f (Bezier s)), Monad f, Alternative f, Space s, Show (f (Bezier s)), Loop f) => CanProject (BezierSpace s) (Outline_ f s) where
-    projectionWithStepsAccuracy max_steps m_accuracy bSpace curve =
-         Outline . overLoopNeighbors fixBezierNeighbor .projectionWithStepsAccuracy max_steps m_accuracy bSpace . view outlineSegments $ curve
+    projectionWithStepsAccuracy debug max_steps m_accuracy bSpace curve =
+         Outline . overLoopNeighbors fixBezierNeighbor .projectionWithStepsAccuracy debug max_steps m_accuracy bSpace . view outlineSegments $ curve
 
 -- * Instances
 instance (SimpleSpace s) => HasSpace (Outline_ t s) where

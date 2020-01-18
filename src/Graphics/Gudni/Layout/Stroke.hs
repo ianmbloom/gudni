@@ -35,7 +35,7 @@ instance Space s => CanStroke (BezierSpace s) where
   strokeOffset offset thickness bSpace =
     let lengths = bezierSpaceLengths bSpace
         rect = segmentedRectangle thickness lengths
-    in  Shape . pure . projectOnto bSpace . translateByXY 0 offset $ rect
+    in  Shape . pure . projectOnto False bSpace . translateByXY 0 offset $ rect
 
 instance Space s => CanStroke (OpenCurve s) where
   type Stroked (OpenCurve s) = Shape s
@@ -55,7 +55,7 @@ instance Space s => CanStroke (Outline s) where
         lengths = bezierSpaceLengths bSpace
         inner   = segmentedLine offset lengths
         outer   = segmentedLine (offset + thickness) lengths
-    in  Shape [projectOnto bSpace (Outline outer), projectOnto bSpace (Outline inner)]
+    in  Shape [projectOnto False bSpace (Outline outer), projectOnto False bSpace (Outline inner)]
 
 instance Space s => CanStroke (Shape s) where
   type Stroked (Shape s) = Shape s

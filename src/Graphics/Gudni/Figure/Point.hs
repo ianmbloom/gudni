@@ -78,9 +78,8 @@ pX elt_fn (Point2 x y) = (\x' -> Point2 x' y) <$> (elt_fn x)
 pY :: Lens' (Point2 s) s
 pY elt_fn (Point2 x y) = (\y' -> Point2 x y') <$> (elt_fn y)
 
-{-# INLINE makePoint #-}
-
 -- | Make a point from two orthogonal dimensions.
+{-# INLINE makePoint #-}
 makePoint :: s -> s -> Point2 s
 makePoint x y = P (V2 x y)
 

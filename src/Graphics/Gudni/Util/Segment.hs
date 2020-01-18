@@ -28,11 +28,13 @@ module Graphics.Gudni.Util.Segment
   , overSegment
   , randomSegmentFromPoints
   , fromSegments
+  , oldLine
   )
 where
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
+import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.ShapeTree
 import Graphics.Gudni.Layout.Glyph
 import Graphics.Gudni.Layout.Draw
@@ -107,8 +109,23 @@ segmentsToCurvePairs' first segs = case segs of
       []                              -> []
 
 -- | Convert a list of lists of segments to a list of outlines.
-segmentsToOutline :: (Fractional s) => [[Segment s]] -> Shape s
-segmentsToOutline = Shape . map (Outline . pairsToBeziers . V.fromList . segmentsToCurvePairs)
+segmentsToShape :: (Fractional s) => [[Segment s]] -> Shape s
+segmentsToShape = Shape . map (Outline . pairsToBeziers . V.fromList . segmentsToCurvePairs)
+
+-- | Basic curve definition for a simple line (Temporary until stroke implemented.)
+lineCurve :: (Space s) => s -> Point2 s -> Point2 s -> [Segment s]
+lineCurve stroke p0 p1 =
+  let vector = p0 ^-^ p1
+      normal = vector ^/ norm vector
+      leftNormal = rotate90 normal ^* stroke
+      rightNormal = rotate270 normal ^* stroke
+  in  [ Seg (p0 ^+^ rightNormal) Nothing
+      , Seg (p0 ^+^ leftNormal ) Nothing
+      , Seg (p1 ^+^ leftNormal ) Nothing
+      , Seg (p1 ^+^ rightNormal) Nothing
+      ]
+
+oldLine thickness p0 p1 = segmentsToShape . pure $ lineCurve thickness p0 p1
 
 -- | Typeclass for shape representations that can be created from a list of segments.
 class HasFromSegments a where
@@ -116,11 +133,11 @@ class HasFromSegments a where
 
 -- | Instance for creating a simple shape from a list of segments.
 instance Space s => HasFromSegments (CompoundTree s) where
-  fromSegments = SLeaf . segmentsToOutline . pure
+  fromSegments = SLeaf . segmentsToShape . pure
 
 -- | Instance for creating a glyph wrapped shape from a list of segments.
 instance Space s => HasFromSegments (Glyph (CompoundTree s)) where
-  fromSegments = glyphWrapShape . segmentsToOutline . pure
+  fromSegments = glyphWrapShape . segmentsToShape . pure
 
 instance NFData s => NFData (Segment s) where
   rnf (Seg o c) = o `deepseq` c `deepseq` ()

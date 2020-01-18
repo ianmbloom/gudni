@@ -70,7 +70,7 @@ showFlFixed' width numOfDecimals floatNum  =
   in take extra (repeat ' ') ++ floatString ++ " "
 
 
-trWith f m x = trace (m++":"++f x) x
+trWith f m x = trace (m++" "++f x) x
 tr :: (Show a) => String -> a -> a
 tr = trWith show
 trM m = fmap (tr m)
