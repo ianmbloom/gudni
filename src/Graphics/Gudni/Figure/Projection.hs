@@ -199,12 +199,12 @@ projectTangentBezier offset v0 normal bz = overBezier (projectTangentPoint offse
 bezierPointAndNormal sourceCurve t =
   if t < 0.5
   then let (Bez s0 sC s1) = dropBezier t sourceCurve
-           tangent0 = sC .-. s0
-           n0 = normalize (perp (tangent0))
+           tangent0 = bezierStartTangent (Bez s0 sC s1)
+           n0 = perp (tangent0)
        in  (s0, n0)
   else let (Bez s0 sC s1) = takeBezier t sourceCurve
-           tangent0 = s1 .-. sC
-           n0 = normalize (perp (tangent0))
+           tangent0 = bezierEndTangent (Bez s0 sC s1)
+           n0 = perp (tangent0)
        in  (s1, n0)
 
 bezierStartTangent :: Space s => Bezier s -> Diff V2 s
@@ -305,8 +305,8 @@ projectCurve debugFlag max_steps m_accuracy start sourceCurve targetCurve =
                      -- otherwise calculate the intersection of the two tangent lines.
                      -- (temporarily clamping y below so that misbehaving intersection points don't crash the rest of the rasterizer.)
                    | otherwise = over pY (clamp (-10000) 10000) $ arbitraryIntersection s0 slope0 s1 slope1
-             in -- return the resulting curve.
-                Bez s0 c s1
+             in  -- return the resulting curve.
+                 Bez s0 c s1
 
 bezierIsForward (Bez v0 _ v1) = v0 ^. pX <= v1 ^. pX
 

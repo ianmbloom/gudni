@@ -20,12 +20,12 @@ where
 import Numeric
 import Data.Word
 import Data.Char
-import Foreign.C.Types (CULong)
+import Foreign.C.Types (CULong, CUInt)
 
 -- | The type and display method of a value to be defined in a C Preprocessor pragma.
 data CppValueType
   = CppHex64 CULong
-  | CppHex32 Int
+  | CppHex32 CUInt
   | CppInt   Int
   | CppFloat Float
   | CppNothing

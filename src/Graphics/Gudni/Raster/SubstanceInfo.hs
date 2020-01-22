@@ -18,6 +18,7 @@
 module Graphics.Gudni.Raster.SubstanceInfo
   ( SubstanceInfo (..)
   , SubstanceId (..)
+  , noSubstanceId
   , SubstanceTag (..)
   , ColorId(..)
   , TextureId(..)
@@ -32,12 +33,15 @@ import Graphics.Gudni.Raster.TextureReference
 
 import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Util.Pile
-import Foreign.Storable
 
 import Data.Bits
 import Control.Lens
 import Foreign.C.Types (CUInt, CULong)
 import Control.DeepSeq
+
+import Foreign.Storable
+import Foreign.C.Types
+import Foreign.Ptr
 
 type SubstanceTag_ = CULong
 
@@ -47,6 +51,8 @@ newtype SubstanceTag
     } deriving (Ord, Eq, Num, Enum)
 
 newtype SubstanceId = SubstanceId {unSubstanceId :: Reference SubstanceTag} deriving (Ord, Eq, Num, Enum)
+
+noSubstanceId = SubstanceId (Ref nOsUBSTANCEiD)
 
 instance Show SubstanceId where
     show (SubstanceId i) = show i ++ "sid"
@@ -61,7 +67,8 @@ data SubstanceInfo
     }
     | TextureInfo
     { _itemSubstanceMem :: TextureId
-    } deriving (Show)
+    }
+    deriving (Show)
 makeLenses ''SubstanceInfo
 
 -- | Make a SubstanceTag from a SubstanceInfo
@@ -77,12 +84,11 @@ substanceTagToInfo :: SubstanceTag -> SubstanceInfo
 substanceTagToInfo (SubstanceTag tag) =
   let ref = tag .&. sUBSTANCEtAGrEFbITMASK
       substanceType = tag .&. sUBSTANCEtAGtYPEbITmASK
-  in  if substanceType == sUBSTANCEtAGtYPEsOLIDcOLOR
-      then SolidInfo . ColorId . Ref . fromIntegral $ ref
-      else
-        if substanceType == sUBSTANCEtAGtYPEtEXTURE
-        then TextureInfo . TextureId . Ref . fromIntegral $ ref
-        else error "substanceType not supported"
+      info
+        | substanceType == sUBSTANCEtAGtYPEsOLIDcOLOR = SolidInfo . ColorId . Ref . fromIntegral $ ref
+        | substanceType == sUBSTANCEtAGtYPEtEXTURE    = TextureInfo . TextureId . Ref . fromIntegral $ ref
+        | otherwise                                   = error "substanceType not supported"
+  in  info
 
 instance Show SubstanceTag where
   show = show . substanceTagToInfo
@@ -120,3 +126,9 @@ instance Storable SubstanceTag where
   alignment = alignmentV
   peek = peekV
   poke = pokeV
+
+instance Storable SubstanceId where
+  sizeOf (SubstanceId i) = sizeOf i
+  alignment (SubstanceId i) = alignment i
+  peek i = SubstanceId <$> peek (castPtr i)
+  poke i (SubstanceId a) = poke (castPtr i) a

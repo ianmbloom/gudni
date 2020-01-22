@@ -59,6 +59,7 @@ cppDefines spec =
   ,Cpp "ITEMTAG_SUBSTANCE_ID_BITMASK"   (CppHex64 iTEMtAGsUBSTANCEIDbITMASK   )
   ,Cpp "ITEMTAG_SUBSTANCE_ID_SHIFT"     (CppInt   iTEMtAGsUBSTANCEIDsHIFT     )
   ,Cpp "ITEMTAG_ITEM_ID_BITMASK"        (CppHex64 iTEMtAGiTEMiDbITMASK        )
+  ,Cpp "NOSUBSTANCEID"                  (CppHex32 nOsUBSTANCEiD               )
   ,Cpp "SUBSTANCETAG_TYPE_BITMASK"      (CppHex64 sUBSTANCEtAGtYPEbITmASK     )
   ,Cpp "SUBSTANCETAG_TYPE_SOLID_COLOR"  (CppHex64 sUBSTANCEtAGtYPEsOLIDcOLOR  )
   ,Cpp "SUBSTANCETAG_TYPE_TEXTURE"      (CppHex64 sUBSTANCEtAGtYPEtEXTURE     )
@@ -143,11 +144,13 @@ setupOpenCL enableProfiling useCLGLInterop src =
               generateThresholdsKernel <- program "generateThresholds"
               sortThresholdsKernel     <- program "sortThresholds"
               renderThresholdsKernel   <- program "renderThresholds"
+              queryKernel              <- program "identifyPoints"
               -- Return a Library constructor with relevant information about the device for the rasterizer.
               return Rasterizer { _rasterClState  = state
                                 , _rasterGenerateThresholdsKernel = generateThresholdsKernel
                                 , _rasterSortThresholdsKernel     = sortThresholdsKernel
                                 , _rasterRenderThresholdsKernel   = renderThresholdsKernel
+                                , _rasterQueryKernel              = queryKernel
                                 , _rasterUseGLInterop = useCLGLInterop
                                 , _rasterSpec = rasterSpec
                                 }

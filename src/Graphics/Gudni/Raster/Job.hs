@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -20,7 +21,7 @@
 module Graphics.Gudni.Raster.Job
   ( GeoReference(..)
   , BuildJobsMonad(..)
-  , execBuildJobsMonad
+  , runBuildJobsMonad
   , RasterJob(..)
   , BuildState(..)
   , bsTileCount
@@ -29,8 +30,13 @@ module Graphics.Gudni.Raster.Job
   , rJItemTagPile
   , rJTilePile
   , rJThreadAllocation
+  , rJPointQueries
+  , PointQueryId(..)
+  , PointQuery(..)
+  , PointQuerySequence(..)
   , freeRasterJobs
   , accumulateRasterJobs
+  , addPointQueryToRasterJobs
   , outputRasterJob
   )
 where
@@ -45,7 +51,6 @@ import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Raster.TileTree
-import Graphics.Gudni.Raster.Tile
 import Graphics.Gudni.Raster.Serialize
 import Graphics.Gudni.Raster.ReorderTable
 import Graphics.Gudni.Raster.TraverseShapeTree
@@ -62,27 +67,41 @@ import Control.Loop
 
 import Foreign.Storable
 import Foreign.C.Types
+import Foreign.Ptr
 
 import Data.List (intercalate)
 import Data.Maybe
 import qualified Data.Map as M
 import qualified Data.Sequence as S
 import Data.Foldable
+import Data.List.Lens
 
+newtype JobId = JobId {unJobId :: Int} deriving (Show, Eq, Ord, Num)
+newtype PointQueryId = PointQueryId {unPointQueryId :: Int} deriving (Show, Eq, Ord, Num)
+
+data PointQuery = PointQuery
+    { pqTileId :: TileId
+    , pqQueryId :: PointQueryId
+    , pqLocation :: (Point2 SubSpace)
+    } deriving (Show)
+
+type PointQuerySequence = S.Seq PointQuery
 -- | A RasterJob stores the information needed to transfer data to OpenCL, to render a group of tiles∘
 -- Each job corresponds to an individual rasterizer kernel call.
 data RasterJob = RasterJob
   { _rJItemTagPile :: !(Pile ItemTag)
   , _rJTilePile  :: !(Pile (Tile (Slice ItemTag, Int)))
   , _rJThreadAllocation :: Int -- total number of threads allocated for this job.
+  , _rJPointQueries :: PointQuerySequence
   } deriving (Show)
 makeLenses ''RasterJob
 
 -- | A BuildState allows a monad to pass over a data structure, such as a TileTree while building a stack
 -- of RasterJobs
 data BuildState = BuildState
-  { _bsTileCount :: Int -- number of tiles added to the current job.
+  { _bsTileCount :: TileId -- number of tiles added to the current job.
   , _bsCurrentJob :: RasterJob -- current job
+  , _bsJobCount :: JobId
   , _bsJobs  :: [RasterJob] -- accumulated jobs.
   }
 makeLenses ''BuildState
@@ -91,12 +110,12 @@ makeLenses ''BuildState
 type BuildJobsMonad m = StateT BuildState m
 
 -- | Run a RasterJobMonad and return the state.
-execBuildJobsMonad :: MonadIO m => BuildJobsMonad m a -> m BuildState
-execBuildJobsMonad code =
+runBuildJobsMonad :: MonadIO m => BuildJobsMonad m a -> m (a, BuildState)
+runBuildJobsMonad code =
   do -- prime the stack of jobs
      initJob <- newRasterJob
      -- execute the monad (this is usually passing over a structure of tiles and adding each tile to the monad. )
-     execStateT code (BuildState 0 initJob [])
+     runStateT code (BuildState 0 initJob 0 [])
 
 -- | Create a new rasterJob with default allocation sizes.
 newRasterJob :: MonadIO m => m RasterJob
@@ -107,6 +126,7 @@ newRasterJob = liftIO $
             { _rJItemTagPile = initItemTagPile
             , _rJTilePile  = initTilePile
             , _rJThreadAllocation = 0
+            , _rJPointQueries = S.empty
             }
 
 -- | Free all memory allocated by the 'RasterJob'
@@ -137,10 +157,10 @@ addTileToRasterJob tile =
 
 -- | Add a tile to the BuildState, adding a new RasterJob if we go over the maximum per tile.
 accumulateRasterJobs :: MonadIO m
-                     => Int
+                     => TileId
                      -> Int
                      -> Tile EntrySequence
-                     -> BuildJobsMonad m ()
+                     -> BuildJobsMonad m (Tile (JobId, TileId))
 accumulateRasterJobs maxTilesPerJob threadsPerTile tile =
   do  -- get the current stack of jobs
       jobs <- use bsJobs
@@ -154,17 +174,24 @@ accumulateRasterJobs maxTilesPerJob threadsPerTile tile =
               newJob <- liftIO $ newRasterJob
               bsCurrentJob .= newJob
               -- reset the counter
+              bsJobCount += 1
               bsTileCount .= 0
               -- rerun the function with the new job on top of the state
               accumulateRasterJobs maxTilesPerJob threadsPerTile tile
       else do -- otherwise grab the job on the top of the stack
               -- add the new tile to the job
+              currentTileId <- use bsTileCount
+              currentJobId  <- use bsJobCount
               (bsCurrentJob .=) =<<  execStateT (addTileToRasterJob tile) currentJob
-
               -- increment the counter
               bsTileCount += 1
               bsCurrentJob . rJThreadAllocation += threadsPerTile -- (fromIntegral . widthOf $ tile ^. tileBox)
+              return (set tileRep (currentJobId, currentTileId) tile)
 
+-- | Add a point query to a raster job
+addPointQueryToRasterJobs :: [RasterJob] -> (PointQueryId, Point2 SubSpace, (JobId, TileId)) -> [RasterJob]
+addPointQueryToRasterJobs jobs (queryId, location, (JobId jobId, tileId)) =
+   over (ix jobId . rJPointQueries) (|>(PointQuery tileId queryId location)) jobs
 
 -- | Output a RasterJob in IO
 outputRasterJob :: RasterJob -> IO ()
@@ -177,4 +204,38 @@ outputRasterJob job =
     putStrList =<< (pileToList . view rJTilePile $ job)
 
 instance NFData RasterJob where
-  rnf (RasterJob a b c) = a `deepseq` b `deepseq` c `deepseq` ()
+  rnf (RasterJob a b c d ) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()
+
+instance NFData PointQueryId where
+  rnf (PointQueryId a) = a `deepseq` ()
+
+instance NFData PointQuery where
+  rnf (PointQuery a b c) = a `deepseq` b `deepseq` c `deepseq` ()
+
+instance StorableM PointQuery where
+  sizeOfM _ = do sizeOfM (undefined :: TileId)
+                 sizeOfM (undefined :: PointQueryId)
+                 sizeOfM (undefined :: (Point2 SubSpace))
+  alignmentM _ = do alignmentM (undefined :: TileId)
+                    alignmentM (undefined :: PointQueryId)
+                    alignmentM (undefined :: (Point2 SubSpace))
+  peekM = do tileId       <- peekM
+             pointQueryId <- peekM
+             location     <- peekM
+             return (PointQuery tileId pointQueryId location)
+  pokeM (PointQuery tileId pointQueryId location) =
+          do pokeM tileId
+             pokeM pointQueryId
+             pokeM location
+
+instance Storable PointQuery where
+  sizeOf = sizeOfV
+  alignment = alignmentV
+  peek = peekV
+  poke = pokeV
+
+instance Storable PointQueryId where
+  sizeOf (PointQueryId a) = sizeOf a
+  alignment (PointQueryId a) = alignment a
+  peek i = PointQueryId <$> peek (castPtr i)
+  poke i (PointQueryId a) = poke (castPtr i) a

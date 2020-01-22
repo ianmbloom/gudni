@@ -178,7 +178,7 @@ onShape substanceId combineType transformer shape =
 data SubstanceState token s = SubstanceState
     { -- | A map from tokens to substance id for later identification of shapes.
       -- The token is any type with an instance of Ord that the client program can use to identify shapes in the scene.
-      _suTokenMap          :: M.Map token SubstanceId
+      _suTokenMap          :: M.Map SubstanceId token
       -- | A Pile of pictureMemoryReferences
     , _suPictureMems       :: Pile (PictureMemoryReference)
       -- | A list of texture facets collected from the scene.
@@ -279,7 +279,7 @@ onSubstance fromTextureSpace tolerance Overlap transformer (SRep token substance
         -- Get the token map.
         tokenMap <- use suTokenMap
         -- Store the token in the map.
-        suTokenMap .= M.insert token substanceId tokenMap
+        suTokenMap .= M.insert substanceId token tokenMap
         -- Traverse the compound tree and serialize each component shape.
         -- onShape :: MonadIO m
         --         => SubstanceId

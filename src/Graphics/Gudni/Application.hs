@@ -213,7 +213,7 @@ processState elapsedTime inputs =
         return shapeTree
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
-drawFrame :: (Model s) => CInt -> Scene (ShapeTree Int SubSpace) -> ApplicationMonad s DrawTarget
+drawFrame :: (Model s) => CInt -> Scene (ShapeTree Int SubSpace) -> ApplicationMonad s (DrawTarget, [(PointQueryId,Maybe Int)])
 drawFrame frameCount scene =
     do  --appMessage "ResetJob"
         rasterizer <- use appRasterizer
@@ -236,16 +236,17 @@ drawFrame frameCount scene =
                                         geometryState
                                         substanceState
                                         pictDataPile
+                                        []
         appMessage "===================== rasterStart ====================="
         jobs <- lift $ buildRasterJobs rasterParams
         markAppTime "Build Raster Jobs"
-        lift $ queueRasterJobs frameCount rasterParams jobs
+        queryResults <- lift $ queueRasterJobs frameCount rasterParams jobs
         appMessage "===================== rasterDone ====================="
         markAppTime "Rasterize Threads"
         lift resetGeometryMonad
         liftIO $ freeRasterJobs jobs
         --liftIO $ threadDelay 3000000
-        return target
+        return (target, queryResults)
 
 -- Final phase of the event loop.
 endCycle :: SimpleTime -> ApplicationMonad s ()
@@ -288,7 +289,7 @@ loop  =
               beginCycle
               scene      <- processState elapsedTime inputs
               frameCount <- fromIntegral <$> use appCycle
-              target     <- drawFrame frameCount scene
+              (target, queryResults) <- drawFrame frameCount scene
               state      <- use appState
               state'     <- withIO appBackend $ handleOutput state target
               appState .= state'

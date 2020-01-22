@@ -41,6 +41,7 @@ module Graphics.Gudni.Raster.Constants
     , sUBSTANCEtAGtYPEsOLIDcOLOR
     , sUBSTANCEtAGtYPEtEXTURE
     , sUBSTANCEtAGrEFbITMASK
+    , nOsUBSTANCEiD
     )
 where
 
@@ -121,3 +122,5 @@ sUBSTANCEtAGtYPEtEXTURE    = 0x0100000000000000 :: CULong
 
 -- Bits 55 - 0
 sUBSTANCEtAGrEFbITMASK     = 0x00FFFFFFFFFFFFFF :: CULong -- & with this to get the reference for the substance tag
+
+nOsUBSTANCEiD              = 0xFFFFFFFF :: CUInt

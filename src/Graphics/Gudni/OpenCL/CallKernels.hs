@@ -76,6 +76,8 @@ import Control.Concurrent.ParallelIO.Global
 import Control.Monad.Morph
 
 import Data.Word
+import qualified Data.Map as M
+import GHC.Exts
 
 data RasterParams token = RasterParams
   { _rpDevice          :: Rasterizer
@@ -83,7 +85,7 @@ data RasterParams token = RasterParams
   , _rpGeometryState   :: GeometryState
   , _rpSubstanceState  :: SubstanceState token SubSpace
   , _rpPictDataPile    :: Pile Word8
-
+  , _rpPointQueries    :: [(PointQueryId, Point2 SubSpace)]
   }
 makeLenses ''RasterParams
 
@@ -98,12 +100,6 @@ generateCall  :: forall a b token .
                    -> NumWorkItems
                    -> WorkGroup
                    -> CL ())
-                -- , KernelArgs
-                --  'KernelSync
-                --  'HasWorkGroups
-                --  'KnownWorkItems
-                --  'Z
-                --  (CL b)
                  , Show a, Show token
                  )
               => RasterParams token
@@ -113,7 +109,7 @@ generateCall  :: forall a b token .
               -> CInt
               -> CInt
               -> a
-              -> CL ()
+              -> CL [(PointQueryId,SubstanceId)]
 generateCall params bic job bitmapSize frameCount jobIndex target =
   do  let numTiles     = job ^. rJTilePile . pileSize
           threadsToAlloc = fromIntegral $ job ^. rJThreadAllocation
@@ -122,6 +118,7 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
           maxThresholds  = fromIntegral $ params ^. rpDevice . rasterSpec . specMaxThresholds
           -- adjusted log2 of the number of threads
           computeDepth = adjustedLog threadsPerTile :: CInt
+          queries = toList $ job ^. rJPointQueries
       --liftIO $ outputGeometryState (params ^. rpGeometryState)
       --liftIO $ outputSubstanceState(params ^. rpSubstanceState)
       thresholdBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdBuffer " $ threadsToAlloc * maxThresholds) :: CL (CLBuffer THRESHOLDTYPE))
@@ -178,11 +175,31 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
                 target
                 (Work2D numTiles (fromIntegral threadsPerTile))
                 (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
+
+      queryResults <- let numPointQueries = length $ job ^. rJPointQueries in
+                      if numPointQueries <= 0
+                      then return []
+                      else (toList :: CLUtil.Vector SubstanceId -> [SubstanceId]) <$>
+                           runKernel (params ^. rpDevice . rasterQueryKernel)
+                                     thresholdBuffer
+                                     headerBuffer
+                                     shapeStateBuffer
+                                     thresholdQueueSliceBuffer
+                                     (bicPictFacets    bic)
+                                     (job    ^. rJTilePile)
+                                     bitmapSize
+                                     computeDepth
+                                     frameCount
+                                     jobIndex
+                                     (VS.fromList queries)
+                                     (Out numPointQueries)
+                                     (Work2D numTiles (fromIntegral threadsPerTile))
+                                     (WorkGroup [1, fromIntegral threadsPerTile])
       liftIO $ clReleaseMemObject . bufferObject $ thresholdBuffer
       liftIO $ clReleaseMemObject . bufferObject $ headerBuffer
       liftIO $ clReleaseMemObject . bufferObject $ shapeStateBuffer
       liftIO $ clReleaseMemObject . bufferObject $ thresholdQueueSliceBuffer
-      return ()
+      return (zip (map pqQueryId queries) queryResults)
 
 -- | Rasterize a rasterJob inside the CLMonad
 raster :: Show token
@@ -191,7 +208,7 @@ raster :: Show token
        -> CInt
        -> RasterJob
        -> CInt
-       -> CL ()
+       -> CL [(PointQueryId, SubstanceId)]
 raster params bic frameCount job jobIndex =
     do  let -- width and height of the output buffer.
             bitmapSize   = P $ targetArea (params ^. rpTarget)
@@ -202,15 +219,16 @@ raster params bic frameCount job jobIndex =
         liftIO $ putStrLn $ ">>> rasterCall jobIndex: "++ show jobIndex ++ " frameCount: " ++ show frameCount
         -- generate a kernel call for that buffer type.
         --liftIO $ outputRasterJob job
-        case buffer of
-            HostBitmapTarget outputPtr ->
-                -- In this case the resulting bitmap will be stored in memory at outputPtr.
-                generateCall params bic job bitmapSize frameCount jobIndex (OutPtr outputPtr outputSize)
-            GLTextureTarget textureName ->
-                -- In this case an identifier for a Texture object that stays on the GPU would be stored∘
-                -- But currently this isn't working, so throw an error.
-                error "GLTextureTarget not implemented"
+        queryResults <- case buffer of
+                            HostBitmapTarget outputPtr ->
+                                -- In this case the resulting bitmap will be stored in memory at outputPtr.
+                                generateCall params bic job bitmapSize frameCount jobIndex (OutPtr outputPtr outputSize)
+                            GLTextureTarget textureName ->
+                                -- In this case an identifier for a Texture object that stays on the GPU would be stored∘
+                                -- But currently this isn't working, so throw an error.
+                                error "GLTextureTarget not implemented"
         liftIO $ putStrLn ">>> rasterCall done"
+        return queryResults
 
 data BuffersInCommon = BIC
   { bicGeoBuffer       :: CLBuffer CChar
@@ -223,12 +241,19 @@ data BuffersInCommon = BIC
   , bicRandoms         :: CLBuffer CFloat
   }
 
+makeTokenQuery :: M.Map SubstanceId token -> (PointQueryId, SubstanceId) -> (PointQueryId, Maybe token)
+makeTokenQuery mapping (queryId, substanceId) =
+  (queryId,
+  if substanceId == noSubstanceId
+  then Nothing
+  else Just $ (M.!) mapping substanceId)
+
 -- | Queue a list of Rasterjobs and run them inside the CLMonad.
 queueRasterJobs :: (MonadIO m, Show token)
                 => CInt
                 -> RasterParams token
                 -> [RasterJob]
-                -> GeometryMonad m ()
+                -> GeometryMonad m [(PointQueryId,Maybe token)]
 queueRasterJobs frameCount params jobs =
     liftIO $ let -- Get the OpenCL state from the Library structure.
                     state = params ^. rpDevice . rasterClState
@@ -252,7 +277,8 @@ queueRasterJobs frameCount params jobs =
                                                  pictDataBuffer
                                                  randoms
                 -- Run the rasterizer over each rasterJob inside a CLMonad.
-                zipWithM_ (raster params bic frameCount) jobs [0..]
+                queryResults <- concat <$> zipWithM (raster params bic frameCount) jobs [0..]
+                return $ map (makeTokenQuery (params ^. rpSubstanceState . suTokenMap)) queryResults
 
 buildRasterJobs :: (MonadIO m, Show token)
                 => RasterParams token
@@ -265,6 +291,12 @@ buildRasterJobs params =
           tilesPerCall = tr "tilesPerCall" $ fromIntegral $ params ^. rpDevice . rasterSpec . specMaxTilesPerJob
           threadsPerTile = tr "threadsPerTile" $ fromIntegral $ params ^. rpDevice . rasterSpec . specThreadsPerTile
           splitTree = splitTreeTiles maxThresholds tileTree
+
       -- Build all of the RasterJobs by traversing the TileTree.
-      finalState <- execBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall threadsPerTile) splitTree)
-      return $ trWith (show . length) "num jobs" $ (finalState ^. bsCurrentJob : finalState ^. bsJobs)
+
+
+      (numberedTileTree, finalState) <- runBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall threadsPerTile) splitTree)
+      let jobs = finalState ^. bsCurrentJob : finalState ^. bsJobs
+          pointTileQueries = tr "pointTileQueries" $ map (\(queryId, loc) -> (queryId, loc, locatePointInTileTree numberedTileTree loc)) (params ^. rpPointQueries)
+          jobsWithQueries = foldl addPointQueryToRasterJobs jobs pointTileQueries
+      return $ trWith (show . length) "num jobs" $ jobsWithQueries

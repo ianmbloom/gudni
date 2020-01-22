@@ -107,18 +107,16 @@ TILETHREAD// 1 Space for haskell defined macros
 // An outline id refers to the index of a geoRef in the geoRefHeap.
 #define SHAPEID   uint
 
-#define SUBSTANCEID uint
+#define SUBSTANCEID int
 
 inline bool itemTagIsFacet(ITEMTAG tag)    {return (tag & ITEMTAG_ISFACET_BITMASK) == ITEMTAG_ISFACET;}
 inline bool itemTagIsShape(ITEMTAG tag)  {return (tag & ITEMTAG_ISFACET_BITMASK) == ITEMTAG_ISSHAPE;}
 inline bool itemTagIsAdd(ITEMTAG tag)      {return (tag & ITEMTAG_COMPOUNDTYPE_BITMASK) == ITEMTAG_COMPOUNDTYPE_ADD;}
 inline bool itemTagIsSubtract(ITEMTAG tag) {return (tag & ITEMTAG_COMPOUNDTYPE_BITMASK) == ITEMTAG_COMPOUNDTYPE_SUBTRACT;}
-inline SUBSTANCEID itemTagSubstanceId(ITEMTAG tag) {return (uint) ((tag & ITEMTAG_SUBSTANCE_ID_BITMASK) >> ITEMTAG_SUBSTANCE_ID_SHIFT);}
+inline SUBSTANCEID itemTagSubstanceId(ITEMTAG tag) {return (int) ((tag & ITEMTAG_SUBSTANCE_ID_BITMASK) >> ITEMTAG_SUBSTANCE_ID_SHIFT);}
 inline FACETID itemTagFacetId(ITEMTAG tag) {return (uint) (tag & ITEMTAG_ITEM_ID_BITMASK);}
 inline SHAPEID itemTagShapeId(ITEMTAG tag) {return (uint) (tag & ITEMTAG_ITEM_ID_BITMASK);} // this is the same but here for consistency.
 
-// A SUBSTANCETAGID refers to the index of a substance tag in the substancetag heap.
-#define SUBSTANCETAGID uint
 //  A substance tag determines the type of a substance and contains a pointer to the substance description.
 #define SUBSTANCETAG ulong
 
@@ -300,6 +298,13 @@ typedef struct HardFacet
     float2 facetT2;
   } HardFacet;
 
+// PointQuery
+typedef struct PointQuery
+  { int queryTileId;
+    int queryId;
+    SPACE2 queryLocation;
+  } PointQuery;
+
 // The color state structure tracks the current color information during a scan through thresholds
 typedef struct ColorState {
                COLOR   csBackgroundColor;         // background color
@@ -396,6 +401,7 @@ typedef struct ShapeState {
             LAYERID layerCount;                      // the number of shapes and thus layers added to the tileThread.
          LAYERENTRY layerStack[MAXLAYERS];            // a stack of layer entries
                 int substanceCount;                  // the number of substances that have been added to the tile.
+                int substanceIdStack[MAXLAYERS];      // a stack of all the local substanceIds
        SUBSTANCETAG substanceTagStack[MAXLAYERS];     // a stack of all substances in the tileThread
             FACETID substanceActiveFacet[MAXLAYERS];  // a mapping each substance to the active facet of that texture or -1 for no facet
 } ShapeState;
@@ -713,6 +719,10 @@ void initTileState ( PMEM  TileState *tileS
                    ,             int  computeDepth
                    );
 
+bool pointTouchesThread( TileState *tileS
+                       , SPACE2 point
+                       );
+
 bool isActiveThread ( PMEM TileState *tileS);
 
 float8 sectionColor ( PMEM     ParseState *pS
@@ -747,6 +757,15 @@ void renderThresholdArray ( PMEM       TileState *tileS
                           ,                  int  frameNumber
                           , GMEM            uint *out
                           );
+
+SUBSTANCETAG identifyPoint ( PMEM       TileState *tileS
+                           , PMEM  ThresholdQueue *tQ
+                           , PMEM      ShapeState *shS
+                           , GMEM       HardFacet *facetHeap
+                           ,                  int  frameNumber
+                           ,                  int  queryId
+                           ,               SPACE2  point
+                           );
 
 void initColorState ( PMEM  ColorState *init
                     ,            COLOR  backgroundColor
@@ -1575,6 +1594,7 @@ void buildThresholdArray ( PMEM       TileState *tileS
                      DEBUG_IF(printf("addNew (int)itemTagSubstanceId(itemTag) %i substanceCount %i\n",(int)itemTagSubstanceId(itemTag),shS->substanceCount);)
                      SUBSTANCETAG tag = substanceTagHeap[(int)itemTagSubstanceId(itemTag)];
                      shS->substanceCount += 1;
+                     shS->substanceIdStack[shS->substanceCount] = (int)itemTagSubstanceId(itemTag);
                      shS->substanceTagStack[shS->substanceCount] = tag;
                    }
                    lastSubstance = (int)itemTagSubstanceId(itemTag);
@@ -1692,8 +1712,13 @@ GMEM TileInfo *getTileInfo ( GMEM  TileInfo *tileHeap
     return (&tileHeap[tileIndex]);
 }
 
+// Create a binary value where the rightmost n bits are set to 1.
 inline int bitmaskN(int n) {return (1 << n) - 1;}
 
+// Threads are arranged into the tile in several horizontal rows depending on the relative number of
+// availble compute threads vs the size of the tile. In small tiles, it can go all the way to one pixel per thread.
+// This allows the system to adapt to different levels of detail in different tiles.
+// The threads are organized into horizontal rows.
 void initTileState ( PMEM  TileState *tileS
                    , GMEM   TileInfo *tileInfo
                    ,            int2  bitmapSize
@@ -1706,24 +1731,53 @@ void initTileState ( PMEM  TileState *tileS
     tileS->bitmapSize    = bitmapSize;
     tileS->jobThread     = tileInfo->tileThreadAllocation + tileThread;
     tileS->tileThread    = tileThread;
+    // 2^hDepth = the width of the tile (before being cropped)
     int hDepth = (int)tileInfo->tileHDepth;
+    // 2^vDepth = the height of the tile (before being cropped)
     int vDepth = (int)tileInfo->tileVDepth;
-    int diffDepth = max(0, vDepth - (computeDepth - hDepth));
-    int desiredHeight = 1 << diffDepth;
+    // The precropped tile has (2^hDepth)*(2^vDepth) pixels or 2^(hDepth + vDepth)
+    // 2^computeDepth = the total number of threads available.
+    // So the number of pixels per thread is 2^(hDepth + vDepth) / 2^(computeDepth)
+    // aka the total number of pixels divided by the number threads.
+    // which we refer to as the thread depth.
+    // 2^threadDepth = 2^(hDepth + vDepth) / 2^(computeDepth) so:
+    int threadDepth = max(0, vDepth + hDepth - computeDepth);
+    // The precropped thread height is the height of the vertical column of pixels covered by the thread (2^threadDepth)
+    int precroppedHeight = 1 << threadDepth;
+    // The internal x coordinate of the start of the thread, that is in pixels relative to the top left corner of the tile.
+    // is just the rightmost n bits of the tileThreadId, where n is hDepth
+    // This is equivalent to internalX = tileThread % (uncropped tileWidth which equals 2^hDepth)
     int internalX = bitmaskN((int)hDepth) & tileThread;
-    int internalY = (tileThread >> hDepth) << diffDepth;
-    // DEBUG_IF(printf("computeDepth %i diffDepth %i internalX %i internalY %i\n",computeDepth, diffDepth,internalX,internalY);)
+    // The internal y coordinate of the start of the thread, that is in pixels relative to the top left corner of the tile
+    // is just the tileId / (uncropped widthOf tile) * precroppedHeight
+    int internalY = (tileThread >> hDepth) << threadDepth;
     tileS->internalDelta = (int2)(internalX, internalY);
-    tileS->threadDelta   = tileS->internalDelta + boxLeftTop(tileInfo->tileBox); // the threadDelta is the internal delta + the topleft corner of the tileBox.
-    tileS->threadUnique  = (tileInfo->tileThreadAllocation + (1 << computeDepth) + jobIndex * (1 << (computeDepth + computeDepth))) * LARGE_PRIME; // unique integer for the tileThread within the group.
-    tileS->intHeight     = min( desiredHeight, tileS->bitmapSize.y-tileS->threadDelta.y);
+    // The threadDelta is the internal delta + the topleft corner of the tile. The is equivalent to the start point of the thread relative to the output image.
+    tileS->threadDelta   = tileS->internalDelta + boxLeftTop(tileInfo->tileBox);
+    // The unique value is supposed to be a scrambled unique value for eqch thread, used as a starting point for taking random numbers from the random field.
+    tileS->threadUnique  = (tileInfo->tileThreadAllocation + (1 << computeDepth) + jobIndex * (1 << (computeDepth + computeDepth))) * LARGE_PRIME;
+    // The actual height of the thread after being cropped by the bitmap boundaries.
+    tileS->intHeight     = min(precroppedHeight, tileS->bitmapSize.y-tileS->threadDelta.y);
     tileS->floatHeight   = convert_float( tileS->intHeight);
+    // The size of the tile.
     tileS->tileSize.x    = boxRight(tileInfo->tileBox)  - boxLeft(tileInfo->tileBox);
     tileS->tileSize.y    = boxBottom(tileInfo->tileBox) - boxTop(tileInfo->tileBox);
 }
 
+bool pointTouchesThread( TileState *tileS
+                       , SPACE2 point
+                       ) {
+    return (point.x >= tileS->threadDelta.x                      ) &&
+           (point.x <  tileS->threadDelta.x + 1                  ) &&
+           (point.y >= tileS->threadDelta.y                      ) &&
+           (point.y <  tileS->threadDelta.y + tileS->floatHeight );
+
+}
+
 bool isActiveThread ( PMEM TileState *tileS) {
-      return (tileS->internalDelta.y < tileS->tileSize.y) && (tileS->threadDelta.x < tileS->bitmapSize.x) && (tileS->threadDelta.y < tileS->bitmapSize.y);
+    return (tileS->internalDelta.y < tileS->tileSize.y  ) && // can we base this on intHeight and eliminate tileSize
+           (tileS->threadDelta.x   < tileS->bitmapSize.x) &&
+           (tileS->threadDelta.y   < tileS->bitmapSize.y);
 }
 
 float8 sectionColor ( PMEM     ParseState *pS
@@ -2104,7 +2158,6 @@ __kernel void sortThresholds( GMEM  THRESHOLD *thresholdHeap
         //DEBUG_IF(printf("qSliceHeap %p tileThread %i qSlice.sStart %i qSlice.sLength %i\n", qSliceHeap, tileThread, qSlice.sStart, qSlice.sLength);)
         ThresholdQueue tQ;
         initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, qSlice);
-
         //DEBUG_IF(printf("before------------\n");showThresholds(&tQ);)
         sortThresholdArray(&tQ);
         //DEBUG_IF(printf("after------------\n");showThresholds(&tQ);)
@@ -2167,6 +2220,84 @@ __kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
     }
 }
 
+SUBSTANCEID identifyPoint ( PMEM       TileState *tileS
+                          , PMEM  ThresholdQueue *tQ
+                          , PMEM      ShapeState *shS
+                          , GMEM       HardFacet *facetHeap
+                          ,                  int  frameNumber
+                          ,                  int  queryId
+                          ,               SPACE2  point
+                          ) {
+     for (int i = 0; i < tQ->qSlice.sLength; i++) {
+       if (tBottom(getThreshold(tQ,i))<=point.y) {
+           passHeader(shS,getHeader(tQ,i));
+         }
+     }
+     LAYERID topLayer = findTopLayer(shS,0);
+     if (topLayer < shS->layerCount) {
+         LOCALSUBSTANCE substance = layerEntryLocalSubstance(shS->layerStack[topLayer]);
+         return shS->substanceIdStack[substance];
+
+     }
+     else {
+       return NOSUBSTANCEID;
+     }
+}
+
+__kernel void identifyPoints( GMEM    THRESHOLD *thresholdHeap
+                            , GMEM       HEADER *headerHeap
+                            , GMEM   ShapeState *shapeStateHeap
+                            , GMEM        Slice *qSliceHeap
+                            , GMEM    HardFacet *facetHeap
+                            , GMEM     TileInfo *tileHeap
+                            , GMEM   PointQuery *queryHeap
+                            ,              int2  bitmapSize
+                            ,               int  computeDepth
+                            ,               int  frameNumber
+                            ,               int  jobIndex
+                            , GMEM  SUBSTANCEID *queryResults
+                            ) {
+    int  pointThread = INDEX;
+    int  tileThread  = TILETHREAD;
+    PointQuery query = queryHeap[pointThread];
+    GMEM TileInfo *tileInfo = getTileInfo(tileHeap, query.queryTileId);
+    //DEBUG_IF(showTileInfoAlignment(0,tileInfo);)
+    TileState tileS;
+    initTileState ( &tileS
+                  ,  tileInfo
+                  ,  bitmapSize
+                  ,  tileThread
+                  ,  jobIndex
+                  ,  computeDepth
+                  );
+    DEBUG_IF(tileStateHs(tileS);)
+    if (tileThread == 0) {
+      // Just one thread in the tile defaults the EMPTYSUBSTANCETAG.
+      queryResults[pointThread] = NOSUBSTANCEID;
+    }
+    if (isActiveThread(&tileS) && pointTouchesThread(&tileS,query.queryLocation)) {
+        DEBUG_TRACE_BEGIN
+        Slice qSlice = loadQueueSlice(qSliceHeap, &tileS);
+        ThresholdQueue tQ;
+        initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, qSlice);
+        ShapeState shS = loadShapeState(shapeStateHeap, &tileS);
+        DEBUG_IF(printf("render shapeState\n");)
+        DEBUG_IF(showShapeState(&shS);)
+        DEBUG_IF(showThresholds(&tQ);)
+        SUBSTANCEID substanceId = identifyPoint ( &tileS
+                                                , &tQ
+                                                , &shS
+                                                ,  facetHeap
+                                                ,  frameNumber
+                                                ,  query.queryId
+                                                ,  query.queryLocation
+                                                );
+        if (substanceId != NOSUBSTANCEID) {
+           queryResults[pointThread] = substanceId; // this should only happen for one thread.
+        }
+    }
+}
+
 void showShapeState(ShapeState *shS) {
    printf("--- Layers --- \n");
    for (LAYERID i = 0; i < shS->layerCount; i++) {
@@ -2174,7 +2305,7 @@ void showShapeState(ShapeState *shS) {
    }
    printf("--- SubstanceTags --- \n");
    for (int i = 0; i < shS->substanceCount; i++) {
-     printf("%i ",i);showSubstanceTag(shS->substanceTagStack[i]);printf(" facet %i \n",shS->substanceActiveFacet[i]);
+     printf("%i id %i",i, shS->substanceIdStack[i]);showSubstanceTag(shS->substanceTagStack[i]);printf(" facet %i \n",shS->substanceActiveFacet[i]);
    }
 }
 

@@ -1,0 +1,843 @@
+%% Created by Maple 2019.2, Mac OS X
+%% Source Worksheet: BezierMaple
+%% Generated: Sun Jan 19 14:22:08 EST 2020
+\documentclass{article}
+\usepackage{maplestd2e}
+\def\emptyline{\vspace{12pt}}
+\begin{document}
+\pagestyle{empty}
+\DefineParaStyle{Maple Bullet Item}
+\DefineParaStyle{Maple Heading 1}
+\DefineParaStyle{Maple Warning}
+\DefineParaStyle{Maple Heading 4}
+\DefineParaStyle{Maple Heading 2}
+\DefineParaStyle{Maple Heading 3}
+\DefineParaStyle{Maple Dash Item}
+\DefineParaStyle{Maple Error}
+\DefineParaStyle{Maple Title}
+\DefineParaStyle{Maple Text Output}
+\DefineParaStyle{Maple Normal}
+\DefineCharStyle{Maple 2D Output}
+\DefineCharStyle{Maple 2D Input}
+\DefineCharStyle{Maple Maple Input}
+\DefineCharStyle{Maple 2D Math}
+\DefineCharStyle{Maple Hyperlink}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Basic functions used on vectors and points.}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Rotate a vector 90 degrees creating a perpendicular vector.}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{perp := proc (v) options operator, arrow; [-v[2], v[1]] end proc}{\[\displaystyle {\it perp}\, := \,v\mapsto [-v_{{2}},v_{{1}}]\]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{perp := proc (v) options operator, arrow; [-v[2], v[1]] end proc}{\[\displaystyle {\it perp}\, := \,v\mapsto [-v_{{2}},v_{{1}}]\]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{perp := proc (v) options operator, arrow; [-v[2], v[1]] end proc}{\[\displaystyle {\it perp}\, := \,v\mapsto [-v_{{2}},v_{{1}}]\]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Dot product of a vector:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{dot := proc (a, b) options operator, arrow; a[1]*b[1]+a[2]*b[2] end proc}{\[\displaystyle {\it dot}\, := \,( {a,b} )\mapsto a_{{1}}b_{{1}}+a_{{2}}b_{{2}}\]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{dot := proc (a, b) options operator, arrow; a[1]*b[1]+a[2]*b[2] end proc}{\[\displaystyle {\it dot}\, := \,( {a,b} )\mapsto a_{{1}}b_{{1}}+a_{{2}}b_{{2}}\]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{dot := proc (a, b) options operator, arrow; a[1]*b[1]+a[2]*b[2] end proc}{\[\displaystyle {\it dot}\, := \,( {a,b} )\mapsto a_{{1}}b_{{1}}+a_{{2}}b_{{2}}\]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Quadrance of a vector:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{quadrance := proc (v) options operator, arrow; dot(v, v) end proc}{\[\displaystyle {\it quadrance}\, := \,v\mapsto {\it dot} \left( v,v \right) \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{quadrance := proc (v) options operator, arrow; dot(v, v) end proc}{\[\displaystyle {\it quadrance}\, := \,v\mapsto {\it dot} \left( v,v \right) \]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{quadrance := proc (v) options operator, arrow; dot(v, v) end proc}{\[\displaystyle {\it quadrance}\, := \,v\mapsto {\it dot} \left( v,v \right) \]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Normalize a vector.}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{normalize := proc (v) options operator, arrow; sqrt(quadrance*v) end proc}{\[\displaystyle {\it normalize}\, := \,v\mapsto \sqrt {{\it quadrance}\,v}\]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{normalize := proc (v) options operator, arrow; sqrt(quadrance*v) end proc}{\[\displaystyle {\it normalize}\, := \,v\mapsto \sqrt {{\it quadrance}\,v}\]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{normalize := proc (v) options operator, arrow; sqrt(quadrance*v) end proc}{\[\displaystyle {\it normalize}\, := \,v\mapsto \sqrt {{\it quadrance}\,v}\]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Linear interpolation between to points is defined by:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{lerp := proc (t, a, b) options operator, arrow; a*t+(1-t)*b end proc}{\[\displaystyle {\it lerp}\, := \,( {t,a,b} )\mapsto at+ \left( 1-t \right) b\]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{lerp := proc (t, a, b) options operator, arrow; a*t+(1-t)*b end proc}{\[\displaystyle {\it lerp}\, := \,( {t,a,b} )\mapsto at+ \left( 1-t \right) b\]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{lerp := proc (t, a, b) options operator, arrow; a*t+(1-t)*b end proc}{\[\displaystyle {\it lerp}\, := \,( {t,a,b} )\mapsto at+ \left( 1-t \right) b\]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{$\displaystyle $}
+\mapleinline{inert}{2d}{}{$\displaystyle $}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Extract the x coordinate of a point:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{xOf := proc (p) options operator, arrow; p[1] end proc}{\[\displaystyle {\it xOf}\, := \,p\mapsto p_{{1}}\]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{xOf := proc (p) options operator, arrow; p[1] end proc}{\[\displaystyle {\it xOf}\, := \,p\mapsto p_{{1}}\]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{xOf := proc (p) options operator, arrow; p[1] end proc}{\[\displaystyle {\it xOf}\, := \,p\mapsto p_{{1}}\]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{yOf := proc (p) options operator, arrow; p[2] end proc}{\[\displaystyle {\it yOf}\, := \,p\mapsto p_{{2}}\]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{yOf := proc (p) options operator, arrow; p[2] end proc}{\[\displaystyle {\it yOf}\, := \,p\mapsto p_{{2}}\]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{yOf := proc (p) options operator, arrow; p[2] end proc}{\[\displaystyle {\it yOf}\, := \,p\mapsto p_{{2}}\]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{$\displaystyle $}
+\mapleinline{inert}{2d}{}{$\displaystyle $}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Quadratic Bezier Curves}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+In this formalization a quadratic bezier curve segment is defined by a vector of 3 2d coordinates often abbreviated bz.}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+The curve is the set of all results of the function evalCurve(t,curve) where 0 <= t <= 1. evalCurve is derived below:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Extract the first point of a bezier curve:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{bzStart := proc (curve) options operator, arrow; curve[1] end proc}{\[\displaystyle {\it bzStart}\, := \,{\it curve}\mapsto {\it curve}_{{1}}\]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{bzStart := proc (curve) options operator, arrow; curve[1] end proc}{\[\displaystyle {\it bzStart}\, := \,{\it curve}\mapsto {\it curve}_{{1}}\]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{bzStart := proc (curve) options operator, arrow; curve[1] end proc}{\[\displaystyle {\it bzStart}\, := \,{\it curve}\mapsto {\it curve}_{{1}}\]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Extract the control point of a curve:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{bzControl := proc (curve) options operator, arrow; curve[2] end proc}{\[\displaystyle {\it bzControl}\, := \,{\it curve}\mapsto {\it curve}_{{2}}\]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{bzControl := proc (curve) options operator, arrow; curve[2] end proc}{\[\displaystyle {\it bzControl}\, := \,{\it curve}\mapsto {\it curve}_{{2}}\]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{bzControl := proc (curve) options operator, arrow; curve[2] end proc}{\[\displaystyle {\it bzControl}\, := \,{\it curve}\mapsto {\it curve}_{{2}}\]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Extract the end point of the curve:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{bzEnd := proc (curve) options operator, arrow; curve[3] end proc}{\[\displaystyle {\it bzEnd}\, := \,{\it curve}\mapsto {\it curve}_{{3}}\]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{bzEnd := proc (curve) options operator, arrow; curve[3] end proc}{\[\displaystyle {\it bzEnd}\, := \,{\it curve}\mapsto {\it curve}_{{3}}\]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{bzEnd := proc (curve) options operator, arrow; curve[3] end proc}{\[\displaystyle {\it bzEnd}\, := \,{\it curve}\mapsto {\it curve}_{{3}}\]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+The middle start control point is the control point of the first bezier curve created by spliting the original curve at point at parameter t.}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{midStart := proc (t, curve) options operator, arrow; lerp(t, bzControl(curve), bzStart(curve)) end proc}{\[\displaystyle {\it midStart}\, := \,( {t,{\it curve}} )\mapsto {\it lerp} \left( t,{\it bzControl} \left( {\it curve} \right) \\
+\mbox{},{\it bzStart} \left( {\it curve} \right)  \right) \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{midStart := proc (t, curve) options operator, arrow; lerp(t, bzControl(curve), bzStart(curve)) end proc}{\[\displaystyle {\it midStart}\, := \,( {t,{\it curve}} )\mapsto {\it lerp} \left( t,{\it bzControl} \left( {\it curve} \right) \\
+\mbox{},{\it bzStart} \left( {\it curve} \right)  \right) \]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{midStart := proc (t, curve) options operator, arrow; lerp(t, bzControl(curve), bzStart(curve)) end proc}{\[\displaystyle {\it midStart}\, := \,( {t,{\it curve}} )\mapsto {\it lerp} \left( t,{\it bzControl} \left( {\it curve} \right) \\
+\mbox{},{\it bzStart} \left( {\it curve} \right)  \right) \]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+The middle end control point is the control point of the second bezier curve created by spliting the original curve at point at parameter t.}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{midEnd := proc (t, curve) options operator, arrow; lerp(t, bzEnd(curve), bzControl(curve)) end proc}{\[\displaystyle {\it midEnd}\, := \,( {t,{\it curve}} )\mapsto {\it lerp} \left( t,{\it bzEnd} \left( {\it curve} \right) ,{\it bzControl}\\
+\mbox{} \left( {\it curve} \right)  \right) \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{midEnd := proc (t, curve) options operator, arrow; lerp(t, bzEnd(curve), bzControl(curve)) end proc}{\[\displaystyle {\it midEnd}\, := \,( {t,{\it curve}} )\mapsto {\it lerp} \left( t,{\it bzEnd} \left( {\it curve} \right) ,{\it bzControl}\\
+\mbox{} \left( {\it curve} \right)  \right) \]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{midEnd := proc (t, curve) options operator, arrow; lerp(t, bzEnd(curve), bzControl(curve)) end proc}{\[\displaystyle {\it midEnd}\, := \,( {t,{\it curve}} )\mapsto {\it lerp} \left( t,{\it bzEnd} \left( {\it curve} \right) ,{\it bzControl}\\
+\mbox{} \left( {\it curve} \right)  \right) \]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Evaluating the curve at parameter t yields a point along the curve:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{evalCurve := proc (t, curve) options operator, arrow; lerp(midStart(t, curve), midEnd(t, curve)) end proc}{\[\displaystyle {\it evalCurve}\, := \,( {t,{\it curve}} )\mapsto {\it lerp} \left( {\it midStart} \left( t,{\it curve} \right) ,{\it midEnd}\\
+\mbox{} \left( t,{\it curve} \right)  \right) \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{evalCurve := proc (t, curve) options operator, arrow; lerp(midStart(t, curve), midEnd(t, curve)) end proc}{\[\displaystyle {\it evalCurve}\, := \,( {t,{\it curve}} )\mapsto {\it lerp} \left( {\it midStart} \left( t,{\it curve} \right) ,{\it midEnd}\\
+\mbox{} \left( t,{\it curve} \right)  \right) \]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{evalCurve := proc (t, curve) options operator, arrow; lerp(midStart(t, curve), midEnd(t, curve)) end proc}{\[\displaystyle {\it evalCurve}\, := \,( {t,{\it curve}} )\mapsto {\it lerp} \left( {\it midStart} \left( t,{\it curve} \right) ,{\it midEnd}\\
+\mbox{} \left( t,{\it curve} \right)  \right) \]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+The set of all points in a bezier curve segment is defined as:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\{evalCurve(t,curve) : 0 ≤ t ≤ 1\}}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+tting Bezier curves:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Make a new bezuer by splitting a curve at parameter t and keeping the first part.}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{takeBez := proc (t, z) options operator, arrow; [va(z), midStart(t, z), onCurve(t, z)] end proc}{$\displaystyle {\it takeBez}\, := \,( {t,z} )\mapsto [{\it va} \left( z \right) ,{\it midStart} \left( t,z \right) ,{\it onCurve}\\
+\mbox{} \left( t,z \right) ]$}
+=\mapleinline{inert}{2d}{proc (t, z) options operator, arrow; [va(z), midStart(t, z), onCurve(t, z)] end proc}{\[\displaystyle ( {t,z} )\mapsto [{\it va} \left( z \right) ,{\it midStart} \left( t,z \right) ,{\it onCurve}\\
+\mbox{} \left( t,z \right) ]\]}
+}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Make a new bezier by splitting a curve at parameter t and keeping the second part.}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{dropBez := proc (t, z) options operator, arrow; [evalCurve(t, z), midEnd(t, z), vb(z)] end proc}{$\displaystyle {\it dropBez}\, := \,( {t,z} )\mapsto [{\it evalCurve} \left( t,z \right) ,{\it midEnd} \left( t,z \right) ,{\it vb}\\
+\mbox{} \left( z \right) ]$}
+=\mapleinline{inert}{2d}{proc (t, z) options operator, arrow; [evalCurve(t, z), midEnd(t, z), vb(z)] end proc}{\[\displaystyle ( {t,z} )\mapsto [{\it evalCurve} \left( t,z \right) ,{\it midEnd} \left( t,z \right) ,{\it vb}\\
+\mbox{} \left( z \right) ]\]}
+}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Determine the tangent vector to the start point of a curve in the direction of the curve.}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Tangents and nor\mapleinline{inert}{2d}{}{$\displaystyle $}
+mals of a bezier curve:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+The tangent vector of a bezier curve at it's start point is just a vector from the start point, pointing at the control point.}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{startTangent := proc (curve) options operator, arrow; normalize*(bzControl(curve)-bzStart(curve)) end proc}{\[\displaystyle {\it startTangent}\, := \,{\it curve}\mapsto {\it normalize}\, \left( {\it bzControl} \left( {\it curve} \right) -{\it bzStart} \left( {\it curve} \right)  \right) \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{startTangent := proc (curve) options operator, arrow; normalize*(bzControl(curve)-bzStart(curve)) end proc}{\[\displaystyle {\it startTangent}\, := \,{\it curve}\mapsto {\it normalize}\, \left( {\it bzControl} \left( {\it curve} \right) -{\it bzStart} \left( {\it curve} \right)  \right) \]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{startTangent := proc (curve) options operator, arrow; normalize*(bzControl(curve)-bzStart(curve)) end proc}{\[\displaystyle {\it startTangent}\, := \,{\it curve}\mapsto {\it normalize}\, \left( {\it bzControl} \left( {\it curve} \right) -{\it bzStart} \left( {\it curve} \right)  \right) \]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+The tangent vector of a bezier point at it's end point is just a vector from the control point, pointing at the end point.}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{endTangent := proc (curve) options operator, arrow; normalize*(bzEnd(curve)-bzControl(curve)) end proc}{\[\displaystyle {\it endTangent}\, := \,{\it curve}\mapsto {\it normalize}\, \left( {\it bzEnd} \left( {\it curve} \right) -{\it bzControl} \left( {\it curve} \right)  \right) \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{endTangent := proc (curve) options operator, arrow; normalize*(bzEnd(curve)-bzControl(curve)) end proc}{\[\displaystyle {\it endTangent}\, := \,{\it curve}\mapsto {\it normalize}\, \left( {\it bzEnd} \left( {\it curve} \right) -{\it bzControl} \left( {\it curve} \right)  \right) \]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{endTangent := proc (curve) options operator, arrow; normalize*(bzEnd(curve)-bzControl(curve)) end proc}{\[\displaystyle {\it endTangent}\, := \,{\it curve}\mapsto {\it normalize}\, \left( {\it bzEnd} \left( {\it curve} \right) -{\it bzControl} \left( {\it curve} \right)  \right) \]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+The arbitrary tangentvector of a bezier curve at the point defined by parameter t can be determined by cutting the vector a t and taking the start of end tangent of the appropriate curve.\mapleinline{inert}{2d}{}{$\displaystyle $}
+}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{$\displaystyle $}
+\mapleinline{inert}{2d}{}{$\displaystyle $}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{curveTangent := proc (t, curve) options operator, arrow; piecewise((startTangent@dropBezier)*(t, curve), t < 1/2, (endTangent@takeBezier)(t, curve), 1/2 <= t) end proc}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{curveTangent := proc (t, curve) options operator, arrow; piecewise((startTangent@dropBezier)*(t, curve), t < 1/2, (endTangent@takeBezier)(t, curve), 1/2 <= t) end proc}{\[\displaystyle \]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{curveTangent := proc (t, curve) options operator, arrow; piecewise((startTangent@dropBezier)*(t, curve), t < 1/2, (endTangent@takeBezier)(t, curve), 1/2 <= t) end proc}{\[\displaystyle \]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+The normal vector is just the perpendicular vector to the tangent at a given point on the curve}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{curveNormal := proc (t, curve) options operator, arrow; (perp@curveTangent)(t, curve) end proc}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{curveNormal := proc (t, curve) options operator, arrow; (perp@curveTangent)(t, curve) end proc}{\[\displaystyle \]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{curveNormal := proc (t, curve) options operator, arrow; (perp@curveTangent)(t, curve) end proc}{\[\displaystyle \]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Projecting a point onto a curve:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{$\displaystyle $}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+The the projection of a point  p onto a curve over the arbitrary function f, we take x component of f(p) and use it as the t parameter to evaluate the curve. The projected point is the point along the curve at parameter t plus the normal at that point times the y component of f(p).}\end{Maple Normal}
+
+\begin{Maple Normal}{
+The the projection of a point  p onto a curve over the arbitrary function f, we take x component of f(p) and use it as the t parameter to evaluate the curve. The projected point is the point along the curve at parameter t plus the normal at that point times the y component of f(p).}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{$\displaystyle $}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{proj := proc (f, curve, p) options operator, arrow; evalCurve(xOf(f(p)), curve)+yOf(p)*curveNormal(xOf(f(p)), curve) end proc}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{proj := proc (f, curve, p) options operator, arrow; evalCurve(xOf(f(p)), curve)+yOf(p)*curveNormal(xOf(f(p)), curve) end proc}{\[\displaystyle \]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{proj := proc (f, curve, p) options operator, arrow; evalCurve(xOf(f(p)), curve)+yOf(p)*curveNormal(xOf(f(p)), curve) end proc}{\[\displaystyle \]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+The function f is kept arbitrary but it could either be a proportional transformation or an inverse arc length transformation along the curve.}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{inverseProportionalLength := proc (len) options operator, arrow; proc (p) options operator, arrow; [xOf(p)/len, yOf(p)] end proc end proc}{\[\displaystyle {\it inverseProportionalLength}\, := \,{\it len}\mapsto p\mapsto [{\frac {p_{{1}}}{{\it len}}},p_{{2}}]\]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{maplegroup}
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{inverseProportionalLength := proc (len) options operator, arrow; proc (p) options operator, arrow; [xOf(p)/len, yOf(p)] end proc end proc}{\[\displaystyle {\it inverseProportionalLength}\, := \,{\it len}\mapsto p\mapsto [{\frac {p_{{1}}}{{\it len}}},p_{{2}}]\]}
+}\end{Maple Normal}
+\mapleresult
+\begin{maplelatex}
+\mapleinline{inert}{2d}{inverseProportionalLength := proc (len) options operator, arrow; proc (p) options operator, arrow; [xOf(p)/len, yOf(p)] end proc end proc}{\[\displaystyle {\it inverseProportionalLength}\, := \,{\it len}\mapsto p\mapsto [{\frac {p_{{1}}}{{\it len}}},p_{{2}}]\]}
+\end{maplelatex}
+\end{maplegroup}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{$\displaystyle $}
+\mapleinline{inert}{2d}{}{$\displaystyle $}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Projecting a quadratic bezier curve onto another curve:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+So the problem is:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Given:}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\textit{bzStart(projectedCurve) = proj(f, source, bzStart(target))}}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\textit{}}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+and}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\textit{bzEnd(projectedCurve)=proj(f, source,bzEnd(target))}}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\textit{}}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Determine}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\textit{bzControl(projectedCurve)}}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+such that}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\textit{\{}\textit{evalCurve(u,projectedCurve) : 0 ≤ u ≤ 1}\textit{\}}\textit{≈}\textit{\{}\textit{proj(f, source, evalCurve(t,target)): 0 ≤ t ≤ 1}\textit{\}}}\end{Maple Normal}
+
+}\end{Maple Normal}
+
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\textit{}}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\textit{}}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+Note that we are looking for an approximation that gives a  projected curve that is approximately the same set of points to the projection of all the points on the target curve, and thus we hope, a visually similar approximation. We don't need to know the relationship between t and u.}\end{Maple Normal}
+\begin{Maple Normal}{
+Note that we are looking for an approximation that gives a  projected curve that is approximately the same set of points to the projection of all the points on the target curve, and thus we hope, a visually similar approximation. We don't need to know the relationship between t and u.}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\begin{Maple Normal}{
+\begin{Maple Normal}{
+\mapleinline{inert}{2d}{}{\[\displaystyle \]}
+}\end{Maple Normal}
+}\end{Maple Normal}
+\end{document}

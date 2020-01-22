@@ -61,20 +61,22 @@ instance Model ProjectionState where
                offset  = state ^. stateOffset
            return . Scene gray $
                --(if repMode then represent repDk else id) $
-               ((--((transformFromState (set stateAngle (0 @@ deg) (state ^. stateBase)) $
+               ((transformFromState {-(set stateAngle (0 @@ deg)-} (state ^. stateBase){-)-} $
                overlap [
-                       overlap . fmap (represent False) . transformFromState (set stateAngle (0 @@ deg) (state ^. stateBase)) . projectOnto True path . (pure :: Bezier s -> [Bezier s]) . translateBy (offset `by` 0) . rotateBy angle $ (myline :: Bezier SubSpace)
+                       --overlap . fmap (represent False) . transformFromState (set stateAngle (0 @@ deg) (state ^. stateBase)) . projectOnto True (makeOpenCurve [bzX]). (pure :: Bezier s -> [Bezier s]) . translateBy (offset `by` 0) . rotateBy angle $ (myline :: Bezier SubSpace)
                        --colorWith (dark red) . projectOnto path . translateBy (offset `by` 0) . rotateBy angle . rectangle $ 0.125 `by` 0.125 -- {-scaleBy 100 . translateByXY 1 (1) .-} mask . stroke 200 $ smallBz
                        --, colorWith (dark green) . scaleBy 100 . translateByXY 2 (1) . mask . stroke 0.1 $ smallBz
-                       --, doubleDotted path
+                        doubleDotted path
                        ]) :: ShapeTree Int SubSpace)
       where
-        bz  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0)
-        --bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)
-        --bz3 = Bez (Point2 40 80) (Point2 80 80) (Point2 80 160)
-        myline = line (0 `by` 0) (0.25 `by` 0)
+        bzX  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0)
+
+        bz1 = Bez (Point2 20 0) (Point2 0 0) (Point2 0 40)
+        bz2 = Bez (Point2 0 40) (Point2 0 80) (Point2 40 80)
+        bz3 = Bez (Point2 40 80) (Point2 80 80) (Point2 80 160)
+        myline = line (0 `by` 0) (0.25 `by` 0) :: Bezier SubSpace
         smallBz = Bez (Point2 0 0) (Point2 100 100) (Point2 10 100)
-        path = makeOpenCurve [bz{-,bz2,bz3-}]
+        path = makeOpenCurve [bz1,bz2,bz3]
         doubleDotted :: Space s => OpenCurve s -> ShapeTree Int s
         doubleDotted path =
            let thickness = 2
@@ -125,9 +127,9 @@ marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square
 main :: IO ()
 main = runApplication $ ProjectionState
        (BasicSceneState
-           { _stateScale       = 100
+           { _stateScale       = 1
            , _stateDelta       = Point2 0 0
-           , _stateAngle       = 45 @@ deg
+           , _stateAngle       = 0 @@ deg
            , _statePaused      = True
            , _stateSpeed       = 1
            , _statePace        = 10
