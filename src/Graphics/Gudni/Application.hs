@@ -89,17 +89,23 @@ class Model s where
   updateModelState :: Int -> SimpleTime -> [Input (Point2 PixelSpace)] -> s -> s
   -- | Do tasks in the IO monad based and update the current state.
   ioTask           :: MonadIO m => s -> m s
+  ioTask state = return state
   -- | Set the initial display to FullScreen or a specific window size in pixels.
   screenSize       :: s -> ScreenMode
   -- | Determine if the application will enter the event loop.
   -- for debugging purposes you can set this to False and render one frame and quit.
   shouldLoop       :: s -> Bool
+  shouldLoop _ = True
   -- | Path to the Truetype font file that is initially loaded.
   fontFile         :: s -> IO String
   -- | Bitmap texture data provided from the state for the rendered scene.
   providePictureMap :: s -> IO PictureMap
+  providePictureMap _ = noPictures
   -- | Do something with the output of the rasterizer.
   handleOutput :: s -> DrawTarget -> StateT InterfaceState IO s
+  handleOutput state target = do
+      presentTarget target
+      return state
 
 data ApplicationState s = AppState
     { -- | The state maintained specific to the interface type.

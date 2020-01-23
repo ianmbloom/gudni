@@ -54,7 +54,7 @@ removeDoubleFalse []               = []
 
 instance (Num token, Random token, Fuzzy rep) => Fuzzy (SRep token textureRep rep) where
   fuzz size = do color <- Solid <$> getRandom
-                 token <- getRandomR(0,32768)
+                 token <- Just <$> getRandomR(0,32768)
                  child <- fuzz (size - 1)
                  return $ SRep token color child
 
@@ -100,7 +100,7 @@ instance Fuzzy CompoundTree where
 fuzzyCurve :: (Space s, Random s, RandomGen g) => Point2 s -> Int -> Rand g (ShapeTree Int s)
 fuzzyCurve range len = do
   color <- Solid <$> getRandom
-  token <- getRandomR(0,32768)
+  token <- Just <$> getRandomR(0,32768)
   segmentList <- take len <$> getRandomRs(straightXY 0 0, Straight range)
   return $ SLeaf . SRep token color . fromSegments $ segmentList
 
@@ -112,7 +112,7 @@ makePairs [] = error "shoudn't happen"
 fuzzyRadial :: forall s g . (Space s, Random s, RandomGen g) => s -> s -> Int -> Rand g (ShapeTree Int s)
 fuzzyRadial minRad maxRad len = do
   color <- Solid <$> getRandom
-  token <- getRandomR(0,32768)
+  token <- Just <$> getRandomR(0,32768)
   boolList <- removeDoubleFalse <$> getRandomRs(True, False)
   angleList <- getRandomRs(0,1)
   radiusList <- getRandomRs(minRad,maxRad)
@@ -124,7 +124,7 @@ fuzzyRadial minRad maxRad len = do
 
 fuzzyGray :: (Space s, Random s, RandomGen g) => Point2 s -> Int -> Rand g (ShapeTree Int s)
 fuzzyGray range len = do
-  token <- getRandomR(0,32768)
+  token <- Just <$> getRandomR(0,32768)
   segmentList <- take len <$> getRandomRs(straightXY 0 0, straightXY 10 10)
   return . SLeaf . SRep token (Solid $ transparent 0.3 white) . fromSegments $ segmentList
 
@@ -132,7 +132,7 @@ fuzzyCircle :: (Space s, Random s, RandomGen g)
             => Point2 s -> s -> s -> Rand g (ShapeTree Int s)
 fuzzyCircle range minRad maxRad =
   do  color <- Solid <$> getRandom
-      token <- getRandomR(0,32768)
+      token <- Just <$> getRandomR(0,32768)
       radius<- getRandomR(minRad,maxRad)
       point <- getRandomR(makePoint 0 0, range)
       return . translateBy point . scaleBy radius . SLeaf . SRep token color $ circle
@@ -143,7 +143,7 @@ fuzzyGlyph glyphs range minRad maxRad =
   do  i <- getRandomR(0, V.length glyphs - 1)
       let g = (V.!) glyphs i
       color  <- Solid <$> getRandom
-      token  <- getRandomR(0,32768)
+      token  <- Just <$> getRandomR(0,32768)
       angle  <- getRandomR(0,360)
       radius <- getRandomR(minRad,maxRad)
       point  <- getRandomR(makePoint 0 0, range)
@@ -153,7 +153,7 @@ fuzzySquare :: (Space s, Random s, RandomGen g)
             => Point2 s -> s -> s -> Rand g (ShapeTree Int s)
 fuzzySquare range minRad maxRad = do
   color <- Solid <$> getRandom
-  token <- getRandomR(0,32768)
+  token <- Just <$> getRandomR(0,32768)
   radius<- getRandomR(minRad,maxRad)
   point <- getRandomR(makePoint 0 0, range)
   return . translateBy point . scaleBy radius . SLeaf . SRep token color $ rectangle (Point2 1 1)
