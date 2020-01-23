@@ -245,7 +245,7 @@ onSubstance :: forall m item token .
             -> Transformer (SpaceOf item)
             -> SRep token PictureMemoryReference (STree Compound item)
             -> SubstanceMonad token (SpaceOf item) (GeometryMonad m) ()
-onSubstance fromTextureSpace tolerance Overlap transformer (SRep token substance subTree) =
+onSubstance fromTextureSpace tolerance Overlap transformer (SRep mToken substance subTree) =
     do  -- Depending on the substance of the shape take appropriate actions.
         let (subTransform, baseSubstance) = breakdownSubstance substance
         substanceId <-
@@ -277,9 +277,18 @@ onSubstance fromTextureSpace tolerance Overlap transformer (SRep token substance
                       colorTagId <- SubstanceId <$> addToPileState suSubstanceTagPile substanceTag
                       return colorTagId
         -- Get the token map.
+<<<<<<< HEAD
         tokenMap <- use suTokenMap
         -- Store the token in the map.
         suTokenMap .= M.insert substanceId token tokenMap
+=======
+        case mToken of
+          Nothing -> return ()
+          Just token ->
+              do tokenMap <- use suTokenMap
+                 -- Store the token in the map.
+                 suTokenMap .= M.insert token substanceId tokenMap
+>>>>>>> e150849
         -- Traverse the compound tree and serialize each component shape.
         -- onShape :: MonadIO m
         --         => SubstanceId

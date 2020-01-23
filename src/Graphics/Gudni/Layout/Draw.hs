@@ -28,10 +28,12 @@ module Graphics.Gudni.Layout.Draw
 where
 
 import Graphics.Gudni.Interface.Input
+import Graphics.Gudni.Interface.Token
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Plot
+import Graphics.Gudni.Raster.TraverseShapeTree
 
 import Graphics.Gudni.Layout.Glyph
 import Graphics.Gudni.Layout.Adjacent
@@ -56,25 +58,50 @@ instance CanMask (Glyph (Shape s)) (Glyph (CompoundTree s)) where
 instance (Functor f) => CanMask (f (Shape s)) (f (CompoundTree s)) where
     mask = fmap mask
 
+
+
 -- | Typeclass of shape representations that can be filled with a color or texture.
-class CanFill a b | b -> a where
+class HasToken b => CanFill a b | b -> a where
     colorWith :: Color -> a -> b
     textureWith :: NamedTexture -> a -> b
+    assignToken :: (TokenOf b) -> b -> b
+
+instance HasToken (ShapeTree token s) where
+    type TokenOf (ShapeTree token s) = token
+
+instance HasToken a => HasToken (Glyph a) where
+    type TokenOf (Glyph a) = TokenOf a
 
 -- | Instance for filling a compound shape and creating a normal shapeTree leaf.
-instance CanFill (CompoundTree s) (ShapeTree Int s) where
-    colorWith color     = SLeaf . SRep 0 (Solid color)
-    textureWith texture = SLeaf . SRep 0 (Texture texture)
+instance CanFill (CompoundTree s) (ShapeTree token s) where
+    colorWith color     = SLeaf . SRep Nothing (Solid color)
+    textureWith texture = SLeaf . SRep Nothing (Texture texture)
+    assignToken token   = mapSTree (set sRepToken (Just token))
+
 
 -- | Instance for filling a compound shape and creating a glyph wrapped shapeTree leaf.
-instance CanFill (Glyph (CompoundTree s)) (Glyph (ShapeTree Int s)) where
+instance CanFill (Glyph (CompoundTree s)) (Glyph (ShapeTree token s)) where
     colorWith color     = mapGlyph (colorWith color)
     textureWith texture = mapGlyph (textureWith texture)
+    assignToken token   = mapGlyph (assignToken token)
 
 -- | Instance for filling a functor of a compound shapetrees such as a list.
-instance {-# Overlappable #-} (Functor f, SpaceOf (f (CompoundTree s)) ~ s) => CanFill (f (CompoundTree s)) (f (ShapeTree Int s)) where
+instance {-# Overlappable #-} ( Functor f, SpaceOf (f (CompoundTree s)) ~ s
+                              , HasToken (f (ShapeTree token s))
+                              , TokenOf (f (ShapeTree token s)) ~ token)
+    => CanFill (f (CompoundTree s)) (f (ShapeTree token s)) where
     colorWith color     = fmap (colorWith color)
     textureWith texture = fmap (textureWith texture)
+    assignToken token   = fmap (assignToken token)
+
+-- | Instance for filling a functor of a glyph-wrapped compound shapetrees such as a list.
+instance {-# Overlappable #-} ( Functor f, SpaceOf (f (Glyph (CompoundTree s))) ~ s
+                              , HasToken (f (Glyph (ShapeTree token s)))
+                              , TokenOf (f (Glyph (ShapeTree token s))) ~ token)
+         => CanFill (f (Glyph (CompoundTree s))) (f (Glyph (ShapeTree token s))) where
+    colorWith color   = fmap (mapGlyph (colorWith color))
+    textureWith pict  = fmap (mapGlyph (textureWith pict))
+    assignToken token = fmap (mapGlyph (assignToken token))
 
 -- | Typeclass of shape representations that can be combined with other shapes.
 class Compoundable a where
@@ -167,8 +194,3 @@ instance (HasSpace (f (Glyph (CompoundTree s))),s ~ SpaceOf (f (Glyph (CompoundT
          => HasCircle (f (Glyph (CompoundTree s))) where
     circle = pure . glyphWrapShape $ circle
 -}
-
--- | Instance for filling a functor of a glyph-wrapped compound shapetrees such as a list.
-instance {-# Overlappable #-} (Functor f, SpaceOf (f (Glyph (CompoundTree s))) ~ s) => CanFill (f (Glyph (CompoundTree s))) (f (Glyph (ShapeTree Int s))) where
-    colorWith color  = fmap (colorWith color)
-    textureWith pict = fmap (textureWith pict)

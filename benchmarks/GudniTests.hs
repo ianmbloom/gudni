@@ -1,4 +1,6 @@
-{-# LANGUAGE TemplateHaskell  #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module GudniTests
  ( BenchmarkState(..)
  , initialModel
@@ -187,7 +189,7 @@ fuzzyGlyphs state =
      let len = length defaultGlyphs
      return $  let time = view (stateBase . stateLastTime) state
                in  overlap $
-                   evalRand (sequence . replicate 10000 $ fuzzyGlyph defaultGlyphs (makePoint 2880 1800) 10 300) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+                   evalRand (sequence . replicate 10000 $ fuzzyGlyph defaultGlyphs (2 * (makePoint 2880 1800)) 10 300) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 fuzzyGlyphs2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyGlyphs2 state =
@@ -196,7 +198,7 @@ fuzzyGlyphs2 state =
      return $  let time = view (stateBase . stateLastTime) state
                in  translateByXY 200 200 .
                    overlap $
-                   evalRand (sequence . replicate 200 $ fuzzyGlyph defaultGlyphs (makePoint 200 200) 10 200) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+                   evalRand (sequence . replicate 2000 $ fuzzyGlyph defaultGlyphs (makePoint 800 800) 10 200) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 -- | A grid of rotating glyphs with overlapping subtracted glyphs
 benchmark1 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
@@ -335,14 +337,16 @@ concentricSquares3 state = return $
                 ]
 
 -- | Simple test one glyph.
-simpleGlyph :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
+simpleGlyph :: forall m . Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 simpleGlyph state =
      let character = chr $ state ^. stateBase . stateStep in
-     translateByXY 0 0 .
-     rotateBy (6.28248 @@ rad) .
-     scaleBy 20 .
-     colorWith (transparent 1.0 white) .
-     glyph . CodePoint . ord $ character
+     do g <- glyph . CodePoint . ord $ character
+        return $
+            translateByXY 0 0 .
+            rotateBy (6.28248 @@ rad) .
+            scaleBy 20 .
+            colorWith (transparent 1.0 white) $
+            g
 
 -- | Test for straight vertical segments with multiple colinear points.
 sixPointRectangle :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)

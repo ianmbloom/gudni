@@ -117,7 +117,7 @@ instance HasDefault Overlap where
 
 -- | An SRep defines an individual shape and it's metadata.
 data SRep token textureLabel rep = SRep
-  { _sRepToken     :: token
+  { _sRepToken     :: Maybe token
   , _sRepSubstance :: Substance textureLabel (SpaceOf rep)
   , _sRep          :: rep
   }
