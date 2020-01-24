@@ -175,8 +175,8 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
                 target
                 (Work2D numTiles (fromIntegral threadsPerTile))
                 (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
-
-      queryResults <- let numPointQueries = length $ job ^. rJPointQueries in
+      liftIO $ putStrLn ("rasterQueryKernel              XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
+      queryResults <- let numPointQueries = length $ tr "pointQueries" $ job ^. rJPointQueries in
                       if numPointQueries <= 0
                       then return []
                       else (toList :: CLUtil.Vector SubstanceId -> [SubstanceId]) <$>
@@ -191,15 +191,17 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
                                      computeDepth
                                      frameCount
                                      jobIndex
+                                     (fromIntegral numPointQueries :: CInt)
                                      (VS.fromList queries)
                                      (Out numPointQueries)
                                      (Work2D numTiles (fromIntegral threadsPerTile))
                                      (WorkGroup [1, fromIntegral threadsPerTile])
+      liftIO $ putStrLn ("rasterKernels Done             XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
       liftIO $ clReleaseMemObject . bufferObject $ thresholdBuffer
       liftIO $ clReleaseMemObject . bufferObject $ headerBuffer
       liftIO $ clReleaseMemObject . bufferObject $ shapeStateBuffer
       liftIO $ clReleaseMemObject . bufferObject $ thresholdQueueSliceBuffer
-      return (zip (map pqQueryId queries) queryResults)
+      return (tr "queryResults" $ zip (map pqQueryId queries) queryResults)
 
 -- | Rasterize a rasterJob inside the CLMonad
 raster :: Show token

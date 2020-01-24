@@ -65,7 +65,8 @@ type Width  = SubSpace
 type Height = SubSpace
 type Size   = Int
 
-newtype TileId = TileId {unTileId :: Int} deriving (Show, Eq, Ord, Num)
+type TileId_ = Int
+newtype TileId = TileId {unTileId :: TileId_} deriving (Show, Eq, Ord, Num)
 
 -- | A wrapper for ItemTags
 data ItemEntry = ItemEntry

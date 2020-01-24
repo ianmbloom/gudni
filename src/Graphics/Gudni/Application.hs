@@ -55,6 +55,9 @@ import Graphics.Gudni.Interface.InterfaceSDL
 import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Interface.ScreenMode
 import Graphics.Gudni.Interface.Time
+import Graphics.Gudni.Interface.FontLibrary
+import Graphics.Gudni.Interface.Query
+import Graphics.Gudni.Interface.Token
 
 import Graphics.Gudni.OpenCL.Setup
 import Graphics.Gudni.OpenCL.Rasterizer
@@ -82,11 +85,11 @@ import qualified Data.Sequence as S
 import System.Info
 
 -- | The model typeclass is the primary interface to the application functions in Gudni
-class Model s where
+class HasToken s => Model s where
   -- | Construct a Scene from the state of type `s`
-  constructScene  :: s -> String -> FontMonad IO (Scene (ShapeTree Int SubSpace))
+  constructScene  :: s -> String -> FontMonad IO (Scene (ShapeTree (TokenOf s) SubSpace))
   -- | Update the state based on the elapsed time and a list of inputs
-  updateModelState :: Int -> SimpleTime -> [Input (Point2 PixelSpace)] -> s -> s
+  updateModelState :: Int -> SimpleTime -> [Input (TokenOf s)] -> s -> s
   -- | Do tasks in the IO monad based and update the current state.
   ioTask           :: MonadIO m => s -> m s
   ioTask state = return state
@@ -98,6 +101,7 @@ class Model s where
   shouldLoop _ = True
   -- | Path to the Truetype font file that is initially loaded.
   fontFile         :: s -> IO String
+  fontFile _ = findDefaultFont
   -- | Bitmap texture data provided from the state for the rendered scene.
   providePictureMap :: s -> IO PictureMap
   providePictureMap _ = noPictures
@@ -148,7 +152,7 @@ closeApplication :: ApplicationMonad s ()
 closeApplication = withIO appBackend closeInterface
 
 -- | Initialize the ApplicationMonad stack and enter the event loop.
-runApplication :: (Show s, Model s) => s -> IO ()
+runApplication :: (Show s, Model s, HasToken s, Show (TokenOf s)) => s -> IO ()
 runApplication state =
     do  -- Initialize the application and get the initial state.
         appState <- setupApplication state
@@ -165,7 +169,7 @@ runApplication state =
                     -- Run the application monad.
                     runApplicationMonad appState $
                         do  -- start the event loop.
-                            loop
+                            loop []
                             -- when the loop exits close the application.
                             closeApplication
 
@@ -201,26 +205,25 @@ beginCycle =
     do  restartAppTimer
 
 -- | Update the model state and generate a shape tree, marking time along the way.
-processState :: (Show s, Model s) => SimpleTime -> [Input (Point2 PixelSpace)] -> ApplicationMonad s (Scene (ShapeTree Int SubSpace))
+processState :: (Show s, Model s, HasToken s, Show (TokenOf s)) => SimpleTime -> [Input (TokenOf s)] -> ApplicationMonad s (Scene (ShapeTree (TokenOf s) SubSpace))
 processState elapsedTime inputs =
     do  frame <- fromIntegral <$> use appCycle
         markAppTime "Advance State"
         state <- use appState
-        appState .= updateModelState frame elapsedTime inputs state
-        state <- use appState
-        state' <- liftIO (ioTask state)
-        appState .= state'
+        let newState = updateModelState frame elapsedTime inputs state
+        finalState <- liftIO (ioTask newState)
+        appState .= finalState
         if null inputs
-        then appMessage $ show state
-        else appMessage $ show state ++ show inputs
+        then appMessage $ show finalState
+        else appMessage $ show finalState ++ show inputs
         status <- use appStatus
-        shapeTree <- lift . lift $ constructScene state status
+        scene <- lift . lift $ constructScene finalState status
         markAppTime "Build State"
-        return shapeTree
+        return scene
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
-drawFrame :: (Model s) => CInt -> Scene (ShapeTree Int SubSpace) -> ApplicationMonad s (DrawTarget, [(PointQueryId,Maybe Int)])
-drawFrame frameCount scene =
+drawFrame :: (Model s, Show (TokenOf s)) => CInt -> Scene (ShapeTree (TokenOf s) SubSpace) -> [(PointQueryId, Point2 SubSpace)] -> ApplicationMonad s (DrawTarget, [(PointQueryId,Maybe (TokenOf s))])
+drawFrame frameCount scene queries =
     do  --appMessage "ResetJob"
         rasterizer <- use appRasterizer
         target <- withIO appBackend (prepareTarget (rasterizer ^. rasterUseGLInterop))
@@ -242,7 +245,7 @@ drawFrame frameCount scene =
                                         geometryState
                                         substanceState
                                         pictDataPile
-                                        []
+                                        queries
         appMessage "===================== rasterStart ====================="
         jobs <- lift $ buildRasterJobs rasterParams
         markAppTime "Build Raster Jobs"
@@ -277,25 +280,27 @@ markAppTime message =
         appTimeKeeper .= tk'
 
 -- | Determine if a particular input should quit the application.
-isQuit :: Input a -> Bool
+isQuit :: Input token -> Bool
 isQuit input =
-    case input of
+    case (input ^. inputType) of
         InputWindow WindowClosed -> True
         InputKey Pressed (KeyModifier _ _ _ True) (Key LetterQ) -> True
         InputKey Pressed _ (KeyCommand CommandQuit) -> True
         _ -> False
 
 -- | Cycle through the event loop.
-loop :: (Show s, Model s) => ApplicationMonad s ()
-loop  =
+loop :: (Show s, Model s, HasToken s, Show (TokenOf s)) => [Input (TokenOf s)] -> ApplicationMonad s ()
+loop preppedInputs =
   do  --appMessage "checkInputs"
-      inputs <- withIO appBackend checkInputs
-      unless (any isQuit inputs) $
+      unless (any isQuit preppedInputs) $
           do  elapsedTime <- getElapsedTime
               beginCycle
-              scene      <- processState elapsedTime inputs
+              scene <- processState elapsedTime preppedInputs
               frameCount <- fromIntegral <$> use appCycle
-              (target, queryResults) <- drawFrame frameCount scene
+              newInputs <- withIO appBackend checkInputs
+              let queries = pullQueries newInputs
+              (target, queryResults) <- drawFrame frameCount scene queries
+              let newPreppedInputs = tr "preppedInputs" $ attachQueryResults newInputs queryResults
               state      <- use appState
               state'     <- withIO appBackend $ handleOutput state target
               appState .= state'
@@ -304,4 +309,4 @@ loop  =
               liftIO performMinorGC -- the idea here is that if we perform garbage collection
                                     -- on each frame we'll get a more consistent frame rate.
               continue <- shouldLoop <$> use appState
-              when continue loop
+              when continue (loop newPreppedInputs)

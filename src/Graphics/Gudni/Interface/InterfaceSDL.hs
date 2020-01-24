@@ -167,15 +167,16 @@ closeInterface =
      lift SDL.quit
 
 -- | Poll the interface for new inputs.
-checkInputs :: StateT InterfaceState IO [Input (Point2 PixelSpace)]
+checkInputs :: StateT InterfaceState IO [Input token]
 checkInputs =
     do events <- lift SDL.pollEvents
        let inputs = mapMaybe processEvent events
        return inputs
 
 -- | Convert an SDL event to a Gudni Input.
-processEvent :: SDL.Event -> Maybe (Input (Point2 PixelSpace))
+processEvent :: SDL.Event -> Maybe (Input token)
 processEvent (SDL.Event _ payload) =
+  Input Nothing <$>
   case payload of
     SDL.WindowShownEvent  _                                              -> Nothing
     SDL.WindowHiddenEvent _                                              -> Nothing

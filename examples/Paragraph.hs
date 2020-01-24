@@ -1,6 +1,8 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Paragraph
   ( main
@@ -42,12 +44,9 @@ initialModel =
 instance Model ParagraphState where
     screenSize state = --FullScreen
                        Window $ Point2 1024 900
-    shouldLoop _ = True
-    fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =
         let state' = foldl (flip processInput) state inputs
         in  over stateBase (updateSceneState frame elapsedTime) state'
-    ioTask = return
     constructScene state status =
         do  para <- paragraph 0.2 0.2 AlignCenter AlignCenter mobyDick
 
@@ -57,11 +56,8 @@ instance Model ParagraphState where
             let tree = transformFromState (state ^. stateBase) testScene
                 withStatus = {-if False then overlap [statusTree, tree] else-} tree
             return $ (Scene (light gray) $ withStatus)
-    providePictureMap _ = noPictures
-    handleOutput state target = do  presentTarget target
-                                    return state
 
-instance HandlesInput ParagraphState where
+instance HandlesInput token ParagraphState where
     processInput input = over stateBase (processInput input)
 
 main :: IO ()

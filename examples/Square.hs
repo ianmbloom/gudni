@@ -1,6 +1,8 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -35,10 +37,11 @@ data SquareState = SquareState
   } deriving (Show)
 makeLenses ''SquareState
 
+instance HasToken SquareState where
+  type TokenOf SquareState = Int
+
 instance Model SquareState where
     screenSize state = Window (Point2 100 100)
-    shouldLoop _ = True
-    fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =
         execState (
             do  stateAngle .= (realToFrac elapsedTime / 2) @@ turn
@@ -53,14 +56,11 @@ instance Model SquareState where
         colorWith yellow .                 -- create a leaf of the ShapeTree and fill the contained CompoundTree with a color.
         rectangle $                        -- create new compoundTree with just one leaf that is the outline of a unit square.
         1 `by` 1
-    providePictureMap _ = noPictures
-    handleOutput state target = do  presentTarget target
-                                    return state
 
-instance HandlesInput SquareState where
+instance HandlesInput token SquareState where
      processInput input =
          execState $
-         case input of
+         case input ^. inputType of
              (InputKey Pressed _ inputKeyboard) ->
                   case inputKeyboard of
                      Key ArrowUp    -> stateScale *=  1.25

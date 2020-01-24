@@ -1,6 +1,8 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -43,12 +45,12 @@ data StrokeState = StrokeState
    deriving (Show)
 makeLenses ''StrokeState
 
+instance HasToken StrokeState where
+  type TokenOf StrokeState = Int
+
 instance Model StrokeState where
     screenSize state = Window (Point2 500 250)
-    shouldLoop _ = True
-    fontFile _ = findDefaultFont
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
-    ioTask = return
     constructScene state _status = return . Scene gray $
         transformFromState (state ^. stateBase) $
         overlap ([projected, stroked])
@@ -74,17 +76,11 @@ instance Model StrokeState where
             rectangle $
             10 `by` 5
 
-
-    providePictureMap _ = noPictures
-    handleOutput state target = do
-        presentTarget target
-        return state
-
-instance HandlesInput StrokeState where
+instance HandlesInput token StrokeState where
    processInput input =
           over stateBase (processInput input) . (
           execState $
-          case input of
+          case input ^. inputType of
               (InputKey Pressed _ inputKeyboard) ->
                   do  case inputKeyboard of
                           Key ArrowRight -> stateOffset += 2

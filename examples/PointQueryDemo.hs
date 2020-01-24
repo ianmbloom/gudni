@@ -1,5 +1,7 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -----------------------------------------------------------------------------
@@ -40,65 +42,88 @@ import qualified Data.Vector as V
 
 import Data.Maybe
 import Control.Lens
+import Data.List.Lens
+
+data PQGlyph s = PQGlyph
+   { _glyphSelected :: Bool
+   , _glyphColor :: Color
+   , _glyphOffset:: Point2 s
+   , _glyphScale :: s
+   , _glyphAngle :: Angle s
+   , _glyphOrd :: Int
+   }
+   deriving (Show)
+makeLenses ''PQGlyph
 
 data PQState = PQState
    {_stateBase        :: BasicSceneState
    ,_stateOffset      :: SubSpace
-   ,_stateGlyphs      :: [(Int, Color, CompoundTree SubSpace)]
+   ,_stateGlyphs      :: [PQGlyph SubSpace]
    }
    deriving (Show)
 makeLenses ''PQState
 
 randomGlyph :: (Space s, Random s, RandomGen g)
-            => V.Vector (CompoundTree s) -> Point2 s -> s -> s -> Rand g (Int, Color, CompoundTree s)
-randomGlyph glyphs range minRad maxRad =
-  do  i <- getRandomR(0, V.length glyphs - 1)
-      let g = (V.!) glyphs i
+            => Int -> Point2 s -> s -> s -> Rand g (PQGlyph s)
+randomGlyph numGlyphs range minScale maxScale =
+  do  i <- getRandomR(0, numGlyphs - 1)
       hue       <- getRandomR(0,360)
       sat       <- getRandomR(0.3,1)
       lightness <- getRandomR(0.4,0.9)
       alpha     <- return 1 -- getRandomR(0.2,0.5)
       let color  = transparent alpha $ hslColor hue sat lightness
-      token  <- getRandomR(0,32768)
-      angle  <- getRandomR(0,360)
-      radius <- getRandomR(minRad,maxRad)
-      point  <- getRandomR(makePoint 0 0, range)
-      return (token,  color , translateBy point . scaleBy radius . rotateBy (angle @@ deg) $ g)
+      delta <- getRandomR(makePoint 0 0, range)
+      angle  <- (@@ deg) <$> getRandomR(0,360)
+      scale <- getRandomR(minScale,maxScale)
+      return $ PQGlyph False color delta scale angle i
 
-applyGlyph (token, color, compound) = assignToken token . colorWith color $ compound
+applyGlyph glyphs token (PQGlyph selected color delta scale angle i) =
+   let finalColor = if selected then black else color
+   in  assignToken token .
+       colorWith finalColor .
+       translateBy delta .
+       scaleBy scale .
+       rotateBy angle $
+       (V.!) glyphs i
+
+instance HasToken PQState where
+  type TokenOf PQState = Int
+
+charList = ['!'..'z']
 
 instance Model PQState where
-    screenSize state = Window (Point2 500 250)
-    shouldLoop _ = True
-    fontFile _ = findDefaultFont
-    updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
-    ioTask = return
+    screenSize state = Window (Point2 64 64)
+    updateModelState _frame _elapsedTime inputs state =
+      do let state' = foldl (flip processInput) state inputs
+         if null (state' ^. stateGlyphs)
+         then let randomGlyphs = evalRand (sequence . replicate 10 $
+                           randomGlyph (length charList) (makePoint 100 100) 10 200) (mkStdGen 3000)
+              in
+              (set stateGlyphs randomGlyphs state')
+         else state'
     constructScene state _status =
-      do defaultGlyphs <- V.fromList <$> glyphString ['!'..'z']
-         let randomGlyphs = evalRand (sequence . replicate 2000 $
-                            randomGlyph defaultGlyphs (makePoint 800 800) 10 200) (mkStdGen 3000)
+      do defaultGlyphs <- V.fromList <$> glyphString charList
+         return . Scene gray .
+               transformFromState (state ^. stateBase) .
+               overlap .
+               imap (applyGlyph defaultGlyphs) $
+               state ^. stateGlyphs
 
-         return . Scene gray $
-             ((transformFromState (state ^. stateBase) $
-             overlap (map applyGlyph randomGlyphs)
 
-                     ) :: ShapeTree Int SubSpace)
-    constructQueries =
-    providePictureMap _ = noPictures
-    handleOutput state target = do
-        presentTarget target
-        return state
-
-instance HandlesInput PQState where
+instance HandlesInput Int PQState where
    processInput input =
           over stateBase (processInput input) . (
           execState $
-          case input of
+          case (input ^. inputType) of
               (InputKey Pressed _ inputKeyboard) ->
                   do  case inputKeyboard of
                           Key ArrowRight -> stateOffset += 0.01
                           Key ArrowLeft  -> stateOffset -= 0.01
                           _ -> return ()
+              (InputMouse Pressed _ _ _) ->
+                 case input ^. inputToken of
+                    Just token -> stateGlyphs . ix token . glyphSelected .=  True
+                    Nothing -> return ()
               _ -> return ()
           )
 

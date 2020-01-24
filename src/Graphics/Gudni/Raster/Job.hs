@@ -56,6 +56,8 @@ import Graphics.Gudni.Raster.ReorderTable
 import Graphics.Gudni.Raster.TraverseShapeTree
 import Graphics.Gudni.Raster.ItemInfo
 
+import Graphics.Gudni.Interface.Query
+
 import Control.Monad
 import Control.Monad.State
 import Control.Monad.Memo.Class
@@ -76,16 +78,15 @@ import qualified Data.Sequence as S
 import Data.Foldable
 import Data.List.Lens
 
-newtype JobId = JobId {unJobId :: Int} deriving (Show, Eq, Ord, Num)
-newtype PointQueryId = PointQueryId {unPointQueryId :: Int} deriving (Show, Eq, Ord, Num)
-
 data PointQuery = PointQuery
     { pqTileId :: TileId
     , pqQueryId :: PointQueryId
     , pqLocation :: (Point2 SubSpace)
     } deriving (Show)
-
 type PointQuerySequence = S.Seq PointQuery
+
+newtype JobId = JobId {unJobId :: Int} deriving (Show, Eq, Ord, Num)
+
 -- | A RasterJob stores the information needed to transfer data to OpenCL, to render a group of tiles∘
 -- Each job corresponds to an individual rasterizer kernel call.
 data RasterJob = RasterJob
@@ -206,36 +207,33 @@ outputRasterJob job =
 instance NFData RasterJob where
   rnf (RasterJob a b c d ) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()
 
-instance NFData PointQueryId where
-  rnf (PointQueryId a) = a `deepseq` ()
+
 
 instance NFData PointQuery where
   rnf (PointQuery a b c) = a `deepseq` b `deepseq` c `deepseq` ()
 
 instance StorableM PointQuery where
-  sizeOfM _ = do sizeOfM (undefined :: TileId)
+  sizeOfM _ = do sizeOfM (undefined :: (Point2 SubSpace))
+                 sizeOfM (undefined :: TileId)
                  sizeOfM (undefined :: PointQueryId)
-                 sizeOfM (undefined :: (Point2 SubSpace))
-  alignmentM _ = do alignmentM (undefined :: TileId)
+                 sizeOfM (undefined :: CInt) -- filler
+
+  alignmentM _ = do alignmentM (undefined :: (Point2 SubSpace))
+                    alignmentM (undefined :: TileId)
                     alignmentM (undefined :: PointQueryId)
-                    alignmentM (undefined :: (Point2 SubSpace))
-  peekM = do tileId       <- peekM
+                    alignmentM (undefined :: CInt) -- filler
+  peekM = do location     <- peekM
+             tileId       <- peekM
              pointQueryId <- peekM
-             location     <- peekM
              return (PointQuery tileId pointQueryId location)
   pokeM (PointQuery tileId pointQueryId location) =
-          do pokeM tileId
+          do pokeM location
+             pokeM tileId
              pokeM pointQueryId
-             pokeM location
+
 
 instance Storable PointQuery where
   sizeOf = sizeOfV
   alignment = alignmentV
   peek = peekV
   poke = pokeV
-
-instance Storable PointQueryId where
-  sizeOf (PointQueryId a) = sizeOf a
-  alignment (PointQueryId a) = alignment a
-  peek i = PointQueryId <$> peek (castPtr i)
-  poke i (PointQueryId a) = poke (castPtr i) a
