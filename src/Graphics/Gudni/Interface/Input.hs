@@ -1,4 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -20,6 +21,9 @@ module Graphics.Gudni.Interface.Input
   , InputWindow (..)
   , InputModifier (..)
   , Input (..)
+  , inputType
+  , inputToken
+  , InputType (..)
   , InputKeyModifier (..)
   , keyModAlt
   , keyModCtrl
@@ -31,6 +35,7 @@ module Graphics.Gudni.Interface.Input
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Interface.Token
 import Control.Lens
 import Control.Monad.State
 
@@ -180,17 +185,24 @@ data InputCommand
   deriving (Eq, Show)
 
 -- | General input types
-data Input positionInfo
+data InputType
   = InputWindow InputWindow
   | InputText String
   | InputKey   InputDetection InputKeyModifier InputKeyboard
-  | InputMouse InputDetection InputKeyModifier Int positionInfo
+  | InputMouse InputDetection InputKeyModifier Int (Point2 PixelSpace)
   deriving (Eq, Show)
 
+-- | Input
+data Input token = Input
+  { _inputToken :: Maybe token
+  , _inputType  :: InputType
+  } deriving (Show)
+makeLenses ''Input
+
 -- | Convert an input to a displayable string.
-inputToString :: Input a -> String
+inputToString :: Input token -> String
 inputToString input =
-  case input of
+  case (input ^. inputType) of
     InputKey _ modifier keyboard ->
       case keyboard of
         Key letter ->
@@ -336,6 +348,6 @@ inputToString input =
                SymbolBackquote    -> "`"
                SymbolBar          -> "|"
 
-class HandlesInput s where
+class HandlesInput token s where
     -- | Do something with incoming input before updating
-    processInput :: Input (Point2 PixelSpace) -> s -> s
+    processInput :: Input token -> s -> s

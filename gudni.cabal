@@ -96,6 +96,7 @@ library
                      , Graphics.Gudni.Interface.ScreenMode
                      , Graphics.Gudni.Interface.Time
                      , Graphics.Gudni.Interface.Token
+                     , Graphics.Gudni.Interface.Query
                      , Graphics.Gudni.Raster.Constants
                      , Graphics.Gudni.OpenCL.Setup
                      , Graphics.Gudni.OpenCL.EmbeddedOpenCLSource

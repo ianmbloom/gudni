@@ -43,8 +43,7 @@ instance Model PlotState where
     updateModelState frame elapsedTime inputs state =
         execState (
             do  stateAngle .= (realToFrac elapsedTime / 2) @@ turn
-                mapM_ processSimpleInput inputs
-            ) state
+            ) $ foldl (flip processInput) state inputs
     ioTask = return
     constructScene state status =
         Scene (light . greenish $ blue) <$> plots state

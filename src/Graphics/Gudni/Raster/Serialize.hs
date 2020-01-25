@@ -237,8 +237,7 @@ onSubstance :: forall m item token .
              --, SpaceOf item ~ SpaceOf ShapeEntry
              , Space (SpaceOf item)
              , SpaceOf item ~ SubSpace
-             , MonadIO m
-             , Ord token)
+             , MonadIO m)
             => (TextureSpace -> SpaceOf item)
             -> (SpaceOf item)
             -> Overlap
@@ -277,18 +276,12 @@ onSubstance fromTextureSpace tolerance Overlap transformer (SRep mToken substanc
                       colorTagId <- SubstanceId <$> addToPileState suSubstanceTagPile substanceTag
                       return colorTagId
         -- Get the token map.
-<<<<<<< HEAD
-        tokenMap <- use suTokenMap
-        -- Store the token in the map.
-        suTokenMap .= M.insert substanceId token tokenMap
-=======
         case mToken of
           Nothing -> return ()
           Just token ->
               do tokenMap <- use suTokenMap
                  -- Store the token in the map.
-                 suTokenMap .= M.insert token substanceId tokenMap
->>>>>>> e150849
+                 suTokenMap .= M.insert substanceId token tokenMap
         -- Traverse the compound tree and serialize each component shape.
         -- onShape :: MonadIO m
         --         => SubstanceId
@@ -298,7 +291,7 @@ onSubstance fromTextureSpace tolerance Overlap transformer (SRep mToken substanc
         --         -> GeometryMonad m ()
         lift $ traverseCompoundTree defaultValue transformer (onShape substanceId) subTree
 
-buildOverScene :: (MonadIO m, Ord token, Show token)
+buildOverScene :: (MonadIO m, Show token)
                => Scene (ShapeTreePictureMemory token SubSpace)
                -> SubstanceMonad token SubSpace (GeometryMonad m) ()
 buildOverScene scene =

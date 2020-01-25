@@ -1,6 +1,8 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -86,6 +88,9 @@ debugScene =
           , colorWith (light yellow)   . mask $ oldLine 0.005 s1 (s1 .+^ tangent1Rotated)
           ]
 
+instance HasToken ProjectionState where
+  type TokenOf ProjectionState = Int
+
 instance Model ProjectionState where
     screenSize state = Window (Point2 500 250)
     shouldLoop _ = True
@@ -132,11 +137,11 @@ instance Model ProjectionState where
         presentTarget target
         return state
 
-instance HandlesInput ProjectionState where
+instance HandlesInput token ProjectionState where
    processInput input =
           over stateBase (processInput input) . (
           execState $
-          case input of
+          case input ^. inputType of
               (InputKey Pressed _ inputKeyboard) ->
                   do  case inputKeyboard of
                           Key ArrowRight -> stateOffset += 0.01

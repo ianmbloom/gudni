@@ -1,6 +1,8 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -46,13 +48,12 @@ data ProjectionState = ProjectionState
    deriving (Show)
 makeLenses ''ProjectionState
 
+instance HasToken ProjectionState where
+  type TokenOf ProjectionState = Int
 
 instance Model ProjectionState where
     screenSize state = Window (Point2 500 250)
-    shouldLoop _ = True
-    fontFile _ = findDefaultFont
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
-    ioTask = return
     constructScene state _status =
         do text <- (^?! unGlyph) <$> blurb 0.1 AlignMin "e" -- "Georg Guðni Hauksson"
            let angle   = state ^. stateBase . stateAngle
@@ -101,11 +102,11 @@ instance Model ProjectionState where
         presentTarget target
         return state
 
-instance HandlesInput ProjectionState where
+instance HandlesInput token ProjectionState where
    processInput input =
           over stateBase (processInput input) . (
           execState $
-          case input of
+          case (input ^. inputType) of
               (InputKey Pressed _ inputKeyboard) ->
                   do  case inputKeyboard of
                           Key ArrowRight -> stateOffset += 0.01

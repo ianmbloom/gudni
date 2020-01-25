@@ -300,9 +300,9 @@ typedef struct HardFacet
 
 // PointQuery
 typedef struct PointQuery
-  { int queryTileId;
+  { SPACE2 queryLocation;
+    int queryTileId;
     int queryId;
-    SPACE2 queryLocation;
   } PointQuery;
 
 // The color state structure tracks the current color information during a scan through thresholds
@@ -758,14 +758,14 @@ void renderThresholdArray ( PMEM       TileState *tileS
                           , GMEM            uint *out
                           );
 
-SUBSTANCETAG identifyPoint ( PMEM       TileState *tileS
-                           , PMEM  ThresholdQueue *tQ
-                           , PMEM      ShapeState *shS
-                           , GMEM       HardFacet *facetHeap
-                           ,                  int  frameNumber
-                           ,                  int  queryId
-                           ,               SPACE2  point
-                           );
+SUBSTANCEID identifyPoint ( PMEM       TileState *tileS
+                          , PMEM  ThresholdQueue *tQ
+                          , PMEM      ShapeState *shS
+                          , GMEM       HardFacet *facetHeap
+                          ,                  int  frameNumber
+                          ,                  int  queryId
+                          ,               SPACE2  point
+                          );
 
 void initColorState ( PMEM  ColorState *init
                     ,            COLOR  backgroundColor
@@ -1209,7 +1209,7 @@ void addThreshold ( PMEM  ThresholdQueue *tQ
                 // large enough.g
                 //DEBUG_IF(printf("  ADD");)
                 *thresholdWasAdded = true;
-                DEBUG_IF(printf("addThreshold ");showThreshold(newHeader, newThreshold);printf("\n");)
+                //DEBUG_IF(printf("addThreshold ");showThreshold(newHeader, newThreshold);printf("\n");)
                 //DEBUG_IF(printf("************** %016lx",newHeader);)
                 pushThreshold(tQ, newHeader, newThreshold);
             }
@@ -1475,14 +1475,14 @@ COLOR compositeLayers( PMEM    ShapeState *shS
     LAYERID topLayer = findTopLayer(shS,0);
     LOCALSUBSTANCE lastSubstance = NULLINDEX;
     bool lastIsAdditive = true;
-    DEBUG_IF(printf("composite layers --------------------- color %2.2v4f \n", color);)
+    //DEBUG_IF(printf("composite layers --------------------- color %2.2v4f \n", color);)
     while (topLayer < shS->layerCount && !(OPAQUE(color))) {
-        DEBUG_IF(printf("topLayer %i lastIsAdditive %i lastSubstance %i\n",topLayer,lastIsAdditive,lastSubstance);)
+        //DEBUG_IF(printf("topLayer %i lastIsAdditive %i lastSubstance %i\n",topLayer,lastIsAdditive,lastSubstance);)
         LAYERENTRY currentLayer = shS->layerStack[topLayer];
         LOCALSUBSTANCE currentSubstance = layerEntryLocalSubstance(currentLayer);
         bool currentIsAdditive = layerEntryIsAdditive(currentLayer);
         bool shouldCompositeLast = (currentSubstance != lastSubstance && lastSubstance != NULLINDEX);
-        DEBUG_IF(printf("shouldCompositeLast %i lastIsAdditive %i\n",shouldCompositeLast, lastIsAdditive);)
+        //DEBUG_IF(printf("shouldCompositeLast %i lastIsAdditive %i\n",shouldCompositeLast, lastIsAdditive);)
         color = shouldCompositeLast ? compositeLayer (shS, cS, color, lastSubstance, lastIsAdditive) : color;
         lastIsAdditive = shouldCompositeLast
                        ? currentIsAdditive
@@ -1490,9 +1490,9 @@ COLOR compositeLayers( PMEM    ShapeState *shS
         topLayer = findTopLayer(shS,topLayer+1);
         lastSubstance = currentSubstance;
     }
-    DEBUG_IF(printf("afterl top %i ", topLayer);printf(" color %2.2v4f ", color);printf("lastSub %i lastAdd %i\n", lastSubstance, lastIsAdditive);)
+    //DEBUG_IF(printf("afterl top %i ", topLayer);printf(" color %2.2v4f ", color);printf("lastSub %i lastAdd %i\n", lastSubstance, lastIsAdditive);)
     color = (lastSubstance == NULLINDEX) ? color : compositeLayer (shS, cS, color, lastSubstance, lastIsAdditive);
-    DEBUG_IF(printf("final color %2.2v4f ---------------------\n", color);)
+    //DEBUG_IF(printf("final color %2.2v4f ---------------------\n", color);)
     color = composite(color, cS->csBackgroundColor);
     return color;
 }
@@ -1553,7 +1553,7 @@ void buildThresholdArray ( PMEM       TileState *tileS
         ITEMTAGID itemIndex = itemStart + n;
         ITEMTAG itemTag = itemTagHeap[itemIndex]; // get the current shape.
         thresholdWasAdded = false;
-        DEBUG_IF(printf("n %i lastSubstance %i ",n, lastSubstance);showItemTag(itemTag);printf("\n");)
+        //DEBUG_IF(printf("n %i lastSubstance %i ",n, lastSubstance);showItemTag(itemTag);printf("\n");)
         //DEBUG_IF(printf("lastSubstance %i (int)itemTagSubstanceId(itemTag) %i\n",lastSubstance,(int)itemTagSubstanceId(itemTag));)
         if (itemTagIsShape(itemTag)) {
              // if you don't shift the shape to the tile size there will be accuracy errors with height floating point geometric values
@@ -1586,19 +1586,19 @@ void buildThresholdArray ( PMEM       TileState *tileS
                 strandHeap += currentSize;
                 enclosedByShape = enclosedByShape != enclosedByStrand; // using not equal as exclusive or.
             } // for currentStrand
-            DEBUG_IF(printf("(thresholdWasAdded %i || enclosedByShape %i)\n",thresholdWasAdded,enclosedByShape);)
+            //DEBUG_IF(printf("(thresholdWasAdded %i || enclosedByShape %i)\n",thresholdWasAdded,enclosedByShape);)
             if (thresholdWasAdded || enclosedByShape) {
                 if (shS->layerCount < MAXLAYERS) {
                    if (lastSubstance != (int)itemTagSubstanceId(itemTag)) {
                      // add this new substance.
-                     DEBUG_IF(printf("addNew (int)itemTagSubstanceId(itemTag) %i substanceCount %i\n",(int)itemTagSubstanceId(itemTag),shS->substanceCount);)
+                     //DEBUG_IF(printf("addNew (int)itemTagSubstanceId(itemTag) %i substanceCount %i\n",(int)itemTagSubstanceId(itemTag),shS->substanceCount);)
                      SUBSTANCETAG tag = substanceTagHeap[(int)itemTagSubstanceId(itemTag)];
                      shS->substanceCount += 1;
                      shS->substanceIdStack[shS->substanceCount] = (int)itemTagSubstanceId(itemTag);
                      shS->substanceTagStack[shS->substanceCount] = tag;
                    }
                    lastSubstance = (int)itemTagSubstanceId(itemTag);
-                   DEBUG_IF(printf("addLayer shS->layerCount %i\n",shS->layerCount);)
+                   //DEBUG_IF(printf("addLayer shS->layerCount %i\n",shS->layerCount);)
 
                    shS->layerStack[shS->layerCount] = createLayerEntry(itemTagIsAdd(itemTag),shS->substanceCount);
                    if (enclosedByShape) {
@@ -1767,10 +1767,11 @@ void initTileState ( PMEM  TileState *tileS
 bool pointTouchesThread( TileState *tileS
                        , SPACE2 point
                        ) {
-    return (point.x >= tileS->threadDelta.x                      ) &&
-           (point.x <  tileS->threadDelta.x + 1                  ) &&
-           (point.y >= tileS->threadDelta.y                      ) &&
-           (point.y <  tileS->threadDelta.y + tileS->floatHeight );
+    SPACE2 threadDelta = convert_float2(tileS->threadDelta);
+    return (point.x >= threadDelta.x                      ) &&
+           (point.x <  threadDelta.x + 1                  ) &&
+           (point.y >= threadDelta.y                      ) &&
+           (point.y <  threadDelta.y + tileS->floatHeight );
 
 }
 
@@ -2193,7 +2194,7 @@ __kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
                   ,  jobIndex
                   ,  computeDepth
                   );
-    DEBUG_IF(tileStateHs(tileS);)
+    //DEBUG_IF(tileStateHs(tileS);)
     if (isActiveThread(&tileS)) {
         DEBUG_TRACE_BEGIN
         Slice qSlice = loadQueueSlice(qSliceHeap, &tileS);
@@ -2201,9 +2202,9 @@ __kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
         ThresholdQueue tQ;
         initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, qSlice);
         ShapeState shS = loadShapeState(shapeStateHeap, &tileS);
-        DEBUG_IF(printf("render shapeState\n");)
-        DEBUG_IF(showShapeState(&shS);)
-        DEBUG_IF(showThresholds(&tQ);)
+        //DEBUG_IF(printf("render shapeState\n");)
+        //DEBUG_IF(showShapeState(&shS);)
+        //DEBUG_IF(showThresholds(&tQ);)
         //DEBUG_TRACE_ITEM(thresholdStateHs(&tQ);)
         renderThresholdArray ( &tileS
                              , &tQ
@@ -2250,17 +2251,17 @@ __kernel void identifyPoints( GMEM    THRESHOLD *thresholdHeap
                             , GMEM        Slice *qSliceHeap
                             , GMEM    HardFacet *facetHeap
                             , GMEM     TileInfo *tileHeap
-                            , GMEM   PointQuery *queryHeap
                             ,              int2  bitmapSize
                             ,               int  computeDepth
                             ,               int  frameNumber
                             ,               int  jobIndex
+                            ,               int  numQueries
+                            , GMEM   PointQuery *queryHeap
                             , GMEM  SUBSTANCEID *queryResults
                             ) {
-    int  pointThread = INDEX;
+    int  tileIndex  = INDEX;
     int  tileThread  = TILETHREAD;
-    PointQuery query = queryHeap[pointThread];
-    GMEM TileInfo *tileInfo = getTileInfo(tileHeap, query.queryTileId);
+    GMEM TileInfo *tileInfo = getTileInfo(tileHeap, tileIndex);
     //DEBUG_IF(showTileInfoAlignment(0,tileInfo);)
     TileState tileS;
     initTileState ( &tileS
@@ -2270,30 +2271,33 @@ __kernel void identifyPoints( GMEM    THRESHOLD *thresholdHeap
                   ,  jobIndex
                   ,  computeDepth
                   );
-    DEBUG_IF(tileStateHs(tileS);)
-    if (tileThread == 0) {
-      // Just one thread in the tile defaults the EMPTYSUBSTANCETAG.
-      queryResults[pointThread] = NOSUBSTANCEID;
-    }
-    if (isActiveThread(&tileS) && pointTouchesThread(&tileS,query.queryLocation)) {
-        DEBUG_TRACE_BEGIN
-        Slice qSlice = loadQueueSlice(qSliceHeap, &tileS);
-        ThresholdQueue tQ;
-        initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, qSlice);
-        ShapeState shS = loadShapeState(shapeStateHeap, &tileS);
-        DEBUG_IF(printf("render shapeState\n");)
-        DEBUG_IF(showShapeState(&shS);)
-        DEBUG_IF(showThresholds(&tQ);)
-        SUBSTANCEID substanceId = identifyPoint ( &tileS
-                                                , &tQ
-                                                , &shS
-                                                ,  facetHeap
-                                                ,  frameNumber
-                                                ,  query.queryId
-                                                ,  query.queryLocation
-                                                );
-        if (substanceId != NOSUBSTANCEID) {
-           queryResults[pointThread] = substanceId; // this should only happen for one thread.
+    for (int i = 0; i < numQueries; i++) {
+        PointQuery query = queryHeap[i];
+        if (tileIndex == 0 && tileThread == 0) {
+          // Just one thread in the tile defaults the EMPTYSUBSTANCETAG.
+          queryResults[i] = NOSUBSTANCEID;
+        }
+        if (isActiveThread(&tileS) && pointTouchesThread(&tileS,query.queryLocation)) {
+            printf("i %i tileS.threadDelta %i,%i tileS.floatHeight %f queryLocation %v2f \n", i, tileS.threadDelta.x, tileS.threadDelta.y, tileS.floatHeight, query.queryLocation);
+            Slice qSlice = loadQueueSlice(qSliceHeap, &tileS);
+            ThresholdQueue tQ;
+            initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, qSlice);
+            ShapeState shS = loadShapeState(shapeStateHeap, &tileS);
+            //DEBUG_IF(printf("render shapeState\n");)
+            //DEBUG_IF(showShapeState(&shS);)
+            //DEBUG_IF(showThresholds(&tQ);)
+            SUBSTANCEID substanceId = identifyPoint ( &tileS
+                                                    , &tQ
+                                                    , &shS
+                                                    ,  facetHeap
+                                                    ,  frameNumber
+                                                    ,  query.queryId
+                                                    ,  query.queryLocation
+                                                    );
+            DEBUG_IF(printf("******** substanceId %i\n", substanceId);)
+            if (substanceId != NOSUBSTANCEID) {
+               queryResults[i] = substanceId; // this should only happen for one thread.
+            }
         }
     }
 }
