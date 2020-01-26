@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module GudniBenchmarks
   ( main
@@ -40,6 +41,9 @@ import Data.Maybe
 getTest :: BenchmarkState -> (String, BenchmarkState -> FontMonad IO (ShapeTree Int SubSpace))
 getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
+instance HasToken BenchmarkState where
+  type TokenOf BenchmarkState = Int
+
 instance Model BenchmarkState where
     screenSize state = --FullScreen
                        Window $ Point2 512 512
@@ -61,11 +65,11 @@ instance Model BenchmarkState where
     handleOutput state target = do  presentTarget target
                                     return state
 
-instance HandlesInput BenchmarkState where
+instance HandlesInput Int BenchmarkState where
    processInput input =
           over stateBase (processInput input) . (
           execState $
-          case input of
+          case input ^. inputType of
               (InputKey Pressed _ inputKeyboard) ->
                   do  tests <- use stateTests
                       case inputKeyboard of

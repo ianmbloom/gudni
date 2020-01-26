@@ -43,6 +43,8 @@ module Graphics.Gudni.Util.Util
   , putStrList
   , orNothing
   , opMaybe
+  , titleLine
+  , infoLine
   )
 where
 
@@ -199,3 +201,10 @@ fromMaybeM :: Monad m => Maybe a -> m a -> m a
 fromMaybeM (Just a) b = return a
 fromMaybeM Nothing  b = b
 -}
+
+-- | Show a title line
+titleLine :: String -> String
+titleLine title = "======================== " ++ title ++ " ========================\n"
+-- | Pad a line of info for aligned display.
+infoLine :: (String, String) -> String
+infoLine (title, info) = (lpad 40 title) ++ ": " ++ info ++ "\n"

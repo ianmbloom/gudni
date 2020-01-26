@@ -38,8 +38,13 @@ initialModel =
           , _statePlayhead    = 0
           , _stateFrameNumber = 0
           , _stateStep        = 0
+          , _stateRepMode     = False
+          , _stateRepDk       = False
           }
     }
+
+instance HasToken ParagraphState where
+  type TokenOf ParagraphState = Int
 
 instance Model ParagraphState where
     screenSize state = --FullScreen

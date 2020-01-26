@@ -107,7 +107,7 @@ TILETHREAD// 1 Space for haskell defined macros
 // An outline id refers to the index of a geoRef in the geoRefHeap.
 #define SHAPEID   uint
 
-#define SUBSTANCEID int
+#define SUBSTANCEID uint
 
 inline bool itemTagIsFacet(ITEMTAG tag)    {return (tag & ITEMTAG_ISFACET_BITMASK) == ITEMTAG_ISFACET;}
 inline bool itemTagIsShape(ITEMTAG tag)  {return (tag & ITEMTAG_ISFACET_BITMASK) == ITEMTAG_ISSHAPE;}
@@ -319,9 +319,9 @@ typedef struct ColorState {
 
 // the threshold queue stores references to the threshold buffers pointers to the start and end of the queue.
 typedef struct ThresholdQueue {
-               GMEM    HEADER *thresholdHeaders; // array of threshold header
-               GMEM THRESHOLD *thresholds;       // array of threshold geometry
-                        Slice  qSlice;       // slice, the position of the top of the queue.
+               LMEM    HEADER thresholdHeaders[MAXTHRESHOLDS]; // array of threshold header
+               LMEM THRESHOLD thresholds[MAXTHRESHOLDS];       // array of threshold geometry
+                       Slice  qSlice;       // slice, the position of the top of the queue.
 } ThresholdQueue;
 
 inline int cycleLocation(int i) {
@@ -397,6 +397,7 @@ inline LAYERENTRY createLayerEntry(bool isAdditive, LOCALSUBSTANCE substance) {
   return additiveBit | ((LAYERENTRY)substance);
   }
 
+// WARNING: If you modify ShapeState you must modify sIZEoFsHAPEsTATE in Graphics.Gudni.OpenCL.Constants
 typedef struct ShapeState {
             LAYERID layerCount;                      // the number of shapes and thus layers added to the tileThread.
          LAYERENTRY layerStack[MAXLAYERS];            // a stack of layer entries
@@ -478,7 +479,6 @@ typedef struct Traversal {
 #define travControlY   travLeftControl.w
 #define travRightX     travRight.x
 #define travRightY     travRight.y
-
 
 // Function Prototypes
 
@@ -674,10 +674,18 @@ float getRandom(ParseState *pS);
 inline Slice initQueueSlice();
 
 void initThresholdQueue( PMEM ThresholdQueue  *tQ
+                       ,               Slice   qSlice);
+
+void loadThresholdQueue( PMEM ThresholdQueue  *tQ
                        , PMEM       TileState *tileS
                        , GMEM      THRESHOLD  *thresholdHeap
                        , GMEM         HEADER  *headerHeap
-                       ,               Slice   qSlice
+                       );
+
+void saveThresholdQueue( PMEM ThresholdQueue  *tQ
+                       , PMEM       TileState *tileS
+                       , GMEM      THRESHOLD  *thresholdHeap
+                       , GMEM         HEADER  *headerHeap
                        );
 
 void initShapeState (PMEM    ShapeState *shS
@@ -738,10 +746,7 @@ void calculatePixel ( PMEM      TileState *tileS
                     );
 
 
-bool swapIfAbove( PMEM ThresholdQueue *tQ
-                ,                 int  i
-                ,                bool  done
-                );
+
 
 void sortThresholdArray ( PMEM  ThresholdQueue *tQ);
 
@@ -1079,30 +1084,34 @@ void pushThreshold( PMEM ThresholdQueue *tQ
                   ,                   HEADER  newHeader
                   ,                THRESHOLD  new
                   ) {
-    pushTopSlot(tQ);
-    setHeader(tQ,0,newHeader);
-    setThreshold(tQ,0,new);
+    if (tQ->qSlice.sLength < MAXTHRESHOLDS) {
+       pushTopSlot(tQ);
+       setHeader(tQ,0,newHeader);
+       setThreshold(tQ,0,new);
+    }
 }
 
 void insertThreshold( PMEM ThresholdQueue *tQ
                     ,                   HEADER  newHeader
                     ,                THRESHOLD  new
                     ) {
-    pushTopSlot(tQ);
-    int cursor = 0;
-    bool isBelow = true;
-    while (cursor < (tQ->qSlice.sLength - 1) && isBelow) {
-        HEADER oldHeader = getHeader(tQ, cursor + 1);
-        THRESHOLD old = getThreshold(tQ, cursor + 1);
-        isBelow = thresholdIsBelow(newHeader, new, oldHeader, old);
-        if (isBelow) {
-            setHeader(tQ, cursor, oldHeader);
-            setThreshold(tQ, cursor, old);
-            cursor += 1;
-        }
+    if (tQ->qSlice.sLength < MAXTHRESHOLDS) {
+      pushTopSlot(tQ);
+      int cursor = 0;
+      bool isBelow = true;
+      while (cursor < (tQ->qSlice.sLength - 1) && isBelow) {
+          HEADER oldHeader = getHeader(tQ, cursor + 1);
+          THRESHOLD old = getThreshold(tQ, cursor + 1);
+          isBelow = thresholdIsBelow(newHeader, new, oldHeader, old);
+          if (isBelow) {
+              setHeader(tQ, cursor, oldHeader);
+              setThreshold(tQ, cursor, old);
+              cursor += 1;
+          }
+      }
+      setHeader(tQ, cursor, newHeader);
+      setThreshold(tQ, cursor, new);
     }
-    setHeader(tQ, cursor, newHeader);
-    setThreshold(tQ, cursor, new);
 }
 
 inline bool full(ThresholdQueue *tQ) {
@@ -1167,6 +1176,7 @@ void addLineSegment ( PMEM  ThresholdQueue *tQ
                     ,                 bool *enclosedByStrand
                     ) {
     //DEBUG_IF(printf("--------------- addLineSegment %i left: %v2f right: %v2f addType: %i\n", tS->addThresholdCount, left, right, addType);)
+
     THRESHOLD newThreshold = lineToThreshold( left
                                             , right
                                             );
@@ -1549,7 +1559,7 @@ void buildThresholdArray ( PMEM       TileState *tileS
                          ) {
     bool thresholdWasAdded;
     int lastSubstance = -1;
-    for (ITEMTAGID n = 0; n < numItems /*&& shS->layerCount < MAXLAYERS*/; n++) { // iterate over every item in the current tile.
+    for (ITEMTAGID n = 0; n < numItems && shS->layerCount < MAXLAYERS; n++) { // iterate over every item in the current tile.
         ITEMTAGID itemIndex = itemStart + n;
         ITEMTAG itemTag = itemTagHeap[itemIndex]; // get the current shape.
         thresholdWasAdded = false;
@@ -1596,6 +1606,7 @@ void buildThresholdArray ( PMEM       TileState *tileS
                      shS->substanceCount += 1;
                      shS->substanceIdStack[shS->substanceCount] = (int)itemTagSubstanceId(itemTag);
                      shS->substanceTagStack[shS->substanceCount] = tag;
+                     shS->substanceActiveFacet[shS->substanceCount] = -1;
                    }
                    lastSubstance = (int)itemTagSubstanceId(itemTag);
                    //DEBUG_IF(printf("addLayer shS->layerCount %i\n",shS->layerCount);)
@@ -1645,14 +1656,38 @@ inline Slice initQueueSlice() {
 }
 
 void initThresholdQueue( PMEM ThresholdQueue  *tQ
+                       ,               Slice   qSlice) {
+    tQ->qSlice = qSlice;
+}
+
+void loadThresholdQueue( PMEM ThresholdQueue  *tQ
                        , PMEM       TileState *tileS
                        , GMEM      THRESHOLD  *thresholdHeap
                        , GMEM         HEADER  *headerHeap
-                       ,               Slice   qSlice
                        ) {
-    tQ->thresholdHeaders = headerHeap    + (tileS->jobThread * MAXTHRESHOLDS);
-    tQ->thresholds       = thresholdHeap + (tileS->jobThread * MAXTHRESHOLDS);
-    tQ->qSlice           = qSlice;
+    GMEM HEADER *thresholdHeaders = headerHeap    + (tileS->jobThread * MAXTHRESHOLDS);
+    for (int i = 0; i<MAXTHRESHOLDS; i ++) {
+        tQ->thresholdHeaders[i] = thresholdHeaders[i];
+    }
+    GMEM THRESHOLD *thresholds = thresholdHeap + (tileS->jobThread * MAXTHRESHOLDS);
+    for (int i = 0; i<MAXTHRESHOLDS; i ++) {
+         tQ->thresholds[i] = thresholds[i];
+    }
+}
+
+void saveThresholdQueue( PMEM ThresholdQueue  *tQ
+                         , PMEM       TileState *tileS
+                         , GMEM      THRESHOLD  *thresholdHeap
+                         , GMEM         HEADER  *headerHeap
+                         ) {
+    GMEM HEADER *thresholdHeaders = headerHeap    + (tileS->jobThread * MAXTHRESHOLDS);
+    for (int i = 0; i<MAXTHRESHOLDS; i ++) {
+        thresholdHeaders[i] = tQ->thresholdHeaders[i];
+    }
+    GMEM THRESHOLD *thresholds = thresholdHeap + (tileS->jobThread * MAXTHRESHOLDS);
+    for (int i = 0; i<MAXTHRESHOLDS; i ++) {
+        thresholds[i] = tQ->thresholds[i];
+    }
 }
 
 void initShapeState (PMEM    ShapeState *shS
@@ -1980,9 +2015,8 @@ void initColorState( PMEM   ColorState *init
 }
 
 
-bool swapIfAbove( PMEM ThresholdQueue *tQ
+inline bool swapIfAbove( PMEM ThresholdQueue *tQ
                 ,                 int  i
-                ,                bool  done
                 ) {
     HEADER    aHeader = getHeader(   tQ, i    );
     THRESHOLD a       = getThreshold(tQ, i    );
@@ -2005,9 +2039,9 @@ bool swapIfAbove( PMEM ThresholdQueue *tQ
          setThreshold(tQ, i    , b       );
          setHeader(   tQ, i + 1, aHeader );
          setThreshold(tQ, i + 1, a       );
-         done = false; // tripwire activated !!!
+         //DEBUG_IF(printf("swap i %i i+1 %i\n", i, i + 1);)
      }
-     return done;
+     return !swap; // if true then tripwire activated
 }
 
 void sortThresholdArray( PMEM  ThresholdQueue *tQ
@@ -2020,9 +2054,12 @@ void sortThresholdArray( PMEM  ThresholdQueue *tQ
          done = true;             // Set tripwire
          // Sort the unsort part a[k..n] (n = a.length)
          for (int i = 0 ; i < k-1 ; i ++ ) {
-            done = swapIfAbove(tQ, i, done);
+            bool swapIf = swapIfAbove(tQ, i);
+            done = done && swapIf;
+            //DEBUG_IF(printf("inside ------------ k %i i %i done %i \n",k, i, done);showThresholds(tQ);)
          }
-         k--;       // Shorten the number of pairs checked.
+         k--;  // Shorten the number of pairs checked.
+         //DEBUG_IF(printf("kloop ------------ k %i done %i \n",k, done);showThresholds(tQ);)
       }
  }
 
@@ -2095,7 +2132,7 @@ __kernel void generateThresholds( GMEM      float4  *geometryHeap
     int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
     int   tileThread = TILETHREAD;
     //DEBUG_IF(printf("sizeof(ThresholdQueue)=%i\n", sizeof(ThresholdQueue));)
-    //DEBUG_IF(printf("sizeof(ShapeState)=%i\n", sizeof(ShapeState));)
+    DEBUG_IF(printf("sizeof(ShapeState)=%i\n", sizeof(ShapeState));)
     GMEM TileInfo *tileInfo = getTileInfo(tileHeap, tileIndex);
     TileState tileS;
     initTileState ( &tileS
@@ -2108,7 +2145,7 @@ __kernel void generateThresholds( GMEM      float4  *geometryHeap
     if (isActiveThread(&tileS)) {
         DEBUG_TRACE_BEGIN
         ThresholdQueue tQ;
-        initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, initQueueSlice());
+        initThresholdQueue(&tQ,initQueueSlice());
         ShapeState shS;
         initShapeState(&shS);
         buildThresholdArray ( &tileS
@@ -2127,11 +2164,12 @@ __kernel void generateThresholds( GMEM      float4  *geometryHeap
         //DEBUG_IF(showThresholds(&tQ);)
         //DEBUG_TRACE_ITEM(thresholdStateHs(&tQ);)
         storeShapeState(shapeStateHeap, &shS, &tileS);
-        //DEBUG_IF(showShapeState(&shS);)
-        //DEBUG_IF(printf("qSliceHeap %p tileThread %i tQ.qSlice.sStart %i tQ.qSlice.sLength %i\n", qSliceHeap, tileThread, tQ.qSlice.sStart, tQ.qSlice.sLength);)
+        DEBUG_IF(showShapeState(&shS);)
         storeQueueSlice(qSliceHeap, tQ.qSlice, &tileS);
+        saveThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap);
     }
 }
+
 
 __kernel void sortThresholds( GMEM  THRESHOLD *thresholdHeap
                             , GMEM     HEADER *headerHeap
@@ -2158,10 +2196,12 @@ __kernel void sortThresholds( GMEM  THRESHOLD *thresholdHeap
         Slice qSlice = loadQueueSlice(qSliceHeap, &tileS);
         //DEBUG_IF(printf("qSliceHeap %p tileThread %i qSlice.sStart %i qSlice.sLength %i\n", qSliceHeap, tileThread, qSlice.sStart, qSlice.sLength);)
         ThresholdQueue tQ;
-        initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, qSlice);
-        //DEBUG_IF(printf("before------------\n");showThresholds(&tQ);)
+        initThresholdQueue(&tQ, qSlice);
+        loadThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap);
+        DEBUG_IF(printf("before------------\n");showThresholds(&tQ);)
         sortThresholdArray(&tQ);
-        //DEBUG_IF(printf("after------------\n");showThresholds(&tQ);)
+        DEBUG_IF(printf("after------------\n");showThresholds(&tQ);)
+        saveThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap);
     }
 }
 
@@ -2200,10 +2240,11 @@ __kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
         Slice qSlice = loadQueueSlice(qSliceHeap, &tileS);
         //DEBUG_IF(printf("qSliceHeap %p tileThread %i qSlice.sStart %i qSlice.sLength %i\n", qSliceHeap, tileThread, qSlice.sStart, qSlice.sLength);)
         ThresholdQueue tQ;
-        initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, qSlice);
+        initThresholdQueue(&tQ, qSlice);
+        loadThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap);
         ShapeState shS = loadShapeState(shapeStateHeap, &tileS);
         //DEBUG_IF(printf("render shapeState\n");)
-        //DEBUG_IF(showShapeState(&shS);)
+        DEBUG_IF(showShapeState(&shS);)
         //DEBUG_IF(showThresholds(&tQ);)
         //DEBUG_TRACE_ITEM(thresholdStateHs(&tQ);)
         renderThresholdArray ( &tileS
@@ -2281,7 +2322,8 @@ __kernel void identifyPoints( GMEM    THRESHOLD *thresholdHeap
             printf("i %i tileS.threadDelta %i,%i tileS.floatHeight %f queryLocation %v2f \n", i, tileS.threadDelta.x, tileS.threadDelta.y, tileS.floatHeight, query.queryLocation);
             Slice qSlice = loadQueueSlice(qSliceHeap, &tileS);
             ThresholdQueue tQ;
-            initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, qSlice);
+            initThresholdQueue(&tQ, qSlice);
+            loadThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap);
             ShapeState shS = loadShapeState(shapeStateHeap, &tileS);
             //DEBUG_IF(printf("render shapeState\n");)
             //DEBUG_IF(showShapeState(&shS);)

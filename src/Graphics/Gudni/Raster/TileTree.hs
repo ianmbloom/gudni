@@ -19,6 +19,7 @@
 module Graphics.Gudni.Raster.TileTree
   ( TileTree(..)
   , EntrySequence(..)
+  , unEntrySequence
   -- , TileEntry(..)
   , ItemEntry(..)
   , itemEntryTag
@@ -77,7 +78,14 @@ data ItemEntry = ItemEntry
 makeLenses ''ItemEntry
 
 newtype PointQueryId = PointQueryId {unPointQueryId :: Int} deriving (Show, Eq, Ord)
-type EntrySequence = S.Seq ItemEntry
+newtype EntrySequence = EntrySequence
+  { _unEntrySequence :: S.Seq ItemEntry
+  }
+makeLenses ''EntrySequence
+
+
+instance Show EntrySequence where
+  show (EntrySequence ss) = "EntrySequence " ++ (show . S.length $ ss) ++ " totalStrands " ++ show (sum (fmap (view itemStrandCount) ss))
 
 -- -- | A tile entry is the intermediate storage for the contents of a tile.
 -- data TileEntry = TileEntry
@@ -160,7 +168,7 @@ buildTileTree emptyRep  tileSize canvasSize = goV canvasDepth box
 
 -- | Add an itemEntry to a tile.
 insertItemTile :: Tile EntrySequence -> ItemEntry -> Tile EntrySequence
-insertItemTile tile itemEntry = over tileRep (flip (S.|>) itemEntry) tile
+insertItemTile tile itemEntry = over (tileRep . unEntrySequence) (flip (S.|>) itemEntry) tile
 
 -- | Add an itemEntry to a tile tree.
 
@@ -213,30 +221,30 @@ splitTreeTiles maxThresholds tree = goV tree
 hSplit :: Tile EntrySequence -> HTree EntrySequence
 hSplit tile =
   let cut = tile ^. tileBox . leftSide + (widthOf (tile ^. tileBox) `div` 2)
-      lEmpty = emptyTile S.empty (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set rightSide cut (tile ^. tileBox))
-      rEmpty = emptyTile S.empty (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set leftSide cut (tile ^. tileBox))
+      lEmpty = emptyTile (EntrySequence S.empty) (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set rightSide cut (tile ^. tileBox))
+      rEmpty = emptyTile (EntrySequence S.empty) (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set leftSide cut (tile ^. tileBox))
       hTree = HTree (fromIntegral cut) (VLeaf lEmpty) (VLeaf rEmpty)
-  in  foldl insertItemH hTree $ (tile ^. tileRep)
+  in  foldl insertItemH hTree $ (tile ^. tileRep . unEntrySequence)
 
 vSplit :: Tile EntrySequence -> VTree EntrySequence
 vSplit tile =
   let cut = tile ^. tileBox . topSide + (heightOf (tile ^. tileBox) `div` 2)
-      tEmpty = emptyTile S.empty (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set bottomSide cut (tile ^. tileBox))
-      bEmpty = emptyTile S.empty (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set topSide    cut (tile ^. tileBox))
+      tEmpty = emptyTile (EntrySequence S.empty) (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set bottomSide cut (tile ^. tileBox))
+      bEmpty = emptyTile (EntrySequence S.empty) (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set topSide    cut (tile ^. tileBox))
       vTree = VTree (fromIntegral cut) (HLeaf tEmpty) (HLeaf bEmpty)
-  in  foldl insertItemV vTree $ (tile ^. tileRep)
+  in  foldl insertItemV vTree $ (tile ^. tileRep . unEntrySequence)
 
 shouldSplitV :: NumStrands -> Tile EntrySequence -> Bool
 shouldSplitV maxThresholds tile =
    heightOf (tile ^. tileBox) > mINtILEsIZE ^. pY &&
-   (length (tile ^. tileRep) > mAXlAYERS ||
-   sum (fmap (view itemStrandCount) (tile ^. tileRep)) > maxThresholds)
+   (length (tile ^. tileRep . unEntrySequence) > mAXlAYERS ||
+   sum (fmap (view itemStrandCount) (tile ^. tileRep . unEntrySequence)) > maxThresholds)
 
 shouldSplitH :: NumStrands -> Tile EntrySequence -> Bool
 shouldSplitH maxThresholds tile =
    widthOf (tile ^. tileBox) > mINtILEsIZE ^. pX &&
-   (length (tile ^. tileRep) > mAXlAYERS ||
-   sum (fmap (view itemStrandCount) (tile ^. tileRep)) > maxThresholds)
+   (length (tile ^. tileRep . unEntrySequence) > mAXlAYERS ||
+   sum (fmap (view itemStrandCount) (tile ^. tileRep . unEntrySequence)) > maxThresholds)
 
 -- | Traverse a TileTree with a monadic function.
 foldMapTileTree :: Monad m => (Tile a -> m t) -> TileTree a -> m t

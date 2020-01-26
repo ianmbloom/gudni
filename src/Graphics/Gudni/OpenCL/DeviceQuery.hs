@@ -96,13 +96,6 @@ import Data.List
 import Data.Maybe (catMaybes)
 import Control.Lens
 
--- | Show a title line
-titleLine :: String -> String
-titleLine title = "======================== " ++ title ++ " ========================\n"
--- | Pad a line of info for aligned display.
-infoLine :: (String, String) -> String
-infoLine (title, info) = (lpad 40 title) ++ ": " ++ info ++ "\n"
-
 data CLDeviceExtension
   = CL_KHR_FP64
   | CL_KHR_SELECT_FPROUNDING_MODE

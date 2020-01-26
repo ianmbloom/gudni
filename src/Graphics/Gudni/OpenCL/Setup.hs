@@ -18,6 +18,7 @@ where
 
 import Graphics.Gudni.OpenCL.Rasterizer
 import Graphics.Gudni.OpenCL.DeviceQuery
+import Graphics.Gudni.OpenCL.KernelQuery
 import Graphics.Gudni.Interface.GLInterop
 import Graphics.Gudni.OpenCL.CppDefines
 
@@ -29,6 +30,7 @@ import Control.Lens
 import CLUtil.KernelArgs
 import CLUtil
 import CLUtil.Initialization
+import CLUtil.CL
 
 --import Graphics.Gudni.OpenCL.DeviceQuery
 
@@ -64,7 +66,7 @@ cppDefines spec =
   ,Cpp "SUBSTANCETAG_TYPE_SOLID_COLOR"  (CppHex64 sUBSTANCEtAGtYPEsOLIDcOLOR  )
   ,Cpp "SUBSTANCETAG_TYPE_TEXTURE"      (CppHex64 sUBSTANCEtAGtYPEtEXTURE     )
   ,Cpp "SUBSTANCETAG_REF_BITMASK"       (CppHex64 sUBSTANCEtAGrEFbITMASK      )
-  ,Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
+  --,Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
 --,Cpp "DEBUG_TRACE"                    (CppNothing) -- uncomment this to turn on parsable debugging output
   ,Cpp "DEBUGTILETHREAD"                (CppInt 0) -- determines the column for DEBUG_IF macro
   ,Cpp "DEBUGINDEX"                     (CppInt 0)   -- determines the index for DEBUG_IF macro
@@ -77,15 +79,21 @@ addDefinesToSource spec src = appendCppDefines sOURCEfILEpADDING (cppDefines spe
 -- | This function determines the basic paramters of the rasterizer based on
 determineRasterSpec :: CLDeviceID -> IO RasterSpec
 determineRasterSpec device =
-  do  computeUnits  <- clGetDeviceMaxComputeUnits       device
+  do  -- | Compute units are the number of wavefront processors on the GPU
+      computeUnits  <- clGetDeviceMaxComputeUnits       device
+      -- | Maximum group dimension of a kernel call based on the device.
       maxGroupSize  <- clGetDeviceMaxWorkGroupSize      device
+      -- | Maximum local memory size of the device.
       localMemSize  <- clGetDeviceLocalMemSize          device
+      -- | Maximum constant buffer size of the device.
       maxBufferSize <- clGetDeviceMaxConstantBufferSize device
+      -- | Total global memory size of the device.
       globalMemSize <- clGetDeviceGlobalMemSize         device
+      -- | Maximum memory size that can be allocated for each global memory buffer
       maxMemAllocSize <- clGetDeviceMaxMemAllocSize     device
-      let maxThresholds = 1024
+      let maxThresholds = 128
       -- The maximum number of threads that each tile can store is the maximum allocation size
-      let maxTilesPerJob = fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize * maxThresholds) * sizeOf (undefined :: THRESHOLDTYPE))
+      let maxTilesPerJob = tr "maxTilesPerJob" $ fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize * maxThresholds) * sizeOf (undefined :: THRESHOLDTYPE))
       return RasterSpec { _specMaxTileSize     = fromIntegral maxGroupSize
                         , _specThreadsPerTile  = fromIntegral maxGroupSize
                         , _specMaxTilesPerJob  = maxTilesPerJob
@@ -116,7 +124,7 @@ setupOpenCL enableProfiling useCLGLInterop src =
       --mapM (putStrLn . show) details
       -- Filter function for qualified devices to select.
       --let deviceFilter = deviceNameContains "Iris Pro"  -- select the first Iris Pro GPU
-      --let deviceFilter = deviceNameContains "Vega"        -- select the first AMD GPU
+      -- let deviceFilter = deviceNameContains "AMD"        -- select the first AMD GPU
       let deviceFilter = const True -- all GPUs qualify
       -- Try to select the best qualified device.
       case deviceSelect deviceFilter orderGPU details of
@@ -142,6 +150,9 @@ setupOpenCL enableProfiling useCLGLInterop src =
               putStrLn $ "Finished OpenCL kernel compile"
               -- get the rasterizer kernel.
               generateThresholdsKernel <- program "generateThresholds"
+              generateThresholdsKernelDetail <- initCLKenrelDetail generateThresholdsKernel device
+              putStrLn $ dumpKernelDetail generateThresholdsKernelDetail
+
               sortThresholdsKernel     <- program "sortThresholds"
               renderThresholdsKernel   <- program "renderThresholds"
               queryKernel              <- program "identifyPoints"

@@ -146,7 +146,7 @@ addTileToRasterJob :: MonadIO m
                    -> StateT RasterJob m ()
 addTileToRasterJob tile =
   do  -- get the list of new shapes from the tile entry
-      let items = toList . fmap (view itemEntryTag) $ tile ^. tileRep
+      let items = toList . fmap (view itemEntryTag) $ tile ^. tileRep . unEntrySequence
       -- add the stripped shapes to the raster job and get the range of the added shapes
       slice <- addListToPileState rJItemTagPile items
       -- strip the tile down so just the range of shapes is left

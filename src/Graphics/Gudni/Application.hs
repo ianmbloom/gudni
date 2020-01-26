@@ -213,9 +213,9 @@ processState elapsedTime inputs =
         let newState = updateModelState frame elapsedTime inputs state
         finalState <- liftIO (ioTask newState)
         appState .= finalState
-        if null inputs
-        then appMessage $ show finalState
-        else appMessage $ show finalState ++ show inputs
+        -- if null inputs
+        -- then appMessage $ show finalState
+        -- else appMessage $ show finalState ++ show inputs
         status <- use appStatus
         scene <- lift . lift $ constructScene finalState status
         markAppTime "Build State"
@@ -232,7 +232,7 @@ drawFrame frameCount scene queries =
         let canvasSize = P (targetArea target)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
         let maxTileSize = rasterizer ^. rasterSpec . specMaxTileSize
-        lift (geoTileTree .= buildTileTree S.empty maxTileSize (fromIntegral <$> canvasSize))
+        lift (geoTileTree .= buildTileTree (EntrySequence S.empty) maxTileSize (fromIntegral <$> canvasSize))
         markAppTime "Build TileTree"
         (scenePictMem, pictDataPile) <- liftIO $ assignScenePictureMemory pictureMap scene
         substanceState <- lift ( execSubstanceMonad $ buildOverScene scenePictMem)

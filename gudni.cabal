@@ -68,6 +68,7 @@ library
                      , Graphics.Gudni.Util.Segment
                      , Graphics.Gudni.Util.Representation
                      , Graphics.Gudni.OpenCL.DeviceQuery
+                     , Graphics.Gudni.OpenCL.KernelQuery
                      , Graphics.Gudni.Layout
                      , Graphics.Gudni.Figure.Angle
 

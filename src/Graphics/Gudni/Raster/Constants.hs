@@ -17,7 +17,6 @@ module Graphics.Gudni.Raster.Constants
     , HEADERTYPE(..)
     , tAXICABfLATNESS
     , sTOCHASTICfACTOR
-    , mAXtILEsIZE
     , mINtILEsIZE
     , mAXsECTIONsIZE
     , mAXlAYERS
@@ -61,11 +60,11 @@ sIZEoFlAYEReNTRY = 2 :: Int -- sizeof(ushort)
 sIZEoFsUBSTANCETAG = 8 :: Int -- sizeof(ulong)
 sIZEoFfACETiD = 4 :: Int -- sizeof(uint)
 lAYERfLAGSsECTIONS = 8 :: Int
-sIZEoFsUBSTANCEiD  = 8 :: Int --sizeof(ulong)
+sIZEoFsUBSTANCEiD  = 4 :: Int --sizeof(int)
 sIZEoFlAYERfLAGSsECTION = 8 :: Int -- sizeof(ulong)
 sTOCHASTICfACTOR = 0.0 :: Float -- relative amount of variability in an edge.
 mAXfACETiD       = (2^20) :: Int -- 1048576 total possible number of facets per scene
-sHAPElIMIT       = 127 :: Int -- a hard limit on the number of shapes based on the empirical testing of the timeout period of the GPU.
+sHAPElIMIT       = 16 {-127-} :: Int -- a hard limit on the number of shapes based on the empirical testing of the timeout period of the GPU.
 
 mAXlAYERS        = sHAPElIMIT
 
@@ -73,11 +72,10 @@ mAXlAYERS        = sHAPElIMIT
 sIZEoFsHAPEsTATE = sIZEoFlAYERiD
                  + sIZEoFlAYEReNTRY * mAXlAYERS
                  + sIZEoFlOCALsUBSTANCEiD
+                 + sIZEoFsUBSTANCEiD * mAXlAYERS
                  + sIZEoFsUBSTANCETAG * mAXlAYERS
                  + sIZEoFfACETiD * mAXlAYERS
-                 + 6 -- padding
 
-mAXtILEsIZE      = Point2 8  8 :: Point2 PixelSpace
 mINtILEsIZE      = Point2 8  8  :: Point2 PixelSpace
 mAXsECTIONsIZE   = 32   :: Int
 rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2

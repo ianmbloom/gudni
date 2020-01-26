@@ -124,7 +124,7 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
       thresholdBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdBuffer " $ threadsToAlloc * maxThresholds) :: CL (CLBuffer THRESHOLDTYPE))
       headerBuffer    <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize headerBuffer    " $ threadsToAlloc * maxThresholds) :: CL (CLBuffer HEADERTYPE   ))
       shapeStateBuffer<- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize shapeStateBuffer" $ threadsToAlloc * tr "sIZEoFsHAPEsTATE" sIZEoFsHAPEsTATE) :: CL (CLBuffer CChar))
-      thresholdQueueSliceBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdQueueBuffer" $ threadsToAlloc * 2) :: CL (CLBuffer (Slice Int)))
+      thresholdQueueSliceBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (tr "allocSize thresholdQueueBuffer" $ threadsToAlloc) :: CL (CLBuffer (Slice Int)))
       liftIO $ putStrLn ("rasterGenerateThresholdsKernel XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
       runKernel (params ^. rpDevice . rasterGenerateThresholdsKernel)
                 (bicGeoBuffer    bic)
@@ -176,26 +176,27 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
                 (Work2D numTiles (fromIntegral threadsPerTile))
                 (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
       liftIO $ putStrLn ("rasterQueryKernel              XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
-      queryResults <- let numPointQueries = length $ tr "pointQueries" $ job ^. rJPointQueries in
-                      if numPointQueries <= 0
-                      then return []
-                      else (toList :: CLUtil.Vector SubstanceId -> [SubstanceId]) <$>
-                           runKernel (params ^. rpDevice . rasterQueryKernel)
-                                     thresholdBuffer
-                                     headerBuffer
-                                     shapeStateBuffer
-                                     thresholdQueueSliceBuffer
-                                     (bicPictFacets    bic)
-                                     (job    ^. rJTilePile)
-                                     bitmapSize
-                                     computeDepth
-                                     frameCount
-                                     jobIndex
-                                     (fromIntegral numPointQueries :: CInt)
-                                     (VS.fromList queries)
-                                     (Out numPointQueries)
-                                     (Work2D numTiles (fromIntegral threadsPerTile))
-                                     (WorkGroup [1, fromIntegral threadsPerTile])
+      -- queryResults <- let numPointQueries = length $ tr "pointQueries" $ job ^. rJPointQueries in
+      --                 if  numPointQueries <= 0
+      --                 then return []
+      --                 else (toList :: CLUtil.Vector SubstanceId -> [SubstanceId]) <$>
+      --                      runKernel (params ^. rpDevice . rasterQueryKernel)
+      --                                thresholdBuffer
+      --                                headerBuffer
+      --                                shapeStateBuffer
+      --                                thresholdQueueSliceBuffer
+      --                                (bicPictFacets    bic)
+      --                                (job    ^. rJTilePile)
+      --                                bitmapSize
+      --                                computeDepth
+      --                                frameCount
+      --                                jobIndex
+      --                                (fromIntegral numPointQueries :: CInt)
+      --                                (VS.fromList queries)
+      --                                (Out numPointQueries)
+      --                                (Work2D numTiles (fromIntegral threadsPerTile))
+      --                                (WorkGroup [1, fromIntegral threadsPerTile])
+      let queryResults = []
       liftIO $ putStrLn ("rasterKernels Done             XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
       liftIO $ clReleaseMemObject . bufferObject $ thresholdBuffer
       liftIO $ clReleaseMemObject . bufferObject $ headerBuffer
@@ -220,7 +221,7 @@ raster params bic frameCount job jobIndex =
             buffer = targetBuffer (params ^. rpTarget)
         liftIO $ putStrLn $ ">>> rasterCall jobIndex: "++ show jobIndex ++ " frameCount: " ++ show frameCount
         -- generate a kernel call for that buffer type.
-        --liftIO $ outputRasterJob job
+        -- liftIO $ outputRasterJob job
         queryResults <- case buffer of
                             HostBitmapTarget outputPtr ->
                                 -- In this case the resulting bitmap will be stored in memory at outputPtr.
@@ -292,11 +293,11 @@ buildRasterJobs params =
       let maxThresholds = NumStrands $ fromIntegral $ params ^. rpDevice . rasterSpec . specMaxThresholds
           tilesPerCall = tr "tilesPerCall" $ fromIntegral $ params ^. rpDevice . rasterSpec . specMaxTilesPerJob
           threadsPerTile = tr "threadsPerTile" $ fromIntegral $ params ^. rpDevice . rasterSpec . specThreadsPerTile
-          splitTree = splitTreeTiles maxThresholds tileTree
+          splitTree = tr "splitTree" $ splitTreeTiles maxThresholds tileTree
 
       -- Build all of the RasterJobs by traversing the TileTree.
 
-
+      geoTileTree .= splitTree
       (numberedTileTree, finalState) <- runBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall threadsPerTile) splitTree)
       let jobs = finalState ^. bsCurrentJob : finalState ^. bsJobs
           pointTileQueries = tr "pointTileQueries" $ map (\(queryId, loc) -> (queryId, loc, locatePointInTileTree numberedTileTree loc)) (params ^. rpPointQueries)

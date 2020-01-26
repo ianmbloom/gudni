@@ -48,11 +48,11 @@ initialModel pictureMap =
     BenchmarkState
     { _stateBase = BasicSceneState
         { _stateScale       = 1
-        , _stateDelta       = Point2 (-1) 1
+        , _stateDelta       = Point2 (-5) 1
         , _stateAngle       = 0 @@ deg
         , _statePaused      = True
         , _stateSpeed       = 0.1
-        , _statePace        = 20
+        , _statePace        = 1
         , _stateLastTime    = 0
         , _stateDirection   = True
         , _statePlayhead    = 0
@@ -64,7 +64,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 6
+    , _stateCurrentTest = 19
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
