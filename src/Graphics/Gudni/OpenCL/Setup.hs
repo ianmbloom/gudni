@@ -60,15 +60,15 @@ cppDefines spec =
   ,Cpp "ITEMTAG_COMPOUNDTYPE_SUBTRACT"  (CppHex64 iTEMtAGcOMPOUNDtYPEsUBTRACT )
   ,Cpp "ITEMTAG_SUBSTANCE_ID_BITMASK"   (CppHex64 iTEMtAGsUBSTANCEIDbITMASK   )
   ,Cpp "ITEMTAG_SUBSTANCE_ID_SHIFT"     (CppInt   iTEMtAGsUBSTANCEIDsHIFT     )
-  ,Cpp "ITEMTAG_ITEM_ID_BITMASK"        (CppHex64 iTEMtAGiTEMiDbITMASK        )
+  ,Cpp "ITEMTAG_ITEM_ID_BITMASK"        (CppHex64 iTEMtAGiTEMrEFbITMASK        )
   ,Cpp "NOSUBSTANCEID"                  (CppHex32 nOsUBSTANCEiD               )
   ,Cpp "SUBSTANCETAG_TYPE_BITMASK"      (CppHex64 sUBSTANCEtAGtYPEbITmASK     )
   ,Cpp "SUBSTANCETAG_TYPE_SOLID_COLOR"  (CppHex64 sUBSTANCEtAGtYPEsOLIDcOLOR  )
   ,Cpp "SUBSTANCETAG_TYPE_TEXTURE"      (CppHex64 sUBSTANCEtAGtYPEtEXTURE     )
   ,Cpp "SUBSTANCETAG_REF_BITMASK"       (CppHex64 sUBSTANCEtAGrEFbITMASK      )
-  --,Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
+--,Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
 --,Cpp "DEBUG_TRACE"                    (CppNothing) -- uncomment this to turn on parsable debugging output
-  ,Cpp "DEBUGTILETHREAD"                (CppInt 0) -- determines the column for DEBUG_IF macro
+  ,Cpp "DEBUGTILETHREAD"                (CppInt 0)   -- determines the column for DEBUG_IF macro
   ,Cpp "DEBUGINDEX"                     (CppInt 0)   -- determines the index for DEBUG_IF macro
   ]
 
@@ -91,13 +91,12 @@ determineRasterSpec device =
       globalMemSize <- clGetDeviceGlobalMemSize         device
       -- | Maximum memory size that can be allocated for each global memory buffer
       maxMemAllocSize <- clGetDeviceMaxMemAllocSize     device
-      let maxThresholds = 128
       -- The maximum number of threads that each tile can store is the maximum allocation size
-      let maxTilesPerJob = tr "maxTilesPerJob" $ fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize * maxThresholds) * sizeOf (undefined :: THRESHOLDTYPE))
+      let maxTilesPerJob = 8 --tr "maxTilesPerJob" $ fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize * mAXtHRESHOLDS) * sizeOf (undefined :: THRESHOLDTYPE))
       return RasterSpec { _specMaxTileSize     = fromIntegral maxGroupSize
                         , _specThreadsPerTile  = fromIntegral maxGroupSize
                         , _specMaxTilesPerJob  = maxTilesPerJob
-                        , _specMaxThresholds   = maxThresholds
+                        , _specMaxThresholds   = mAXtHRESHOLDS
                         , _specMaxLayers       = mAXlAYERS
                         }
 

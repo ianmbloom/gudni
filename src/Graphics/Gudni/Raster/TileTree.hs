@@ -22,7 +22,7 @@ module Graphics.Gudni.Raster.TileTree
   , unEntrySequence
   -- , TileEntry(..)
   , ItemEntry(..)
-  , itemEntryTag
+  , itemEntryTagId
   , itemStrandCount
   , itemBox
   --, tileItems
@@ -71,7 +71,7 @@ newtype TileId = TileId {unTileId :: TileId_} deriving (Show, Eq, Ord, Num)
 
 -- | A wrapper for ItemTags
 data ItemEntry = ItemEntry
-    { _itemEntryTag    :: ItemTag
+    { _itemEntryTagId  :: ItemTagId
     , _itemStrandCount :: NumStrands
     , _itemBox         :: BoundingBox
     } deriving (Show)
@@ -294,7 +294,7 @@ instance Show a => Show (HTree a) where
 instance Show a => Show (VTree a) where
   show = drawTree . toDataTreeV
 
-instance StorableM (Tile (Slice ItemTag, Int)) where
+instance StorableM (Tile (Slice ItemTagId, Int)) where
   sizeOfM _ = do sizeOfM (undefined :: Box PixelSpace)
                  sizeOfM (undefined :: CShort)
                  sizeOfM (undefined :: CShort)
@@ -318,7 +318,7 @@ instance StorableM (Tile (Slice ItemTag, Int)) where
              pokeM (fromIntegral columnAllocation :: CInt)
              pokeM slice
 
-instance Storable (Tile (Slice ItemTag, Int)) where
+instance Storable (Tile (Slice ItemTagId, Int)) where
   sizeOf = sizeOfV
   alignment = alignmentV
   peek = peekV

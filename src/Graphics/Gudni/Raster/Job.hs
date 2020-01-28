@@ -27,7 +27,7 @@ module Graphics.Gudni.Raster.Job
   , bsTileCount
   , bsCurrentJob
   , bsJobs
-  , rJItemTagPile
+  , rJItemTagIdPile
   , rJTilePile
   , rJThreadAllocation
   , rJPointQueries
@@ -90,8 +90,8 @@ newtype JobId = JobId {unJobId :: Int} deriving (Show, Eq, Ord, Num)
 -- | A RasterJob stores the information needed to transfer data to OpenCL, to render a group of tiles∘
 -- Each job corresponds to an individual rasterizer kernel call.
 data RasterJob = RasterJob
-  { _rJItemTagPile :: !(Pile ItemTag)
-  , _rJTilePile  :: !(Pile (Tile (Slice ItemTag, Int)))
+  { _rJItemTagIdPile :: !(Pile ItemTagId)
+  , _rJTilePile  :: !(Pile (Tile (Slice ItemTagId, Int)))
   , _rJThreadAllocation :: Int -- total number of threads allocated for this job.
   , _rJPointQueries :: PointQuerySequence
   } deriving (Show)
@@ -121,10 +121,10 @@ runBuildJobsMonad code =
 -- | Create a new rasterJob with default allocation sizes.
 newRasterJob :: MonadIO m => m RasterJob
 newRasterJob = liftIO $
-    do  initItemTagPile <- newPile :: IO (Pile ItemTag)
-        initTilePile  <- newPile :: IO (Pile (Tile (Slice ItemTag, Int)))
+    do  initItemTagIdPile <- newPile :: IO (Pile ItemTagId)
+        initTilePile  <- newPile :: IO (Pile (Tile (Slice ItemTagId, Int)))
         return RasterJob
-            { _rJItemTagPile = initItemTagPile
+            { _rJItemTagIdPile = initItemTagIdPile
             , _rJTilePile  = initTilePile
             , _rJThreadAllocation = 0
             , _rJPointQueries = S.empty
@@ -133,7 +133,7 @@ newRasterJob = liftIO $
 -- | Free all memory allocated by the 'RasterJob'
 freeRasterJob :: RasterJob -> IO ()
 freeRasterJob job =
-    do  freePile $ job ^. rJItemTagPile
+    do  freePile $ job ^. rJItemTagIdPile
         freePile $ job ^. rJTilePile
 
 -- | Free a list of RasterJobs
@@ -146,9 +146,9 @@ addTileToRasterJob :: MonadIO m
                    -> StateT RasterJob m ()
 addTileToRasterJob tile =
   do  -- get the list of new shapes from the tile entry
-      let items = toList . fmap (view itemEntryTag) $ tile ^. tileRep . unEntrySequence
+      let items = toList . fmap (view itemEntryTagId) $ tile ^. tileRep . unEntrySequence
       -- add the stripped shapes to the raster job and get the range of the added shapes
-      slice <- addListToPileState rJItemTagPile items
+      slice <- addListToPileState rJItemTagIdPile items
       -- strip the tile down so just the range of shapes is left
       threadAllocation <- use rJThreadAllocation
       let tileInfo = set tileRep (slice, threadAllocation) tile
@@ -199,8 +199,8 @@ outputRasterJob :: RasterJob -> IO ()
 outputRasterJob job =
   do
     putStrLn "---------------- rJShapePile ----------------------"
-    print . view rJItemTagPile $ job
-    putStrList =<< (pileToList . view rJItemTagPile $ job)
+    print . view rJItemTagIdPile $ job
+    putStrList =<< (pileToList . view rJItemTagIdPile $ job)
     putStrLn "---------------- rJTilePile -----------------------"
     putStrList =<< (pileToList . view rJTilePile $ job)
 

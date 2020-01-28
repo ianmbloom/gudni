@@ -107,6 +107,7 @@ TILETHREAD// 1 Space for haskell defined macros
 #define ITEMTAG ulong
 // A FacetID refers to the index of a facet in the facet heap.
 #define FACETID   uint
+#define NOFACET  0xFFFFFFFF
 // An outline id refers to the index of a geoRef in the geoRefHeap.
 #define SHAPEID   uint
 
@@ -175,28 +176,19 @@ inline SUBSTANCETAG substanceTagTextureMemId(SUBSTANCETAG tag) {return (tag & SU
 // facetId - determines which facet the threshold is a border for.
 // substanceId - either determines which substance the theshold is a facet border for.
 // layerId - determines which layer the threshold defines a shape border for.
-#define POSITIVE_SLOPE_MASK    0x8000000000000000 // & to get the leftmost bit
-#define PERSIST_AND_SLOPE_MASK 0xC000000000000000 // & to get leftmost and second to leftmost bit
-#define PERSIST_TOP            0xC000000000000000 // positive slope and persist
-#define PERSIST_BOTTOM         0x4000000000000000 // not positive slopw and persist
+#define POSITIVE_SLOPE_MASK    0x80000000 // & to get the leftmost bit
+#define PERSIST_AND_SLOPE_MASK 0xC0000000 // & to get leftmost and second to leftmost bit
+#define PERSIST_TOP            0xC0000000 // positive slope and persist
+#define PERSIST_BOTTOM         0x40000000 // not positive slopw and persist
 
-#define POSITIVE_SLOPE         0x8000000000000000
-#define NEGATIVE_SLOPE         0x0000000000000000
+#define POSITIVE_SLOPE         0x80000000
+#define NEGATIVE_SLOPE         0x00000000
 
-#define PERSIST                0x4000000000000000 // & to isolate the persist bit
-#define NONPERSIST             0x0000000000000000 // just zero
-#define UNPERSISTMASK          0xBFFFFFFFFFFFFFFF // everything but the persist bit
+#define PERSIST                0x40000000 // & to isolate the persist bit
+#define NONPERSIST             0x00000000 // just zero
+#define UNPERSISTMASK          0xBFFFFFFF // everything but the persist bit
 
-#define FACETFLAGMASK          0x2000000000000000 // & to determine if the threshold changes active facet
-#define FACETFLAGSET           0x2000000000000000 // or with this to create a header with the facet flag set
-#define FACETFLAGNOTSET        0x0000000000000000 // or with this to create a header with the facet flag not set
-#define WITHOUT_PAYLOAD        0xF000000000000000 // & to get control bits without the payload
-#define JUST_PAYLOAD           0x0FFFFFFFFFFFFFFF // & to get right 60 bit payload
-
-#define FACETIDMASK            0x0FFFFFFFF0000000 // & and shift to get the facets shapeId
-#define NOFACET                0x0FFFFFFFF        // this value is reserved to indicate that a substance is outside of all facets.
-#define FACETIDSHIFT           28               // amount to shift the shapeId
-#define ITEMTAGIDMASK        0x000000000FFFFFFF // & to get the layer id
+#define ITEMTAGIDMASK          0x3FFFFFFF // & to get the layer id
 
 // & has a lower precedence than !=
 inline     bool headerPositiveSlope(HEADER h) {return (h & POSITIVE_SLOPE_MASK) != 0;} // determine if the threshold has a positive slope
@@ -204,9 +196,6 @@ inline     bool headerPersistTop   (HEADER h) {return (h & PERSIST_AND_SLOPE_MAS
 inline     bool headerPersistBottom(HEADER h) {return (h & PERSIST_AND_SLOPE_MASK) == PERSIST_BOTTOM;} // determine if the bottom of the threshold affects the persistant state of the shapestack
 inline     bool headerPersistEither(HEADER h) {return (h & PERSIST) != 0;  } // determine if either top or bottom of the threshold affects the persistant state of the shapestack
 inline HEADER unPersist      (HEADER h) {return h & UNPERSISTMASK;}
-
-inline    bool headerIsFacet(HEADER h) {return (h & FACETFLAGMASK) != 0;}
-inline FACETID headerFacetId(HEADER h) {return (h & FACETIDMASK) >> FACETIDSHIFT;}
 
 inline ITEMTAGID headerItemTagId(HEADER h) {return  h & ITEMTAGIDMASK;} // get the index of the shape that corresponds to the threshold
 
@@ -246,8 +235,6 @@ inline float thresholdInvertedSlope ( HEADER header
 
 // Tesselation
 #define T 0.5f // halfway value for tesselating curves.
-
-
 
 // REF is a reference to an array with max index 32768
 #define REF int
@@ -365,6 +352,11 @@ inline void popTop(ThresholdQueue *tQ) {
   tQ->qSlice.sLength -= 1;
 }
 
+inline REF queueSize(ThresholdQueue *tQ) {
+  return tQ->qSlice.sLength;
+}
+
+
 #define RANDOMFIELDMASK RANDOMFIELDSIZE - 1
 
 #define RANDOM_POS int
@@ -382,13 +374,14 @@ inline void deleteItemId(ShapeState *shS, int i) {
 }
 
 inline void insertItem(ShapeState *shS, int i, HEADER newHeader) {
-  for (int j = shS->itemCount; j > i; j--) {
+  for (int j = min(MAXLAYERS-1,shS->itemCount); j > i; j--) {
     shS->itemTagIdStack[j] = shS->itemTagIdStack[j-1];
   }
   shS->itemTagIdStack[i] = newHeader;
-  shS->itemCount++;
+  shS->itemCount = min(MAXLAYERS,shS->itemCount+1);
 }
 
+void showShapeState( ShapeState *shS);
 
 inline void toggleItemActive(ShapeState *shS, ITEMTAGID newItemId) {
   bool done = false;
@@ -509,8 +502,6 @@ inline THRESHOLD lineToThreshold ( float2  left
 
 inline HEADER lineToHeader (    float2 left
                            ,    float2 right
-                           ,      bool isFacet
-                           ,   SHAPEID facetId
                            , ITEMTAGID itemTagId
                            );
 
@@ -705,6 +696,10 @@ void calculatePixel ( PMEM      TileState *tileS
 
 void sortThresholdArray ( PMEM  ThresholdQueue *tQ);
 
+void prepThresholdArray( PMEM ThresholdQueue *tQ
+                       , PMEM     ShapeState *shS
+                       );
+
 void renderThresholdArray ( PMEM       TileState *tileS
                           , PMEM  ThresholdQueue *tQ
                           , PMEM      ShapeState *shS
@@ -742,7 +737,7 @@ void initColorState ( PMEM   ColorState *init
 
 // Debug Functions
 
-void showShapeState( ShapeState *shS);
+
 void showSubstanceTag(SUBSTANCETAG tag);
 void showItemTag(ITEMTAG tag);
 
@@ -923,50 +918,71 @@ inline void splitThreshold(  PMEM     HEADER *topHeader
     //        )
 }
 
+// Count active thresholds. The active thresholds are the
+// first threshold in the queue and the following thresholds
+// that share the same top.
 int countActive ( PMEM ThresholdQueue *tQ
                 ,               float *nextTop
                 ) {
-    float top = tTop(getThreshold(tQ, 0));
-    bool notDone = true;
+    // Get the y position of the top of the first threshold in the queue.
+    float topOfFirst = tTop(getThreshold(tQ, 0));
+    bool done = false;
+    // The first threshold is always part of the active thresholds.
     int  numActive = 1;
-    while (notDone && numActive < tQ->qSlice.sLength) {
+    // Collect all of the following thresholds that have the same top.
+    while (!done && numActive < queueSize(tQ)) {
+        // Get the next threshold.
         THRESHOLD next = getThreshold(tQ, numActive);
-        if (tTop(next) > top) {
-            notDone = false;
+        // If the next top is greater than the first top.
+        if (tTop(next) > topOfFirst) {
+            // Stop collecting.
+            done = true;
+            // Return the top y position of the threshold that is not collected.
             *nextTop = tTop(next);
         }
         else {
             numActive += 1;
         }
     }
+    // Return the number of thresholds collected.
     return numActive;
 }
 
+// Find the lowest bottom value among the active thresholds
+// excluding horizontal thresholds.
 float nextSlicePoint ( PMEM ThresholdQueue *tQ
                      ,               float  slicePoint
                      ,                 int  numActive
                      ) {
-    float top = tTop(getThreshold(tQ, 0));
-    for (int i = 0; i < numActive; i++) {
+    // Get the y position of the top of the first threshold in the queue.
+    float topOfFirst = tTop(getThreshold(tQ, 0));
+    // For each active threshold find the bottom with the minimum y value.
+    for (int i = 0; i < numActive; i++) { // TODO: i could start at 1
         float bottom = tBottom(getThreshold(tQ, i));
-        if (top < bottom) { // it's not a horizontal threshold
+        if (topOfFirst < bottom) { // check that it's not a horizontal threshold
+            // if it's not horizontal, keep it if it's a lower value.
             slicePoint = min(slicePoint, bottom);
         }
     }
     return slicePoint;
 }
 
+// Split all active thresholds that extend beyond the splitPoint and insert both parts back into the
+// queue.
 void sliceActive( PMEM ThresholdQueue *tQ
                 ,               float  slicePoint
                 ,                 int  numActive
                 ) {
+    // For each active threshold
     for (int cursor = 0; cursor < numActive; cursor++) {
         HEADER currentHeader = getHeader(tQ, cursor);
         THRESHOLD current = getThreshold(tQ, cursor);
         //DEBUG_IF(printf("cursor %i slicePoint %f ",cursor, slicePoint);showThreshold(currentHeader,current);printf("\n");)
+        // If the slicePoint cuts the threshold.
         if (tTop(current) < slicePoint && slicePoint < tBottom(current)) {
             HEADER splitHeader;
             THRESHOLD split;
+            // split the thresold into to.
             splitThreshold( &currentHeader
                           , &current
                           , &splitHeader
@@ -975,9 +991,12 @@ void sliceActive( PMEM ThresholdQueue *tQ
                           );
             //DEBUG_IF(printf("               current ");showThreshold(currentHeader,current);printf("\n");)
             //DEBUG_IF(printf("               split   ");showThreshold(splitHeader,split);printf("\n");)
+            // store the top part of the split threshold back in the same place.
             setHeader(tQ, cursor, currentHeader);
             setThreshold(tQ, cursor, current);
+            // if the bottom part of the split threshold is worth keeping (large enough or persistent)
             if (tKeep(splitHeader,split)) {
+                // reinsert it back into the queue.
                 insertThreshold(tQ, splitHeader, split);
                 //DEBUG_IF(printf("split and insert\n");showThresholds(tQ);)
             }
@@ -985,13 +1004,21 @@ void sliceActive( PMEM ThresholdQueue *tQ
     }
 }
 
+// Count the active thresholds, find the next slicepoint, slice everything, return the slicePoint.
 float splitNext( PMEM ThresholdQueue *tQ
                , PMEM     ParseState *pS
                ) {
+    // the initial slice point is the maximum possible value.
     float slicePoint = FLT_MAX;
+    // now count the active thresholds and get the first possible slice point which will be
+    // next top beyond the active thresholds.
     pS->numActive = countActive(tQ, &slicePoint);
+    // now find the next potential slicePoint, which will be any bottom that has a lower
+    // value than the next top.
     slicePoint = min(slicePoint, nextSlicePoint(tQ, slicePoint, pS->numActive));
+    // Now chop any active thresholds that extend across the slicePoint.
     sliceActive(tQ, slicePoint, pS->numActive);
+    // And keep the slicePoint to define the vertical section we are working on.
     return slicePoint;
 }
 
@@ -1016,7 +1043,7 @@ void pushThreshold( PMEM ThresholdQueue *tQ
                   ,                   HEADER  newHeader
                   ,                THRESHOLD  new
                   ) {
-    if (tQ->qSlice.sLength < MAXTHRESHOLDS) {
+    if (queueSize(tQ) < MAXTHRESHOLDS) {
        pushTopSlot(tQ);
        setHeader(tQ,0,newHeader);
        setThreshold(tQ,0,new);
@@ -1027,11 +1054,11 @@ void insertThreshold( PMEM ThresholdQueue *tQ
                     ,                   HEADER  newHeader
                     ,                THRESHOLD  new
                     ) {
-    if (tQ->qSlice.sLength < MAXTHRESHOLDS) {
+    if (queueSize(tQ) < MAXTHRESHOLDS) {
       pushTopSlot(tQ);
       int cursor = 0;
       bool isBelow = true;
-      while (cursor < (tQ->qSlice.sLength - 1) && isBelow) {
+      while (cursor < (queueSize(tQ) - 1) && isBelow) {
           HEADER oldHeader = getHeader(tQ, cursor + 1);
           THRESHOLD old = getThreshold(tQ, cursor + 1);
           isBelow = thresholdIsBelow(newHeader, new, oldHeader, old);
@@ -1057,8 +1084,6 @@ inline THRESHOLD lineToThreshold ( float2  left
 
 inline HEADER lineToHeader (    float2 left
                            ,    float2 right
-                           ,      bool isFacet
-                           ,   SHAPEID facetId
                            , ITEMTAGID itemTagId
                            ) {
     bool  positiveSlope = left.y <= right.y;
@@ -1067,24 +1092,7 @@ inline HEADER lineToHeader (    float2 left
     bool  isPersistent = notVertical && touchingLeftBorder;
     HEADER slopeBit = positiveSlope ? POSITIVE_SLOPE : NEGATIVE_SLOPE;
     HEADER persistantBit = isPersistent ? PERSIST : NONPERSIST;
-    HEADER facetBit = isFacet ? FACETFLAGSET : FACETFLAGNOTSET;
-    HEADER facetIdBits = ((HEADER) facetId) << FACETIDSHIFT;
-    return slopeBit | persistantBit | facetBit | facetIdBits | (HEADER) itemTagId;
-}
-
-inline HEADER lineToFacetHeader (    float2 left
-                                ,    float2 right
-                                ,   FACETID facetId
-                                , ITEMTAGID itemTagId
-                                ) {
-    return lineToHeader(left,right,true,facetId,itemTagId);
-}
-
-inline HEADER lineToShapeHeader (    float2 left
-                                ,    float2 right
-                                , ITEMTAGID itemTagId
-                                ) {
-    return lineToHeader (left, right,false,0,itemTagId);
+    return slopeBit | persistantBit | (HEADER) itemTagId;
 }
 
 // determine if a threshold should be added to the stack,
@@ -1101,10 +1109,10 @@ void addLineSegment ( PMEM  ThresholdQueue *tQ
     THRESHOLD newThreshold = lineToThreshold( left
                                             , right
                                             );
-    HEADER newHeader = lineToShapeHeader( left
-                                        , right
-                                        , itemTagId
-                                        );
+    HEADER newHeader = lineToHeader( left
+                                   , right
+                                   , itemTagId
+                                   );
     addThreshold(tQ, tileS, newHeader, newThreshold);
 }
 
@@ -1120,7 +1128,7 @@ void addThreshold ( PMEM  ThresholdQueue *tQ
     if (tKeep(newHeader, newThreshold)) {
         // horizontal thresholds that have no persistance can be ignored.
         //DEBUG_IF(printf("mid add enclosed %i add %i ", *enclosedByStrand, addType);showThreshold(newHeader, newThreshold);printf("\n");)
-        if ((tTop(newThreshold) < RENDEREND) && tLeft(newThreshold) < RIGHTBORDER) {
+        if ((tTop(newThreshold) <= RENDEREND) && tLeft(newThreshold) < RIGHTBORDER) {
                 // if the threshold is entirely below the bottom of the render area is can be ignored
                 // otherwise add it to the threshold array, and see if the bottom of the render area needs to be adjusted because the threshold array is not
                 // large enough.g
@@ -1436,6 +1444,14 @@ inline void passHeaderBottom( PMEM ShapeState *shS
     }
 }
 
+inline void passHeaderPersistent( PMEM ShapeState *shS
+                                ,          HEADER  header
+                                ) {
+    if (headerPersistEither(header)) {
+        passHeader(shS, header);
+    }
+}
+
 // Parse all of the current shapes adding as many thresholds as possible.
 // Return the bottom of the rendering area which is the bottom of the tile if everything fits and the last
 // complete section if it doesn't.
@@ -1450,8 +1466,8 @@ void buildThresholdArray ( PMEM       TileState *tileS
                          ,         ITEMTAGIDREF  numItems
                          ,               float2  threadDelta
                          ) {
-    int lastSubstance = -1;
-    for (ITEMTAGID n = 0; n < numItems; n++) { // iterate over every item in the current tile.
+    DEBUG_IF(printf("****************************numItems %i\n",numItems);)
+    for (ITEMTAGID n = 0; n < numItems && n < MAXLAYERS; n++) { // iterate over every item in the current tile.
         int itemIndex = itemStart + n;
         ITEMTAGID itemTagId = itemTagIdHeap[itemIndex]; // get the current itemTagId
         ITEMTAG itemTag = itemTagHeap[itemTagId]; // get the current itemTag itself
@@ -1460,6 +1476,7 @@ void buildThresholdArray ( PMEM       TileState *tileS
         if (itemTagIsShape(itemTag)) {
              // if you don't shift the shape to the tile size there will be accuracy errors with height floating point geometric values
             Slice geoRef = geoRefHeap[itemTagShapeId(itemTag)];
+            if (queueSize(tQ) + (getNumStrands(geoRef)*3) < MAXTHRESHOLDS) {
             GMEM float2 *strandHeap = (GMEM float2 *)&geometryHeap[getGeometryStart(geoRef)];
             for (int currentStrand = 0; currentStrand < getNumStrands(geoRef); currentStrand++) {
                 uchar4 header = *((GMEM uchar4 *)strandHeap);
@@ -1483,14 +1500,13 @@ void buildThresholdArray ( PMEM       TileState *tileS
                 }
                 strandHeap += currentSize;
             } // for currentStrand
-            // tS->lastShape  = n;
+            }
         }
         else { // itemTagIsFacet
            //if (lastSubstance == (int)itemTagItemId(itemTag)) {
              // only add a facet if it has the same substance as the most recently added shape.
            //}
         }
-        //DEBUG_IF(printf("added item %i\n",n);showShapeState(shS);)
     } // for n
 }
 
@@ -1670,13 +1686,20 @@ float8 sectionColor ( PMEM     ParseState *pS
                     , PMEM     ShapeState *shS
                     , PMEM     ColorState *cS
                     ) {
-    COLOR color = compositeLayers( shS
-                                 , cS
-                                 );
-    float random = getRandom(pS);
     float area = (pS->sectionEnd.x - pS->sectionStart.x) * (pS->sectionEnd.y - pS->sectionStart.y);
-    float4 adjustedArea = (float4) (area + (area * random * STOCHASTIC_FACTOR));
-    return (float8)(color * adjustedArea, adjustedArea);
+    if (area > 0.001) {
+        DEBUG_IF(printf("sectionColor sectionStart %v2f sectionEnd %v2f \n", pS->sectionStart, pS->sectionEnd);showShapeState(shS);)
+        COLOR color;
+        color = compositeLayers( shS
+                               , cS
+                               );
+        float random = getRandom(pS);
+        float4 adjustedArea = (float4) (area + (area * random * STOCHASTIC_FACTOR));
+        return (float8)(color * adjustedArea, adjustedArea);
+    }
+    else { // don't waste time calculating the color of insignificant sections.
+        return (float8)(TRANSPARENT_COLOR, (float4)0);
+    }
 }
 
 void verticalAdvance( PMEM ThresholdQueue *tQ
@@ -1685,12 +1708,11 @@ void verticalAdvance( PMEM ThresholdQueue *tQ
                     , PMEM     ShapeState *shS
                     ) {
     if (pS->sectionEnd.x == RIGHTBORDER) {
-        //DEBUG_IF(printf("---------- Vertical Advance -------------- \n");)
+        DEBUG_IF(printf("---------- Vertical Advance -------------- \n");)
         // Start by undoing all of the state changes from the horizontal traversal.
         // Occasionally a threshold gets skipped because they are out of order.
         // pass these.
-        // Revert all horizontal border crossing from the lass vertical advances.
-        //DEBUG_IF(printf("rev->");)
+        // Revert all horizontal border crossing from the last vertical advances.
         for (int i = 0; i < pS->numActive; i++) {
             //DEBUG_IF(printf("back %i %i\n",i,headerLayerId(getHeader(tQ, i)));)
             passHeader(shS, getHeader(tQ, i));
@@ -1699,7 +1721,7 @@ void verticalAdvance( PMEM ThresholdQueue *tQ
         // Next break is the next natural break point (either the bottom of the pixel or the bottom of the render area.
         float nextBreak = min(RENDEREND, pS->pixelY);
         // The activeBottom is the bottom of the current group of horizontally adjacent thresholds or max float if none are left.
-        float activeBottom = tQ->qSlice.sLength > 0 ? tBottom(getThreshold(tQ, 0)) : FLT_MAX;
+        float activeBottom = queueSize(tQ) > 0 ? tBottom(getThreshold(tQ, 0)) : FLT_MAX;
         // If the last section ended at the bottom of the current group.
         if (activeBottom == pS->sectionEnd.y) {
             // then pass over the bottom of all the active thresholds.
@@ -1720,7 +1742,7 @@ void verticalAdvance( PMEM ThresholdQueue *tQ
         else {
             // first find the top of the next threshold.
             // nextTop is either the top of the next available threshold of max float.
-            float nextTop = pS->numActive < tQ->qSlice.sLength ? tTop(getThreshold(tQ, pS->numActive)) : FLT_MAX;
+            float nextTop = pS->numActive < queueSize(tQ) ? tTop(getThreshold(tQ, pS->numActive)) : FLT_MAX;
             // nextBottom is the bottom of the next group of horizontally adjacent thresholds or the top of it depending on if it starts immediately.
             if (nextTop > pS->sectionEnd.y) {
                 // there is a vertical gap. active thresholds stays empty and we add the gap to the accumulator.
@@ -1739,10 +1761,7 @@ void verticalAdvance( PMEM ThresholdQueue *tQ
                     pS->numActive -= 1;
                 }
                 for (int i = 0; i < pS->numActive; i++) {
-                    if (tTop(getThreshold(tQ, i)) > RENDERSTART) { // TODO: Can probably get rid of this check.
-                        //DEBUG_IF(if (headerPersistTop(getHeader(tQ, i))) {printf("top  %i %i\n", i, headerLayerId(getHeader(tQ, i)));})
-                        passHeaderTop(shS, getHeader(tQ, i));
-                    }
+                    passHeaderTop(shS, getHeader(tQ, i));
                 }
             }
         }
@@ -1825,11 +1844,11 @@ void calculatePixel ( PMEM      TileState *tileS
     //DEBUG_IF(printf("                                              pixelY: %f \n", pS->pixelY);)
     while (((pS->sectionEnd.x < RIGHTBORDER) || (pS->sectionEnd.y < pS->pixelY))/*&& count > 0*/) { // process all sections that do not reach the bottom of the pixel.
         //DEBUG_IF(printf("loop        sectionStart %v2f sectionEnd %v2f \n", pS->sectionStart, pS->sectionEnd);)
-        //DEBUG_IF(printf("beforeV cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
+        //DEBUG_IF(printf("beforeV cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);showShapeState(shS);)
         verticalAdvance(tQ, tileS, pS, shS);
-        //DEBUG_IF(printf("afterV  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
+        //DEBUG_IF(printf("afterV  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);showShapeState(shS);)
         horizontalAdvance(tQ, pS);
-        //DEBUG_IF(printf("afterH  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
+        //DEBUG_IF(printf("afterH  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);showShapeState(shS);)
         //DEBUG_IF(printf("pixelY: %f \n", pS->pixelY);showShapeState(shS);)
         float8 colorArea = sectionColor( pS
                                        , shS
@@ -1865,13 +1884,13 @@ void initColorState ( PMEM   ColorState *init
   init->csPictureData = pictureData;
   init->csPictureRefs = pictureRefs;
   init->csSolidColors = solidColors;
-  init->absolutePosition = pos;
+  init->absolutePosition = absolutePosition;
 }
 
 
 inline bool swapIfAbove( PMEM ThresholdQueue *tQ
-                ,                 int  i
-                ) {
+                       ,                 int  i
+                       ) {
     HEADER    aHeader = getHeader(   tQ, i    );
     THRESHOLD a       = getThreshold(tQ, i    );
     HEADER    bHeader = getHeader(   tQ, i + 1);
@@ -1893,7 +1912,6 @@ inline bool swapIfAbove( PMEM ThresholdQueue *tQ
          setThreshold(tQ, i    , b       );
          setHeader(   tQ, i + 1, aHeader );
          setThreshold(tQ, i + 1, a       );
-         //DEBUG_IF(printf("swap i %i i+1 %i\n", i, i + 1);)
      }
      return !swap; // if true then tripwire activated
 }
@@ -1903,9 +1921,10 @@ void sortThresholdArray( PMEM  ThresholdQueue *tQ
       // The selection sort algorithm
       bool done = false;
       // k = last item to be checked
-      int k = (int)tQ->qSlice.sLength; // Check all items
+      int k = ((int)queueSize(tQ)); // Check all items
       while (!done) {
-         done = true;             // Set tripwire
+         //DEBUG_IF(printf("k=%i\n",k);)
+         done = true; // Set tripwire
          // Sort the unsort part a[k..n] (n = a.length)
          for (int i = 0 ; i < k-1 ; i ++ ) {
             bool swapIf = swapIfAbove(tQ, i);
@@ -1915,7 +1934,34 @@ void sortThresholdArray( PMEM  ThresholdQueue *tQ
          k--;  // Shorten the number of pairs checked.
          //DEBUG_IF(printf("kloop ------------ k %i done %i \n",k, done);showThresholds(tQ);)
       }
+      //DEBUG_IF(printf("sort done\n");)
  }
+
+
+void prepThresholdArray( PMEM ThresholdQueue *tQ
+                       , PMEM     ShapeState *shS
+                       ) {
+     // count all thresholds where the top is less than the top of the
+     // threadColumn.
+     int numAbove;
+     bool done = false;
+     while (!done && numAbove < queueSize(tQ)) {
+       if (tTop(getThreshold(tQ,numAbove)) < RENDERSTART) {
+         numAbove++;
+       }
+       else {
+         done = true;
+       }
+     }
+      // Slice all active thresholds that pass over the zero mark.
+     sliceActive(tQ,RENDERSTART,numAbove);
+     // Pass over all active thresholds
+     while(numAbove > 0) {
+         passHeaderPersistent(shS,getHeader(tQ,0));
+         popTop(tQ);
+         numAbove -= 1;
+     }
+}
 
  void renderThresholdArray ( PMEM       TileState *tileS
                            , PMEM  ThresholdQueue *tQ
@@ -1949,6 +1995,11 @@ void sortThresholdArray( PMEM  ThresholdQueue *tQ
                   ,  solidColors
                   ,  tileS->threadDelta
                   );
+    // fix thresholds that start above
+    DEBUG_IF(printf("before prep\n");showThresholds(tQ);)
+    prepThresholdArray(tQ,shS);
+    DEBUG_IF(printf("after prep\n");showThresholds(tQ);)
+    DEBUG_IF(showShapeState(shS);)
     int yInt = -1;
     for (pS.pixelY = 1.0f; pS.pixelY <= tileS->floatHeight; pS.pixelY += PIXELHEIGHT) { // y is the bottom of the current pixel.
         yInt += 1;
@@ -1989,7 +2040,7 @@ __kernel void generateThresholds( GMEM      float4  *geometryHeap
     int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
     int   tileThread = TILETHREAD;
     //DEBUG_IF(printf("sizeof(ThresholdQueue)=%i\n", sizeof(ThresholdQueue));)
-    DEBUG_IF(printf("sizeof(ShapeState)=%i\n", sizeof(ShapeState));)
+    //DEBUG_IF(printf("sizeof(ShapeState)=%i\n", sizeof(ShapeState));)
     GMEM TileInfo *tileInfo = getTileInfo(tileHeap, tileIndex);
     TileState tileS;
     initTileState ( &tileS
@@ -2014,7 +2065,6 @@ __kernel void generateThresholds( GMEM      float4  *geometryHeap
                             ,  tileS.tileNumItems
                             ,  convert_float2(tileS.threadDelta)
                             );
-        DEBUG_IF(showThresholds(&tQ);)
         storeQueueSlice(qSliceHeap, tQ.qSlice, &tileS);
         saveThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap);
     }
@@ -2096,7 +2146,7 @@ __kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
         ShapeState shS;
         initShapeState(&shS);
         //DEBUG_IF(printf("render shapeState\n");)
-        DEBUG_IF(showShapeState(&shS);)
+        //DEBUG_IF(showShapeState(&shS);)
         //DEBUG_IF(showThresholds(&tQ);)
         //DEBUG_TRACE_ITEM(thresholdStateHs(&tQ);)
         renderThresholdArray ( &tileS
@@ -2124,7 +2174,7 @@ ITEMTAGID identifyPoint ( PMEM       TileState *tileS
                         ,                  int  queryId
                         ,               SPACE2  point
                         ) {
-     for (int i = 0; i < tQ->qSlice.sLength; i++) {
+     for (int i = 0; i < queueSize(tQ); i++) {
        if (tBottom(getThreshold(tQ,i))<=point.y) {
            passHeader(shS,getHeader(tQ,i));
          }
@@ -2188,7 +2238,7 @@ __kernel void identifyPoints( GMEM    THRESHOLD *thresholdHeap
                                                           ,  query.queryId
                                                           ,  query.queryLocation
                                                           );
-            DEBUG_IF(printf("******** substanceId %i\n", substanceTagId);)
+            //DEBUG_IF(printf("******** substanceId %i\n", substanceTagId);)
             if (substanceTagId != NOSUBSTANCEID) {
                queryResults[i] = substanceTagId; // this should only happen for one thread.
             }
@@ -2197,14 +2247,10 @@ __kernel void identifyPoints( GMEM    THRESHOLD *thresholdHeap
 }
 
 void showShapeState(ShapeState *shS) {
-   printf("--- Layers --- \n");
-   for (LAYERID i = 0; i < shS->layerCount; i++) {
-     printf("%i ",i);showLayerEntry(shS->layerStack[i]);printf("\n");
-   }
-   printf("--- SubstanceTags --- \n");
-   for (int i = 0; i < shS->substanceCount; i++) {
-     printf("%i id %i",i, shS->substanceIdStack[i]);showSubstanceTag(shS->substanceTagStack[i]);printf(" facet %i \n",shS->substanceActiveFacet[i]);
-   }
+   printf("--- Item Layers --- %i \n",shS->itemCount);
+   //for (int i = 0; i < shS->itemCount; i++) {
+   //  printf("%i itemTagId %i\n",i,shS->itemTagIdStack[i]);
+   //}
 }
 
 void showSubstanceTag(SUBSTANCETAG tag) {
@@ -2212,7 +2258,7 @@ void showSubstanceTag(SUBSTANCETAG tag) {
 }
 
 void showItemTag(ITEMTAG tag) {
-  printf("isFacet %i add %i substanceid %i facetid %i", itemTagIsFacet(tag), itemTagIsAdd(tag), itemTagItemId(tag), itemTagFacetId(tag));
+  printf("isFacet %i add %i substanceid %i facetid %i", itemTagIsFacet(tag), itemTagIsAdd(tag), itemTagSubstanceTagId(tag), itemTagFacetId(tag));
 }
 
 void showThresholdHeader( HEADER header
@@ -2226,12 +2272,7 @@ void showThresholdHeader( HEADER header
     if      (headerPersistTop(header)   ) {printf("pTop ");}
     else if (headerPersistBottom(header)) {printf("pBot ");}
     else                                  {printf("pNon ");}
-    if (headerIsFacet(header)) {
-      printf("facetLocalSubstance %03i ", headerLocalSubstance(header));
-    }
-    else {
-      printf("layerId:%03i ", headerLayerId(header));
-    }
+    printf("headerItemTagId %06i ", headerItemTagId(header));
 }
 
 void showThresholdGeo (THRESHOLD threshold) {
@@ -2252,8 +2293,8 @@ void showThreshold( HEADER header,
 }
 
 void showThresholds (PMEM ThresholdQueue *tQ) {
-    printf ("Thresholds numThresholds %2i \n", tQ->qSlice.sLength);
-    for (int t = 0; t < tQ->qSlice.sLength; t++) {
+    printf ("Thresholds numThresholds %2i \n", queueSize(tQ));
+    for (int t = 0; t < queueSize(tQ); t++) {
         if (t < MAXTHRESHOLDS) {
         printf("t: %2i ", t);
         showThreshold( getHeader(tQ, t)

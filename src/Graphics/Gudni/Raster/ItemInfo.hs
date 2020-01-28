@@ -20,10 +20,11 @@ module Graphics.Gudni.Raster.ItemInfo
   , GeoId(..)
   , FacetId(..)
   , ItemTag(..)
+  , ItemTagId(..)
   , ItemInfo (..)
   , shapeInfoTag
   , facetInfoTag
-  , tagToSubstanceId
+  , tagToSubstanceTagId
   , tagIsFacet
   )
 where
@@ -58,7 +59,7 @@ newtype FacetId = FacetId {unFacetId :: Reference (HardFacet_ SubSpace TextureSp
 instance Show FacetId where
     show (FacetId i) = show i ++ "fid"
 
--- | The max SubstanceId is determined by the maximum number of unique values that can be stored in
+-- | The max SubstanceTagId is determined by the maximum number of unique values that can be stored in
 -- 30 bits of the ItemTag - 1.
 mAXsUBSTANCEiD = fromIntegral (iTEMtAGsUBSTANCEIDbITMASK `shiftR` 32 :: CULong) - 1 :: CUInt
 
@@ -69,34 +70,37 @@ newtype ItemTag
     { unItemTag :: ItemTag_
     } deriving (Ord, Eq, Num, Enum)
 
-itemSubstanceIdBits :: SubstanceId -> ItemTag_
-itemSubstanceIdBits (SubstanceId substanceId) =
+type ItemTagId_ = Reference ItemTag
+newtype ItemTagId = ItemTagId {unItemTagId :: ItemTagId_} deriving (Show, Eq, Ord)
+
+itemSubstanceTagIdBits :: SubstanceTagId -> ItemTag_
+itemSubstanceTagIdBits (SubstanceTagId substanceId) =
     (fromIntegral substanceId `shiftL` iTEMtAGsUBSTANCEIDsHIFT) .&. iTEMtAGsUBSTANCEIDbITMASK
 
--- | Extract the 'SubstanceId' from the 'ShapeTag'.
-tagToSubstanceId :: ItemTag -> SubstanceId
-tagToSubstanceId (ItemTag tag) = SubstanceId . fromIntegral $ ((tag .&. iTEMtAGsUBSTANCEIDbITMASK) `shiftR` iTEMtAGsUBSTANCEIDsHIFT)
+-- | Extract the 'SubstanceTagId' from the 'ShapeTag'.
+tagToSubstanceTagId :: ItemTag -> SubstanceTagId
+tagToSubstanceTagId (ItemTag tag) = SubstanceTagId . fromIntegral $ ((tag .&. iTEMtAGsUBSTANCEIDbITMASK) `shiftR` iTEMtAGsUBSTANCEIDsHIFT)
 
 
-shapeInfoTag :: Compound -> SubstanceId -> GeoId -> ItemTag
+shapeInfoTag :: Compound -> SubstanceTagId -> GeoId -> ItemTag
 shapeInfoTag combineType substanceId geoId =
       let combineFlag =
               case combineType of
                   CompoundAdd      -> iTEMtAGcOMPOUNDtYPEaDD
                   CompoundSubtract -> iTEMtAGcOMPOUNDtYPEsUBTRACT
-      in  if (unRef . unSubstanceId $ substanceId) <= mAXsUBSTANCEiD
+      in  if (unRef . unSubstanceTagId $ substanceId) <= mAXsUBSTANCEiD
           then ItemTag (   iTEMtAGiSsHAPE
                        .|. combineFlag
-                       .|. itemSubstanceIdBits substanceId
-                       .|. (fromIntegral (unGeoId geoId) .&. iTEMtAGiTEMiDbITMASK)
+                       .|. itemSubstanceTagIdBits substanceId
+                       .|. (fromIntegral (unGeoId geoId) .&. iTEMtAGiTEMrEFbITMASK)
                        )
           else error "shapeID out of bounds"
 
-facetInfoTag :: FacetId -> SubstanceId -> ItemTag
+facetInfoTag :: FacetId -> SubstanceTagId -> ItemTag
 facetInfoTag (FacetId facetId) substanceId =
     ItemTag (   iTEMtAGiSfACET
-            .|. itemSubstanceIdBits substanceId
-            .|. (fromIntegral facetId .&. iTEMtAGiTEMiDbITMASK)
+            .|. itemSubstanceTagIdBits substanceId
+            .|. (fromIntegral facetId .&. iTEMtAGiTEMrEFbITMASK)
             )
 
 tagIsFacet :: ItemTag -> Bool
@@ -115,22 +119,22 @@ tagBitsToCompound tagBits
 
 -- | Extract the 'FacetId' from the 'ItemTag'.
 tagToFacetId :: ItemTag -> FacetId
-tagToFacetId (ItemTag tag) = FacetId $ Ref $ fromIntegral (tag .&. iTEMtAGiTEMiDbITMASK)
+tagToFacetId (ItemTag tag) = FacetId $ Ref $ fromIntegral (tag .&. iTEMtAGiTEMrEFbITMASK)
 
 -- | Extract the 'GeoId' from the 'ItemTag'.
 tagToGeoId :: ItemTag -> GeoId
-tagToGeoId (ItemTag tag) = GeoId $ Ref $ fromIntegral (tag .&. iTEMtAGiTEMiDbITMASK)
+tagToGeoId (ItemTag tag) = GeoId $ Ref $ fromIntegral (tag .&. iTEMtAGiTEMrEFbITMASK)
 
 -- | ItemInfo includes substance flags and the combination method for a particular shape or facet.
 data ItemInfo
     = ShapeInfo
     { _itemCombine        :: Compound
     , _itemGeometry       :: GeoId
-    , _itemSubstanceId    :: SubstanceId
+    , _itemSubstanceTagId    :: SubstanceTagId
     }
     | FacetInfo
     { _itemFacetId        :: FacetId
-    , _itemFacetSubstance :: SubstanceId
+    , _itemFacetSubstance :: SubstanceTagId
     }
 makeLenses ''ItemInfo
 
@@ -141,7 +145,7 @@ instance Show ItemInfo where
 -- | Extract the 'ItemInfo' from the 'ItemTag'.
 extractItemInfo :: ItemTag -> ItemInfo
 extractItemInfo tag =
-  let substanceId = tagToSubstanceId tag
+  let substanceId = tagToSubstanceTagId tag
   in
   if tagIsFacet tag
   then let facetId = tagToFacetId tag
@@ -174,6 +178,15 @@ instance StorableM ItemTag where
         return (ItemTag tag)
   pokeM (ItemTag tag) =
         pokeM tag
+
+instance Storable ItemTagId where
+  sizeOf (ItemTagId i) = sizeOf i
+  alignment (ItemTagId i) = alignment i
+  peek i = ItemTagId <$> peek (castPtr i)
+  poke i (ItemTagId a) = poke (castPtr i) a
+
+instance NFData ItemTagId where
+  rnf (ItemTagId a) = a `deepseq` ()
 
 instance Storable ItemTag where
   sizeOf = sizeOfV

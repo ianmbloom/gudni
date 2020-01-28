@@ -20,13 +20,12 @@ module Graphics.Gudni.Raster.Constants
     , mINtILEsIZE
     , mAXsECTIONsIZE
     , mAXlAYERS
+    , mAXtHRESHOLDS
     , mAXfACETiD
-    , sIZEoFsHAPEsTATE
     , lAYERfLAGSsECTIONS
     , rANDOMFIELDsIZE
     , sOURCEfILEpADDING
     , iNITgEOMETRYpILEsIZE
-
     , iTEMtAGiSfACETbITMASK
     , iTEMtAGiSsHAPE
     , iTEMtAGiSfACET
@@ -35,7 +34,7 @@ module Graphics.Gudni.Raster.Constants
     , iTEMtAGcOMPOUNDtYPEsUBTRACT
     , iTEMtAGsUBSTANCEIDbITMASK
     , iTEMtAGsUBSTANCEIDsHIFT
-    , iTEMtAGiTEMiDbITMASK
+    , iTEMtAGiTEMrEFbITMASK
     , sUBSTANCEtAGtYPEbITmASK
     , sUBSTANCEtAGtYPEsOLIDcOLOR
     , sUBSTANCEtAGtYPEtEXTURE
@@ -64,19 +63,11 @@ sIZEoFsUBSTANCEiD  = 4 :: Int --sizeof(int)
 sIZEoFlAYERfLAGSsECTION = 8 :: Int -- sizeof(ulong)
 sTOCHASTICfACTOR = 0.0 :: Float -- relative amount of variability in an edge.
 mAXfACETiD       = (2^20) :: Int -- 1048576 total possible number of facets per scene
-sHAPElIMIT       = 16 {-127-} :: Int -- a hard limit on the number of shapes based on the empirical testing of the timeout period of the GPU.
 
-mAXlAYERS        = sHAPElIMIT
+mAXlAYERS        = 256 :: Int -- a hard limit on the number of shapes based on the empirical testing of the timeout period of the GPU.
+mAXtHRESHOLDS    = 256 :: Int
 
-
-sIZEoFsHAPEsTATE = sIZEoFlAYERiD
-                 + sIZEoFlAYEReNTRY * mAXlAYERS
-                 + sIZEoFlOCALsUBSTANCEiD
-                 + sIZEoFsUBSTANCEiD * mAXlAYERS
-                 + sIZEoFsUBSTANCETAG * mAXlAYERS
-                 + sIZEoFfACETiD * mAXlAYERS
-
-mINtILEsIZE      = Point2 8  8  :: Point2 PixelSpace
+mINtILEsIZE      = Point2 16 32 :: Point2 PixelSpace
 mAXsECTIONsIZE   = 32   :: Int
 rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
 
@@ -90,7 +81,7 @@ iNITgEOMETRYpILEsIZE = 65536 :: Int
 -- Desc | true =  | true =       | substanceId | or
 --      | facet   | additive     |             | facetId
 --      | false = | false =      |             |
---      | outline | subtractive  |             |
+--      | shape   | subtractive  |             |
 
 -- Bit 63
 iTEMtAGiSfACETbITMASK          = 0x8000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
@@ -106,7 +97,7 @@ iTEMtAGsUBSTANCEIDbITMASK      = 0x3FFFFFFF00000000 :: CULong -- & with this to 
 iTEMtAGsUBSTANCEIDsHIFT        = 32 :: Int
 
 -- Bits 31 - 0
-iTEMtAGiTEMiDbITMASK           = 0x00000000FFFFFFFF :: CULong
+iTEMtAGiTEMrEFbITMASK           = 0x00000000FFFFFFFF :: CULong
 
 -- Substance Tag Bit Layout
 -- Bits | 8 bit          | 56 bit                           |

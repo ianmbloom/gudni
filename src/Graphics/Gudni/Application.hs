@@ -213,9 +213,9 @@ processState elapsedTime inputs =
         let newState = updateModelState frame elapsedTime inputs state
         finalState <- liftIO (ioTask newState)
         appState .= finalState
-        -- if null inputs
-        -- then appMessage $ show finalState
-        -- else appMessage $ show finalState ++ show inputs
+        if null inputs
+        then appMessage $ show finalState
+        else appMessage $ show finalState ++ show inputs
         status <- use appStatus
         scene <- lift . lift $ constructScene finalState status
         markAppTime "Build State"
