@@ -92,12 +92,20 @@ instance HasToken PQState where
 charList = ['!'..'z']
 
 instance Model PQState where
+<<<<<<< HEAD
     screenSize state = Window (Point2 16 16)
     --shouldLoop _ = False
     updateModelState _frame _elapsedTime inputs state =
       do let state' = foldl (flip processInput) state inputs
          if null (state' ^. stateGlyphs)
          then let randomGlyphs = evalRand (sequence . replicate 128 $
+=======
+    screenSize state = Window (Point2 64 64)
+    updateModelState _frame _elapsedTime inputs state =
+      do let state' = foldl (flip processInput) state inputs
+         if null (state' ^. stateGlyphs)
+         then let randomGlyphs = evalRand (sequence . replicate 10 $
+>>>>>>> 7833089a780ed57f917afe74093b27e7d02a47d2
                            randomGlyph (length charList) (makePoint 100 100) 10 200) (mkStdGen 3000)
               in
               (set stateGlyphs randomGlyphs state')

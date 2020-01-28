@@ -176,6 +176,7 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
                 (Work2D numTiles (fromIntegral threadsPerTile))
                 (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
       liftIO $ putStrLn ("rasterQueryKernel              XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
+<<<<<<< HEAD
       -- queryResults <- let numPointQueries = length $ tr "pointQueries" $ job ^. rJPointQueries in
       --                 if  numPointQueries <= 0
       --                 then return []
@@ -197,6 +198,28 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
       --                                (Work2D numTiles (fromIntegral threadsPerTile))
       --                                (WorkGroup [1, fromIntegral threadsPerTile])
       let queryResults = []
+=======
+      queryResults <- let numPointQueries = length $ tr "pointQueries" $ job ^. rJPointQueries in
+                      if numPointQueries <= 0
+                      then return []
+                      else (toList :: CLUtil.Vector SubstanceId -> [SubstanceId]) <$>
+                           runKernel (params ^. rpDevice . rasterQueryKernel)
+                                     thresholdBuffer
+                                     headerBuffer
+                                     shapeStateBuffer
+                                     thresholdQueueSliceBuffer
+                                     (bicPictFacets    bic)
+                                     (job    ^. rJTilePile)
+                                     bitmapSize
+                                     computeDepth
+                                     frameCount
+                                     jobIndex
+                                     (fromIntegral numPointQueries :: CInt)
+                                     (VS.fromList queries)
+                                     (Out numPointQueries)
+                                     (Work2D numTiles (fromIntegral threadsPerTile))
+                                     (WorkGroup [1, fromIntegral threadsPerTile])
+>>>>>>> 7833089a780ed57f917afe74093b27e7d02a47d2
       liftIO $ putStrLn ("rasterKernels Done             XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
       liftIO $ clReleaseMemObject . bufferObject $ thresholdBuffer
       liftIO $ clReleaseMemObject . bufferObject $ headerBuffer

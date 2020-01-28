@@ -2244,7 +2244,11 @@ __kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
         loadThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap);
         ShapeState shS = loadShapeState(shapeStateHeap, &tileS);
         //DEBUG_IF(printf("render shapeState\n");)
+<<<<<<< HEAD
         DEBUG_IF(showShapeState(&shS);)
+=======
+        //DEBUG_IF(showShapeState(&shS);)
+>>>>>>> 7833089a780ed57f917afe74093b27e7d02a47d2
         //DEBUG_IF(showThresholds(&tQ);)
         //DEBUG_TRACE_ITEM(thresholdStateHs(&tQ);)
         renderThresholdArray ( &tileS
@@ -2322,8 +2326,12 @@ __kernel void identifyPoints( GMEM    THRESHOLD *thresholdHeap
             printf("i %i tileS.threadDelta %i,%i tileS.floatHeight %f queryLocation %v2f \n", i, tileS.threadDelta.x, tileS.threadDelta.y, tileS.floatHeight, query.queryLocation);
             Slice qSlice = loadQueueSlice(qSliceHeap, &tileS);
             ThresholdQueue tQ;
+<<<<<<< HEAD
             initThresholdQueue(&tQ, qSlice);
             loadThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap);
+=======
+            initThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap, qSlice);
+>>>>>>> 7833089a780ed57f917afe74093b27e7d02a47d2
             ShapeState shS = loadShapeState(shapeStateHeap, &tileS);
             //DEBUG_IF(printf("render shapeState\n");)
             //DEBUG_IF(showShapeState(&shS);)
