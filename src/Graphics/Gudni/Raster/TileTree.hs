@@ -167,8 +167,9 @@ buildTileTree emptyRep  tileSize canvasSize = goV canvasDepth box
           else HLeaf $ emptyTile emptyRep depth depth box
 
 -- | Add an itemEntry to a tile.
-insertItemTile :: Tile EntrySequence -> ItemEntry -> Tile EntrySequence
-insertItemTile tile itemEntry = over (tileRep . unEntrySequence) (flip (S.|>) itemEntry) tile
+insertItemTile :: Tile (S.Seq ItemEntry) -> ItemEntry -> Tile (S.Seq ItemEntry)
+insertItemTile tile itemEntry = over tileRep (flip (S.|>) itemEntry) tile
+
 
 -- | Add an itemEntry to a tile tree.
 
@@ -202,79 +203,6 @@ insertItemV (VTree cut top bottom) itemEntry =
 insertItemV (VLeaf tile) itemEntry =
     VLeaf $ insertItemTile tile itemEntry
 
-splitTreeTiles :: NumStrands -> TileTree EntrySequence -> TileTree EntrySequence
-splitTreeTiles maxThresholds tree = goV tree
-    where
-        goH tree =
-           case tree of
-             (HTree cut left right) -> HTree cut (goV left) (goV right)
-             (HLeaf tile) -> if shouldSplitH maxThresholds tile
-                             then goH $ hSplit tile
-                             else HLeaf tile
-        goV tree =
-           case tree of
-             (VTree cut top bottom) -> VTree cut (goH top) (goH bottom)
-             (VLeaf tile) -> if shouldSplitV maxThresholds tile
-                             then goV $ vSplit tile
-                             else VLeaf tile
-
-hSplit :: Tile EntrySequence -> HTree EntrySequence
-hSplit tile =
-  let cut = tile ^. tileBox . leftSide + (widthOf (tile ^. tileBox) `div` 2)
-      lEmpty = emptyTile (EntrySequence S.empty) (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set rightSide cut (tile ^. tileBox))
-      rEmpty = emptyTile (EntrySequence S.empty) (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set leftSide cut (tile ^. tileBox))
-      hTree = HTree (fromIntegral cut) (VLeaf lEmpty) (VLeaf rEmpty)
-  in  foldl insertItemH hTree $ (tile ^. tileRep . unEntrySequence)
-
-vSplit :: Tile EntrySequence -> VTree EntrySequence
-vSplit tile =
-  let cut = tile ^. tileBox . topSide + (heightOf (tile ^. tileBox) `div` 2)
-      tEmpty = emptyTile (EntrySequence S.empty) (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set bottomSide cut (tile ^. tileBox))
-      bEmpty = emptyTile (EntrySequence S.empty) (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set topSide    cut (tile ^. tileBox))
-      vTree = VTree (fromIntegral cut) (HLeaf tEmpty) (HLeaf bEmpty)
-  in  foldl insertItemV vTree $ (tile ^. tileRep . unEntrySequence)
-
-shouldSplitV :: NumStrands -> Tile EntrySequence -> Bool
-shouldSplitV maxThresholds tile =
-   heightOf (tile ^. tileBox) > mINtILEsIZE ^. pY &&
-   (length (tile ^. tileRep . unEntrySequence) > mAXlAYERS ||
-   sum (fmap (view itemStrandCount) (tile ^. tileRep . unEntrySequence)) > maxThresholds)
-
-shouldSplitH :: NumStrands -> Tile EntrySequence -> Bool
-shouldSplitH maxThresholds tile =
-   widthOf (tile ^. tileBox) > mINtILEsIZE ^. pX &&
-   (length (tile ^. tileRep . unEntrySequence) > mAXlAYERS ||
-   sum (fmap (view itemStrandCount) (tile ^. tileRep . unEntrySequence)) > maxThresholds)
-
--- | Traverse a TileTree with a monadic function.
-foldMapTileTree :: Monad m => (Tile a -> m t) -> TileTree a -> m t
-foldMapTileTree = foldMapTileTreeV
-
-foldMapTileTreeH :: Monad m => (Tile a -> m t) -> HTree a -> m t
-foldMapTileTreeH f (HTree _ left right) = do foldMapTileTreeV f left
-                                             foldMapTileTreeV f right
-foldMapTileTreeH f (HLeaf tile) = f tile
-
-foldMapTileTreeV :: Monad m => (Tile a -> m t) -> VTree a -> m t
-foldMapTileTreeV f (VTree _ top bottom) = do foldMapTileTreeH f top
-                                             foldMapTileTreeH f bottom
-foldMapTileTreeV f (VLeaf tile) = f tile
-
--- | Traverse a TileTree with a monadic function.
-traverseTileTree :: Monad m => (Tile a -> m (Tile b)) -> TileTree a -> m (TileTree b)
-traverseTileTree = traverseTileTreeV
-
-traverseTileTreeH :: Monad m => (Tile a -> m (Tile b)) -> HTree a -> m (HTree b)
-traverseTileTreeH f (HTree hCut left right) = do left'  <- traverseTileTreeV f left
-                                                 right' <- traverseTileTreeV f right
-                                                 return (HTree hCut left' right')
-traverseTileTreeH f (HLeaf tile) = HLeaf <$> f tile
-
-traverseTileTreeV :: Monad m => (Tile a -> m (Tile b)) -> VTree a -> m (VTree b)
-traverseTileTreeV f (VTree vCut top bottom) = do top'    <- traverseTileTreeH f top
-                                                 bottom' <- traverseTileTreeH f bottom
-                                                 return (VTree vCut top' bottom')
-traverseTileTreeV f (VLeaf tile) = VLeaf <$> f tile
 
 -- | Display the contents of a tile.
 showTile tile = " (" ++ show (widthOf $ tile ^. tileBox)
