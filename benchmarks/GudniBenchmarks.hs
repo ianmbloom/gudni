@@ -46,7 +46,7 @@ instance HasToken BenchmarkState where
 
 instance Model BenchmarkState where
     screenSize state = --FullScreen
-                       Window $ Point2 512 512
+                       Window $ Point2 128 128
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =

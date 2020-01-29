@@ -48,8 +48,8 @@ initialModel pictureMap =
     BenchmarkState
     { _stateBase = BasicSceneState
         { _stateScale       = 1
-        , _stateDelta       = Point2 (-5) 1
-        , _stateAngle       = 0 @@ deg
+        , _stateDelta       = Point2 0 0
+        , _stateAngle       = 0.02094 @@ rad -- 0 @@ rad
         , _statePaused      = True
         , _stateSpeed       = 0.1
         , _statePace        = 1
@@ -64,7 +64,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 19
+    , _stateCurrentTest = 28
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
@@ -98,7 +98,9 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("maxShapeTest"      , maxShapeTest        ) -- 28 -
            , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 29 -
            , ("fullRectangle"     , fullRectangle       ) -- 30 -
-           , ("1 Million Circles" , millionFuzzyCircles ) -- 31 -
+           , ("overlappingSquares", overlappingSquares  ) -- 31 -
+           , ("overlappingCircles", overlappingCircles  ) -- 32 -
+           , ("1 Million Circles" , millionFuzzyCircles ) -- 33 -
            ]
 
 maxThresholdTest :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
@@ -133,7 +135,7 @@ fuzzyDonut :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyDonut state = return $
                let time = view (stateBase . stateLastTime) state
                in  translateByXY 500 500 .
-                   overlap $ evalRand (sequence . replicate 3 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+                   overlap $ evalRand (sequence . replicate 4 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 -- | A basic fuzz test of random curves contained in a rectagular area.
 fuzzyBasic :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
@@ -143,13 +145,33 @@ fuzzyBasic state = return $
                    overlap $
                    evalRand (sequence . replicate 16 $ fuzzyCurve (makePoint 1440 900) 10) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
+-- | Just a lot of very transparent squares all on top of one and other.
+overlappingSquares :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
+overlappingSquares state = return $
+               let time = view (stateBase . stateLastTime) state
+               in  translateByXY 5 5 .
+                   rotateBy (3 @@ deg) .
+                   --scaleBy 0.5 .
+                   overlap $
+                   replicate 2000 $ {-translateBy (Point2 (-22) (-22)) .-} colorWith (transparent 0.001 blue) $ mask $ rectangle (50 `by` 50)
+
+-- | Lot of circles stacked on top of one another in nearly the same place.
+overlappingCircles :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
+overlappingCircles state = return $
+               let time = view (stateBase . stateLastTime) state
+               in  translateByXY (-4) (-3) .
+                   --scaleBy 0.5 .
+                   overlap $
+                   evalRand (sequence . replicate 100 $ fuzzyCircle (makePoint 2 2) 5 5) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
+
 -- | A random field of transparent circles.
 fuzzyCircles :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyCircles state = return $
                let time = view (stateBase . stateLastTime) state
-               in  --translateByXY (100) (100) .
+               in  translateByXY (-4) (-3) .
                    --scaleBy 0.5 .
                    overlap $
+                   --evalRand (sequence . replicate 100000 $ fuzzyCircle (makePoint 200 200) 5 50) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
                    evalRand (sequence . replicate 100000 $ fuzzyCircle (makePoint 5760 3600) 5 50) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
 
 -- | Smaller random field of transparent circles.
@@ -293,6 +315,8 @@ stackOfSquares state = return $
           --, (translateByXY 0 8  . colorWith (transparent 1.0 blue   ) $ rectangle (Point2 4 4) )
           --, (translateByXY 0 12 . colorWith (transparent 1.0 purple ) $ rectangle (Point2 4 4) )
           ]
+
+
 
 -- | Basic test for shape subtraction.
 openSquare :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)

@@ -17,8 +17,8 @@
 
 module Graphics.Gudni.Raster.SubstanceInfo
   ( SubstanceInfo (..)
-  , SubstanceId (..)
-  , noSubstanceId
+  , SubstanceTagId (..)
+  , noSubstanceTagId
   , SubstanceTag (..)
   , ColorId(..)
   , TextureId(..)
@@ -50,12 +50,12 @@ newtype SubstanceTag
     { unSubstanceTag :: SubstanceTag_
     } deriving (Ord, Eq, Num, Enum)
 
-newtype SubstanceId = SubstanceId {unSubstanceId :: Reference SubstanceTag} deriving (Ord, Eq, Num, Enum)
+newtype SubstanceTagId = SubstanceTagId {unSubstanceTagId :: Reference SubstanceTag} deriving (Ord, Eq, Num, Enum)
 
-noSubstanceId = SubstanceId (Ref nOsUBSTANCEiD)
+noSubstanceTagId = SubstanceTagId (Ref nOsUBSTANCEiD)
 
-instance Show SubstanceId where
-    show (SubstanceId i) = show i ++ "sid"
+instance Show SubstanceTagId where
+    show (SubstanceTagId i) = show i ++ "sid"
 
 newtype ColorId = ColorId {unColorId :: Reference Color} deriving (Show, Ord, Eq, Num, Enum)
 
@@ -104,8 +104,8 @@ instance NFData SubstanceInfo where
   rnf (TextureInfo a) = rnf a
 
   -- * Instances
-instance NFData SubstanceId where
-  rnf (SubstanceId a) = a `deepseq` ()
+instance NFData SubstanceTagId where
+  rnf (SubstanceTagId a) = a `deepseq` ()
 
 instance NFData SubstanceTag where
   rnf (SubstanceTag a) = a `deepseq` ()
@@ -127,8 +127,8 @@ instance Storable SubstanceTag where
   peek = peekV
   poke = pokeV
 
-instance Storable SubstanceId where
-  sizeOf (SubstanceId i) = sizeOf i
-  alignment (SubstanceId i) = alignment i
-  peek i = SubstanceId <$> peek (castPtr i)
-  poke i (SubstanceId a) = poke (castPtr i) a
+instance Storable SubstanceTagId where
+  sizeOf (SubstanceTagId i) = sizeOf i
+  alignment (SubstanceTagId i) = alignment i
+  peek i = SubstanceTagId <$> peek (castPtr i)
+  poke i (SubstanceTagId a) = poke (castPtr i) a

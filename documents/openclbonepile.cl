@@ -45,12 +45,12 @@ typedef struct Shape
   itemInfoToTag :: ItemInfo -> ItemTag
   itemInfoToTag itemInfo =
     case itemInfo of
-       ShapeInfo substance combine (SubstanceId substanceId) ->
+       ShapeInfo substance combine (SubstanceTagId substanceId) ->
            let combineFlag =
                    case combine of
                        CompoundAdd      -> sHAPETAGcOMPOUNDtYPEaDD
                        CompoundSubtract -> sHAPETAGcOMPOUNDtYPEsUBTRACT
-           in  if unSubstanceId groupId <= mAXsHAPEID
+           in  if unSubstanceTagId groupId <= mAXsHAPEID
                then ItemTag (iTEMtAGiSsHAPE .|. combineFlag .|. (substanceId .&. sHAPETAGsUBSTANCEIDbITMASK))
                else error "shapeID out of bounds"
        FacetInfo (FacetId facetId) ->
@@ -80,7 +80,7 @@ instance Storable (Shape GeoReference) where
 
 -- | Build a shape with the supplied metadata and representation type.
 makeShape :: HasSpace rep
-          => SubstanceId
+          => SubstanceTagId
           -> Substance (NamedTexture (SpaceOf rep))
           -> Compound
           -> rep
