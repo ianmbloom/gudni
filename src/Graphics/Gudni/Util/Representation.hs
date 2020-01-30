@@ -6,6 +6,8 @@
 
 module Graphics.Gudni.Util.Representation
   ( HasRepresentation(..)
+  , openCircle
+  , closedCircle
   )
 where
 
@@ -24,7 +26,7 @@ mkLine :: Space s => V2 (Point2 s) -> Bezier s
 mkLine (V2 a b) = line a b
 
 openCircle :: forall s . Space s => s -> CompoundTree s
-openCircle r = mask . strokeOffset 0 1 . scaleBy r $ (circle :: Outline s)
+openCircle r = mask . strokeOffset 0 (r/5) . scaleBy r $ (circle :: Outline s)
 closedCircle :: forall s . Space s => s -> CompoundTree s
 closedCircle r = mask . Shape . pure . scaleBy r $ (circle :: Outline s)
 

@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -29,6 +30,8 @@ import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Representation
 import Graphics.Gudni.Util.Segment
+import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Util.Util
 
 import qualified Graphics.Gudni.Figure.Bezier as B
 
@@ -48,45 +51,75 @@ data ProjectionState = ProjectionState
    deriving (Show)
 makeLenses ''ProjectionState
 
-debugScene :: ShapeTree Int SubSpace
-debugScene =
-  let bz = Bez (P (V2 0.86950 0.11950)) (P (V2 0.89814 0.14814)) (P (V2 0.92678 0.17678))
-      sourceCurve = Bez (P (V2 0.62500 0.46875)) (P (V2 0.81250 0.37500)) (P (V2 1.00000 0.00000))
-      bzCorrected =  Bez (P (V2 0.00000 0.11950)) (P (V2 0.06689 0.14814)) (P (V2 0.13097 0.17678))
-      (start, normal0) = (P (V2 0.62500 0.46875),V2 0.44722 0.89443)
-      s0 = P (V2 0.67844 0.57563)
-      (end,   normal1) = (P (V2 0.67411 0.43937),V2 0.57151 0.82060)
-      s1 = P (V2 0.77514 0.58443)
-      tangent0 = V2 0.91929 0.39358
-      tangent0Rotated = V2 0.99825 (-0.05910)
-      tangent1 = V2 0.91296 0.40806
-      tangent1Rotated = V2 0.98238 (-0.18691)
-      slope0 = (-0.05920)
-      slope1 = (-0.19026)
-      result = Bez (P (V2 0.67844 0.57563)) (P (V2 0.88596 0.56335)) (P (V2 0.77514 0.58443))
-  in
-  overlap [ colorWith green  . mask $ oldLine 0.001 start s0
-          , colorWith green  . mask $ oldLine 0.001 end   s1
-          , colorWith orange . mask $ oldLine 0.004 start (start .+^ normal0)
-          , colorWith orange . mask $ oldLine 0.004 end   (end   .+^ normal1)
-          --, colorWith red    . mask $ oldLine 0.003 (start) (curveSlice ^. bzControl)
-          --, colorWith red    . mask $ oldLine 0.003 (control) (curveSlice ^. bzEnd)
-          , colorWith (light purple)   . mask $ oldLine 0.005 (sourceCurve ^. bzStart)   (sourceCurve ^. bzControl)
-          , colorWith (light purple)   . mask $ oldLine 0.005 (sourceCurve ^. bzControl) (sourceCurve ^. bzEnd)
-          , colorWith (light red)     . mask $ oldLine 0.005  (result ^. bzStart)   (result ^. bzControl)
-          , colorWith (light red)     . mask $ oldLine 0.005  (result ^. bzControl) (result ^. bzEnd)
+consSecond :: (a, [b],[c]) -> b -> c -> (a, [b], [c])
+consSecond (a, bs, cs) b c = (a, b:bs, c:cs)
 
-          , colorWith (light green)    . mask $ oldLine 0.01  (bz ^. bzStart)   (bz ^. bzControl)
-          , colorWith (light green)    . mask $ oldLine 0.01  (bz ^. bzControl) (bz ^. bzEnd)
+projectCurveDemo :: Space s => Bool -> s -> Bezier s -> Bezier s -> ShapeTree Int s
+projectCurveDemo debug = projectCurveDemoWithAccuracy debug 1e-3
 
-          , colorWith (light blue)     . mask $ oldLine 0.01  (bzCorrected ^. bzStart)   (bzCorrected ^. bzControl)
-          , colorWith (light blue)     . mask $ oldLine 0.01  (bzCorrected ^. bzControl) (bzCorrected ^. bzEnd)
+projectCurveDemoWithAccuracy :: Space s => Bool -> s -> s -> Bezier s -> Bezier s -> ShapeTree Int s
+projectCurveDemoWithAccuracy debug accuracy =
+    projectCurveDemoWithStepsAccuracy debug (maxStepsFromAccuracy accuracy) (Just accuracy)
 
-          , colorWith (light yellow)   . mask $ oldLine 0.005 (bzCorrected ^. bzStart) (bzCorrected ^. bzStart .+^ tangent0)
-          , colorWith (light yellow)   . mask $ oldLine 0.005 (bzCorrected ^. bzEnd  ) (bzCorrected ^. bzEnd   .+^ tangent1)
-          , colorWith (light yellow)   . mask $ oldLine 0.005 s0 (s0 .+^ tangent0Rotated)
-          , colorWith (light yellow)   . mask $ oldLine 0.005 s1 (s1 .+^ tangent1Rotated)
-          ]
+projectCurveDemoWithStepsAccuracy :: forall s
+                                  .  Space s
+                                  => Bool
+                                  -> Int
+                                  -> Maybe s
+                                  -> s
+                                  -> Bezier s
+                                  -> Bezier s
+                                  -> ShapeTree Int s
+-- Given a target curve and a source curve, return a new target curve that approximates projecting every point in the target curve
+-- onto the source curve, such that the original x-axis corresponds to arclength along the source curve and the y-axis corresponds
+-- to distance from source curve along a normal.
+-- We can assume that the target curve has already been split and ordered so that the start x is less than or equal to the conrol x
+-- and the control x is less than or equal to the end x. In other words the curve is roughly horizontal.
+-- We can also assume that all the x coordinates will be within the range of 0 to the source curves arcLength after correction.
+projectCurveDemoWithStepsAccuracy debugFlag max_steps m_accuracy start sourceCurve targetCurve =
+      let -- Transform an x value into a t-parameter for the source curve
+          -- that corresponds to a point x arc-distance along the curve.
+          correctX x  = inverseArcLength max_steps m_accuracy sourceCurve (x - start)
+          -- Transform the target curve so that each x value is a t-parameter.
+          targetCurveCorrected = over bzPoints (fmap (over pX correctX)) $ targetCurve
+          -- Define variables for all of the components of the transformed target curve.
+          (V3 t0 tC t1) = fmap (view pX) . view bzPoints $ targetCurveCorrected
+          (V3 y0 yC y1) = fmap (view pY) . view bzPoints $ targetCurveCorrected
+          p0 = projPoint sourceCurve (targetCurveCorrected ^. bzStart)
+          p1 = projPoint sourceCurve (targetCurveCorrected ^. bzEnd)
+      in  if t0 == t1 -- the curve is vertical.
+          then let -- Just project the start and end points
+                   c = mid p0 p1
+               in  colorWith green . mask . stroke 0.004 $ Bez p0 c p1
+          else let split = (tC - t0) / (t1 - t0)
+                   pM = projPoint sourceCurve (eval split targetCurveCorrected)
+                   (oC, normalC) = bezierPointAndNormal sourceCurve tC
+                   testControlPoint y = oC .+^ (y *^ normalC)
+                   projectedMid control = eval split (Bez p0 control p1)
+                   findControl top bottom =
+                      let topControl      = testControlPoint top
+                          topProjected    = projectedMid topControl
+                          bottomControl   = testControlPoint bottom
+                          bottomProjected = projectedMid bottomControl
+                          mid = (top + bottom) / 2
+                      in  if (abs (top - bottom) > 0.001)
+                          then
+                              if (tr "taxi top" $ quadrance (topProjected .-. pM)) <= (tr "taxi bot" $ quadrance (bottomProjected .-. pM))
+                              then consSecond (findControl top mid    ) bottomProjected bottomControl
+                              else consSecond (findControl mid bottom ) topProjected    topControl
+                          else (topControl,[topProjected],[topControl])
+                   (finalControl, curvePoints,controlPoints) = findControl (-2) 2
+                   final = Bez p0 finalControl p1
+                   finalOnCurve = last curvePoints
+               in  overlap [ colorWith purple  . translateBy pM $ overlap [openCircle 0.01, closedCircle 0.003]
+                           , colorWith (dark green)  . translateBy finalControl $ overlap [openCircle 0.01, closedCircle 0.003]
+                           , colorWith (dark red  )   . translateBy finalOnCurve $ overlap [openCircle 0.01, closedCircle 0.003]
+                           , overlap . fmap (\p -> colorWith (transparent 0.3 blue) . translateBy p $ openCircle 0.005) $ controlPoints
+                           , overlap . fmap (\p -> colorWith (transparent 0.3 red ) . translateBy p $ closedCircle 0.005) $ curvePoints
+                           , colorWith orange  . mask . stroke 0.004 $ line oC (oC .+^ normalC)
+                           , colorWith (light blue)    . mask . stroke 0.004 $ final
+                           , colorWith black . mask . stroke 0.01 $ sourceCurve
+                           ]
 
 instance HasToken ProjectionState where
   type TokenOf ProjectionState = Int
@@ -105,32 +138,11 @@ instance Model ProjectionState where
                offset  = state ^. stateOffset
            return . Scene gray $
                --(if repMode then represent repDk else id) $
-               ((transformFromState (state ^. stateBase) $
-               debugScene) :: ShapeTree Int SubSpace)
+               (transformFromState (state ^. stateBase) $
+               projectCurveDemo False offset bz myline :: ShapeTree Int SubSpace)
       where
-        bz  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0)
-        --bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)
-        --bz3 = Bez (Point2 40 80) (Point2 80 80) (Point2 80 160)
-        smallBz = Bez (Point2 0 0) (Point2 100 100) (Point2 10 100)
-        path = makeOpenCurve [bz{-,bz2,bz3-}]
-        doubleDotted :: Space s => OpenCurve s -> ShapeTree Int s
-        doubleDotted path =
-           let thickness = 2
-               betweenGap = 1
-               dotLength = 8
-               dotGap = 2
-               numDots = floor (arcLength path / (dotLength + dotGap))
-           in  colorWith (light . greenish $ blue) .
-               projectOnto False path .
-               translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
-               overlap .
-               horizontallySpacedBy (dotLength + dotGap) .
-               replicate numDots .
-               overlap .
-               verticallySpacedBy (thickness + betweenGap) .
-               replicate 2 .
-               rectangle $
-               dotLength `by` thickness
+        bz  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0) :: Bezier SubSpace
+        myline = line (0 `by` 0) (0.5 `by` 0) :: Bezier SubSpace
 
     providePictureMap _ = noPictures
     handleOutput state target = do
@@ -177,4 +189,4 @@ main = runApplication $ ProjectionState
            , _stateRepMode     = False
            , _stateRepDk       = False
            }
-       ) 0.75
+       ) 0

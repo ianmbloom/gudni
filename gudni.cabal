@@ -67,6 +67,8 @@ library
                      , Graphics.Gudni.Util.Plot
                      , Graphics.Gudni.Util.Segment
                      , Graphics.Gudni.Util.Representation
+                     , Graphics.Gudni.Util.Subdividable
+                     , Graphics.Gudni.Util.Util
                      , Graphics.Gudni.OpenCL.DeviceQuery
                      , Graphics.Gudni.OpenCL.KernelQuery
                      , Graphics.Gudni.Layout
@@ -126,7 +128,6 @@ library
                      , Graphics.Gudni.Layout.Stroke
                      , Graphics.Gudni.Layout.Text
                      , Graphics.Gudni.Util.StorableM
-                     , Graphics.Gudni.Util.Util
                      , Graphics.Gudni.Util.Pile
                      , Graphics.Gudni.Util.Chain
                      , Graphics.Gudni.Util.Loop
@@ -303,6 +304,7 @@ executable projection-example
                    , lens
                    , linear
                    , mtl
+                   , vector
   else
     buildable: False
   hs-source-dirs: ./examples

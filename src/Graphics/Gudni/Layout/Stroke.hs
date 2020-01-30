@@ -17,6 +17,7 @@ import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Loop
 import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Util.Subdividable
 
 
 import Control.Lens
@@ -69,10 +70,10 @@ segmentedLine y ls =
   in  fmap (mkLine y) segments
 
 -- | Create a rectangle outline that is already split at specified lengths.
-segmentedRectangle :: (Space s, Chain t, Show (t (Bezier s))) => s -> t s -> Outline_ t s
+segmentedRectangle :: (Space s, Chain t, Show (t (Bezier s)), HasSpace (t (Bezier s))) => s -> t s -> Outline_ t s
 segmentedRectangle height ls =
   let top = segmentedLine 0 ls
       bottom = reverseChain . fmap reverseBezier . segmentedLine height $ ls
       startCap = line (lastLink bottom ^. bzEnd) (firstLink top ^. bzStart)
       endCap = line (lastLink top ^. bzEnd) (firstLink bottom ^. bzStart)
-   in Outline $ top <|> pure endCap <|> bottom <|> pure startCap
+   in subdivide 3 $ Outline $ top <|> pure endCap <|> bottom <|> pure startCap

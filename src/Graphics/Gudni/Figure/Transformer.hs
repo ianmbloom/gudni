@@ -6,6 +6,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -59,7 +60,7 @@ data Transformer s where
   CombineTransform :: Transformer s -> Transformer s -> Transformer s
   deriving (Show)
 
-applyTransformer :: (CanProject (BezierSpace s) t, Transformable t) => Transformer (SpaceOf t) -> t -> t
+applyTransformer :: (CanProject (BezierSpace (SpaceOf t)) t, Transformable t) => Transformer (SpaceOf t) -> t -> t
 applyTransformer IdentityTransform = id
 applyTransformer (Translate delta) = translateBy delta
 applyTransformer (Scale scale)     = scaleBy scale

@@ -77,7 +77,7 @@ deriving instance (Ord  (t (Bezier s))) => Ord (OpenCurve_ t s)
 
 type OpenCurve s = OpenCurve_ V.Vector s
 
-instance (Space s) => HasSpace (OpenCurve_ t s) where
+instance Space s => HasSpace (OpenCurve_ t s) where
     type SpaceOf (OpenCurve_ t s) = s
 
 -- {-# SPECIALIZE arcLength :: OpenCurve Float  -> Float  #-}
@@ -125,3 +125,10 @@ instance (Chain f, Space s, CanProject (BezierSpace s) t, Show (f (Bezier s)), C
     projectionWithStepsAccuracy debug max_steps m_accuracy path t =
       let bSpace = makeBezierSpace arcLength (view curveSegments path)
       in  projectionWithStepsAccuracy debug max_steps m_accuracy bSpace t
+
+instance (Functor t, Space s) => SimpleTransformable (OpenCurve_ t s) where
+    translateBy p = overCurvePoints (translateBy p)
+    scaleBy     s = overCurvePoints (scaleBy s)
+    stretchBy   p = overCurvePoints (stretchBy p)
+instance (Functor t, Space s) => Transformable (OpenCurve_ t s) where
+    rotateBy    a = overCurvePoints (rotateBy a)

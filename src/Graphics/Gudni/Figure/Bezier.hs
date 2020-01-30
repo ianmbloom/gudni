@@ -89,8 +89,8 @@ curved v0 c v1 = Bez v0 c v1
 instance Space s => HasSpace (Bezier s) where
   type SpaceOf (Bezier s) = s
 
-eval :: Num s => Bezier s -> s -> Point2 s
-eval (Bez p0 p1 p2) t = let mt = 1 - t in
+eval :: Num s => s -> Bezier s -> Point2 s
+eval t (Bez p0 p1 p2) = let mt = 1 - t in
     p0 ^* (mt * mt) + (p1 ^* (mt * 2) + p2 ^* t) ^* t
 
 -- | Arc length of a single quadratic Bézier segment.
