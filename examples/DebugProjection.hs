@@ -51,8 +51,8 @@ data ProjectionState = ProjectionState
    deriving (Show)
 makeLenses ''ProjectionState
 
-consSecond :: (a, [b],[c]) -> b -> c -> (a, [b], [c])
-consSecond (a, bs, cs) b c = (a, b:bs, c:cs)
+consSecond :: (a, [b],[c]) -> [b] -> [c] -> (a, [b], [c])
+consSecond (a, bs, cs) b c = (a, b ++ bs, c ++ cs)
 
 projectCurveDemo :: Space s => Bool -> s -> Bezier s -> Bezier s -> ShapeTree Int s
 projectCurveDemo debug = projectCurveDemoWithAccuracy debug 1e-3
@@ -91,34 +91,47 @@ projectCurveDemoWithStepsAccuracy debugFlag max_steps m_accuracy start sourceCur
           then let -- Just project the start and end points
                    c = mid p0 p1
                in  colorWith green . mask . stroke 0.004 $ Bez p0 c p1
-          else let split = (tC - t0) / (t1 - t0)
+          else let split = 0.5 --(tC - t0) / (t1 - t0)
                    pM = projPoint sourceCurve (eval split targetCurveCorrected)
                    (oC, normalC) = bezierPointAndNormal sourceCurve tC
-                   testControlPoint y = oC .+^ (y *^ normalC)
+                   testControlPoint t y = let  (oC, normalC) = bezierPointAndNormal sourceCurve t
+                                          in   oC .+^ (y *^ normalC)
                    projectedMid control = eval split (Bez p0 control p1)
-                   findControl top bottom =
-                      let topControl      = testControlPoint top
-                          topProjected    = projectedMid topControl
-                          bottomControl   = testControlPoint bottom
-                          bottomProjected = projectedMid bottomControl
-                          mid = (top + bottom) / 2
-                      in  if (abs (top - bottom) > 0.001)
-                          then
-                              if (tr "taxi top" $ quadrance (topProjected .-. pM)) <= (tr "taxi bot" $ quadrance (bottomProjected .-. pM))
-                              then consSecond (findControl top mid    ) bottomProjected bottomControl
-                              else consSecond (findControl mid bottom ) topProjected    topControl
-                          else (topControl,[topProjected],[topControl])
-                   (finalControl, curvePoints,controlPoints) = findControl (-2) 2
+                   projectAndTest t y = let control = Point2 t y -- testControlPoint t y
+                                            projected = projectedMid control
+                                        in  (control, projected, quadrance (projected .-. pM))
+                   findControl left top right bottom =
+                      let (ltControl, ltProjected, ltDistance) = projectAndTest left  top
+                          (rtControl, rtProjected, rtDistance) = projectAndTest right top
+                          (lbControl, lbProjected, lbDistance) = projectAndTest left  bottom
+                          (rbControl, rbProjected, rbDistance) = projectAndTest right bottom
+                          midX = (left + right) / 2
+                          midY = (top + bottom) / 2
+                      in  if (abs (right - left) > 0.00001)
+                          then let (left', right') = if (ltDistance <= rtDistance)
+                                                      then (left, midX)
+                                                      else (midX, right)
+                                   (top', bottom') = if (ltDistance <= lbDistance)
+                                                     then (top, midY)
+                                                     else (midY, bottom)
+                                 in consSecond (findControl left' top' right' bottom') [colorWith (transparent 0.2 red) . mask . stroke 0.01 . segmentsToOutline $
+                                              [ Seg ltControl Nothing
+                                              , Seg lbControl Nothing
+                                              , Seg rbControl Nothing
+                                              , Seg rtControl Nothing
+                                              ]] []
+                          else (ltControl, [colorWith (transparent 0.3 blue) . translateBy ltControl $ openCircle 0.015], [])
+                   (finalControl, controlPoints, _) = findControl (-1000) 2000 1000 (-2000)
                    final = Bez p0 finalControl p1
-                   finalOnCurve = last curvePoints
+                   --finalOnCurve = last curvePoints
                in  overlap [ colorWith purple  . translateBy pM $ overlap [openCircle 0.01, closedCircle 0.003]
                            , colorWith (dark green)  . translateBy finalControl $ overlap [openCircle 0.01, closedCircle 0.003]
-                           , colorWith (dark red  )   . translateBy finalOnCurve $ overlap [openCircle 0.01, closedCircle 0.003]
-                           , overlap . fmap (\p -> colorWith (transparent 0.3 blue) . translateBy p $ openCircle 0.005) $ controlPoints
-                           , overlap . fmap (\p -> colorWith (transparent 0.3 red ) . translateBy p $ closedCircle 0.005) $ curvePoints
+                           --, colorWith (yellow  )  . translateBy finalOnCurve $ overlap [openCircle 0.01, closedCircle 0.003]
+                           , overlap controlPoints
+                           --, overlap . fmap (\p -> colorWith (red ) . translateBy p $ closedCircle 1.015) $ notLast curvePoints
                            , colorWith orange  . mask . stroke 0.004 $ line oC (oC .+^ normalC)
                            , colorWith (light blue)    . mask . stroke 0.004 $ final
-                           , colorWith black . mask . stroke 0.01 $ sourceCurve
+                           , colorWith black . mask . strokeOffset 0 0.01 $ sourceCurve
                            ]
 
 instance HasToken ProjectionState where
@@ -175,7 +188,7 @@ marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square
 main :: IO ()
 main = runApplication $ ProjectionState
        (BasicSceneState
-           { _stateScale       = 500
+           { _stateScale       = 1500
            , _stateDelta       = Point2 100 100
            , _stateAngle       = 0 @@ deg
            , _statePaused      = True
