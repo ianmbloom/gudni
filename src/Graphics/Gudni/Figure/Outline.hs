@@ -40,6 +40,7 @@ import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Loop
 import Graphics.Gudni.Util.Util
+import Graphics.Gudni.Util.Debug
 import Control.Lens
 import Linear.V2
 import Linear.V3
@@ -63,13 +64,11 @@ instance (Show (f (Bezier s))) => Show (Outline_ f s) where
 
 type Outline s = Outline_ V.Vector s
 
-unfoldV3 :: Alternative f => V3 a -> f a
-unfoldV3 (V3 a b c) = pure a <|> pure b <|> pure c
-
 instance ( Chain f
+         , Show (f (Bezier s))
          , Space s) => PointContainer (Outline_ f s) where
    type ContainerFunctor (Outline_ f s) = f
-   containedPoints = join . fmap (unfoldBezier) . view outlineSegments
+   containedPoints = join . fmap unfoldBezier . view outlineSegments
    mapOverPoints f = over outlineSegments (fmap (over bzPoints (fmap f)))
 
 -- | Close an open curve and convert it to an shape. An additional line segment is added if the outset and the terminator of
@@ -83,19 +82,22 @@ closeOpenCurve curve =
                      -- else insert a line segment from the end to the beggining.
   in  Outline . connect . view curveSegments $ curve
 
-instance (s ~ SpaceOf (f (Bezier s)), Monad f, Alternative f, Space s, Show (f (Bezier s)), Loop f) => CanProject (BezierSpace s) (Outline_ f s) where
+instance ( s ~ SpaceOf (f (Bezier s))
+         , Monad f
+         , Alternative f
+         , Space s
+         , Show (f (Bezier s))
+         , Loop f)
+         => CanProject (BezierSpace s) (Outline_ f s) where
     projectionWithStepsAccuracy debug max_steps m_accuracy bSpace curve =
-         Outline . {-overLoopNeighbors fixBezierNeighbor . -} projectionWithStepsAccuracy debug max_steps m_accuracy bSpace . view outlineSegments $ curve
+         Outline . projectionWithStepsAccuracy debug max_steps m_accuracy bSpace . view outlineSegments $ curve
 
 -- * Instances
-instance (Space s) => HasSpace (Outline_ t s) where
-  type SpaceOf (Outline_ t s) = s
+instance (Space s) => HasSpace (Outline_ f s) where
+  type SpaceOf (Outline_ f s) = s
 
---instance (Bounded s, Ord s, Num s) => HasSpace (V.Vector (CurvePair s)) where
---  type SpaceOf (V.Vector (CurvePair s)) = s
-
-instance (Foldable t, Functor t, Space s) => HasBox (Outline_ t s) where
-  boxOf (Outline vs) = minMaxBoxes . fmap boxOf $ vs
+instance (Chain f, Space s, Show (f (Bezier s))) => HasBox (Outline_ f s) where
+  boxOf = minMaxBoxes . fmap boxOf . containedPoints
 
 instance (NFData s, NFData (t (Bezier s))) => NFData (Outline_ t s) where
   rnf (Outline ps) = ps `deepseq` ()
@@ -103,5 +105,5 @@ instance (NFData s, NFData (t (Bezier s))) => NFData (Outline_ t s) where
 instance Hashable a => Hashable (V.Vector a) where
   hashWithSalt s vector = V.foldl hashWithSalt s vector
 
-instance (Hashable (t (Bezier s))) => Hashable (Outline_ t s) where
+instance (Hashable (f (Bezier s))) => Hashable (Outline_ f s) where
   hashWithSalt s (Outline ps) = s `hashWithSalt` ps

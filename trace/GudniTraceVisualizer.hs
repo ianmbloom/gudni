@@ -328,16 +328,8 @@ instance Model TraceState where
     fontFile state = findDefaultFont
     updateModelState frame elapsedTime inputs state =
         flip execStateT state $
-            do  mapM_ processInput inputs
-                lastTime <- use stateLastTime
-                stateLastTime .= elapsedTime
-                speed <- use stateSpeed
-                whenM(not <$> use statePaused) $
-                    do  direction <- use stateDirection
-                        let f = if direction then (+) else (-)
-                            timeDelta = elapsedTime - lastTime
-                            dt = realToFrac timeDelta * realToFrac speed
-                        statePlayhead %= (`f` dt)
+            let state' = foldl (flip processInput) state inputs
+            in  over stateBase (updateSceneState frame elapsedTime) state'
     constructScene state status =
         do  statusTree <- statusDisplay state status
             let tree = transformFromState state $ constructFromState state
@@ -346,6 +338,17 @@ instance Model TraceState where
     providePictureMap state = noPictures
     handleOutput state target = do  presentTarget target
                                     return state
+
+instance HandlesInput token TraceState where
+   processInput input =
+          over stateBase (processInput input) . (
+          execState $
+          case input ^. inputType of
+              (InputKey Pressed _ inputKeyboard) ->
+                  do  case inputKeyboard of
+                          _ -> return ()
+              _ -> return ()
+          )
 
 statusDisplay :: Monad m => TraceState -> String -> FontMonad m (Glyph (ShapeTree Int SubSpace))
 statusDisplay state status =
@@ -369,35 +372,6 @@ constructFromState state =
   let steps   = view stateStep  state
       actions = take (steps + 2) $ view stateActions state
   in  buildActionState $ foldl updateActionState initActionState actions
-
-processInput :: Monad m => Input (Point2 PixelSpace) -> StateT TraceState m ()
-processInput input =
-    case input of
-        (InputKey Pressed _ inputKeyboard) ->
-            do  speed <- use stateSpeed
-                pace  <- use statePace
-                case inputKeyboard of
-                    Key SymbolSpace -> statePaused %= not
-                    Key ArrowUp      -> stateSpeed *=  1.25
-                    Key ArrowDown    -> stateSpeed //= 1.25
-                    Key LetterW   -> stateDelta %= (^+^ Point2   0    (-pace))
-                    Key LetterS   -> stateDelta %= (^+^ Point2   0      pace )
-                    Key LetterA   -> stateDelta %= (^+^ Point2 (-pace)  0    )
-                    Key LetterD   -> stateDelta %= (^+^ Point2   pace   0    )
-                    Key LetterY   -> stateDirection %= not
-                    Key SymbolRightBracket -> stateScale *=  1.1
-                    Key SymbolLeftBracket  -> stateScale //= 1.1
-                    Key SymbolComma  -> whenM (uses stateStep (> 0 {-arbitrary-})) $ stateStep -= 1
-                    Key SymbolPeriod -> whenM (uses stateStep (< 1000)) $ stateStep += 1
-                    Key LetterR   -> stateAngle %= normalizeAngle . (^+^ (speed @@ turn))
-                    Key LetterT   -> stateAngle %= normalizeAngle . (^-^ (speed @@ turn))
-                    _                   -> return ()
-        (InputMouse detection modifier clicks positionInfo) ->
-            case detection of
-              Pressed -> stateCursor .= positionInfo
-              _ -> return ()
-        _ -> return ()
-
 
 main :: IO ()
 main = do actions <- read <$> readFile "trace/trace02.txt"

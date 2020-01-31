@@ -76,13 +76,18 @@ transformFromState state constructed =
         scaleBy sc $
         constructed
 
-statusDisplay :: Monad m => BasicSceneState -> String -> [String] -> FontMonad m (Glyph (ShapeTree Int SubSpace))
+statusDisplay :: Monad m
+              => BasicSceneState
+              -> String
+              -> [String]
+              -> FontMonad m (Glyph (ShapeTree Int SubSpace))
 statusDisplay state testName status =
-    translateByXY 1800 800 .
-    fmap (mapGlyph (rotateBy (45 @@ deg))) .
-    translateBy (state ^. stateDelta) .
-    scaleBy 30 .
-    fmap (colorWith (dark red)) .
+    fmap (translateByXY 1800 800 .
+          mapGlyph (rotateBy (45 @@ deg)) .
+          translateBy (state ^. stateDelta) .
+          scaleBy 30 .
+          colorWith (dark red)
+         ) .
     paragraph 0 0 AlignMin AlignMin $
     unlines $ testName : status
 

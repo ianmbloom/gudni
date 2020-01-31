@@ -1,20 +1,38 @@
+-- | Instance for filling a functor of a compound shapetrees such as a list.
+instance {-# Overlappable #-} ( Functor f, SpaceOf (f (CompoundTree s)) ~ s
+                              , HasToken (f (ShapeTree token s))
+                              , TokenOf (f (ShapeTree token s)) ~ token)
+    => CanFill (f (CompoundTree s)) (f (ShapeTree token s)) where
+    colorWith color     = fmap (colorWith color)
+    textureWith texture = fmap (textureWith texture)
+    assignToken token   = fmap (assignToken token)
+
+-- | Instance for filling a functor of a glyph-wrapped compound shapetrees such as a list.
+instance {-# Overlappable #-} ( Functor f, SpaceOf (f (Glyph (CompoundTree s))) ~ s
+                              , HasToken (f (Glyph (ShapeTree token s)))
+                              , TokenOf (f (Glyph (ShapeTree token s))) ~ token)
+         => CanFill (f (Glyph (CompoundTree s))) (f (Glyph (ShapeTree token s))) where
+    colorWith color   = fmap (mapGlyph (colorWith color))
+    textureWith pict  = fmap (mapGlyph (textureWith pict))
+    assignToken token = fmap (mapGlyph (assignToken token))
+
+
+
 instance (SimpleTransformable a) => SimpleTransformable [a] where
     translateBy v = map (translateBy v)
-    scaleBy s = map (scaleBy s)
-    stretchBy s = map (stretchBy s)
+    scaleBy     s = map (scaleBy     s)
+    stretchBy   p = map (stretchBy   p)
 
 instance (Transformable a) => Transformable [a] where
-    rotateBy a = map (rotateBy a)
+    rotateBy    a = map (rotateBy    a)
 
 instance {-# Overlappable #-} (HasSpace a, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Functor f, SimpleTransformable a) => SimpleTransformable (f a) where
     translateBy v = fmap (translateBy v)
-    scaleBy s = fmap (scaleBy s)
-    stretchBy p = fmap (stretchBy p)
+    scaleBy     s = fmap (scaleBy     s)
+    stretchBy   p = fmap (stretchBy   p)
 
 instance {-# Overlappable #-} (HasSpace a, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Functor f, Transformable a) => Transformable (f a) where
-    rotateBy a = fmap (rotateBy a)
-
-
+    rotateBy    a = fmap (rotateBy    a)
 
 -- | Check if the tile can hold an additional shape without splitting.
 checkTileSpace :: Tile TileEntry -> ItemEntry -> Bool

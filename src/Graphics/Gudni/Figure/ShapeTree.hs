@@ -94,7 +94,6 @@ instance ( Space s) => PointContainer (Shape s) where
 instance Space s => HasSpace (Shape s) where
   type SpaceOf (Shape s) = s
 
-
 -- | Polymorphic data structure for trees of shapes. The meld type is the operations for combining two subtrees,
 -- the trans type defines transformations that can be applied across to subtree and the leaf type the component elements of
 -- a tree. The ShapeTree type is an STree that melds with Overlap whose component type is an SRep which itself contains
@@ -144,8 +143,8 @@ instance HasSpace rep => HasSpace (SRep token textureLabel rep) where
 
 instance (HasSpace leaf) => SimpleTransformable (STree o leaf) where
   translateBy delta tree = if delta == zeroPoint then tree else STransform (Translate delta) tree
-  scaleBy factor tree = if factor == 1 then tree else STransform (Scale factor) tree
-  stretchBy size tree = if size == Point2 1 1 then tree else STransform (Stretch size) tree
+  scaleBy factor tree    = if factor == 1 then tree else STransform (Scale factor) tree
+  stretchBy size tree    = if size == Point2 1 1 then tree else STransform (Stretch size) tree
 
 instance (HasSpace leaf) => Transformable (STree o leaf) where
   rotateBy angle tree = if angle == (0 @@ rad) then tree else STransform (Rotate angle) tree
@@ -182,10 +181,3 @@ invertCompound combineType =
     case combineType of
         CompoundAdd      -> CompoundSubtract
         CompoundSubtract -> CompoundAdd
-
-instance (Space s) => SimpleTransformable (Shape s) where
-  translateBy p = mapOverPoints (translateBy p)
-  scaleBy     s = mapOverPoints (scaleBy s)
-  stretchBy   p = mapOverPoints (stretchBy p)
-instance (Space s) => Transformable (Shape s) where
-  rotateBy    a = mapOverPoints (rotateBy a)

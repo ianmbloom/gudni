@@ -215,7 +215,6 @@ library
   default-language:    Haskell2010
 
 executable gudni-benchmarks
-
     other-modules:     GudniTests
   if flag(benchmarks)
     build-depends:   gudni

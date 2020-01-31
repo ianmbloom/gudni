@@ -47,7 +47,7 @@ instance Space s => CanStroke (OpenCurve s) where
 instance Space s => CanStroke (Bezier s) where
   type Stroked (Bezier s) = Outline s
   strokeOffset offset thickness bz =
-    strokeOffset offset thickness (makeOpenCurve $ V.singleton bz)
+    strokeOffset offset thickness (makeOpenCurve [bz])
 
 instance Space s => CanStroke (Outline s) where
   type Stroked (Outline s) = Shape s

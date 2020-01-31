@@ -20,6 +20,7 @@
 
 module Graphics.Gudni.Layout.Draw
   ( CanMask(..)
+  , maskOutline
   , CanFill(..)
   , Compoundable(..)
   , HasCircle(..)
@@ -58,7 +59,8 @@ instance CanMask (Glyph (Shape s)) (Glyph (CompoundTree s)) where
 instance (Functor f) => CanMask (f (Shape s)) (f (CompoundTree s)) where
     mask = fmap mask
 
-
+maskOutline :: Outline s -> CompoundTree s
+maskOutline = mask . Shape . pure
 
 -- | Typeclass of shape representations that can be filled with a color or texture.
 class HasToken b => CanFill a b | b -> a where
@@ -84,24 +86,6 @@ instance CanFill (Glyph (CompoundTree s)) (Glyph (ShapeTree token s)) where
     colorWith color     = mapGlyph (colorWith color)
     textureWith texture = mapGlyph (textureWith texture)
     assignToken token   = mapGlyph (assignToken token)
-
--- | Instance for filling a functor of a compound shapetrees such as a list.
-instance {-# Overlappable #-} ( Functor f, SpaceOf (f (CompoundTree s)) ~ s
-                              , HasToken (f (ShapeTree token s))
-                              , TokenOf (f (ShapeTree token s)) ~ token)
-    => CanFill (f (CompoundTree s)) (f (ShapeTree token s)) where
-    colorWith color     = fmap (colorWith color)
-    textureWith texture = fmap (textureWith texture)
-    assignToken token   = fmap (assignToken token)
-
--- | Instance for filling a functor of a glyph-wrapped compound shapetrees such as a list.
-instance {-# Overlappable #-} ( Functor f, SpaceOf (f (Glyph (CompoundTree s))) ~ s
-                              , HasToken (f (Glyph (ShapeTree token s)))
-                              , TokenOf (f (Glyph (ShapeTree token s))) ~ token)
-         => CanFill (f (Glyph (CompoundTree s))) (f (Glyph (ShapeTree token s))) where
-    colorWith color   = fmap (mapGlyph (colorWith color))
-    textureWith pict  = fmap (mapGlyph (textureWith pict))
-    assignToken token = fmap (mapGlyph (assignToken token))
 
 -- | Typeclass of shape representations that can be combined with other shapes.
 class Compoundable a where
@@ -135,7 +119,7 @@ rectangleCurve v =
 class HasSpace a => HasRectangle a where
   rectangle :: Point2 (SpaceOf a) -> a
 
--- | Basic instance of a rectangle.
+-- | Basic instances of a rectangle.
 instance (Alternative f, Space s) => HasRectangle (Outline_ f s) where
     rectangle v = Outline . rectangleCurve $ v
 
@@ -149,28 +133,16 @@ instance Space s => HasRectangle (CompoundTree s) where
 instance Space s => HasRectangle (Glyph (CompoundTree s)) where
     rectangle v = Glyph (Box zeroPoint v) . rectangle $ v
 
--- | A rectangle can also inhabit any applicative functor as a compound tree.
-instance (HasSpace (f (CompoundTree s)),s ~ SpaceOf (f (CompoundTree s)), Applicative f, Space s)
-         => HasRectangle (f (CompoundTree s)) where
-    rectangle v = pure . rectangle $ v
-
--- | And a rectangle can also inhabit any applicative functor as a glyphwrapped compound tree.
-instance (HasSpace (f (Glyph (CompoundTree s))),s ~ SpaceOf (f (Glyph (CompoundTree s))), Applicative f, Space s)
-         => HasRectangle (f (Glyph (CompoundTree s))) where
-    rectangle v = pure . Glyph (Box zeroPoint v) . rectangle $ v
-
 -- | Basic circleCurve
-circleCurve :: (Space s, Chain f) => OpenCurve_ f s
+circleCurve :: (Space s, Chain f, Show (f (Bezier s))) => OpenCurve_ f s
 circleCurve = makeArc fullTurn
-centerCircle :: (Fractional (SpaceOf a), SimpleTransformable a) => a -> a
-centerCircle = id -- scaleBy 0.5 . translateByXY 0.5 0.5 -- . scaleBy 0.5
 
 -- | Typeclass of shape representations that implement a circle.
 class HasCircle a where
   circle :: a
 
--- | Basic instance of a rectangle.
-instance (Chain f, Space s) => HasCircle (Outline_ f s) where
+-- | Basic instances of a circle.
+instance (Chain f, Space s, Show (f (Bezier s))) => HasCircle (Outline_ f s) where
     circle = closeOpenCurve circleCurve
 
 instance (Space s) => HasCircle (Shape s) where
@@ -182,15 +154,3 @@ instance Space s => HasCircle (CompoundTree s) where
 -- | Glyph wrapper instance around a rectangle.
 instance Space s => HasCircle (Glyph (CompoundTree s)) where
     circle = glyphWrapShape $ circle
-
-{-
--- | A rectangle can also inhabit any applicative functor as a compound tree.
-instance (HasSpace (f (CompoundTree s)),s ~ SpaceOf (f (CompoundTree s)), Applicative f, Space s)
-         => HasCircle (f (CompoundTree s)) where
-    circle = pure circle
-
--- | And a rectangle can also inhabit any applicative functor as a glyphwrapped compound tree.
-instance (HasSpace (f (Glyph (CompoundTree s))),s ~ SpaceOf (f (Glyph (CompoundTree s))), Applicative f, Space s)
-         => HasCircle (f (Glyph (CompoundTree s))) where
-    circle = pure . glyphWrapShape $ circle
--}

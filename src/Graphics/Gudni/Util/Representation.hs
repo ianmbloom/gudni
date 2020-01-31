@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Graphics.Gudni.Util.Representation
   ( HasRepresentation(..)
@@ -21,6 +22,7 @@ import Linear.V2
 import Linear.V3
 import Control.Monad
 import Control.Applicative
+import Control.Lens
 
 mkLine :: Space s => V2 (Point2 s) -> Bezier s
 mkLine (V2 a b) = line a b
@@ -28,7 +30,7 @@ mkLine (V2 a b) = line a b
 openCircle :: forall s . Space s => s -> CompoundTree s
 openCircle r = mask . strokeOffset 0 (r/2) . scaleBy r $ (circle :: Outline s)
 closedCircle :: forall s . Space s => s -> CompoundTree s
-closedCircle r = mask . Shape . pure . scaleBy r $ (circle :: Outline s)
+closedCircle r = maskOutline . scaleBy r $ (circle :: Outline s)
 
 class (HasSpace t) => HasRepresentation t where
     represent :: Bool -> t -> ShapeTree Int (SpaceOf t)
@@ -39,30 +41,27 @@ instance Space s => HasRepresentation (Bezier s) where
         overlap [ colorWith red   $ translateBy v0 $ closedCircle r
                 , colorWith blue  $ translateBy  c $ openCircle r
                 , colorWith red   $ translateBy v1 $ closedCircle r
-                , colorWith black $ mask . stroke 1 $ bz
+                , colorWith black $ maskOutline . stroke 1 $ bz
                 ]
 
-instance (Alternative f, Monad f, Foldable f, Space s) => HasRepresentation (Outline_ f s) where
-    represent dk (Outline bs) = overlap . fmap (represent dk) . (if dk then join . fmap deKnob else id) $ bs
+instance (Alternative f, Monad f, Foldable f, Space s, Show (f (Bezier s))) => HasRepresentation (Outline_ f s) where
+    represent dk = overlap . fmap (represent dk) . (if dk then join . fmap deKnob else id) . view outlineSegments
 
-instance (Functor f, Foldable f, Space s) => HasRepresentation (OpenCurve_ f s) where
-    represent dk (OpenCurve bs) = overlap . fmap (represent dk) $ bs
+instance (Functor f, Foldable f, Space s, Show (f (Bezier s)), Show (f (ShapeTree Int s))) => HasRepresentation (OpenCurve_ f s) where
+    represent dk = overlap . fmap (represent dk) .  view curveSegments
 
 instance Space s => HasRepresentation (Shape s) where
-    represent dk (Shape outlines) = overlap . fmap (represent dk) $ outlines
+    represent dk = overlap . fmap (overlap . fmap (represent dk) . view outlineSegments) . view shapeOutlines
 
 instance (Space s, Show token) => HasRepresentation (ShapeTree token s) where
     represent dk tree = overlap . fmap (represent dk) . flattenShapeTree $ tree
 
-
 instance (Space s, Space t, s~t) => HasRepresentation (FacetSide s t) where
     represent dk facetSide@(FacetSide sceneSide textureSide) =
-        overlap [represent dk sceneSide, colorWith green . mask . stroke 0.25 . mkLine $ textureSide]
+        overlap [represent dk sceneSide, colorWith green . maskOutline . stroke 0.25 . mkLine $ textureSide]
 
 instance (Space s, Space t, s~t) => HasRepresentation (Facet_ s t) where
     represent dk facet@(Facet sides) = overlap . fmap (represent dk) $ sides
-
-
 
 {-
 instance (Space s, Space t, s~t) => HasRepresentation (HardFacet_ s t) where

@@ -58,11 +58,11 @@ instance Model StrokeState where
         bz  = Bez (Point2 0 0) (Point2 40 0) (Point2 20 40)
         bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)
         bz3 = Bez (Point2 40 80) (Point2 40 90) (Point2 40 100)
-        path = makeOpenCurve $ [bz,bz2,bz3]
+        path = makeOpenCurve [bz,bz2,bz3]
         stroked :: ShapeTree Int SubSpace
         stroked =
             colorWith blue .
-            mask .
+            maskOutline .
             stroke 2 $ path
         projected :: ShapeTree Int SubSpace
         projected =

@@ -62,9 +62,16 @@ instance (Space s) => SimpleTransformable (Point2 s) where
 instance (Space s) => Transformable (Point2 s) where
     rotateBy    = rotate
 
-instance {-# OVERLAPPABLE #-} (PointContainer t, HasSpace t, Space (SpaceOf t)) => SimpleTransformable t where
+instance (SimpleTransformable a) => SimpleTransformable [a] where
+    translateBy v = map (translateBy v)
+    scaleBy     s = map (scaleBy s)
+    stretchBy   p = map (stretchBy p)
+instance (Transformable a) => Transformable [a] where
+    rotateBy    a = map (rotateBy a)
+
+instance {-# OVERLAPPABLE #-} (HasSpace t, Space (SpaceOf t), PointContainer t) => SimpleTransformable t where
     translateBy p = mapOverPoints (translateBy p)
     scaleBy     s = mapOverPoints (scaleBy s)
     stretchBy   p = mapOverPoints (stretchBy p)
-instance {-# OVERLAPPABLE #-} (PointContainer t, Space (SpaceOf t)) => Transformable t where
+instance {-# OVERLAPPABLE #-} (HasSpace t, Space (SpaceOf t), PointContainer t) => Transformable t where
     rotateBy    a = mapOverPoints (rotateBy a)

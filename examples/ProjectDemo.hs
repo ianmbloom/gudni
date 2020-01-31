@@ -30,6 +30,7 @@ import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Representation
 import Graphics.Gudni.Util.Subdividable
 import Graphics.Gudni.Util.Segment
+import Graphics.Gudni.Util.Debug
 
 import qualified Graphics.Gudni.Figure.Bezier as B
 
@@ -38,6 +39,7 @@ import Control.Monad.State
 import Linear
 import Linear.Affine
 import qualified Data.Vector as V
+import Control.Applicative
 
 
 import Data.Maybe
@@ -59,32 +61,34 @@ slantedLine = segmentsToShape [[Seg (Point2 0 0) Nothing, Seg (Point2 0.25 0) No
 instance Model ProjectionState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
-    --shouldLoop _ = False
     constructScene state _status =
         do text <- (^?! unGlyph) <$> blurb 0.1 AlignMin "e" -- "Georg Guðni Hauksson"
            let angle   = state ^. stateBase . stateAngle
                repMode = state ^. stateBase . stateRepMode
                repDk   = state ^. stateBase . stateRepDk
                offset  = state ^. stateOffset
-           return . Scene gray $
-               (if repMode then represent repDk else id) $
-               ((transformFromState {-(set stateAngle (0 @@ deg)-} (state ^. stateBase){-)-} $
-               overlap [ --testCurve 0
-                       --, testCurve 2
-                       colorWith (transparent 0.2 $ dark green) . mask . stroke 10 $ path
-                       , doubleCircleDotted path
-                       , doubleDotted path
-                       , colorWith (dark red) . projectOnto False path . translateBy (offset `by` 0) . rotateBy angle . rectangle $ 100 `by` 20
-                       ]) :: ShapeTree Int SubSpace)
+           return .
+               Scene gray .
+               (if repMode then represent repDk else id) .
+               transformFromState (state ^. stateBase) .
+               overlap $
+               [-- testCurve 0
+               --, testCurve 2
+               colorWith (transparent 0.2 $ dark green) . maskOutline . stroke 10 $ path
+               , doubleSlashDotted path
+               , doubleDotted path
+               , colorWith (dark red) . projectOnto False path . translateBy (offset `by` 0) . rotateBy (state ^. stateInsideAngle) . rectangle $ 300 `by` 20
+               ]
       where
         bzX  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0) :: Bezier SubSpace
-
-        bz1 = Bez (Point2 20 0) (Point2 0 0) (Point2 0 40)
+        bz1 = Bez (Point2 20 0) (Point2 0   0) (Point2 0 40)
         bz2 = Bez (Point2 0 40) (Point2 0 80) (Point2 40 80)
         bz3 = Bez (Point2 40 80) (Point2 80 80) (Point2 80 160)
+        bz4 = Bez (Point2 80 160) (Point2 80 300) (Point2 160 300)
         myline = line (0 `by` 0) (0.5 `by` 0) :: Bezier SubSpace
         smallBz = Bez (Point2 0 0) (Point2 100 100) (Point2 10 100) :: Bezier SubSpace
-        path = makeOpenCurve [bz1,bz2,bz3]
+        path :: OpenCurve_ V.Vector SubSpace
+        path = makeOpenCurve [bz1, bz2, bz3{-, bz4-}]
         doubleDotted :: OpenCurve SubSpace -> ShapeTree Int SubSpace
         doubleDotted path =
            let thickness = 2
@@ -104,22 +108,22 @@ instance Model ProjectionState where
                replicate 2 .
                rectangle $
                dotLength `by` thickness
-        doubleCircleDotted :: OpenCurve SubSpace -> ShapeTree Int SubSpace
-        doubleCircleDotted path =
+        doubleSlashDotted :: OpenCurve SubSpace -> ShapeTree Int SubSpace
+        doubleSlashDotted path =
            let thickness = 2
                betweenGap = 1
                dotLength = 8
                dotGap = 2
-               numDots = floor (arcLength path / 2)
-           in  colorWith black .
+               numDots = floor (arcLength path / 1)
+           in  colorWith orange .
                projectOnto False path .
                translateByXY (state ^. stateOffset) 0 .
                translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
                overlap .
-               horizontallySpacedBy 2 .
+               horizontallySpacedBy 1 .
                replicate numDots .
                mask .
-               scaleBy 4 $
+               scaleBy 2 $
                slantedLine
         testCurve :: Int -> ShapeTree Int SubSpace
         testCurve steps =
@@ -130,7 +134,7 @@ instance Model ProjectionState where
             rotateBy (state ^. stateInsideAngle) .
             subdivide steps .
             makeOpenCurve .
-            (pure :: Bezier SubSpace -> V.Vector (Bezier SubSpace)) $
+            pure $
             myline
     providePictureMap _ = noPictures
     handleOutput state target = do

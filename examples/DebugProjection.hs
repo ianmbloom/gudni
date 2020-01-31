@@ -90,7 +90,7 @@ projectCurveDemoWithStepsAccuracy debugFlag max_steps m_accuracy start sourceCur
       in  if t0 == t1 -- the curve is vertical.
           then let -- Just project the start and end points
                    c = mid p0 p1
-               in  colorWith green . mask . stroke 0.004 $ Bez p0 c p1
+               in  colorWith green . maskOutline . stroke 0.004 $ Bez p0 c p1
           else let split = 0.5 --(tC - t0) / (t1 - t0)
                    pM = projPoint sourceCurve (eval split targetCurveCorrected)
                    (oC, normalC) = bezierPointAndNormal sourceCurve tC
@@ -129,9 +129,9 @@ projectCurveDemoWithStepsAccuracy debugFlag max_steps m_accuracy start sourceCur
                            --, colorWith (yellow  )  . translateBy finalOnCurve $ overlap [openCircle 0.01, closedCircle 0.003]
                            , overlap controlPoints
                            --, overlap . fmap (\p -> colorWith (red ) . translateBy p $ closedCircle 1.015) $ notLast curvePoints
-                           , colorWith orange  . mask . stroke 0.004 $ line oC (oC .+^ normalC)
-                           , colorWith (light blue)    . mask . stroke 0.004 $ final
-                           , colorWith black . mask . strokeOffset 0 0.01 $ sourceCurve
+                           , colorWith orange       . maskOutline . stroke 0.004 $ line oC (oC .+^ normalC)
+                           , colorWith (light blue) . maskOutline . stroke 0.004 $ final
+                           , colorWith black        . maskOutline . strokeOffset 0 0.01 $ sourceCurve
                            ]
 
 instance HasToken ProjectionState where
@@ -139,10 +139,7 @@ instance HasToken ProjectionState where
 
 instance Model ProjectionState where
     screenSize state = Window (Point2 500 250)
-    shouldLoop _ = True
-    fontFile _ = findDefaultFont
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
-    ioTask = return
     constructScene state _status =
         do text <- (^?! unGlyph) <$> blurb 0.1 AlignMin "e" -- "Georg Guðni Hauksson"
            let angle   = state ^. stateBase . stateAngle
@@ -156,11 +153,6 @@ instance Model ProjectionState where
       where
         bz  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0) :: Bezier SubSpace
         myline = line (0 `by` 0) (0.5 `by` 0) :: Bezier SubSpace
-
-    providePictureMap _ = noPictures
-    handleOutput state target = do
-        presentTarget target
-        return state
 
 instance HandlesInput token ProjectionState where
    processInput input =

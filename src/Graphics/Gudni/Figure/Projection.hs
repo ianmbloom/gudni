@@ -65,8 +65,7 @@ instance (s ~ (SpaceOf (f (Bezier s))), Space s, Show (f (Bezier s)), Chain f) =
       let fixed :: f (Bezier s)
           fixed = join . fmap deKnob $ beziers
       in  trWhen debug  "projected" $
-          join . fmap (traverseBezierSpace debug max_steps m_accuracy
-                       bSpace) $ fixed
+          join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ fixed
 
 data BezierSpace s = BezierSpace
   { bsStart  :: Point2 s
@@ -295,25 +294,24 @@ projectCurve debugFlag max_steps m_accuracy start sourceCurve targetCurve =
                  projectAndTest t y = let control = Point2 t y -- testControlPoint t y
                                           projected = projectedMid control
                                       in  (control, projected, quadrance (projected .-. pM))
-                 findControl left top right bottom =
+                 findControl left top right bottom count =
                     let (ltControl, ltProjected, ltDistance) = projectAndTest left  top
                         (rtControl, rtProjected, rtDistance) = projectAndTest right top
                         (lbControl, lbProjected, lbDistance) = projectAndTest left  bottom
                         (rbControl, rbProjected, rbDistance) = projectAndTest right bottom
                         midX = (left + right) / 2
                         midY = (top + bottom) / 2
-                    in  if (abs (right - left) > 0.00001)
+                    in  if (abs (right - left) > 0.00001) && (count > 0)
                         then let (left', right') = if (ltDistance <= rtDistance)
                                                     then (left, midX)
                                                     else (midX, right)
                                  (top', bottom') = if (ltDistance <= lbDistance)
                                                    then (top, midY)
                                                    else (midY, bottom)
-                               in findControl left' top' right' bottom'
+                               in findControl left' top' right' bottom' (count-1)
                         else ltControl
-                 finalControl = findControl (-1000) 2000 1000 (-2000)
-             in Bez p0 finalControl p1
-
+                 finalControl = findControl (-1000) 2000 1000 (-2000) 16
+             in  Bez p0 finalControl p1
 
 bezierIsForward (Bez v0 _ v1) = v0 ^. pX <= v1 ^. pX
 
