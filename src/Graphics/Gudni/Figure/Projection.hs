@@ -142,6 +142,16 @@ makeBezierSpace lengthFun chain =
                            Nothing -> Just $ leftSpace
                    Nothing -> Nothing
 
+fillGap :: forall f s . (Space s, Chain f) => f (Bezier s) -> f (Bezier s) -> f (Bezier s)
+fillGap leftResult rightResult =
+  let leftEnd  = (lastLink leftResult  ) ^. bzEnd
+      rightStart = (firstLink rightResult) ^. bzStart
+      filler :: f (Bezier s)
+      filler = if leftEnd /= rightStart
+               then pure (line leftEnd rightStart)
+               else empty
+  in leftResult <|> filler <|> rightResult
+
 traverseBezierSpace :: forall s f
                     .  (Space s, Alternative f, Chain f)
                     => Bool
@@ -167,27 +177,25 @@ traverseBezierSpace debug max_steps m_accuracy bSpace@(BezierSpace sPoint sNorma
                then let (leftBz, rightBz) = splitBezierX splitX bz
                         leftResult  = go start  sPoint     sNormal     splitX splitPoint leftNormal leftTree  leftBz
                         rightResult = go splitX splitPoint rightNormal end    ePoint     eNormal    rightTree rightBz
-                    in  leftResult <|> rightResult
+                    in  fillGap leftResult rightResult
                else go start  sPoint     sNormal     splitX splitPoint leftNormal leftTree  bz
-           else      go splitX splitPoint rightNormal end    ePoint     eNormal   rightTree bz
+           else     go splitX splitPoint rightNormal end    ePoint     eNormal   rightTree bz
        BezierLeaf curveLength control ->
-         if box ^. leftSide < start
-         then
-              if box ^. rightSide > start
-              then let (leftBz, rightBz) = splitBezierX start bz
-                       leftResult  = pure (projectTangentBezier start sPoint sNormal leftBz)
-                       rightResult = go start sPoint sNormal end ePoint eNormal tree rightBz
-                   in  leftResult <|> rightResult
-              else pure (projectTangentBezier start sPoint sNormal bz)
-         else if box ^. rightSide > end
-              then
-                  if box ^. leftSide < end
-                  then let (leftBz, rightBz)  = splitBezierX end bz
-                           leftResult  = go start sPoint sNormal end ePoint eNormal tree leftBz
-                           rightResult = pure (projectTangentBezier end ePoint eNormal rightBz)
-                       in  leftResult <|> rightResult
-                  else pure (projectTangentBezier end ePoint eNormal bz)
-              else pure (mkOffsetCurve debug max_steps m_accuracy start sPoint sNormal end ePoint eNormal control curveLength bz)
+           if box ^. leftSide < start
+           then if box ^. rightSide > start
+                then let (leftBz, rightBz) = splitBezierX start bz
+                         leftResult  = pure (projectTangentBezier start sPoint sNormal leftBz)
+                         rightResult = go start sPoint sNormal end ePoint eNormal tree rightBz
+                     in  fillGap leftResult rightResult
+                else pure (projectTangentBezier start sPoint sNormal bz)
+           else if box ^. rightSide > end
+                then if box ^. leftSide < end
+                     then let (leftBz, rightBz)  = splitBezierX end bz
+                              leftResult  = go start sPoint sNormal end ePoint eNormal tree leftBz
+                              rightResult = pure (projectTangentBezier end ePoint eNormal rightBz)
+                          in  fillGap leftResult rightResult
+                     else pure (projectTangentBezier end ePoint eNormal bz)
+                else pure (mkOffsetCurve debug max_steps m_accuracy start sPoint sNormal end ePoint eNormal control curveLength bz)
 
 projectTangentPoint :: Space s => s -> Point2 s -> Diff Point2 s -> Point2 s -> Point2 s
 projectTangentPoint offset v0 normal (Point2 x y) =
@@ -278,25 +286,34 @@ projectCurve debugFlag max_steps m_accuracy start sourceCurve targetCurve =
         then let -- Just project the start and end points
                  c = mid p0 p1
              in  Bez p0 c p1
-        else let split = 0.5
-                 pM = {-tr "pM" $-} projPoint sourceCurve (eval split targetCurveCorrected)
+        else let split = 0.5 --(tC - t0) / (t1 - t0)
+                 pM = projPoint sourceCurve (eval split targetCurveCorrected)
                  (oC, normalC) = bezierPointAndNormal sourceCurve tC
-                 testControlPoint y = oC .+^ (y *^ normalC)
+                 testControlPoint t y = let  (oC, normalC) = bezierPointAndNormal sourceCurve t
+                                        in   oC .+^ (y *^ normalC)
                  projectedMid control = eval split (Bez p0 control p1)
-                 findControl top bottom =
-                    let topControl      = testControlPoint top
-                        topProjected    = {-tr "topProj" $-} projectedMid topControl
-                        bottomControl   = testControlPoint bottom
-                        bottomProjected = {-tr "botProj" $-} projectedMid bottomControl
-                        mid = (top + bottom) / 2
-                    in  if (abs (top - bottom) > 0.001)
-                        then
-                            if (tr "taxi top" $ taxiDistance topProjected pM) <= (tr "taxi bot" $ taxiDistance bottomProjected pM)
-                            then findControl top mid
-                            else findControl mid bottom
-                        else topControl
-             in  -- return the resulting curve.
-                 Bez p0 (findControl (-200) 200) p1
+                 projectAndTest t y = let control = Point2 t y -- testControlPoint t y
+                                          projected = projectedMid control
+                                      in  (control, projected, quadrance (projected .-. pM))
+                 findControl left top right bottom =
+                    let (ltControl, ltProjected, ltDistance) = projectAndTest left  top
+                        (rtControl, rtProjected, rtDistance) = projectAndTest right top
+                        (lbControl, lbProjected, lbDistance) = projectAndTest left  bottom
+                        (rbControl, rbProjected, rbDistance) = projectAndTest right bottom
+                        midX = (left + right) / 2
+                        midY = (top + bottom) / 2
+                    in  if (abs (right - left) > 0.00001)
+                        then let (left', right') = if (ltDistance <= rtDistance)
+                                                    then (left, midX)
+                                                    else (midX, right)
+                                 (top', bottom') = if (ltDistance <= lbDistance)
+                                                   then (top, midY)
+                                                   else (midY, bottom)
+                               in findControl left' top' right' bottom'
+                        else ltControl
+                 finalControl = findControl (-1000) 2000 1000 (-2000)
+             in Bez p0 finalControl p1
+
 
 bezierIsForward (Bez v0 _ v1) = v0 ^. pX <= v1 ^. pX
 

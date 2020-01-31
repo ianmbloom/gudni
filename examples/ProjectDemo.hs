@@ -54,6 +54,8 @@ makeLenses ''ProjectionState
 instance HasToken ProjectionState where
   type TokenOf ProjectionState = Int
 
+slantedLine :: Shape SubSpace
+slantedLine = segmentsToShape [[Seg (Point2 0 0) Nothing, Seg (Point2 0.25 0) Nothing, Seg (Point2 1.25 1) Nothing, Seg (Point2 1 1) Nothing]]
 instance Model ProjectionState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
@@ -67,12 +69,12 @@ instance Model ProjectionState where
            return . Scene gray $
                (if repMode then represent repDk else id) $
                ((transformFromState {-(set stateAngle (0 @@ deg)-} (state ^. stateBase){-)-} $
-               overlap [ testCurve 0
-                       , testCurve 2
-                      --colorWith (transparent 0.2 $ dark green) . mask . stroke 10 $ path
-                       --, doubleCircleDotted path
-                       --, doubleDotted path
-                       --, colorWith (dark red) . projectOnto False path . translateBy (offset `by` 0) . rotateBy angle . rectangle $ 100 `by` 20
+               overlap [ --testCurve 0
+                       --, testCurve 2
+                       colorWith (transparent 0.2 $ dark green) . mask . stroke 10 $ path
+                       , doubleCircleDotted path
+                       , doubleDotted path
+                       , colorWith (dark red) . projectOnto False path . translateBy (offset `by` 0) . rotateBy angle . rectangle $ 100 `by` 20
                        ]) :: ShapeTree Int SubSpace)
       where
         bzX  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0) :: Bezier SubSpace
@@ -108,19 +110,17 @@ instance Model ProjectionState where
                betweenGap = 1
                dotLength = 8
                dotGap = 2
-               numDots = floor (arcLength path / (dotLength + dotGap))
+               numDots = floor (arcLength path / 2)
            in  colorWith black .
                projectOnto False path .
                translateByXY (state ^. stateOffset) 0 .
                translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
                overlap .
-               horizontallySpacedBy (dotLength + dotGap) .
+               horizontallySpacedBy 2 .
                replicate numDots .
-               overlap .
-               verticallySpacedBy (thickness + betweenGap) .
-               replicate 2 .
-               scaleBy 1.5 $
-               circle
+               mask .
+               scaleBy 4 $
+               slantedLine
         testCurve :: Int -> ShapeTree Int SubSpace
         testCurve steps =
             represent False $
@@ -128,8 +128,8 @@ instance Model ProjectionState where
             projectOnto True (makeOpenCurve [bzX]) .
             translateBy ((state ^. stateOffset) `by` 0) .
             rotateBy (state ^. stateInsideAngle) .
-            makeOpenCurve .
             subdivide steps .
+            makeOpenCurve .
             (pure :: Bezier SubSpace -> V.Vector (Bezier SubSpace)) $
             myline
     providePictureMap _ = noPictures
@@ -144,8 +144,8 @@ instance HandlesInput token ProjectionState where
           case (input ^. inputType) of
               (InputKey Pressed _ inputKeyboard) ->
                   do  case inputKeyboard of
-                          Key ArrowRight -> stateOffset += 0.01
-                          Key ArrowLeft  -> stateOffset -= 0.01
+                          Key ArrowRight -> stateOffset += 10.01
+                          Key ArrowLeft  -> stateOffset -= 10.01
                           Key ArrowUp    -> stateInsideAngle %= normalizeAngle . (^+^ (3 @@ deg))
                           Key ArrowDown  -> stateInsideAngle %= normalizeAngle . (^-^ (3 @@ deg))
                           _ -> return ()

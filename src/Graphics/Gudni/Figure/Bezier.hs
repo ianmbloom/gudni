@@ -11,6 +11,7 @@ module Graphics.Gudni.Figure.Bezier
   , bzControl
   , bzEnd
   , bzPoints
+  , unfoldBezier
   , pattern Bez
   , overBezier
   , reverseBezier
@@ -32,7 +33,6 @@ import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Util.Chain
-
 
 import Numeric.Interval
 import Linear
@@ -64,6 +64,12 @@ bzEnd elt_fn (Bez v0 c v1) = (\v1' -> Bez v0 c v1') <$> (elt_fn v1)
 
 bzPoints :: Lens' (Bezier s) (V3 (Point2 s))
 bzPoints elt_fn (Bezier v3) = (\v3' -> Bezier v3') <$> (elt_fn v3)
+
+unfoldV3 :: Alternative f => V3 a -> f a
+unfoldV3 (V3 a b c) = pure a <|> pure b <|> pure c
+
+unfoldBezier :: Alternative f => Bezier s -> f (Point2 s)
+unfoldBezier = unfoldV3 . view bzPoints
 
 instance Space s => SimpleTransformable (Bezier s) where
     translateBy delta = over bzPoints (fmap (translateBy delta))

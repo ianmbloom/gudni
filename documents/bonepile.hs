@@ -1,3 +1,21 @@
+instance (SimpleTransformable a) => SimpleTransformable [a] where
+    translateBy v = map (translateBy v)
+    scaleBy s = map (scaleBy s)
+    stretchBy s = map (stretchBy s)
+
+instance (Transformable a) => Transformable [a] where
+    rotateBy a = map (rotateBy a)
+
+instance {-# Overlappable #-} (HasSpace a, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Functor f, SimpleTransformable a) => SimpleTransformable (f a) where
+    translateBy v = fmap (translateBy v)
+    scaleBy s = fmap (scaleBy s)
+    stretchBy p = fmap (stretchBy p)
+
+instance {-# Overlappable #-} (HasSpace a, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Functor f, Transformable a) => Transformable (f a) where
+    rotateBy a = fmap (rotateBy a)
+
+
+
 -- | Check if the tile can hold an additional shape without splitting.
 checkTileSpace :: Tile TileEntry -> ItemEntry -> Bool
 checkTileSpace tile itemEntry =

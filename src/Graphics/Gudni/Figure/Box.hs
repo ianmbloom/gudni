@@ -74,28 +74,26 @@ newtype Box s = Bx {unBx :: V2 (Point2 s)} deriving (Eq, Ord)
 -- | Pattern for taking apart boxes
 pattern Box topLeft bottomRight = Bx (V2 topLeft bottomRight)
 
-instance (SimpleSpace s) => HasSpace (Box s) where
+instance (Space s) => HasSpace (Box s) where
   type SpaceOf (Box s) = s
 
 -- | Type synonym for bounding boxes
 type BoundingBox = Box SubSpace
 
-class HasSpace a => HasBox a where
-  boxOf :: a -> Box (SpaceOf a)
+class HasBox t where
+  boxOf :: t -> Box (SpaceOf t)
 
-instance (SimpleSpace s) => HasBox (Box s) where
+instance HasBox (Box s) where
   boxOf box = box
 
-instance (SimpleSpace s) => HasBox (Point2 s) where
+instance HasBox (Point2 s) where
   boxOf p = Box p p
 
-instance (Functor f, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Foldable f, HasBox a) => HasBox (f a) where
-  boxOf = minMaxBoxes . fmap boxOf
-
-
+instance (HasSpace t, Foldable (ContainerFunctor t), Functor (ContainerFunctor t), PointContainer t) => HasBox t where
+  boxOf = minMaxBoxes . fmap boxOf . containedPoints
 
 -- | Get the width of a box.
-widthOf :: (HasBox a) => a -> SpaceOf a
+widthOf :: (Num (SpaceOf a), HasBox a) => a -> SpaceOf a
 widthOf a = let box = boxOf a in box ^. rightSide - box ^. leftSide
 
 -- | Get the height of a box.
@@ -166,17 +164,17 @@ sizeBox   box = makePoint (widthOf box ) (heightOf box)
 areaBox :: (HasBox (Box s), Num s) => Box s -> s
 areaBox   box = widthOf box * heightOf box
 -- | Calculate the smallest box that contains two boxes.
-minMaxBox :: (Num s, Ord s) => Box s -> Box s -> Box s
+minMaxBox :: (SimpleSpace s) => Box s -> Box s -> Box s
 minMaxBox a b = makeBox (min (a ^. leftSide ) (b ^. leftSide )) (min (a ^. topSide   ) (b ^. topSide   ))
                         (max (a ^. rightSide) (b ^. rightSide)) (max (a ^. bottomSide) (b ^. bottomSide))
 
-minMaxBoxes :: (HasBox a, Functor t, Foldable t) => t a -> Box (SpaceOf a)
-minMaxBoxes = foldl minMaxBox (Box maxPoint minPoint) . fmap boxOf
+minMaxBoxes :: (Space s, Foldable t) => t (Box s) -> Box s
+minMaxBoxes = foldl minMaxBox (Box maxPoint minPoint)
   where  minPoint = Point2 minBound minBound
          maxPoint = Point2 maxBound maxBound
 
 -- Boxes have an instance for SimpleTransformable but no instance for Transformable.
-instance SimpleSpace s => SimpleTransformable (Box s) where
+instance Space s => SimpleTransformable (Box s) where
   translateBy p = mapBox (^+^ p)
   stretchBy   p = mapBox (liftA2 (*) p)
   scaleBy     s = mapBox (^* s)

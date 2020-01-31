@@ -220,7 +220,7 @@ splitTreeTiles maxThresholds tree = goV tree
 
 hSplit :: Tile EntrySequence -> HTree EntrySequence
 hSplit tile =
-  let cut = tile ^. tileBox . leftSide + (widthOf (tile ^. tileBox) `div` 2)
+  let cut = fromIntegral $ tile ^. tileBox . leftSide + (widthOf (tile ^. tileBox) `div` 2)
       lEmpty = emptyTile (EntrySequence S.empty) (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set rightSide cut (tile ^. tileBox))
       rEmpty = emptyTile (EntrySequence S.empty) (tile ^. tileHDepth - 1) (tile ^. tileVDepth) (set leftSide cut (tile ^. tileBox))
       hTree = HTree (fromIntegral cut) (VLeaf lEmpty) (VLeaf rEmpty)
@@ -228,7 +228,7 @@ hSplit tile =
 
 vSplit :: Tile EntrySequence -> VTree EntrySequence
 vSplit tile =
-  let cut = tile ^. tileBox . topSide + (heightOf (tile ^. tileBox) `div` 2)
+  let cut = fromIntegral $ tile ^. tileBox . topSide + (heightOf (tile ^. tileBox) `div` 2)
       tEmpty = emptyTile (EntrySequence S.empty) (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set bottomSide cut (tile ^. tileBox))
       bEmpty = emptyTile (EntrySequence S.empty) (tile ^. tileHDepth) (tile ^. tileVDepth - 1) (set topSide    cut (tile ^. tileBox))
       vTree = VTree (fromIntegral cut) (HLeaf tEmpty) (HLeaf bEmpty)

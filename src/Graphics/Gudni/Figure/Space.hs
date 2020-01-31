@@ -45,6 +45,8 @@ import Data.Hashable
 -- import qualified Data.Vector.Storable as V
 import qualified Data.Vector as V
 
+import Data.Kind
+
 import GHC.Float (double2Float)
 
 import Foreign.Storable
@@ -80,8 +82,8 @@ type TextureSpace_ = Float
 newtype TextureSpace = TSpace {unTSpace :: TextureSpace_ } deriving (Enum, Epsilon, RealFrac, Fractional, Real, Num, Ord, Eq, RealFloat, Floating)
 instance Bounded TextureSpace where { minBound = TSpace (-1/0); maxBound = TSpace(1/0) }
 
-class (SimpleSpace (SpaceOf a)) => HasSpace a where
-  type SpaceOf a
+class (Space (SpaceOf a)) => HasSpace a where
+  type SpaceOf a :: Type
 
 instance (HasSpace a) => HasSpace [a] where
   type SpaceOf [a] = SpaceOf a
@@ -118,7 +120,7 @@ instance Random TextureSpace where
 -------------------- Show --------------------------
 
 instance Show SubSpace where
-  show (SubSpace x) = (if x < 0 then \string -> "("++string++")" else id) $ showFl' 5 x 
+  show (SubSpace x) = (if x < 0 then \string -> "("++string++")" else id) $ showFl' 5 x
 
 instance Show TextureSpace where
   show (TSpace x) = showFl' 5 x

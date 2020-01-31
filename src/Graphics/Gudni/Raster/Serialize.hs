@@ -203,7 +203,7 @@ onShape :: MonadIO m
         -> SubstanceMonad token s (GeometryMonad m) ()
 onShape substanceId combineType transformer shape =
   do let transformedOutlines = V.fromList . map (applyTransformer transformer) $ view shapeOutlines shape
-         boundingBox = boxOf transformedOutlines
+         boundingBox = minMaxBoxes (fmap boxOf transformedOutlines)
      canvasSize <- lift $ use geoCanvasSize
      if excludeBox canvasSize boundingBox
      then return ()

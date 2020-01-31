@@ -20,7 +20,8 @@
 -- Defines a point structure which has orthoganal components.
 
 module Graphics.Gudni.Figure.Point
-  ( Point2 (..)
+  ( PointContainer(..)
+  , Point2 (..)
   , pattern Point2
   , pattern P
   , zeroPoint
@@ -47,6 +48,7 @@ module Graphics.Gudni.Figure.Point
 where
 
 import Graphics.Gudni.Figure.Space
+import Graphics.Gudni.Util.Chain
 
 import Data.Hashable
 
@@ -61,12 +63,19 @@ import Foreign.Ptr
 import Control.Monad.Random
 import Control.DeepSeq
 import Control.Lens
+import Data.Kind
 
 type Point2 = Point V2
 pattern Point2 x y = P (V2 x y)
 
-instance (SimpleSpace s) => HasSpace (Point2 s) where
+instance Space s => HasSpace (Point2 s) where
   type SpaceOf (Point2 s) = s
+
+class ( Chain (ContainerFunctor t)
+      , HasSpace t) => PointContainer t where
+   type ContainerFunctor t :: Type -> Type
+   containedPoints :: (Functor (ContainerFunctor t)) => t -> (ContainerFunctor t) (Point2 (SpaceOf t))
+   mapOverPoints   :: (Point2 (SpaceOf t) -> Point2 (SpaceOf t)) -> t -> t
 
 zeroPoint :: Num s => Point2 s
 zeroPoint = Point2 0 0

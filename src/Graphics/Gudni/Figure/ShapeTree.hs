@@ -25,15 +25,16 @@
 -- generates a Scene which contains a ShapeTree for each frame that they wish to render.
 
 module Graphics.Gudni.Figure.ShapeTree
-  ( STree(..)
+  ( Shape_(..)
+  , shapeOutlines
+  , Shape(..)
+  , STree(..)
   , SRep(..)
   , sRepToken
   , sRepSubstance
   , sRep
   , Compound (..)
   , ShapeTree(..)
-  , Shape(..)
-  , shapeOutlines
   , CompoundTree(..)
   , Scene(..)
   , sceneBackgroundColor
@@ -57,6 +58,7 @@ import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Color
 import Graphics.Gudni.Figure.Picture
 import Graphics.Gudni.Figure.Outline
+import Graphics.Gudni.Figure.Bezier
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
@@ -71,11 +73,23 @@ import Data.List
 import Data.Hashable
 import Data.Traversable
 import qualified Data.Map as M
+import Data.Vector as V
 
 import Foreign.C.Types (CInt, CFloat, CUInt)
 
-newtype Shape s = Shape {_shapeOutlines :: [Outline s]} deriving (Show)
-makeLenses ''Shape
+newtype Shape_ f s = Shape {_shapeOutlines :: [Outline_ f s]}
+makeLenses ''Shape_
+
+deriving instance (Show (f (Bezier s))) => Show (Shape_ f s)
+deriving instance (Eq   (f (Bezier s))) => Eq (Shape_ f s)
+deriving instance (Ord  (f (Bezier s))) => Ord (Shape_ f s)
+
+type Shape s = Shape_ V.Vector s
+
+instance ( Space s) => PointContainer (Shape s) where
+   type ContainerFunctor (Shape s) = ContainerFunctor (Outline s)
+   containedPoints = V.concat . fmap containedPoints . view shapeOutlines
+   mapOverPoints f = over shapeOutlines (fmap (mapOverPoints f))
 
 instance Space s => HasSpace (Shape s) where
   type SpaceOf (Shape s) = s
@@ -168,3 +182,10 @@ invertCompound combineType =
     case combineType of
         CompoundAdd      -> CompoundSubtract
         CompoundSubtract -> CompoundAdd
+
+instance (Space s) => SimpleTransformable (Shape s) where
+  translateBy p = mapOverPoints (translateBy p)
+  scaleBy     s = mapOverPoints (scaleBy s)
+  stretchBy   p = mapOverPoints (stretchBy p)
+instance (Space s) => Transformable (Shape s) where
+  rotateBy    a = mapOverPoints (rotateBy a)

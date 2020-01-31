@@ -68,17 +68,25 @@ data OpenCurve_ t s = OpenCurve
     }
 makeLenses ''OpenCurve_
 
-makeOpenCurve :: Foldable t => t (Bezier s) -> OpenCurve s
-makeOpenCurve = OpenCurve . V.fromList . toList
-
 deriving instance (Show (t (Bezier s))) => Show (OpenCurve_ t s)
 deriving instance (Eq   (t (Bezier s))) => Eq (OpenCurve_ t s)
 deriving instance (Ord  (t (Bezier s))) => Ord (OpenCurve_ t s)
 
-type OpenCurve s = OpenCurve_ V.Vector s
-
 instance Space s => HasSpace (OpenCurve_ t s) where
     type SpaceOf (OpenCurve_ t s) = s
+
+instance ( Chain f
+         , Space s) => PointContainer (OpenCurve_ f s) where
+   type ContainerFunctor (OpenCurve_ f s) = f
+   containedPoints = join . fmap unfoldBezier . view curveSegments
+   mapOverPoints f = over curveSegments (fmap (over bzPoints (fmap f)))
+
+type OpenCurve s = OpenCurve_ V.Vector s
+
+makeOpenCurve :: Foldable t => t (Bezier s) -> OpenCurve_ t s
+makeOpenCurve = OpenCurve
+
+
 
 -- {-# SPECIALIZE arcLength :: OpenCurve Float  -> Float  #-}
 -- {-# SPECIALIZE arcLength :: OpenCurve Double -> Double #-}
@@ -119,16 +127,9 @@ instance (NFData s, NFData (t (Bezier s))) => NFData (OpenCurve_ t s) where
 
 instance (s ~ (SpaceOf (f (Bezier s))), Space s, Monad f, Alternative f, Show (f (Bezier s)), Chain f) => CanProject (BezierSpace s) (OpenCurve_ f s) where
     projectionWithStepsAccuracy debug max_steps m_accuracy bSpace curve =
-         OpenCurve . overChainNeighbors fixBezierNeighbor . projectionWithStepsAccuracy debug max_steps m_accuracy bSpace . view curveSegments $ curve
+         OpenCurve . {-overChainNeighbors fixBezierNeighbor .-} projectionWithStepsAccuracy debug max_steps m_accuracy bSpace . view curveSegments $ curve
 
 instance (Chain f, Space s, CanProject (BezierSpace s) t, Show (f (Bezier s)), Chain f) => CanProject (OpenCurve_ f s) t where
     projectionWithStepsAccuracy debug max_steps m_accuracy path t =
       let bSpace = makeBezierSpace arcLength (view curveSegments path)
       in  projectionWithStepsAccuracy debug max_steps m_accuracy bSpace t
-
-instance (Functor t, Space s) => SimpleTransformable (OpenCurve_ t s) where
-    translateBy p = overCurvePoints (translateBy p)
-    scaleBy     s = overCurvePoints (scaleBy s)
-    stretchBy   p = overCurvePoints (stretchBy p)
-instance (Functor t, Space s) => Transformable (OpenCurve_ t s) where
-    rotateBy    a = overCurvePoints (rotateBy a)
