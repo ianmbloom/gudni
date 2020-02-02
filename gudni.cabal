@@ -101,13 +101,13 @@ library
                      , Graphics.Gudni.Raster.Constants
                      , Graphics.Gudni.OpenCL.Setup
                      , Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
+                     , Graphics.Gudni.OpenCL.PrepareBuffers
                      , Graphics.Gudni.OpenCL.CallKernels
                      , Graphics.Gudni.OpenCL.CppDefines
                      , Graphics.Gudni.OpenCL.Instances
                      , Graphics.Gudni.OpenCL.Rasterizer
                      , Graphics.Gudni.Raster.ItemInfo
                      , Graphics.Gudni.Raster.Serialize
-                     , Graphics.Gudni.Raster.Job
                      , Graphics.Gudni.Raster.Strand
                      , Graphics.Gudni.Raster.Enclosure
                      , Graphics.Gudni.Raster.ReorderTable

@@ -16,6 +16,7 @@
 
 module Graphics.Gudni.Interface.Query
   ( PointQueryId(..)
+  , PointQueryResult(..)
   , pullQueries
   , attachQueryResults
   )
@@ -30,6 +31,7 @@ import Foreign.Ptr
 
 import Control.DeepSeq
 import qualified Data.Sequence as S
+import qualified Data.Map      as M
 import Data.List.Lens
 import Control.Lens
 import Control.Lens.Indexed
@@ -37,6 +39,7 @@ import Data.Maybe
 
 type PointQueryId_ = Int
 newtype PointQueryId = PointQueryId {unPointQueryId :: PointQueryId_} deriving (Show, Eq, Ord, Num)
+type PointQueryResult token = (PointQueryId,Maybe token)
 
 instance Storable PointQueryId where
   sizeOf (PointQueryId a) = sizeOf a

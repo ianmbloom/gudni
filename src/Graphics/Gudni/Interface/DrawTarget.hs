@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Gudni.Interface.DrawTarget
@@ -13,6 +15,9 @@
 module Graphics.Gudni.Interface.DrawTarget
   ( TargetBuffer(..)
   , DrawTarget(..)
+  , targetArea
+  , targetTexture
+  , targetBuffer
   , isHostBitmapTarget
   , TextureObject (..)
   , OutputPtr(..)
@@ -23,6 +28,7 @@ import Linear
 import Foreign.C.Types (CInt, CUInt)
 import Foreign.Ptr
 import qualified SDL
+import Control.Lens
 
 import Graphics.Rendering.OpenGL (TextureObject(..))
 
@@ -36,14 +42,15 @@ data TargetBuffer
 
 -- | Target buffer with metadata.
 data DrawTarget = DrawTarget
-    { targetArea    :: V2 CInt
-    , targetTexture :: SDL.Texture
-    , targetBuffer  :: TargetBuffer
+    { _targetArea    :: V2 CInt
+    , _targetTexture :: SDL.Texture
+    , _targetBuffer  :: TargetBuffer
     }
+makeLenses ''DrawTarget
 
 -- | Return true if the DrawTarget is a CPU memory buffer.
 isHostBitmapTarget :: DrawTarget -> Bool
 isHostBitmapTarget target =
-    case targetBuffer target of
+    case target ^. targetBuffer of
         HostBitmapTarget _ -> True
         _                  -> False

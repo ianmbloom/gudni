@@ -2034,20 +2034,21 @@ void prepThresholdArray( PMEM ThresholdQueue *tQ
     DEBUG_TRACE_END
 }
 
-__kernel void generateThresholds( GMEM      float4  *geometryHeap
-                                , GMEM       Slice  *geoRefHeap
-                                , GMEM   HardFacet  *facetHeap
-                                , GMEM   ITEMTAGID  *itemTagIdHeap
-                                , GMEM     ITEMTAG  *itemTagHeap
-                                , GMEM     TileInfo  *tileHeap
-                                ,              int2   bitmapSize
-                                ,               int   computeDepth
-                                ,               int   frameNumber
-                                ,               int   jobIndex
-                                , GMEM    THRESHOLD  *thresholdHeap
-                                , GMEM       HEADER  *headerHeap
-                                , GMEM        Slice  *qSliceHeap
-                                ) {
+__kernel void generateThresholdsKernel
+     ( GMEM      float4  *geometryHeap
+     , GMEM       Slice  *geoRefHeap
+     , GMEM   HardFacet  *facetHeap
+     , GMEM   ITEMTAGID  *itemTagIdHeap
+     , GMEM     ITEMTAG  *itemTagHeap
+     , GMEM    TileInfo  *tileHeap
+     ,             int2   bitmapSize
+     ,              int   frameNumber
+     ,              int   computeDepth
+     ,              int   jobIndex
+     , GMEM   THRESHOLD  *thresholdHeap
+     , GMEM      HEADER  *headerHeap
+     , GMEM       Slice  *qSliceHeap
+     ) {
     int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
     int   tileThread = TILETHREAD;
     //DEBUG_IF(printf("sizeof(ThresholdQueue)=%i\n", sizeof(ThresholdQueue));)
@@ -2081,66 +2082,18 @@ __kernel void generateThresholds( GMEM      float4  *geometryHeap
     }
 }
 
-__kernel void mergeTiles( GMEM  THRESHOLD *thresholdHeap
-                        , GMEM     HEADER *headerHeap
-                        , GMEM      Slice *qSliceHeap
-                        , GMEM   TileInfo *tileHeap
-                        , GMEM       int2 *tilePairs
-                        ,            int2  bitmapSize
-                        ,             int  computeDepth
-                        ,             int  frameNumber
-                        ,             int  jobIndex
-                        ) {
-    int   tilePairIndex  = INDEX; // the sequential number of the tile in the current workgroup.
-    int   tileThread = TILETHREAD;
-    int2  tilePair = tilePairs[tileIndex];
-    int   tileIndexA = tilePair.0
-    int   tileIndexB = tilePair.1
-    GMEM TileInfo *tileInfoA = getTileInfo(tileHeap, tileIndexA);
-    GMEM TileInfo *tileInfoB = getTileInfo(tileHeap, tileIndexB);
-    TileState tileSA;
-    initTileState ( &tileSA
-                  ,  tileInfoA
-                  ,  bitmapSize
-                  ,  tileThread
-                  ,  jobIndex
-                  ,  computeDepth
-                  );
-    TileState tileSB;
-    initTileState ( &tileSB
-                  ,  tileInfoB
-                  ,  bitmapSize
-                  ,  tileThread
-                  ,  jobIndex
-                  ,  computeDepth
-                  );
-    if (isActiveThread(&tileSA)) {
-        Slice qSliceA = loadQueueSlice(qSliceHeap, &tileSA);
-        ThresholdQueue tQA;
-        initThresholdQueue(&tQA, qSliceA);
-        loadThresholdQueue(&tQA, &tileSA, thresholdHeap, headerHeap);
-
-        Slice qSliceB = loadQueueSlice(qSliceHeap, &tileSB);
-        ThresholdQueue tQB;
-        initThresholdQueue(&tQA, qSliceB);
-        loadThresholdQueue(&tQA, &tileSA, thresholdHeap, headerHeap);
-        mergeThresholdQueues(&tQA, &tQB);
-
-        saveThresholdQueue(&tQA, &tileSA, thresholdHeap, headerHeap);
-    }
-}
-
-__kernel void splitTileV( GMEM  THRESHOLD *thresholdHeap
-                        , GMEM     HEADER *headerHeap
-                        , GMEM      Slice *qSliceHeap
-                        , GMEM   TileInfo *tileHeap
-                        , GMEM       int2 *tilePairs
-                        ,           float  splitV
-                        ,            int2  bitmapSize
-                        ,             int  computeDepth
-                        ,             int  frameNumber
-                        ,             int  jobIndex
-                        ) {
+__kernel void splitTileKernel
+    ( GMEM  THRESHOLD *thresholdHeap
+    , GMEM     HEADER *headerHeap
+    , GMEM      Slice *qSliceHeap
+    , GMEM   TileInfo *tileHeap
+    , GMEM       int2 *tilePairs
+    ,           float  splitV
+    ,            int2  bitmapSize
+    ,             int  computeDepth
+    ,             int  frameNumber
+    ,             int  jobIndex
+    ) {
     int   tilePairIndex  = INDEX; // the sequential number of the tile in the current workgroup.
     int   tileThread  = TILETHREAD;
     int2  tilePair = tilePairs[tileIndex];
@@ -2180,19 +2133,20 @@ __kernel void splitTileV( GMEM  THRESHOLD *thresholdHeap
     }
 }
 
-__kernel void splitTileH( GMEM  THRESHOLD *thresholdHeap
-                        , GMEM     HEADER *headerHeap
-                        , GMEM      Slice *qSliceHeap
-                        , GMEM   TileInfo *tileHeap
-                        , GMEM       int2 *tilePairs
-                        ,           float  splitH
-                        ,            int2  bitmapSize
-                        ,             int  computeDepth
-                        ,             int  frameNumber
-                        ,             int  jobIndex
-                        ) {
+// __kernel void checkSplitKernel
+__kernel void mergeTileKernel
+    ( GMEM  THRESHOLD *thresholdHeap
+    , GMEM     HEADER *headerHeap
+    , GMEM      Slice *qSliceHeap
+    , GMEM   TileInfo *tileHeap
+    , GMEM       int2 *tilePairs
+    ,            int2  bitmapSize
+    ,             int  computeDepth
+    ,             int  frameNumber
+    ,             int  jobIndex
+    ) {
     int   tilePairIndex  = INDEX; // the sequential number of the tile in the current workgroup.
-    int   tileThread  = TILETHREAD;
+    int   tileThread = TILETHREAD;
     int2  tilePair = tilePairs[tileIndex];
     int   tileIndexA = tilePair.0
     int   tileIndexB = tilePair.1
@@ -2214,32 +2168,32 @@ __kernel void splitTileH( GMEM  THRESHOLD *thresholdHeap
                   ,  jobIndex
                   ,  computeDepth
                   );
-    if (isActiveThread(&tileS)) {
-      Slice qSliceA = loadQueueSlice(qSliceHeap, &tileSA);
-      ThresholdQueue tQA;
-      initThresholdQueue(&tQA, qSliceA);
-      loadThresholdQueue(&tQA, &tileSA, thresholdHeap, headerHeap);
+    if (isActiveThread(&tileSA)) {
+        Slice qSliceA = loadQueueSlice(qSliceHeap, &tileSA);
+        ThresholdQueue tQA;
+        initThresholdQueue(&tQA, qSliceA);
+        loadThresholdQueue(&tQA, &tileSA, thresholdHeap, headerHeap);
 
-      ThresholdQueue tQ;
-      initThresholdQueue(&tQ,initQueueSlice());
+        Slice qSliceB = loadQueueSlice(qSliceHeap, &tileSB);
+        ThresholdQueue tQB;
+        initThresholdQueue(&tQA, qSliceB);
+        loadThresholdQueue(&tQA, &tileSA, thresholdHeap, headerHeap);
+        mergeThresholdQueues(&tQA, &tQB);
 
-      splitThresholdQueueH(&tQA, &tQB,splitH);
-
-      saveThresholdQueue(&tQA, &tileSA, thresholdHeap, headerHeap);
-      saveThresholdQueue(&tQB, &tileSB, thresholdHeap, headerHeap);
+        saveThresholdQueue(&tQA, &tileSA, thresholdHeap, headerHeap);
     }
 }
 
-
-__kernel void sortThresholds( GMEM  THRESHOLD *thresholdHeap
-                            , GMEM     HEADER *headerHeap
-                            , GMEM      Slice *qSliceHeap
-                            , GMEM   TileInfo *tileHeap
-                            ,            int2  bitmapSize
-                            ,             int  computeDepth
-                            ,             int  frameNumber
-                            ,             int  jobIndex
-                            ) {
+__kernel void sortThresholdsKernel
+    ( GMEM  THRESHOLD *thresholdHeap
+    , GMEM     HEADER *headerHeap
+    , GMEM      Slice *qSliceHeap
+    , GMEM   TileInfo *tileHeap
+    ,            int2  bitmapSize
+    ,             int  computeDepth
+    ,             int  frameNumber
+    ,             int  jobIndex
+    ) {
     int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
     int   tileThread = TILETHREAD;
     GMEM TileInfo *tileInfo = getTileInfo(tileHeap, tileIndex);
@@ -2265,62 +2219,30 @@ __kernel void sortThresholds( GMEM  THRESHOLD *thresholdHeap
     }
 }
 
+__kernel void renderThresholdsKernel
+    ( // Parameters passed between kernels
+      GMEM    THRESHOLD *thresholdHeap
+    , GMEM       HEADER *headerHeap
+    , GMEM        Slice *qSliceHeap
+    , GMEM     TileInfo *tileJobHeap
+      // Constant parameters for every kernel
+    , GMEM     ITEMTAG  *itemTagHeap
+    , GMEM SUBSTANCETAG *substanceTagHeap
+    , GMEM    HardFacet *facetHeap
+    , GMEM        uchar *pictureData
+    , GMEM      PictUse *pictureRefs
+    , GMEM        COLOR *solidColors
 
-__kernel void sortThresholds( GMEM  THRESHOLD *thresholdHeap
-                            , GMEM     HEADER *headerHeap
-                            , GMEM      Slice *qSliceHeap
-                            , GMEM   TileInfo *tileHeap
-                            ,            int2  bitmapSize
-                            ,             int  computeDepth
-                            ,             int  frameNumber
-                            ,             int  jobIndex
-                            ) {
+    ,             COLOR  backgroundColor
+    ,              int2  bitmapSize
+    ,               int  frameNumber
+    ,               int  computeDepth
+    ,               int  jobIndex
+    , GMEM         uint *out
+    ) {
     int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
     int   tileThread = TILETHREAD;
-    GMEM TileInfo *tileInfo = getTileInfo(tileHeap, tileIndex);
-    TileState tileS;
-    initTileState ( &tileS
-                  ,  tileInfo
-                  ,  bitmapSize
-                  ,  tileThread
-                  ,  jobIndex
-                  ,  computeDepth
-                  );
-    if (isActiveThread(&tileS)) {
-        DEBUG_TRACE_BEGIN
-        Slice qSlice = loadQueueSlice(qSliceHeap, &tileS);
-        //DEBUG_IF(printf("qSliceHeap %p tileThread %i qSlice.sStart %i qSlice.sLength %i\n", qSliceHeap, tileThread, qSlice.sStart, qSlice.sLength);)
-        ThresholdQueue tQ;
-        initThresholdQueue(&tQ, qSlice);
-        loadThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap);
-        DEBUG_IF(printf("before------------\n");showThresholds(&tQ);)
-        sortThresholdArray(&tQ);
-        DEBUG_IF(printf("after------------\n");showThresholds(&tQ);)
-        saveThresholdQueue(&tQ, &tileS, thresholdHeap, headerHeap);
-    }
-}
-
-__kernel void renderThresholds( GMEM    THRESHOLD *thresholdHeap
-                              , GMEM       HEADER *headerHeap
-                              , GMEM     ITEMTAG  *itemTagHeap
-                              , GMEM SUBSTANCETAG *substanceTagHeap
-                              , GMEM        Slice *qSliceHeap
-                              , GMEM    HardFacet *facetHeap
-                              , GMEM        uchar *pictureData
-                              , GMEM      PictUse *pictureRefs
-                              , GMEM        COLOR *solidColors
-                              , CMEM        float *randomField
-                              , GMEM     TileInfo *tileHeap
-                              ,             COLOR  backgroundColor
-                              ,              int2  bitmapSize
-                              ,               int  computeDepth
-                              ,               int  frameNumber
-                              ,               int  jobIndex
-                              , GMEM         uint *out
-                              ) {
-    int   tileIndex  = INDEX; // the sequential number of the tile in the current workgroup.
-    int   tileThread = TILETHREAD;
-    GMEM TileInfo *tileInfo = getTileInfo(tileHeap, tileIndex);
+    GMEM TileInfo *tileInfo = getTileInfo(tileJobHeap, tileIndex);
     //DEBUG_IF(showTileInfoAlignment(0,tileInfo);)
     TileState tileS;
     initTileState ( &tileS
@@ -2382,20 +2304,20 @@ ITEMTAGID identifyPoint ( PMEM       TileState *tileS
      }
 }
 
-__kernel void identifyPoints( GMEM    THRESHOLD *thresholdHeap
-                            , GMEM       HEADER *headerHeap
-                            , GMEM   ShapeState *shapeStateHeap
-                            , GMEM        Slice *qSliceHeap
-                            , GMEM    HardFacet *facetHeap
-                            , GMEM     TileInfo *tileHeap
-                            ,              int2  bitmapSize
-                            ,               int  computeDepth
-                            ,               int  frameNumber
-                            ,               int  jobIndex
-                            ,               int  numQueries
-                            , GMEM     PointQuery *queryHeap
-                            , GMEM SUBSTANCETAGID *queryResults
-                            ) {
+__kernel void pointQueryKernel
+   ( GMEM    THRESHOLD *thresholdHeap
+   , GMEM       HEADER *headerHeap
+   , GMEM        Slice *qSliceHeap
+   , GMEM    HardFacet *facetHeap
+   , GMEM     TileInfo *tileHeap
+   ,              int2  bitmapSize
+   ,               int  frameNumber
+   ,               int  computeDepth
+   ,               int  jobIndex
+   ,               int  numQueries
+   , GMEM     PointQuery *queryHeap
+   , GMEM SUBSTANCETAGID *queryResults
+   ) {
     int  tileIndex  = INDEX;
     int  tileThread  = TILETHREAD;
     GMEM TileInfo *tileInfo = getTileInfo(tileHeap, tileIndex);

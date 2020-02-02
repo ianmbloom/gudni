@@ -1,3 +1,67 @@
+
+buildRasterJobs :: (MonadIO m, Show token)
+                => RasterParams token
+                -> GeometryMonad m [RasterJob]
+buildRasterJobs params =
+  do  -- Get the tile tree from the geometryState
+      tileTree <- use geoTileTree
+      -- Determine the maximum number of tiles per RasterJob
+      let maxThresholds = NumStrands $ fromIntegral $ params ^. rpRasterizer . rasterSpec . specMaxThresholds
+          tilesPerCall = tr "tilesPerCall" $ fromIntegral $ params ^. rpRasterizer . rasterSpec . specMaxTilesPerJob
+          threadsPerTile = tr "threadsPerTile" $ fromIntegral $ params ^. rpRasterizer . rasterSpec . specThreadsPerTile
+          splitTree = {-tr "splitTree" $-} splitTreeTiles maxThresholds tileTree
+
+      -- Build all of the RasterJobs by traversing the TileTree.
+
+      geoTileTree .= splitTree
+      (numberedTileTree, finalState) <- runBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall threadsPerTile) splitTree)
+      let jobs = finalState ^. bsCurrentJob : finalState ^. bsJobs
+          pointTileQueries = tr "pointTileQueries" $ map (\(queryId, loc) -> (queryId, loc, locatePointInTileTree numberedTileTree loc)) (params ^. rpPointQueries)
+          jobsWithQueries = foldl addPointQueryToRasterJobs jobs pointTileQueries
+      return $ trWith (show . length) "num jobs" $ jobsWithQueries
+
+-- | Generate an call the rasterizer kernel. Polymorphic over the DrawTarget type.
+generateCall  :: forall a b token .
+                 (  KernelArgs
+                   'KernelSync
+                   'NoWorkGroups
+                   'UnknownWorkItems
+                   'Z
+                   (a
+                   -> NumWorkItems
+                   -> WorkGroup
+                   -> CL ())
+                 , Show a, Show token
+                 )
+              => RasterParams token
+              -> BuffersInCommon
+              -> RasterJob
+              -> Point2 CInt
+              -> CInt
+              -> CInt
+              -> a
+              -> CL [(PointQueryId,SubstanceTagId)]
+generateCall params bic job bitmapSize frameCount jobIndex target =
+  do
+
+    -> BuffersInCommon
+    -> CInt
+    -> RasterJob
+    -> CInt
+    -> CL [(PointQueryId, SubstanceTagId)]
+
+    return (tr "queryResults" $ zip (map pqQueryId queries) queryResults)
+    -- Run the rasterizer over each rasterJob inside a CLMonad.
+    queryResults <- concat <$> zipWithM (raster params bic frameCount) jobs [0..]
+
+, BuildJobsMonad(..)
+, runBuildJobsMonad
+, RasterJob(..)
+
+, bsTileCount
+, bsCurrentJob
+, bsJobs
+
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -20,13 +84,8 @@
 
 module Graphics.Gudni.Raster.Job
   ( GeoReference(..)
-  , BuildJobsMonad(..)
-  , runBuildJobsMonad
-  , RasterJob(..)
   , BuildState(..)
-  , bsTileCount
-  , bsCurrentJob
-  , bsJobs
+
   , rJItemTagIdPile
   , rJTilePile
   , rJThreadAllocation
@@ -78,12 +137,6 @@ import qualified Data.Sequence as S
 import Data.Foldable
 import Data.List.Lens
 
-data PointQuery = PointQuery
-    { pqTileId :: TileId
-    , pqQueryId :: PointQueryId
-    , pqLocation :: (Point2 SubSpace)
-    } deriving (Show)
-type PointQuerySequence = S.Seq PointQuery
 
 newtype JobId = JobId {unJobId :: Int} deriving (Show, Eq, Ord, Num)
 
@@ -142,11 +195,11 @@ freeRasterJobs jobs = liftIO $ mapM_ freeRasterJob jobs
 
 -- | Add a tile to a RasterJob
 addTileToRasterJob :: MonadIO m
-                   => Tile EntrySequence
+                   => Tile (S.Seq ItemEntry)
                    -> StateT RasterJob m ()
 addTileToRasterJob tile =
   do  -- get the list of new shapes from the tile entry
-      let items = toList . fmap (view itemEntryTagId) $ tile ^. tileRep . unEntrySequence
+      let items = toList . fmap (view itemEntryTagId) $ tile ^. tileRep
       -- add the stripped shapes to the raster job and get the range of the added shapes
       slice <- addListToPileState rJItemTagIdPile items
       -- strip the tile down so just the range of shapes is left
@@ -160,7 +213,7 @@ addTileToRasterJob tile =
 accumulateRasterJobs :: MonadIO m
                      => TileId
                      -> Int
-                     -> Tile EntrySequence
+                     -> Tile (S.Seq ItemEntry)
                      -> BuildJobsMonad m (Tile (JobId, TileId))
 accumulateRasterJobs maxTilesPerJob threadsPerTile tile =
   do  -- get the current stack of jobs
@@ -197,43 +250,11 @@ addPointQueryToRasterJobs jobs (queryId, location, (JobId jobId, tileId)) =
 -- | Output a RasterJob in IO
 outputRasterJob :: RasterJob -> IO ()
 outputRasterJob job =
-  do
-    putStrLn "---------------- rJShapePile ----------------------"
-    print . view rJItemTagIdPile $ job
-    putStrList =<< (pileToList . view rJItemTagIdPile $ job)
-    putStrLn "---------------- rJTilePile -----------------------"
-    putStrList =<< (pileToList . view rJTilePile $ job)
+  do putStrLn "---------------- rJShapePile ----------------------"
+     print . view rJItemTagIdPile $ job
+     putStrList =<< (pileToList . view rJItemTagIdPile $ job)
+     putStrLn "---------------- rJTilePile -----------------------"
+     putStrList =<< (pileToList . view rJTilePile $ job)
 
 instance NFData RasterJob where
-  rnf (RasterJob a b c d ) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()
-
-
-
-instance NFData PointQuery where
-  rnf (PointQuery a b c) = a `deepseq` b `deepseq` c `deepseq` ()
-
-instance StorableM PointQuery where
-  sizeOfM _ = do sizeOfM (undefined :: (Point2 SubSpace))
-                 sizeOfM (undefined :: TileId)
-                 sizeOfM (undefined :: PointQueryId)
-                 sizeOfM (undefined :: CInt) -- filler
-
-  alignmentM _ = do alignmentM (undefined :: (Point2 SubSpace))
-                    alignmentM (undefined :: TileId)
-                    alignmentM (undefined :: PointQueryId)
-                    alignmentM (undefined :: CInt) -- filler
-  peekM = do location     <- peekM
-             tileId       <- peekM
-             pointQueryId <- peekM
-             return (PointQuery tileId pointQueryId location)
-  pokeM (PointQuery tileId pointQueryId location) =
-          do pokeM location
-             pokeM tileId
-             pokeM pointQueryId
-
-
-instance Storable PointQuery where
-  sizeOf = sizeOfV
-  alignment = alignmentV
-  peek = peekV
-  poke = pokeV
+    rnf (RasterJob a b c d ) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()

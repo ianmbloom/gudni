@@ -153,7 +153,7 @@ prepareHostBitmapTarget texture size =
 -- | Present a rendered frame on the screne.
 presentTarget :: DrawTarget -> StateT InterfaceState IO ()
 presentTarget target =
-  do  let texture = targetTexture target
+  do  let texture = target ^. targetTexture
       when (isHostBitmapTarget target) $ SDL.unlockTexture texture
       renderer <- use interfaceRenderer
       liftIO $ do  SDL.copy renderer texture Nothing Nothing

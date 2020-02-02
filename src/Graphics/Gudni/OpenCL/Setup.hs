@@ -23,6 +23,7 @@ import Graphics.Gudni.Interface.GLInterop
 import Graphics.Gudni.OpenCL.CppDefines
 
 import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
 
 import Control.Parallel.OpenCL
@@ -44,7 +45,7 @@ instance OpenCLSource BS.ByteString where
   prepSource = BS.unpack
 
 -- | List of definition pragmas to be added to the beggining of the Kernels.cl file.
-cppDefines :: RasterSpec -> [CppDefinition]
+cppDefines :: DeviceSpec -> [CppDefinition]
 cppDefines spec =
   [Cpp "STOCHASTIC_FACTOR"              (CppFloat sTOCHASTICfACTOR            )
   ,Cpp "TAXICAB_FLATNESS"               (CppFloat tAXICABfLATNESS             )
@@ -73,16 +74,16 @@ cppDefines spec =
   ]
 
 -- | Embedded source with implanted definition pragmas.
-addDefinesToSource :: RasterSpec -> BS.ByteString -> String
+addDefinesToSource :: DeviceSpec -> BS.ByteString -> String
 addDefinesToSource spec src = appendCppDefines sOURCEfILEpADDING (cppDefines spec) (BS.unpack src)
 
 -- | This function determines the basic paramters of the rasterizer based on
-determineRasterSpec :: CLDeviceID -> IO RasterSpec
+determineRasterSpec :: CLDeviceID -> IO DeviceSpec
 determineRasterSpec device =
   do  -- | Compute units are the number of wavefront processors on the GPU
       computeUnits  <- clGetDeviceMaxComputeUnits       device
       -- | Maximum group dimension of a kernel call based on the device.
-      maxGroupSize  <- clGetDeviceMaxWorkGroupSize      device
+      maxGroupSize  <- fromIntegral <$> clGetDeviceMaxWorkGroupSize      device
       -- | Maximum local memory size of the device.
       localMemSize  <- clGetDeviceLocalMemSize          device
       -- | Maximum constant buffer size of the device.
@@ -92,12 +93,37 @@ determineRasterSpec device =
       -- | Maximum memory size that can be allocated for each global memory buffer
       maxMemAllocSize <- clGetDeviceMaxMemAllocSize     device
       -- The maximum number of threads that each tile can store is the maximum allocation size
-      let maxTilesPerJob = 8 --tr "maxTilesPerJob" $ fromIntegral maxMemAllocSize `div` ((fromIntegral maxGroupSize * mAXtHRESHOLDS) * sizeOf (undefined :: THRESHOLDTYPE))
-      return RasterSpec { _specMaxTileSize     = fromIntegral maxGroupSize
-                        , _specThreadsPerTile  = fromIntegral maxGroupSize
-                        , _specMaxTilesPerJob  = maxTilesPerJob
+      let -- | Determined maximum number of tiles per threshold generation kernel call for this device.
+          maxGenerateJobSize   = maxGroupSize `div` 8 :: Int
+          -- | Determined maximum number of tiles per check split kernel call for this device.
+          maxCheckSplitJobSize = maxGroupSize :: Int
+          -- | Determined maximum number of tiles per split kernel call for this device.
+          maxSplitJobSize      = maxGroupSize :: Int
+          -- | Determined maximum number of tiles per merge kernel call for this device.
+          maxMergeJobSize      = maxGroupSize :: Int
+          -- | Determined maximum number of tiles per sort kernel call for this device.
+          maxSortJobSize       = maxGroupSize `div` 8 :: Int
+          -- | Determined maximum number of tiles per render kernel call for this device.
+          maxRenderJobSize     = maxGroupSize `div` 8 :: Int
+
+          threadsPerTile = fromIntegral maxGroupSize
+      return DeviceSpec { _specMaxTileSize     = fromIntegral maxGroupSize
+                        , _specThreadsPerTile  = threadsPerTile
+                        , _specComputeDepth    = adjustedLog threadsPerTile
                         , _specMaxThresholds   = mAXtHRESHOLDS
                         , _specMaxLayers       = mAXlAYERS
+                          -- | Determined maximum number of tiles per threshold generation kernel call for this device.
+                        , _specMaxGenerateJobSize   = maxGenerateJobSize
+                          -- | Determined maximum number of tiles per check split kernel call for this device.
+                        , _specMaxCheckSplitJobSize = maxCheckSplitJobSize
+                          -- | Determined maximum number of tiles per split kernel call for this device.
+                        , _specMaxSplitJobSize      = maxSplitJobSize
+                          -- | Determined maximum number of tiles per merge kernel call for this device.
+                        , _specMaxMergeJobSize      = maxMergeJobSize
+                          -- | Determined maximum number of tiles per sort kernel call for this device.
+                        , _specMaxSortJobSize       = maxSortJobSize
+                          -- | Determined maximum number of tiles per render kernel call for this device.
+                        , _specMaxRenderJobSize     = maxRenderJobSize
                         }
 
 -- | Order Devices based on the number of compute units
@@ -111,6 +137,12 @@ deviceNameContains selector deviceInfo = isInfixOf selector (deviceInfo ^. clDev
 -- | Select a device the best device among a set of qualified.
 deviceSelect :: (CLDeviceDetail -> Bool) -> (CLDeviceDetail -> CLDeviceDetail -> Ordering) -> [CLDeviceDetail] -> Maybe CLDeviceDetail
 deviceSelect qualified order details = listToMaybe . sortBy order . filter qualified $ details
+
+getKernelAndDump device program name =
+  do kernel <- program name
+     kernelDetail <- initCLKernelDetail kernel device
+     putStrLn $ dumpKernelDetail kernelDetail
+     return kernel
 
 -- | Create a Rasterizer by setting up an OpenCL device.
 setupOpenCL :: Bool -> Bool -> BS.ByteString -> IO Rasterizer
@@ -141,26 +173,35 @@ setupOpenCL enableProfiling useCLGLInterop src =
                             ]
               -- Get metadata from the openCL device.
               let device = clDevice state
-              rasterSpec <- determineRasterSpec device
-              let modifiedSrc = addDefinesToSource rasterSpec src
+              deviceSpec <- determineRasterSpec device
+              let modifiedSrc = addDefinesToSource deviceSpec src
               -- Compile the source.
               putStrLn $ "Starting OpenCL kernel compile"
               program <- loadProgramWOptions options state modifiedSrc
               putStrLn $ "Finished OpenCL kernel compile"
               -- get the rasterizer kernel.
-              generateThresholdsKernel <- program "generateThresholds"
-              generateThresholdsKernelDetail <- initCLKenrelDetail generateThresholdsKernel device
-              putStrLn $ dumpKernelDetail generateThresholdsKernelDetail
 
-              sortThresholdsKernel     <- program "sortThresholds"
-              renderThresholdsKernel   <- program "renderThresholds"
-              queryKernel              <- program "identifyPoints"
+
+              generateThresholdsKernel <- getKernelAndDump device program "generateThresholdsKernel"
+              checkSplitKernel         <- getKernelAndDump device program "checkSplitKernel"
+              splitTileKernel          <- getKernelAndDump device program "splitTileKernel"
+              mergeTileKernel          <- getKernelAndDump device program "mergeTileKernel"
+              sortThresholdsKernel     <- getKernelAndDump device program "sortThresholdsKernel"
+              renderThresholdsKernel   <- getKernelAndDump device program "renderThresholdsKernel"
+              pointQueryKernel         <- getKernelAndDump device program "pointQueryKernel"
               -- Return a Library constructor with relevant information about the device for the rasterizer.
-              return Rasterizer { _rasterClState  = state
-                                , _rasterGenerateThresholdsKernel = generateThresholdsKernel
-                                , _rasterSortThresholdsKernel     = sortThresholdsKernel
-                                , _rasterRenderThresholdsKernel   = renderThresholdsKernel
-                                , _rasterQueryKernel              = queryKernel
-                                , _rasterUseGLInterop = useCLGLInterop
-                                , _rasterSpec = rasterSpec
-                                }
+              return $ Rasterizer
+                  { -- | The OpenCL state
+                    _rasterClState = state
+                    -- | The rasterizer kernels.
+                  , _rasterGenerateThresholdsKernel = generateThresholdsKernel
+                  , _rasterCheckSplitKernel         = checkSplitKernel
+                  , _rasterSplitTileKernel          = splitTileKernel
+                  , _rasterMergeTileKernel          = mergeTileKernel
+                  , _rasterSortThresholdsKernel     = sortThresholdsKernel
+                  , _rasterRenderThresholdsKernel   = renderThresholdsKernel
+                  , _rasterPointQueryKernel         = pointQueryKernel
+                    -- | Flag for if OpenCL-OpenGL interop should be used to render the drawing target.
+                  , _rasterUseGLInterop = useCLGLInterop
+                  , _rasterDeviceSpec   = deviceSpec
+                  }

@@ -16,6 +16,7 @@ module Graphics.Gudni.Util.Util
   ( takeItem
   , removeItem
   , breakList
+  , adjustedLog
   , mapFst
   , mapSnd
   , mapOne
@@ -83,6 +84,11 @@ showTimes sectionName showFps tk =
       total = [shower ("Total", totalInterval)]
       fps = if showFps then ["---- Possible FPS "++ showFl ( 1 / realToFrac totalInterval) ++ "----"] else []
   in  unlines ({-header ++-} times ++ total ++ fps)
+
+
+-- | Return the ceiling value of a log2 x adjusted to zero for x < 1.
+adjustedLog :: (Integral s, Integral v )=> s -> v
+adjustedLog x = if x < 1 then 0 else ceiling . logBase 2 . fromIntegral $ x
 
 -- Utility function, returns the ith element of a list as well as the list without it.
 

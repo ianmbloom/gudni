@@ -49,7 +49,6 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.Facet
 
-import Graphics.Gudni.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.ItemInfo
 import Graphics.Gudni.Raster.SubstanceInfo
@@ -69,8 +68,9 @@ import Control.Lens
 import Foreign.Storable
 import Control.DeepSeq
 
-import qualified Data.Map as M
-import qualified Data.Vector as V
+import qualified Data.Map      as M
+import qualified Data.Vector   as V
+import qualified Data.Sequence as S
 import Data.Maybe
 import Data.List
 
@@ -114,7 +114,7 @@ data GeometryState = GeometryState
     , _geoMaxStrandSize     :: Int
     , _geoGeometryPile      :: GeometryPile
     , _geoRefPile           :: Pile GeoReference
-    , _geoTileTree          :: TileTree EntrySequence
+    , _geoTileTree          :: TileTree (Tile, S.Seq ItemEntry)
     , _geoCanvasSize        :: Point2 SubSpace
     , _geoRandomField       :: RandomField
     }
@@ -126,11 +126,10 @@ type GeometryMonad m = StateT GeometryState m
 -- | Function for initializing the geometry monad and running a function inside of it∘
 -- The geoTileTree and geoCanvas size must be defined later.
 runGeometryMonad :: (MonadIO m)
-                 => RasterSpec
-                 -> RandomField
+                 => RandomField
                  -> StateT GeometryState m t
                  -> m t
-runGeometryMonad rasterSpec randomField mf =
+runGeometryMonad randomField mf =
   do geometryPile <- liftIO (newPileSize iNITgEOMETRYpILEsIZE :: IO BytePile)
      geoRefPile <- liftIO (newPile :: IO (Pile GeoReference))
      let reorderTable = buildReorderTable mAXsECTIONsIZE

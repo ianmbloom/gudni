@@ -229,7 +229,7 @@ drawFrame frameCount scene queries =
         target <- withIO appBackend (prepareTarget (rasterizer ^. rasterUseGLInterop))
         state <- use appState
         pictureMap <- liftIO $ providePictureMap state
-        let canvasSize = P (targetArea target)
+        let canvasSize = P (target ^. targetArea)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
         let maxTileSize = rasterizer ^. rasterSpec . specMaxTileSize
         lift (geoTileTree .= buildTileTree (EntrySequence S.empty) maxTileSize (fromIntegral <$> canvasSize))
@@ -240,16 +240,18 @@ drawFrame frameCount scene queries =
         markAppTime "Traverse ShapeTree"
         geometryState <- lift $ get
         --liftIO $ putStrLn $ "TileTree " ++ show (geometryState ^. geoTileTree)
-        let rasterParams = RasterParams rasterizer
-                                        target
+
+        -- | Create a specification for the current frame.
+        let bitmapSize   = P $ target ^. targetArea
+            frameSpec    = FrameSpec bitmapSize target frameCount
+            rasterParams = RasterParams frameSpec
+                                        rasterizer
                                         geometryState
                                         substanceState
                                         pictDataPile
                                         queries
         appMessage "===================== rasterStart ====================="
-        jobs <- lift $ buildRasterJobs rasterParams
-        markAppTime "Build Raster Jobs"
-        queryResults <- lift $ queueRasterJobs frameCount rasterParams jobs
+        queryResults <- lift $ runRaster rasterParams
         appMessage "===================== rasterDone ====================="
         markAppTime "Rasterize Threads"
         lift resetGeometryMonad

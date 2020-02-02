@@ -18,7 +18,7 @@
 -- Boilerplate galore for querying OpenCL compiled kernel specifications.
 
 module Graphics.Gudni.OpenCL.KernelQuery
-  ( initCLKenrelDetail
+  ( initCLKernelDetail
   , dumpKernelDetail
   )
 where
@@ -44,8 +44,8 @@ data CLKernelDetail = CLKernelDetail
 makeLenses ''CLKernelDetail
 
 -- | Create a CLDeviceDetail record by querying an openCL device.
-initCLKenrelDetail :: CLKernel -> CLDeviceID -> IO CLKernelDetail
-initCLKenrelDetail kernel deviceId =
+initCLKernelDetail :: CLKernel -> CLDeviceID -> IO CLKernelDetail
+initCLKernelDetail kernel deviceId =
   do  kernelName                       <- clGetKernelFunctionName          kernel
       kernelWorkgroupSize              <- clGetKernelWorkGroupSize         kernel deviceId
       kernelCompileWorkGroupSize       <- clGetKernelCompileWorkGroupSize  kernel deviceId
