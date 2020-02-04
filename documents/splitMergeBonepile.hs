@@ -258,3 +258,7 @@ outputRasterJob job =
 
 instance NFData RasterJob where
     rnf (RasterJob a b c d ) = a `deepseq` b `deepseq` c `deepseq` d `deepseq` ()
+
+
+    columnAllocation :: CInt <- peekM
+    slice  <- peekM

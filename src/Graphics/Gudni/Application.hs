@@ -69,7 +69,6 @@ import Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.TileTree
 import Graphics.Gudni.Raster.Serialize
-import Graphics.Gudni.Raster.Job
 import Graphics.Gudni.Raster.TraverseShapeTree
 
 import Graphics.Gudni.Figure
@@ -82,6 +81,7 @@ import Graphics.Gudni.Util.RandomField
 
 import qualified Data.Vector.Storable as VS
 import qualified Data.Sequence as S
+import Data.Foldable
 import System.Info
 
 -- | The model typeclass is the primary interface to the application functions in Gudni
@@ -165,7 +165,7 @@ runApplication state =
                 -- Generate a random field for the stochastic aliasing of the rasterizer.
                 randomField <- liftIO $ makeRandomField rANDOMFIELDsIZE
                 -- Run the geometry serialization monad.
-                runGeometryMonad (appState ^. appRasterizer . rasterSpec) randomField $
+                runGeometryMonad randomField $
                     -- Run the application monad.
                     runApplicationMonad appState $
                         do  -- start the event loop.
@@ -222,7 +222,7 @@ processState elapsedTime inputs =
         return scene
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
-drawFrame :: (Model s, Show (TokenOf s)) => CInt -> Scene (ShapeTree (TokenOf s) SubSpace) -> [(PointQueryId, Point2 SubSpace)] -> ApplicationMonad s (DrawTarget, [(PointQueryId,Maybe (TokenOf s))])
+drawFrame :: (Model s, Show (TokenOf s)) => Int -> Scene (ShapeTree (TokenOf s) SubSpace) -> [(PointQueryId, Point2 SubSpace)] -> ApplicationMonad s (DrawTarget, [PointQueryResult (TokenOf s)])
 drawFrame frameCount scene queries =
     do  --appMessage "ResetJob"
         rasterizer <- use appRasterizer
@@ -231,8 +231,8 @@ drawFrame frameCount scene queries =
         pictureMap <- liftIO $ providePictureMap state
         let canvasSize = P (target ^. targetArea)
         lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
-        let maxTileSize = rasterizer ^. rasterSpec . specMaxTileSize
-        lift (geoTileTree .= buildTileTree (EntrySequence S.empty) maxTileSize (fromIntegral <$> canvasSize))
+        let maxTileSize = rasterizer ^. rasterDeviceSpec . specMaxTileSize
+        lift (geoTileTree .= buildTileTree S.empty maxTileSize (fromIntegral <$> canvasSize))
         markAppTime "Build TileTree"
         (scenePictMem, pictDataPile) <- liftIO $ assignScenePictureMemory pictureMap scene
         substanceState <- lift ( execSubstanceMonad $ buildOverScene scenePictMem)
@@ -242,7 +242,7 @@ drawFrame frameCount scene queries =
         --liftIO $ putStrLn $ "TileTree " ++ show (geometryState ^. geoTileTree)
 
         -- | Create a specification for the current frame.
-        let bitmapSize   = P $ target ^. targetArea
+        let bitmapSize   = P $ fromIntegral <$> target ^. targetArea
             frameSpec    = FrameSpec bitmapSize target frameCount
             rasterParams = RasterParams frameSpec
                                         rasterizer
@@ -251,13 +251,12 @@ drawFrame frameCount scene queries =
                                         pictDataPile
                                         queries
         appMessage "===================== rasterStart ====================="
-        queryResults <- lift $ runRaster rasterParams
+        queryResults <- liftIO $ runRaster rasterParams
         appMessage "===================== rasterDone ====================="
         markAppTime "Rasterize Threads"
         lift resetGeometryMonad
-        liftIO $ freeRasterJobs jobs
         --liftIO $ threadDelay 3000000
-        return (target, queryResults)
+        return (target, toList queryResults)
 
 -- Final phase of the event loop.
 endCycle :: SimpleTime -> ApplicationMonad s ()

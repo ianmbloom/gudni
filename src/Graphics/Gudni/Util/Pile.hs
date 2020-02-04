@@ -41,6 +41,7 @@ module Graphics.Gudni.Util.Pile
   , addToPile
   , extendPile
   , addListToPile
+  , addSequenceToPile
   , addPileToPile
   , addToPileState
   , addToBytePileState
@@ -69,6 +70,7 @@ import Graphics.Gudni.Util.StorableM
 import Data.List
 import Data.Vector.Storable ((!))
 import qualified Data.Vector.Storable as VS
+import qualified Data.Sequence as S
 
 import Control.DeepSeq
 import Control.Monad
@@ -202,6 +204,14 @@ addListToPile :: (Show t, Storable t) => Pile t -> [t] -> IO (Pile t, Slice t)
 addListToPile pile list =
   do let cursor = pile ^. pileCursor
      pile' <- foldM (addToPile' "list") pile list
+     let breadth = pile' ^. pileCursor - cursor
+     return (pile', Slice (Ref $ fromIntegral cursor) (Breadth $ fromIntegral breadth))
+
+-- | Add a list of items to a pile. Return a slice for the newly added items.
+addSequenceToPile :: (Show t, Storable t) => Pile t -> S.Seq t -> IO (Pile t, Slice t)
+addSequenceToPile pile ss =
+  do let cursor = pile ^. pileCursor
+     pile' <- foldM (addToPile' "sequence") pile ss
      let breadth = pile' ^. pileCursor - cursor
      return (pile', Slice (Ref $ fromIntegral cursor) (Breadth $ fromIntegral breadth))
 
