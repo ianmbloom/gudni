@@ -31,6 +31,7 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
   , bicPictBuffer
   , bicRandoms
 
+  , newBuffer
   , createBuffersInCommon
 
   , ThresholdBuffers(..)
@@ -142,21 +143,24 @@ data ThresholdBuffers = ThresholdBuffers
   }
 makeLenses ''ThresholdBuffers
 
+newBuffer :: Storable a => Int -> CL (CLBuffer a)
+newBuffer size = allocBuffer [CL_MEM_READ_WRITE] $ tr "size" (max 1 size)
+
 createThresholdBuffers :: RasterParams token
                        -> Int
                        -> CL ThresholdBuffers
 createThresholdBuffers params blocksToAlloc =
-  do let threadsPerTile = params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerTile
-         maxThresholds  = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
-         blockSize      = blocksToAlloc * threadsPerTile * maxThresholds
-     thresholdBuffer  <- (allocBuffer [CL_MEM_READ_WRITE] (blockSize) :: CL (CLBuffer THRESHOLDTYPE))
-     headerBuffer     <- (allocBuffer [CL_MEM_READ_WRITE] (blockSize) :: CL (CLBuffer HEADERTYPE   ))
-     queueSliceBuffer <- (allocBuffer [CL_MEM_READ_WRITE] (blocksToAlloc * threadsPerTile) :: CL (CLBuffer (Slice Int)))
+  do let threadsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerBlock
+         maxThresholds   = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
+         blockSize       = blocksToAlloc * threadsPerBlock * maxThresholds
+     thresholdBuffer  <- newBuffer blockSize :: CL (CLBuffer THRESHOLDTYPE)
+     headerBuffer     <- newBuffer blockSize :: CL (CLBuffer HEADERTYPE   )
+     queueSliceBuffer <- newBuffer (blocksToAlloc * threadsPerBlock) :: CL (CLBuffer (Slice Int))
      return $ ThresholdBuffers
-       { _tbThresholdBuffer  = thresholdBuffer
-       , _tbHeaderBuffer     = headerBuffer
-       , _tbQueueSliceBuffer = queueSliceBuffer
-       }
+         { _tbThresholdBuffer  = thresholdBuffer
+         , _tbHeaderBuffer     = headerBuffer
+         , _tbQueueSliceBuffer = queueSliceBuffer
+         }
 
 releaseThresholdBuffers :: ThresholdBuffers -> CL ()
 releaseThresholdBuffers thresholdBuffers =

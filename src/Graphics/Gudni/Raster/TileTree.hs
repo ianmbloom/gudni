@@ -55,7 +55,7 @@ import Control.Monad.State
 import Data.Tree
 import qualified Data.Sequence as S
 import Data.Sequence ((|>),(<|))
-import Foreign.C.Types(CShort,CInt)
+import Foreign.C.Types(CInt)
 import Foreign.Ptr
 
 type TileId_ = Int
@@ -104,7 +104,7 @@ data VTree leaf = VTree
     | VLeaf leaf
 
 buildTileTree :: a -> PixelSpace -> Point2 PixelSpace -> TileTree (Tile, a)
-buildTileTree emptyRep  tileSize canvasSize = goV canvasDepth box
+buildTileTree emptyRep tileSize canvasSize = goV canvasDepth box
     where
     -- Choose the largest dimension of the canvas as the square side dimension of the area covered by the tileTree.
     maxCanvasDimension = max (canvasSize ^. pX) (canvasSize ^. pY)
@@ -170,16 +170,17 @@ insertItemV (VLeaf leaf) itemEntry =
 
 
 -- | Display the contents of a tile.
-showTile tile rep = " (" ++ show (widthOf $ tile ^. tileBox)
-                  ++ "X" ++ show (heightOf $ tile ^. tileBox)
-                  ++ " rep " ++ show rep
+showTile :: (t -> String) -> Tile -> t -> String
+showTile f tile rep =   show (widthOf $ tile ^. tileBox)
+                      ++ "X" ++ show (heightOf $ tile ^. tileBox)
+                      ++ " rep " ++ f rep
 
 -- | Display a TileTree by converting it first to a data tree and drawing it.
-toDataTreeH (HLeaf (tile, rep)) = Node (showTile tile rep) []
-toDataTreeH (HTree hCut left right) = Node ("H" ++ show hCut) [toDataTreeV left, toDataTreeV right]
+toDataTreeH f (HLeaf (tile, rep)) = Node (showTile f tile rep) []
+toDataTreeH f (HTree hCut left right) = Node ("H" ++ show hCut) [toDataTreeV f left, toDataTreeV f right]
 
-toDataTreeV (VLeaf (tile, rep)) = Node (showTile tile rep) []
-toDataTreeV (VTree vCut top bottom) = Node ("V" ++ show vCut) [toDataTreeH top, toDataTreeH bottom]
+toDataTreeV f (VLeaf (tile, rep)) = Node (showTile f tile rep) []
+toDataTreeV f (VTree vCut top bottom) = Node ("V" ++ show vCut) [toDataTreeH f top, toDataTreeH f bottom]
 
 -- | Locate a point query in a tile tree.
 locatePointInTileTree :: TileTree leaf -> Point2 SubSpace -> leaf
@@ -230,27 +231,27 @@ traverseTileTreeV f (VTree vCut top bottom) = do top'    <- traverseTileTreeH f 
 traverseTileTreeV f (VLeaf leaf) = VLeaf <$> f leaf
 
 -- | Instances
-instance Show a => Show (HTree (Tile, a)) where
-  show = drawTree . toDataTreeH
+instance Show a => Show (HTree (Tile, S.Seq a)) where
+  show = drawTree . toDataTreeH (show . S.length)
 
-instance Show a => Show (VTree (Tile, a)) where
-  show = drawTree . toDataTreeV
+instance Show a => Show (VTree (Tile, S.Seq a)) where
+  show = drawTree . toDataTreeV (show . S.length)
 
 instance StorableM Tile where
   sizeOfM _ = do sizeOfM (undefined :: Box PixelSpace)
-                 sizeOfM (undefined :: CShort)
-                 sizeOfM (undefined :: CShort)
+                 sizeOfM (undefined :: CInt)
+                 sizeOfM (undefined :: CInt)
   alignmentM _ = do alignmentM (undefined :: Box PixelSpace)
-                    alignmentM (undefined :: CShort)
-                    alignmentM (undefined :: CShort)
+                    alignmentM (undefined :: CInt)
+                    alignmentM (undefined :: CInt)
   peekM = do box    <- peekM
-             hDepth :: CShort <- peekM
-             vDepth :: CShort <- peekM
+             hDepth :: CInt <- peekM
+             vDepth :: CInt <- peekM
              return (Tile box (fromIntegral hDepth) (fromIntegral vDepth))
   pokeM (Tile box hDepth vDepth) =
           do pokeM box
-             pokeM (fromIntegral hDepth :: CShort)
-             pokeM (fromIntegral vDepth :: CShort)
+             pokeM (fromIntegral hDepth :: CInt)
+             pokeM (fromIntegral vDepth :: CInt)
 
 instance Storable Tile where
   sizeOf = sizeOfV

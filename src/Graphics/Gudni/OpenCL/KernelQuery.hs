@@ -59,7 +59,7 @@ initCLKernelDetail kernel deviceId =
 
 dumpKernelDetail :: CLKernelDetail -> String
 dumpKernelDetail kernelDetail =
-      (titleLine (show (kernelDetail ^. clKernelName)) ++) $
+      (titleLine (kernelDetail ^. clKernelName) ++) $
       foldl1 (++) $ map infoLine $
         [ (    "       KernelWorkgroupSize", show $ kernelDetail ^. clKernelWorkgroupSize            )
         , (    "KernelCompileWorkGroupSize", show $ kernelDetail ^. clKernelCompileWorkGroupSize     )

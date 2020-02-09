@@ -47,30 +47,31 @@ instance OpenCLSource BS.ByteString where
 -- | List of definition pragmas to be added to the beggining of the Kernels.cl file.
 cppDefines :: DeviceSpec -> [CppDefinition]
 cppDefines spec =
-  [Cpp "STOCHASTIC_FACTOR"              (CppFloat sTOCHASTICfACTOR            )
-  ,Cpp "TAXICAB_FLATNESS"               (CppFloat tAXICABfLATNESS             )
-  ,Cpp "RANDOMFIELDSIZE"                (CppInt   rANDOMFIELDsIZE             )
-  ,Cpp "MAXTHRESHOLDS"                  (CppInt   $ spec ^. specMaxThresholds )
-  ,Cpp "MAXLAYERS"                      (CppInt   $ spec ^. specMaxLayers     )
-  ,Cpp "LAYERFLAGSSECTIONS"             (CppInt   $ lAYERfLAGSsECTIONS        )
-  ,Cpp "ITEMTAG_ISFACET_BITMASK"        (CppHex64 iTEMtAGiSfACETbITMASK       )
-  ,Cpp "ITEMTAG_ISSHAPE"                (CppHex64 iTEMtAGiSsHAPE              )
-  ,Cpp "ITEMTAG_ISFACET"                (CppHex64 iTEMtAGiSfACET              )
-  ,Cpp "ITEMTAG_COMPOUNDTYPE_BITMASK"   (CppHex64 iTEMtAGcOMPOUNDtYPEbITMASK  )
-  ,Cpp "ITEMTAG_COMPOUNDTYPE_ADD"       (CppHex64 iTEMtAGcOMPOUNDtYPEaDD      )
-  ,Cpp "ITEMTAG_COMPOUNDTYPE_SUBTRACT"  (CppHex64 iTEMtAGcOMPOUNDtYPEsUBTRACT )
-  ,Cpp "ITEMTAG_SUBSTANCE_ID_BITMASK"   (CppHex64 iTEMtAGsUBSTANCEIDbITMASK   )
-  ,Cpp "ITEMTAG_SUBSTANCE_ID_SHIFT"     (CppInt   iTEMtAGsUBSTANCEIDsHIFT     )
-  ,Cpp "ITEMTAG_ITEM_ID_BITMASK"        (CppHex64 iTEMtAGiTEMrEFbITMASK        )
-  ,Cpp "NOSUBSTANCEID"                  (CppHex32 nOsUBSTANCEiD               )
-  ,Cpp "SUBSTANCETAG_TYPE_BITMASK"      (CppHex64 sUBSTANCEtAGtYPEbITmASK     )
-  ,Cpp "SUBSTANCETAG_TYPE_SOLID_COLOR"  (CppHex64 sUBSTANCEtAGtYPEsOLIDcOLOR  )
-  ,Cpp "SUBSTANCETAG_TYPE_TEXTURE"      (CppHex64 sUBSTANCEtAGtYPEtEXTURE     )
-  ,Cpp "SUBSTANCETAG_REF_BITMASK"       (CppHex64 sUBSTANCEtAGrEFbITMASK      )
---,Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
---,Cpp "DEBUG_TRACE"                    (CppNothing) -- uncomment this to turn on parsable debugging output
-  ,Cpp "DEBUGTILETHREAD"                (CppInt 0)   -- determines the column for DEBUG_IF macro
-  ,Cpp "DEBUGINDEX"                     (CppInt 0)   -- determines the index for DEBUG_IF macro
+  [ Cpp "STOCHASTIC_FACTOR"              (CppFloat sTOCHASTICfACTOR             )
+  , Cpp "TAXICAB_FLATNESS"               (CppFloat tAXICABfLATNESS              )
+  , Cpp "RANDOMFIELDSIZE"                (CppInt   rANDOMFIELDsIZE              )
+  , Cpp "MAXTHRESHOLDS"                  (CppInt $ spec ^. specMaxThresholds    )
+  , Cpp "MAXLAYERS"                      (CppInt $ spec ^. specMaxLayers        )
+  , Cpp "THREADSPERBLOCK"                (CppInt $ spec ^. specThreadsPerBlock  )
+  , Cpp "LAYERFLAGSSECTIONS"             (CppInt $ lAYERfLAGSsECTIONS           )
+  , Cpp "ITEMTAG_ISFACET_BITMASK"        (CppHex64 iTEMtAGiSfACETbITMASK        )
+  , Cpp "ITEMTAG_ISSHAPE"                (CppHex64 iTEMtAGiSsHAPE               )
+  , Cpp "ITEMTAG_ISFACET"                (CppHex64 iTEMtAGiSfACET               )
+  , Cpp "ITEMTAG_COMPOUNDTYPE_BITMASK"   (CppHex64 iTEMtAGcOMPOUNDtYPEbITMASK   )
+  , Cpp "ITEMTAG_COMPOUNDTYPE_ADD"       (CppHex64 iTEMtAGcOMPOUNDtYPEaDD       )
+  , Cpp "ITEMTAG_COMPOUNDTYPE_SUBTRACT"  (CppHex64 iTEMtAGcOMPOUNDtYPEsUBTRACT  )
+  , Cpp "ITEMTAG_SUBSTANCE_ID_BITMASK"   (CppHex64 iTEMtAGsUBSTANCEIDbITMASK    )
+  , Cpp "ITEMTAG_SUBSTANCE_ID_SHIFT"     (CppInt   iTEMtAGsUBSTANCEIDsHIFT      )
+  , Cpp "ITEMTAG_ITEM_ID_BITMASK"        (CppHex64 iTEMtAGiTEMrEFbITMASK        )
+  , Cpp "NOSUBSTANCEID"                  (CppHex32 nOsUBSTANCEiD                )
+  , Cpp "SUBSTANCETAG_TYPE_BITMASK"      (CppHex64 sUBSTANCEtAGtYPEbITmASK      )
+  , Cpp "SUBSTANCETAG_TYPE_SOLID_COLOR"  (CppHex64 sUBSTANCEtAGtYPEsOLIDcOLOR   )
+  , Cpp "SUBSTANCETAG_TYPE_TEXTURE"      (CppHex64 sUBSTANCEtAGtYPEtEXTURE      )
+  , Cpp "SUBSTANCETAG_REF_BITMASK"       (CppHex64 sUBSTANCEtAGrEFbITMASK       )
+--, Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
+--, Cpp "DEBUG_TRACE"                    (CppNothing) -- uncomment this to turn on parsable debugging output
+  , Cpp "DEBUGCOLUMNTHREAD"              (CppInt 0)   -- determines the column for DEBUG_IF macro
+  , Cpp "DEBUGINDEX"                     (CppInt 0)   -- determines the index for DEBUG_IF macro
   ]
 
 -- | Embedded source with implanted definition pragmas.
@@ -105,13 +106,14 @@ determineRasterSpec device =
           maxSortJobSize       = maxGroupSize `div` 8 :: Int
           -- | Determined maximum number of tiles per render kernel call for this device.
           maxRenderJobSize     = maxGroupSize `div` 8 :: Int
-
-          threadsPerTile = fromIntegral maxGroupSize
+          blockSize = maxGroupSize * mAXtHRESHOLDS * (sizeOf (undefined :: THRESHOLDTYPE))
+          availableBlocks = fromIntegral maxMemAllocSize `div` blockSize
       return DeviceSpec { _specMaxTileSize     = fromIntegral maxGroupSize
-                        , _specThreadsPerTile  = threadsPerTile
-                        , _specComputeDepth    = adjustedLog threadsPerTile
+                        , _specThreadsPerBlock = maxGroupSize
+                        , _specComputeDepth    = adjustedLog maxGroupSize
                         , _specMaxThresholds   = mAXtHRESHOLDS
                         , _specMaxLayers       = mAXlAYERS
+                        , _specAvailableBlocks = availableBlocks
                           -- | Determined maximum number of tiles per threshold generation kernel call for this device.
                         , _specMaxGenerateJobSize   = maxGenerateJobSize
                           -- | Determined maximum number of tiles per check split kernel call for this device.
@@ -180,8 +182,6 @@ setupOpenCL enableProfiling useCLGLInterop src =
               program <- loadProgramWOptions options state modifiedSrc
               putStrLn $ "Finished OpenCL kernel compile"
               -- get the rasterizer kernel.
-
-
               generateThresholdsKernel <- getKernelAndDump device program "generateThresholdsKernel"
               checkSplitKernel         <- getKernelAndDump device program "checkSplitKernel"
               splitTileKernel          <- getKernelAndDump device program "splitTileKernel"

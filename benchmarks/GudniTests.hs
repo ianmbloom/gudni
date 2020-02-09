@@ -64,7 +64,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 21
+    , _stateCurrentTest = 26
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -

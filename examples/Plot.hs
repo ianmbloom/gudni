@@ -36,6 +36,9 @@ data PlotState = PlotState
   } deriving (Show)
 makeLenses ''PlotState
 
+instance HasToken PlotState where
+    type TokenOf PlotState = Int
+
 instance Model PlotState where
     screenSize state = Window (Point2 1024 768)
     shouldLoop _ = True
@@ -43,7 +46,7 @@ instance Model PlotState where
     updateModelState frame elapsedTime inputs state =
         execState (
             do  stateAngle .= (realToFrac elapsedTime / 2) @@ turn
-            ) $ foldl (flip processInput) state inputs
+            ) $ foldl (flip undefined {-processInput-}) state inputs
     ioTask = return
     constructScene state status =
         Scene (light . greenish $ blue) <$> plots state

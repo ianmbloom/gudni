@@ -22,4 +22,4 @@ import Data.FileEmbed
 
 -- | Raw embedded source from the Kernels.cl file.
 embeddedOpenCLSource :: BS.ByteString
-embeddedOpenCLSource =      $(embedFile "src/Graphics/Gudni/OpenCL/Kernels.cl")
+embeddedOpenCLSource = $(embedFile "src/Graphics/Gudni/OpenCL/Kernels.cl")

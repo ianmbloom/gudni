@@ -8,13 +8,13 @@ buildRasterJobs params =
       -- Determine the maximum number of tiles per RasterJob
       let maxThresholds = NumStrands $ fromIntegral $ params ^. rpRasterizer . rasterSpec . specMaxThresholds
           tilesPerCall = tr "tilesPerCall" $ fromIntegral $ params ^. rpRasterizer . rasterSpec . specMaxTilesPerJob
-          threadsPerTile = tr "threadsPerTile" $ fromIntegral $ params ^. rpRasterizer . rasterSpec . specThreadsPerTile
+          threadsPerBlock = tr "threadsPerBlock" $ fromIntegral $ params ^. rpRasterizer . rasterSpec . specThreadsPerBlock
           splitTree = {-tr "splitTree" $-} splitTreeTiles maxThresholds tileTree
 
       -- Build all of the RasterJobs by traversing the TileTree.
 
       geoTileTree .= splitTree
-      (numberedTileTree, finalState) <- runBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall threadsPerTile) splitTree)
+      (numberedTileTree, finalState) <- runBuildJobsMonad (traverseTileTree (accumulateRasterJobs tilesPerCall threadsPerBlock) splitTree)
       let jobs = finalState ^. bsCurrentJob : finalState ^. bsJobs
           pointTileQueries = tr "pointTileQueries" $ map (\(queryId, loc) -> (queryId, loc, locatePointInTileTree numberedTileTree loc)) (params ^. rpPointQueries)
           jobsWithQueries = foldl addPointQueryToRasterJobs jobs pointTileQueries
@@ -215,7 +215,7 @@ accumulateRasterJobs :: MonadIO m
                      -> Int
                      -> Tile (S.Seq ItemEntry)
                      -> BuildJobsMonad m (Tile (JobId, TileId))
-accumulateRasterJobs maxTilesPerJob threadsPerTile tile =
+accumulateRasterJobs maxTilesPerJob threadsPerBlock tile =
   do  -- get the current stack of jobs
       jobs <- use bsJobs
       -- get the counter for the number of tiles in the job on top of the stack
@@ -231,7 +231,7 @@ accumulateRasterJobs maxTilesPerJob threadsPerTile tile =
               bsJobCount += 1
               bsTileCount .= 0
               -- rerun the function with the new job on top of the state
-              accumulateRasterJobs maxTilesPerJob threadsPerTile tile
+              accumulateRasterJobs maxTilesPerJob threadsPerBlock tile
       else do -- otherwise grab the job on the top of the stack
               -- add the new tile to the job
               currentTileId <- use bsTileCount
@@ -239,7 +239,7 @@ accumulateRasterJobs maxTilesPerJob threadsPerTile tile =
               (bsCurrentJob .=) =<<  execStateT (addTileToRasterJob tile) currentJob
               -- increment the counter
               bsTileCount += 1
-              bsCurrentJob . rJThreadAllocation += threadsPerTile -- (fromIntegral . widthOf $ tile ^. tileBox)
+              bsCurrentJob . rJThreadAllocation += threadsPerBlock -- (fromIntegral . widthOf $ tile ^. tileBox)
               return (set tileRep (currentJobId, currentTileId) tile)
 
 -- | Add a point query to a raster job

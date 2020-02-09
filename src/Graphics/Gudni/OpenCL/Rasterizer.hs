@@ -14,10 +14,11 @@
 module Graphics.Gudni.OpenCL.Rasterizer
   ( DeviceSpec(..)
   , specMaxTileSize
-  , specThreadsPerTile
+  , specThreadsPerBlock
   , specComputeDepth
   , specMaxThresholds
   , specMaxLayers
+  , specAvailableBlocks
   , specMaxGenerateJobSize
   , specMaxCheckSplitJobSize
   , specMaxSplitJobSize
@@ -63,13 +64,15 @@ data DeviceSpec = DeviceSpec
     { -- | Determined proper square tile size for this device. Should be a power of two.
       _specMaxTileSize          :: PixelSpace
       -- | The number of threads to execute per tile. This must be >= specMaxTileSize and a power of two.
-    , _specThreadsPerTile       :: Int
+    , _specThreadsPerBlock       :: Int
       -- | The compute depth is the adjusted log2 of the threads per tile (see Kernels.cl, function initTileState)
     , _specComputeDepth         :: Int
       -- | Determined best maximum number of thresholds per thread for this device.
     , _specMaxThresholds        :: Int
       -- | Determined best maximum number of shapes per tile for this device∘
     , _specMaxLayers            :: Int
+      -- | Determined maximum number of blocks that can be contained in a single buffer.
+    , _specAvailableBlocks      :: Int
       -- | Determined maximum number of tiles per threshold generation kernel call for this device.
     , _specMaxGenerateJobSize   :: Int
       -- | Determined maximum number of tiles per check split kernel call for this device.

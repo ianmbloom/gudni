@@ -28,6 +28,7 @@ import CLUtil.VectorBuffers
 
 import qualified Data.Map      as M
 import qualified Data.Sequence as S
+import qualified Data.Sequence ((<|),(|>))
 import qualified Data.Vector   as V
 import qualified Data.Vector.Storable as VS
 import Data.Traversable
@@ -47,214 +48,275 @@ fromSequence = VS.fromList . toList
 cInt :: Int -> CInt
 cInt = fromIntegral
 
+toInt :: CInt -> Int
+toInt = fromIntegral
+
 -- A word about terms used below
 -- A Block is trio fixed size blocks of memory used to store lists or thresholds, headers (threshold metadata), and queueSlices (information about the list of thresholds)
 --   for each thread of a given kernel call.
 -- A Tile is just the description of a given area of the screen. A tile can have multiple blocks but each block only has one tile.
 -- A Job is a group of blocks, after it's been broken into chunks that an individual kernel call can handle (without timing out).
 
+{- It's important to understand that in the beggining of the process one or more blocks are associated with each tile in the output image.
+   The first stage of the process is to generate all of the thresholds contained by each block. We then determine if there is enough room to
+   Merge every generated block into a single block for each tile. If it is we do that, if it's not we vertically split the tile in half and
+   split each associated block in half by redistributing every threshold to the appropriate tiles.
+   So for example if a tile has three blocks that are too large to be merged, we will split that into 2 tiles and 6 blocks (3 for each new tile).
+   We split tiles continually until all of their blocks can be merged, or the height of the tile is one pixel. In the latter, extreme case when the tile is merged
+   the bottom most threshold information will be ignored, the assumption being that information that is below MAXLAYERS of other color information in one pixel, can safely be ignored.
+-}
+
+divideIntoJobs :: Int -> S.Seq a -> S.Seq (Int, Int)
+divideIntoJobs maxJobSize workItems =
+  let jobSizes   = fmap S.length . S.chunksOf maxJobSize $ workItems
+      jobOffsets = S.scanl (+) 0 jobSizes
+  in  S.zip jobSizes jobOffsets
+
 runGenerateThresholdsKernel :: RasterParams token
                             -> ThresholdBuffers
                             -> BuffersInCommon
+                            -> Pile ItemTagId
                             -> S.Seq Tile
                             -> S.Seq GeneratorBlock
                             -> CL ()
-runGenerateThresholdsKernel params thresholdBuffers buffersInCommon tiles generators =
-  let threadsPerTile = cInt $ params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerTile
-      maxJobSize = params ^. rpRasterizer . rasterDeviceSpec . specMaxGenerateJobSize
-      generatorJobs = S.chunksOf maxJobSize generators
+runGenerateThresholdsKernel params thresholdBuffers buffersInCommon itemTagIdPile tiles itemSlices =
+  let context         = clContext (params ^. rpRasterizer . rasterClState)
+      threadsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerBlock
+      maxJobSize      = params ^. rpRasterizer . rasterDeviceSpec . specMaxGenerateJobSize
+      generatorJobs   = divideIntoJobs maxJobSize tiles
   in
   do
+  tileBuffer      <- liftIO . vectorToBuffer context . fromSequence $ trWith (show . S.length) "tiles" tiles
+  itemSliceBuffer <- liftIO . vectorToBuffer context . fromSequence $ trWith (show . S.length) "itemSlices" itemSlices
   S.traverseWithIndex (
-         \jobIndex generatorJob ->
+         \jobIndex (jobSize, jobOffset) ->
          do liftIO $ putStrLn ("rasterGenerateThresholdsKernel " ++ show jobIndex ++ " XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
             runKernel (params ^. rpRasterizer . rasterGenerateThresholdsKernel)
-                      -- input job buffer
-                      (fromSequence tiles )
-                      (fromSequence generatorJob)
                       -- constant data buffers
-                      (buffersInCommon ^. bicGeoBuffer    )
-                      (buffersInCommon ^. bicGeoRefBuffer )
-                      (buffersInCommon ^. bicPictFacets   )
-                      (buffersInCommon ^. bicItemTagBuffer)
+                      (buffersInCommon ^. bicGeoBuffer      )
+                      (buffersInCommon ^. bicGeoRefBuffer   )
+                      (buffersInCommon ^. bicPictFacets     )
+                      (buffersInCommon ^. bicItemTagBuffer  )
+                      itemTagIdPile
+                      (cInt  $  params ^. rpRasterizer . rasterDeviceSpec . specComputeDepth)
                       (cInt <$> params ^. rpFrameSpec . specBitmapSize)
                       (cInt  $  params ^. rpFrameSpec . specFrameCount)
-                      (cInt  $  params ^. rpRasterizer . rasterDeviceSpec . specComputeDepth)
+                      -- input job buffer
+                      tileBuffer
+                      itemSliceBuffer
                       (cInt jobIndex)
+                      (cInt jobOffset)
                       -- return buffers
                       (thresholdBuffers ^. tbThresholdBuffer          )
                       (thresholdBuffers ^. tbHeaderBuffer             )
                       (thresholdBuffers ^. tbQueueSliceBuffer)
-                      (Work2D (S.length generatorJob) (fromIntegral threadsPerTile))
-                      (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
+                      (Work2D jobSize threadsPerBlock)
+                      (WorkGroup [1, threadsPerBlock]) :: CL ()
           ) generatorJobs
+  liftIO . clReleaseMemObject . bufferObject $ tileBuffer
+  liftIO . clReleaseMemObject . bufferObject $ itemSliceBuffer
   return ()
 
 runCheckSplitKernel :: RasterParams token
                     -> ThresholdBuffers
                     -> S.Seq Tile
-                    -> S.Seq MergeBlock
-                    -> CL ()
-runCheckSplitKernel params thresholdBuffers tiles mergeBlocks =
-    let threadsPerTile = params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerTile
-        maxJobSize = params ^. rpRasterizer . rasterDeviceSpec . specMaxCheckSplitJobSize
-        mergeJobs = S.chunksOf maxJobSize mergeBlocks
+                    -> S.Seq (Slice BlockId)
+                    -> S.Seq BlockId
+                    -> CL (S.Seq Int)
+runCheckSplitKernel params thresholdBuffers tiles checkBlockSlices checkBlocks =
+    let context        = clContext (params ^. rpRasterizer . rasterClState)
+        threadsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerBlock
+        maxJobSize     = params ^. rpRasterizer . rasterDeviceSpec . specMaxCheckSplitJobSize
+        checkJobs      = divideIntoJobs maxJobSize checkBlockSlices
     in
     do
+    tileBuffer            <- liftIO . vectorToBuffer context . fromSequence $ tiles
+    checkBlockSliceBuffer <- liftIO . vectorToBuffer context . fromSequence $ checkBlockSlices
+    checkBlockBuffer      <- liftIO . vectorToBuffer context . fromSequence $ checkBlocks
+    maximumsBuffer        <- newBuffer (S.length tiles) :: CL (CLBuffer CInt)
     S.traverseWithIndex (
-           \jobIndex mergeJob ->
-           do liftIO $ putStrLn ("sortThresholdsKernel " ++ show jobIndex ++ "           XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
-              runKernel (params ^. rpRasterizer . rasterCheckSplitKernel)
-                        (thresholdBuffers ^. tbThresholdBuffer          )
-                        (thresholdBuffers ^. tbHeaderBuffer             )
-                        (thresholdBuffers ^. tbQueueSliceBuffer)
-                        (fromSequence tiles)
-                        (fromSequence mergeJob)
-                        (cInt <$> params ^. rpFrameSpec . specBitmapSize)
-                        (cInt  $  params ^. rpFrameSpec . specFrameCount)
-                        (cInt  $  params ^. rpRasterizer . rasterDeviceSpec . specComputeDepth)
-                        (cInt jobIndex)
-                        (Work2D (S.length mergeJob) (threadsPerTile))
-                        (WorkGroup [1, threadsPerTile]) :: CL ()
-           ) mergeJobs
-    return ()
+           \jobIndex (jobSize, jobOffset) ->
+           do liftIO $ putStrLn ("checkSplitKernel " ++ show jobIndex ++ "           XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
+              runKernel  (params ^. rpRasterizer . rasterCheckSplitKernel)
+                         (thresholdBuffers ^. tbQueueSliceBuffer)
+                         tileBuffer
+                         checkBlockSliceBuffer
+                         checkBlockBuffer
+                         (cInt  $  params ^. rpRasterizer . rasterDeviceSpec . specComputeDepth)
+                         (cInt <$> params ^. rpFrameSpec  . specBitmapSize)
+                         (cInt  $  params ^. rpFrameSpec  . specFrameCount)
+                         (cInt jobIndex)
+                         (cInt jobOffset)
+                         maximumsBuffer
+                         (Work2D jobSize threadsPerBlock)
+                         (WorkGroup [1, threadsPerBlock]) :: CL ()
+           ) checkJobs
+    maximumThresholds <- fmap toInt . S.fromList . VS.toList <$> readBuffer maximumsBuffer
+    liftIO . clReleaseMemObject . bufferObject $ tileBuffer
+    liftIO . clReleaseMemObject . bufferObject $ checkBlockSliceBuffer
+    liftIO . clReleaseMemObject . bufferObject $ maximumsBuffer
+    return maximumThresholds
 
-data SplitBlock = SplitBlock BlockId BlockId
-
-runSplitTileKernel :: RasterParams token
-                   -> ThresholdBuffers
-                   -> S.Seq Tile
-                   -> S.Seq SplitBlock
-                   -> CL ()
-runSplitTileKernel params thresholdBuffers tiles splitBlocks =
-    let threadsPerTile = fromIntegral $ params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerTile
-        maxJobSize     =                params ^. rpRasterizer . rasterDeviceSpec . specMaxSplitJobSize
-        splitJobs = S.chunksOf maxJobSize splitBlocks
+runSplitKernel :: RasterParams token
+               -> ThresholdBuffers
+               -> S.Seq Tile
+               -> S.Seq BlockId
+               -> CL ()
+runSplitKernel params thresholdBuffers tiles splitPairs =
+    let context        = clContext (params ^. rpRasterizer . rasterClState)
+        threadsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerBlock
+        maxJobSize     = params ^. rpRasterizer . rasterDeviceSpec . specMaxSplitJobSize
+        splitJobs      = divideIntoJobs maxJobSize splitPairs
     in
     do
+    tileBuffer      <- liftIO . vectorToBuffer context . fromSequence $ tiles
+    splitPairBuffer <- liftIO . vectorToBuffer context . fromSequence $ splitPairs
     S.traverseWithIndex (
-           \jobIndex splitJob ->
-           do liftIO $ putStrLn ("rasterSplitTileKernel " ++ show jobIndex ++ "         XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
+           \jobIndex (jobSize, jobOffset)->
+           do liftIO $ putStrLn ("splitTileKernel " ++ show jobIndex ++ "         XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
               runKernel (params ^. rpRasterizer . rasterSplitTileKernel)
                         (thresholdBuffers ^. tbThresholdBuffer )
                         (thresholdBuffers ^. tbHeaderBuffer    )
                         (thresholdBuffers ^. tbQueueSliceBuffer)
-                        (fromSequence tiles)
-                        (fromSequence splitJob)
-                        (cInt <$> params ^. rpFrameSpec . specBitmapSize)
-                        (cInt  $  params ^. rpFrameSpec  . specFrameCount)
                         (cInt  $  params ^. rpRasterizer . rasterDeviceSpec . specComputeDepth)
+                        (cInt <$> params ^. rpFrameSpec  . specBitmapSize)
+                        (cInt  $  params ^. rpFrameSpec  . specFrameCount)
+                        tileBuffer
+                        splitPairBuffer
                         (cInt jobIndex)
-                        (Work2D (S.length splitJob) (fromIntegral threadsPerTile))
-                        (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
+                        (cInt jobOffset)
+                        (Work2D jobSize threadsPerBlock)
+                        (WorkGroup [1, threadsPerBlock]) :: CL ()
            ) splitJobs
+    liftIO . clReleaseMemObject . bufferObject $ tileBuffer
+    liftIO . clReleaseMemObject . bufferObject $ splitPairBuffer
     return ()
 
 data MergeBlock = MergeBlock BlockId BlockId
 
-runMergeTileKernel :: RasterParams token
-                   -> ThresholdBuffers
-                   -> S.Seq Tile
-                   -> S.Seq MergeBlock
-                   -> CL ()
-runMergeTileKernel params thresholdBuffers tiles mergeBlocks =
-    let threadsPerTile = fromIntegral $ params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerTile
-        maxJobSize     =                params ^. rpRasterizer . rasterDeviceSpec . specMaxMergeJobSize
-        mergeJobs = S.chunksOf maxJobSize mergeBlocks
-    in
-    do
-    S.traverseWithIndex (
-           \jobIndex job ->
-           do liftIO $ putStrLn ("mergeTileKernel " ++ show jobIndex ++ "               XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
-              runKernel (params ^. rpRasterizer . rasterMergeTileKernel)
-                        (thresholdBuffers ^. tbThresholdBuffer )
-                        (thresholdBuffers ^. tbHeaderBuffer    )
-                        (thresholdBuffers ^. tbQueueSliceBuffer)
-                        (fromSequence tiles)
-                        (fromSequence job)
-                        (cInt <$> params ^. rpFrameSpec . specBitmapSize)
-                        (cInt  $  params ^. rpFrameSpec . specFrameCount)
-                        (cInt  $  params ^. rpRasterizer . rasterDeviceSpec . specComputeDepth)
-                        (cInt jobIndex)
-                        (Work2D (S.length job) (fromIntegral threadsPerTile))
-                        (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
-           ) mergeJobs
-    return ()
+runMergeKernel :: RasterParams token
+               -> ThresholdBuffers
+               -> S.Seq Tile
+               -> S.Seq (Slice BlockId)
+               -> S.Seq BlockId
+               -> CL ()
+runMergeKernel params thresholdBuffers tiles mergeBlockSlices mergeBlocks =
+  let context        = clContext (params ^. rpRasterizer . rasterClState)
+      threadsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerBlock
+      maxJobSize     = params ^. rpRasterizer . rasterDeviceSpec . specMaxMergeJobSize
+      mergeJobs      = divideIntoJobs maxJobSize mergeBlocks
+  in
+  do  tileBuffer            <- liftIO . vectorToBuffer context . fromSequence $ tiles
+      mergeBlockSliceBuffer <- liftIO . vectorToBuffer context . fromSequence $ mergeBlockSlices
+      mergeBlockBuffer      <- liftIO . vectorToBuffer context . fromSequence $ mergeBlocks
+      S.traverseWithIndex (
+             \jobIndex (jobSize, jobOffset) ->
+             do liftIO $ putStrLn ("mergeTileKernel " ++ show jobIndex ++ "               XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
+                runKernel (params ^. rpRasterizer . rasterMergeTileKernel)
+                          (thresholdBuffers ^. tbThresholdBuffer )
+                          (thresholdBuffers ^. tbHeaderBuffer    )
+                          (thresholdBuffers ^. tbQueueSliceBuffer)
+                          tileBuffer
+                          mergeBlockSliceBuffer
+                          mergeBlockBuffer
+                          (cInt  $  params ^. rpRasterizer . rasterDeviceSpec . specComputeDepth)
+                          (cInt <$> params ^. rpFrameSpec . specBitmapSize)
+                          (cInt  $  params ^. rpFrameSpec . specFrameCount)
+                          (cInt jobIndex)
+                          (cInt jobOffset)
+                          (Work2D jobSize threadsPerBlock)
+                          (WorkGroup [1, threadsPerBlock]) :: CL ()
+             ) mergeJobs
+      liftIO . clReleaseMemObject . bufferObject $ tileBuffer
+      liftIO . clReleaseMemObject . bufferObject $ mergeBlockSliceBuffer
+      liftIO . clReleaseMemObject . bufferObject $ mergeBlockBuffer
+      return ()
 
-
-runSortTileKernel :: RasterParams token
-                  -> ThresholdBuffers
-                  -> S.Seq BlockId
-                  -> CL ()
-runSortTileKernel params thresholdBuffers sortTiles =
-    let threadsPerTile = fromIntegral $ params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerTile
-        maxJobSize = params ^. rpRasterizer . rasterDeviceSpec . specMaxSortJobSize
-        jobs = S.chunksOf maxJobSize sortTiles
+runSortKernel :: RasterParams token
+              -> ThresholdBuffers
+              -> S.Seq Tile
+              -> S.Seq BlockId
+              -> CL ()
+runSortKernel params thresholdBuffers tiles sortBlocks =
+    let context        = clContext (params ^. rpRasterizer . rasterClState)
+        threadsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerBlock
+        maxJobSize     = params ^. rpRasterizer . rasterDeviceSpec . specMaxSortJobSize
+        sortJobs       = divideIntoJobs maxJobSize sortBlocks
     in
-    do
-    S.traverseWithIndex (
-           \jobIndex job ->
-           do liftIO $ putStrLn ("sortThresholdsKernel " ++ show jobIndex ++ "          XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
-              runKernel (params ^. rpRasterizer . rasterSortThresholdsKernel)
-                        (thresholdBuffers ^. tbThresholdBuffer )
-                        (thresholdBuffers ^. tbHeaderBuffer    )
-                        (thresholdBuffers ^. tbQueueSliceBuffer)
-                        (fromSequence job)
-                        (cInt <$> params ^. rpFrameSpec . specBitmapSize)
-                        (cInt $ params ^. rpFrameSpec . specFrameCount)
-                        (cInt $ params ^. rpRasterizer . rasterDeviceSpec . specComputeDepth)
-                        (cInt jobIndex)
-                        (Work2D (S.length job) (fromIntegral threadsPerTile))
-                        (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
-           ) jobs
-    return ()
+    do  tileBuffer      <- liftIO . vectorToBuffer context . fromSequence $ tiles
+        sortBlockBuffer <- liftIO . vectorToBuffer context . fromSequence $ sortBlocks
+        S.traverseWithIndex (
+               \jobIndex (jobSize, jobOffset) ->
+               do liftIO $ putStrLn ("sortThresholdsKernel " ++ show jobIndex ++ "          XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
+                  runKernel (params ^. rpRasterizer . rasterSortThresholdsKernel)
+                            (thresholdBuffers ^. tbThresholdBuffer )
+                            (thresholdBuffers ^. tbHeaderBuffer    )
+                            (thresholdBuffers ^. tbQueueSliceBuffer)
+                            tileBuffer
+                            sortBlockBuffer
+                            (cInt  $  params ^. rpRasterizer . rasterDeviceSpec . specComputeDepth)
+                            (cInt <$> params ^. rpFrameSpec  . specBitmapSize)
+                            (cInt  $  params ^. rpFrameSpec  . specFrameCount)
+                            (cInt jobIndex)
+                            (cInt jobOffset)
+                            (Work2D jobSize threadsPerBlock)
+                            (WorkGroup [1, threadsPerBlock]) :: CL ()
+               ) sortJobs
+        liftIO . clReleaseMemObject . bufferObject $ tileBuffer
+        liftIO . clReleaseMemObject . bufferObject $ sortBlockBuffer
+        return ()
 
-runRenderTileKernel :: (  KernelArgs
-                         'KernelSync
-                         'NoWorkGroups
-                         'UnknownWorkItems
-                         'Z
-                         (target -> NumWorkItems -> WorkGroup -> CL ())
-                       )
-                    => RasterParams token
-                    -> ThresholdBuffers
-                    -> BuffersInCommon
-                    -> S.Seq Tile
-                    -> S.Seq BlockId
-                    -> target
-                    -> CL ()
-runRenderTileKernel params thresholdBuffers buffersInCommon tiles renderBlocks target =
-    let threadsPerTile = fromIntegral $ params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerTile
-        maxJobSize = params ^. rpRasterizer . rasterDeviceSpec . specMaxRenderJobSize
-        renderJobs = S.chunksOf maxJobSize renderBlocks
+runRenderKernel :: (  KernelArgs
+                     'KernelSync
+                     'NoWorkGroups
+                     'UnknownWorkItems
+                     'Z
+                     (target -> NumWorkItems -> WorkGroup -> CL ())
+                   )
+                => RasterParams token
+                -> ThresholdBuffers
+                -> BuffersInCommon
+                -> S.Seq Tile
+                -> S.Seq BlockId
+                -> target
+                -> CL ()
+runRenderKernel params thresholdBuffers buffersInCommon tiles renderBlocks target =
+    let context        = clContext (params ^. rpRasterizer . rasterClState)
+        threadsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerBlock
+        maxJobSize     = params ^. rpRasterizer . rasterDeviceSpec . specMaxRenderJobSize
+        renderJobs     = divideIntoJobs maxJobSize renderBlocks
     in
-    do
-    S.traverseWithIndex (
-           \jobIndex renderJob ->
-           do liftIO $ putStrLn ("rasterRenderThresholdsKernel " ++ show jobIndex ++ "   XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
-              runKernel (params ^. rpRasterizer . rasterRenderThresholdsKernel)
-                        (thresholdBuffers ^. tbThresholdBuffer )
-                        (thresholdBuffers ^. tbHeaderBuffer    )
-                        (thresholdBuffers ^. tbQueueSliceBuffer)
-                        (fromSequence tiles)
-                        (fromSequence renderJob)
-                        (buffersInCommon ^. bicItemTagBuffer)
-                        (buffersInCommon ^. bicSubTagBuffer )
-                        (buffersInCommon ^. bicPictFacets   )
-                        (buffersInCommon ^. bicPictBuffer   ) -- (params ^. rpPictData)
-                        (buffersInCommon ^. bicPictMemBuffer)
-                        (buffersInCommon ^. bicSolidColors  )
-                        (buffersInCommon ^. bicRandoms      ) -- (params ^. rpGeometryState  . geoRandomField)
-                        (params ^. rpSubstanceState . suBackgroundColor)
-                        (cInt <$> params ^. rpFrameSpec ^. specBitmapSize)
-                        (cInt $ params ^. rpFrameSpec ^. specFrameCount)
-                        (cInt $ params ^. rpRasterizer . rasterDeviceSpec . specComputeDepth)
-                        (cInt jobIndex)
-                        target
-                        (Work2D (S.length renderJob) (fromIntegral threadsPerTile))
-                        (WorkGroup [1, fromIntegral threadsPerTile]) :: CL ()
-          ) renderJobs
-    return ()
+    do  tileBuffer        <- liftIO . vectorToBuffer context . fromSequence $ tiles
+        renderBlockBuffer <- liftIO . vectorToBuffer context . fromSequence $ renderBlocks
+        S.traverseWithIndex (
+               \jobIndex (jobSize, jobOffset) ->
+               do liftIO $ putStrLn ("rasterRenderThresholdsKernel " ++ show jobIndex ++ "   XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
+                  runKernel (params ^. rpRasterizer . rasterRenderThresholdsKernel)
+                            (thresholdBuffers ^. tbThresholdBuffer )
+                            (thresholdBuffers ^. tbHeaderBuffer    )
+                            (thresholdBuffers ^. tbQueueSliceBuffer)
+                            (buffersInCommon ^. bicItemTagBuffer)
+                            (buffersInCommon ^. bicSubTagBuffer )
+                            (buffersInCommon ^. bicPictFacets   )
+                            (buffersInCommon ^. bicPictBuffer   ) -- (params ^. rpPictData)
+                            (buffersInCommon ^. bicPictMemBuffer)
+                            (buffersInCommon ^. bicSolidColors  )
+                            (buffersInCommon ^. bicRandoms      ) -- (params ^. rpGeometryState  . geoRandomField)
+                            (params ^. rpSubstanceState . suBackgroundColor)
+                            (cInt  $  params ^. rpRasterizer . rasterDeviceSpec . specComputeDepth)
+                            (cInt <$> params ^. rpFrameSpec  . specBitmapSize)
+                            (cInt  $  params ^. rpFrameSpec  . specFrameCount)
+                            tileBuffer
+                            renderBlockBuffer
+                            (cInt jobIndex)
+                            (cInt jobOffset)
+                            target
+                            (Work2D jobSize threadsPerBlock)
+                            (WorkGroup [1, threadsPerBlock]) :: CL ()
+              ) renderJobs
+        liftIO . clReleaseMemObject . bufferObject $ tileBuffer
+        liftIO . clReleaseMemObject . bufferObject $ renderBlockBuffer
+        return ()
 
 runPointQueryKernel :: RasterParams token
                     -> ThresholdBuffers
@@ -282,8 +344,8 @@ runPointQueryKernel params thresholdBuffers buffersInCommon pointQueries =
        --                                (fromIntegral numPointQueries :: CInt)
        --                                (VS.fromList queries)
        --                                (Out numPointQueries)
-       --                                (Work2D numTiles (fromIntegral threadsPerTile))
-       --                                (WorkGroup [1, fromIntegral threadsPerTile])
+       --                                (Work2D numTiles (fromIntegral threadsPerBlock))
+       --                                (WorkGroup [1, fromIntegral threadsPerBlock])
        let queryResults = []
        return queryResults
 
@@ -294,11 +356,14 @@ divideEntrySequences :: RasterParams token
                      -> Identity (Tile, (S.Seq (S.Seq ItemEntry)))
 divideEntrySequences params (tile, rep) = return $ (tile, go rep)
   where
-  go ss = let len = S.length ss
+  go ss = let len = tr "len" $ S.length ss
               maxLayers     = params ^. rpRasterizer . rasterDeviceSpec . specMaxLayers
               maxThresholds = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
+              totalStrands  = sum (fmap (unNumStrands . view itemStrandCount) ss) * 2
+              tooManyShapes  = len > maxLayers
+              tooManyStrands = totalStrands > fromIntegral maxThresholds
           in
-          if (len > 1) && (len > maxLayers || (sum (fmap (unNumStrands . view itemStrandCount) ss) * 3) > fromIntegral maxThresholds)
+          if (len > 1) && (tooManyShapes || tooManyStrands)
           then let (left, right) = S.splitAt (len `div` 2) ss
                in go left <|> go right
           else S.singleton ss
@@ -326,37 +391,93 @@ allocateGeneration (tile, slices) =
     do blockIds <- mapM (allocateTilePortion tile) slices
        return (S.singleton (tile, blockIds))
 
---mustSplitTile :: S.Seq (Tile (S.Seq (S.Seq ItemEntry))) -> State (S.S.Seq (Tile (S.S
-checkSplitTile = undefined
-  -- if heightOf tile > 1 && sums of columns of thresholds cannot be split.
-  -- if the height is <= 1 then we can just take the top thresholds
+mkSlice start len = Slice (Ref (fromIntegral start)) (Breadth (fromIntegral len))
+
+collectTileBlocks :: S.Seq (Tile, S.Seq BlockId) -> State (S.Seq Tile, S.Seq (Slice BlockId), S.Seq BlockId, Int) ()
+collectTileBlocks = mapM_ go
+    where go (newTile, newBlocks) =
+             do (tiles, blockSlices, blocks, current) <- get
+                let len = S.length newBlocks
+                put (tiles |> newTile, blockSlices |> mkSlice current len, blocks <|> newBlocks, current + len)
+
+mergeTileBlocks :: S.Seq (Tile, S.Seq BlockId) -> State (S.Seq Tile, S.Seq (Slice BlockId), S.Seq BlockId, Int) (S.Seq (Tile, BlockId))
+mergeTileBlocks ss = mapM go ss
+    where go :: (Tile, S.Seq BlockId) -> State (S.Seq Tile, S.Seq (Slice BlockId), S.Seq BlockId, Int) (Tile, BlockId)
+          go (newTile, newBlocks) =
+             do (tiles, blockSlices, blocks, current) <- get
+                let len = S.length newBlocks
+                put (tiles |> newTile, blockSlices |> mkSlice current len, blocks <|> newBlocks, current + len)
+                case S.viewl newBlocks of
+                  S.EmptyL -> error "empty blockId sequence."
+                  (S.:<) topBlockId _ -> return (newTile, topBlockId)
+
+verticalSplitTile :: Tile -> (Tile, Tile)
+verticalSplitTile tile =
+  let cut = (tile ^. tileBox . topSide + tile ^. tileBox . bottomSide) `div` 2
+      topTile    = Tile (set bottomSide cut (tile ^. tileBox)) (tile ^. tileHDepth) (tile ^. tileVDepth - 1)
+      bottomTile = Tile (set topSide    cut (tile ^. tileBox)) (tile ^. tileHDepth) (tile ^. tileVDepth - 1)
+  in  (topTile, bottomTile)
+
+data SplitState = SplitState
+   { _splitShoulds :: S.Seq Bool
+   , _splitTiles   :: S.Seq Tile
+   , _splitBlocks  :: S.Seq BlockId
+   , _splitNextBlocKId :: BlockId
+   }
+makeLenses ''SplitState
+
+addSplitTile top bottom topBlock bottomBlock =
+  do splitTiles  %= \tiles  -> tiles |> top |> bottom
+     splitBlocks %= \blocks -> blocks |> topBlock |> bottomBlock
+
+popShould :: State SplitState Bool
+popShould =
+   do shouldSplits <- use splitShoulds
+      let (should, rest) = case S.viewl shouldSplits of
+                             (S.:<) should rest -> (should, rest)
+                             S.EmptyL -> error "shouldSplits is empty"
+      splitShoulds .= rest
+      return should
+
+makeSplits :: S.Seq (Tile, S.Seq BlockId) -> State SplitState (S.Seq (Tile, S.Seq BlockId))
+makeSplits ss = join <$> mapM go ss
+  where go :: (Tile, S.Seq BlockId) -> State SplitState (S.Seq (Tile, S.Seq BlockId))
+        go (tile, blocks) =
+            do nextBlockId <- use splitNextBlocKId
+               should <- popShould
+               if should
+               then let (top, bottom) = verticalSplitTile tile
+                        len = S.length blocks
+                        newBlocks = S.iterateN len (+1) nextBlockId
+                    in  do traverse (uncurry (addSplitTile top bottom)) $ S.zip blocks newBlocks
+                           splitNextBlocKId += BlockId len
+                           return . S.fromList  $ [(top, blocks),(bottom,newBlocks)]
+                else  return . S.singleton $ (tile,blocks)
+
+shouldSplitTile :: RasterParams token -> Tile -> Int -> Bool
+shouldSplitTile params tile maxThresholdCount =
+  let maxThresholds = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
+  in  heightOf (tile ^. tileBox) > 1 && maxThresholdCount > maxThresholds
 
 splitTileLoop :: RasterParams token
               -> ThresholdBuffers
-              -> TileTree (Tile, S.Seq BlockId)
+              -> TileTree (S.Seq (Tile, S.Seq BlockId))
               -> BlockId
-              -> CL (TileTree (Tile, S.Seq BlockId), BlockId)
-splitTileLoop params thresholdBuffers tileTree allocation =
+              -> BlockId
+              -> CL (TileTree (S.Seq (Tile, S.Seq BlockId)))
+splitTileLoop params thresholdBuffers tileTree allocation availableAllocation =
     -- Collect all of the tiles that need to be split.
-    let (splitTileSequence,(splitPairs, newAllocation)) = runState (traverseTileTree checkSplitTile tileTree) (S.empty, allocation)
-    in
-    if length splitPairs > 0
-    then -- Check allocation newAllocations and reallocate buffers if necessary
-      do (dataBlocks, queueBlocks) <- if (undefined {-newAllocaion-} > allocation || undefined {- available allocation-})
-                                      then undefined
-                                        -- make new buffers
-                                        -- copy old buffers to new
-                                        -- get rid of old buffers
-                                      else undefined
-                                        -- use current buffers
-         -- Divide all of the split tiles into chunks we know can execute in one kernel.
-         let
-         -- Execute all of the split jobs.
-         runSplitTileKernel params thresholdBuffers undefined undefined -- tiles splitBlocks
-         --
-         splitTileLoop params thresholdBuffers splitTileSequence newAllocation
-    else return (splitTileSequence, allocation)
-
+    do let (checkTiles, checkBlockSlices, checkBlocks, _) = execState (traverseTileTree collectTileBlocks tileTree) (S.empty, S.empty, S.empty, 0)
+       maximums <- tr "maximums" <$> runCheckSplitKernel params thresholdBuffers checkTiles checkBlockSlices checkBlocks
+       let shouldSplits = S.zipWith (shouldSplitTile params) checkTiles maximums
+       if or shouldSplits
+       then do let (splitTileTree, (SplitState _ splitTiles splitBlocks newAllocation)) = runState (traverseTileTree makeSplits tileTree) (SplitState shouldSplits S.empty S.empty allocation)
+               adjustedThresholdBuffers <- if newAllocation <= availableAllocation
+                                           then return thresholdBuffers
+                                           else error "out of blocks"
+               runSplitKernel params adjustedThresholdBuffers splitTiles splitBlocks
+               splitTileLoop params thresholdBuffers splitTileTree newAllocation availableAllocation
+       else return tileTree
 
 addPortionToPile :: S.Seq ItemEntry -> StateT (Pile ItemTagId) CL (Slice ItemTagId)
 addPortionToPile portion =
@@ -369,41 +490,74 @@ makeItemEntrySlice :: (Tile, S.Seq (S.Seq ItemEntry)) -> StateT (Pile ItemTagId)
 makeItemEntrySlice (tile, portions) = do slices <- mapM addPortionToPile portions
                                          return (tile, slices)
 
-splitAndMergeTileTree :: RasterParams token
+{-
+generateAndMergeBlocks :: RasterParams token
+                       -> ThresholdBuffers
+                       -> BuffersInCommon
+                       -> S.Seq BlockId
+                       -> S.Seq (Tile, Slice ItemTagId)
+                       -> CL (S.Seq BlockId, S.Seq (Tile, BlockId))
+generateAndMergeBlocks params
+                       thresholdBuffers
+                       buffersInCommon
+                       availableBlocks
+                       tileSlices =
+    do
+
+
+  runGenerateThresholdsKernel :: RasterParams token
+                              -> ThresholdBuffers
+                              -> BuffersInCommon
+                              -> Pile ItemTagId
+                              -> S.Seq Tile
+                              -> S.Seq GeneratorBlock
+                              -> CL ()
+
+
+-}
+splitAndMergeTileTree :: (  KernelArgs
+                           'KernelSync
+                           'NoWorkGroups
+                           'UnknownWorkItems
+                           'Z
+                           (target -> NumWorkItems -> WorkGroup -> CL ())
+                          )
+                      => RasterParams token
                       -> BuffersInCommon
                       -> TileTree (Tile, S.Seq ItemEntry)
-                      -> a
+                      -> target
                       -> CL (S.Seq (PointQueryId, SubstanceTagId))
 splitAndMergeTileTree params
                       buffersInCommon
                       tree
-                      output =
+                      target =
   do -- Start by dividing all of the items into sub seqeunces that can definitely be generated given the memory restraints of the generation kernel.
      let dividedTileTree = tr "dividedTileTree" $ runIdentity (traverseTileTree (divideEntrySequences params) tree)
-     (sliceTree, itemPile) <- runStateT (traverseTileTree makeItemEntrySlice dividedTileTree) =<< (liftIO newPile)
+     (sliceTree, itemTagIdPile) <- runStateT (traverseTileTree makeItemEntrySlice dividedTileTree) =<< (liftIO newPile)
      -- Allocate space for each generation kernel.
      let (blockTree, (tiles, blocks, totalBlocks)) = runState (traverseTileTree allocateGeneration sliceTree) (S.empty, S.empty, 0)
-     thresholdBuffers <- createThresholdBuffers params (unBlockId totalBlocks)
+         availableBlocks = params ^. rpRasterizer . rasterDeviceSpec . specAvailableBlocks
+         --tileChunks  = S.chunksOf (availableBlocks `div` 4) tiles
+         --blockChunks = S.chunksOf (availableBlocks `div` 4) blocks
+         --jobs = S.zipWith tileChunks blockChunks
+     thresholdBuffers <- createThresholdBuffers params availableBlocks
      -- Generate all of the thresholds from the items
-     runGenerateThresholdsKernel params thresholdBuffers buffersInCommon tiles blocks
-     {-
+
+     runGenerateThresholdsKernel params thresholdBuffers buffersInCommon itemTagIdPile tiles blocks
      -- Given the size of each generated threshold queue continuously split tiles until the can all the divided sequences can be properly merged
-     splitTileTree <- splitTileLoop runSplitTileKernel maxSplitJobSize runCheckSplitKernel maxCheckSplitJobSize allocatedTileTree
-
+     splitTileTree <- splitTileLoop params thresholdBuffers blockTree totalBlocks (BlockId availableBlocks)
      -- Now extract the tiles that need to be merged.
-     let (mergedTileTree, tilesToMerge) = runState (mapM collectTilesToMerge splitTileTree) (S.empty,0)
-     -- Execute each merge job.
-     runMergeTileKernel params thresholdBuffers bufferInCommon tilesToMerge
+     let (mergedTileTree, (mergeTiles, mergeBlockSlices, mergeBlocks, _)) = runState (traverseTileTree mergeTileBlocks splitTileTree) (S.empty, S.empty, S.empty, 0)
+      -- Execute each merge job.
+     runMergeKernel params thresholdBuffers mergeTiles mergeBlockSlices mergeBlocks
 
-     let tileSequence = runState (traverseTileTree (\tile -> modify (|> tile)) mergedTileTree) S.empty
+     let (finalTiles, finalBlocks) = execState (traverseTileTree (mapM (\(tile, blockId) -> modify (\(tiles, blocks) -> (tiles |> tile, blocks |> blockId)))) mergedTileTree) (S.empty, S.empty)
 
-     runSortTileKernal params thresholdBuffers bufferInCommon tileSequence
+     runSortKernel params thresholdBuffers finalTiles finalBlocks
 
-     runRenderTileKernel params thresholdBuffers bufferInCommon tileSequence
-
-     let queryDataBlockPairs = map (locatePointInTileTree mergedTileTree) queries
-     let queryJobs = S.chunksOf maxQueryJobSize queryDataBlockPairs
-     queryResults <- join <$> mapM_ runQueryKernel queryJobs
+     runRenderKernel params thresholdBuffers buffersInCommon finalTiles finalBlocks target
+     {-
+     queryResults <- runPointQueryKernel params thresholdBuffers buffersInCommon tiles (params ^. rasterQueries)
      releaseThresholdBuffers thresholdBuffers
      putStrLn ("rasterKernels Done             XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
      return queryResults
@@ -465,28 +619,9 @@ instance Storable GeneratorBlock where
   peek = peekV
   poke = pokeV
 
-instance StorableM SplitBlock where
-  sizeOfM _ = do sizeOfM (undefined :: BlockId)
-                 sizeOfM (undefined :: BlockId)
-  alignmentM _ = do alignmentM (undefined :: BlockId)
-                    alignmentM (undefined :: BlockId)
-  peekM = do blockIdA <- peekM
-             blockIdB <- peekM
-             return (SplitBlock blockIdA blockIdB)
-  pokeM (SplitBlock blockIdA blockIdB) =
-          do pokeM blockIdA
-             pokeM blockIdB
-
-instance Storable SplitBlock where
-  sizeOf = sizeOfV
-  alignment = alignmentV
-  peek = peekV
-  poke = pokeV
-
 instance StorableM MergeBlock where
-  sizeOfM _ = do sizeOfM (undefined :: BlockId)
-                 sizeOfM (undefined :: BlockId)
-
+  sizeOfM    _ = do sizeOfM (undefined :: BlockId)
+                    sizeOfM (undefined :: BlockId)
   alignmentM _ = do alignmentM (undefined :: BlockId)
                     alignmentM (undefined :: BlockId)
   peekM = do blockIdA <- peekM
