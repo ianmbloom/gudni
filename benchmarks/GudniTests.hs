@@ -64,7 +64,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 26
+    , _stateCurrentTest = 8 -- 10
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
@@ -122,7 +122,7 @@ maxShapeTest ::  Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpac
 maxShapeTest state =
     return .
     overlap .
-    gridOf 1 1 (state ^. stateBase . stateStep + 2000 + 1) .
+    gridOf 1 1 (state ^. stateBase . stateStep + 20 + 1) .
     concat .
     repeat $
         [ colorWith (transparent 1.0 (pureRed    )) $ rectangle (Point2 10000 1)
@@ -141,7 +141,7 @@ fuzzyDonut state = return $
 fuzzyBasic :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyBasic state = return $
                let time = view (stateBase . stateLastTime) state
-               in  translateByXY (100) (100) .
+               in  translateByXY 100 100 .
                    overlap $
                    evalRand (sequence . replicate 16 $ fuzzyCurve (makePoint 1440 900) 10) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
@@ -262,7 +262,7 @@ solidGrid state = return $
 checkerBoard :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 checkerBoard state = return $
     let grid  :: CompoundTree SubSpace
-        grid = overlap . gridOf 1 200 200 . repeat $ overlap[                        rectangle $ Point2 0.5 0.5
+        grid = overlap . gridOf 1 10 10 . repeat $ overlap[                        rectangle $ Point2 0.5 0.5
                                                               , translateByXY 0.5 0.5 . rectangle $ Point2 0.5 0.5
                                                               ]
     in
@@ -310,13 +310,11 @@ testPict state =
 stackOfSquares :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 stackOfSquares state = return $
         overlap
-          [ (translateByXY 0 0  . colorWith (transparent 1.0 red    ) $ rectangle (Point2 4 4) )
-          , (translateByXY 0 4  . colorWith (transparent 1.0 green  ) $ rectangle (Point2 4 4) )
-          --, (translateByXY 0 8  . colorWith (transparent 1.0 blue   ) $ rectangle (Point2 4 4) )
+          [ (translateByXY 0 0  . colorWith (transparent 1.0 red    ) $ rectangle (Point2 8 4) )
+          , (translateByXY 0 4  . colorWith (transparent 1.0 green  ) $ rectangle (Point2 8 4) )
+          , (translateByXY 0 8  . colorWith (transparent 1.0 blue   ) $ rectangle (Point2 8 4) )
           --, (translateByXY 0 12 . colorWith (transparent 1.0 purple ) $ rectangle (Point2 4 4) )
           ]
-
-
 
 -- | Basic test for shape subtraction.
 openSquare :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
@@ -324,7 +322,6 @@ openSquare state = return $
     colorWith (transparent 1 orange) $
           subtractFrom (translateBy (Point2 1 1) $ rectangle (Point2 3 3))
                     (rectangle (Point2 5 5))
-
 
 -- | Basic test for shape subtraction and transparency.
 openSquareOverlap2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)

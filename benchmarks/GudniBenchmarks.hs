@@ -46,12 +46,10 @@ instance HasToken BenchmarkState where
 
 instance Model BenchmarkState where
     screenSize state = --FullScreen
-                       Window $ Point2 128 128
-    shouldLoop _ = True
-    fontFile _ = findDefaultFont
+                       Window $ Point2 512 512
+    --rshouldLoop _ = False
     updateModelState frame elapsedTime inputs state =
         over stateBase (updateSceneState frame elapsedTime) $ foldl (flip processInput) state inputs
-    ioTask = return
     constructScene state status =
         do  testScene <- (snd $ getTest state) state
             let testName = (fst $ getTest state)
@@ -62,8 +60,6 @@ instance Model BenchmarkState where
                 withStatus = if False then overlap [statusTree, tree] else tree
             return . Scene (light gray) $ withStatus
     providePictureMap state = return $ state ^. statePictureMap
-    handleOutput state target = do  presentTarget target
-                                    return state
 
 instance HandlesInput Int BenchmarkState where
    processInput input =

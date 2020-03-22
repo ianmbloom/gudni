@@ -83,10 +83,6 @@
 #define MAXCHANNELUCHAR 0xFF   // maximum value for converting from uchar color value
 #define MAXCHANNELFLOAT 255.0f // maximum value for converting from float color value
 
-// Sides of the pixel
-#define LEFTBORDER  0.0f
-#define RIGHTBORDER COLUMNSPACING
-
 // Color
 #define COLOR float4
 #define RED(color)   color.s0 // red   channel of float4 color
@@ -114,7 +110,7 @@
 #define SUBSTANCETAGID uint
 
 inline bool itemTagIsFacet(ITEMTAG tag)    {return (tag & ITEMTAG_ISFACET_BITMASK) == ITEMTAG_ISFACET;}
-inline bool itemTagIsShape(ITEMTAG tag)  {return (tag & ITEMTAG_ISFACET_BITMASK) == ITEMTAG_ISSHAPE;}
+inline bool itemTagIsShape(ITEMTAG tag)    {return (tag & ITEMTAG_ISFACET_BITMASK) == ITEMTAG_ISSHAPE;}
 inline bool itemTagIsAdd(ITEMTAG tag)      {return (tag & ITEMTAG_COMPOUNDTYPE_BITMASK) == ITEMTAG_COMPOUNDTYPE_ADD;}
 inline bool itemTagIsSubtract(ITEMTAG tag) {return (tag & ITEMTAG_COMPOUNDTYPE_BITMASK) == ITEMTAG_COMPOUNDTYPE_SUBTRACT;}
 inline SUBSTANCETAGID itemTagSubstanceTagId(ITEMTAG tag) {return (int) ((tag & ITEMTAG_SUBSTANCE_ID_BITMASK) >> ITEMTAG_SUBSTANCE_ID_SHIFT);}
@@ -176,25 +172,25 @@ inline SUBSTANCETAG substanceTagTextureMemId(SUBSTANCETAG tag) {return (tag & SU
 // facetId - determines which facet the threshold is a border for.
 // substanceId - either determines which substance the theshold is a facet border for.
 // layerId - determines which layer the threshold defines a shape border for.
-#define POSITIVE_SLOPE_MASK    0x80000000 // & to get the leftmost bit
-#define PERSIST_AND_SLOPE_MASK 0xC0000000 // & to get leftmost and second to leftmost bit
-#define PERSIST_TOP            0xC0000000 // positive slope and persist
-#define PERSIST_BOTTOM         0x40000000 // not positive slopw and persist
+#define POSITIVE_SLOPE_MASK    0x8000000000000000 // & to get the leftmost bit
+#define PERSIST_AND_SLOPE_MASK 0xC000000000000000 // & to get leftmost and second to leftmost bit
+#define PERSIST_TOP            0xC000000000000000 // positive slope and persist
+#define PERSIST_BOTTOM         0x4000000000000000 // not positive slopw and persist
 
-#define POSITIVE_SLOPE         0x80000000
-#define NEGATIVE_SLOPE         0x00000000
+#define POSITIVE_SLOPE         0x8000000000000000
+#define NEGATIVE_SLOPE         0x0000000000000000
 
-#define PERSIST                0x40000000 // & to isolate the persist bit
-#define NONPERSIST             0x00000000 // just zero
-#define UNPERSISTMASK          0xBFFFFFFF // everything but the persist bit
+#define PERSIST                0x4000000000000000 // & to isolate the persist bit
+#define NONPERSIST             0x0000000000000000 // just zero
+#define UNPERSISTMASK          0xBFFFFFFFFFFFFFFF // everything but the persist bit
 
-#define ITEMTAGIDMASK          0x3FFFFFFF // & to get the layer id
+#define ITEMTAGIDMASK          0x3FFFFFFFFFFFFFFF // & to get the layer id
 
 // & has a lower precedence than !=
-inline     bool headerPositiveSlope(HEADER h) {return (h & POSITIVE_SLOPE_MASK) != 0;} // determine if the threshold has a positive slope
-inline     bool headerPersistTop   (HEADER h) {return (h & PERSIST_AND_SLOPE_MASK) == PERSIST_TOP;   } // determine if the top of the threshold affects the persistant state of the shapestack
-inline     bool headerPersistBottom(HEADER h) {return (h & PERSIST_AND_SLOPE_MASK) == PERSIST_BOTTOM;} // determine if the bottom of the threshold affects the persistant state of the shapestack
-inline     bool headerPersistEither(HEADER h) {return (h & PERSIST) != 0;  } // determine if either top or bottom of the threshold affects the persistant state of the shapestack
+inline bool   headerPositiveSlope(HEADER h) {return (h & POSITIVE_SLOPE_MASK) != 0;} // determine if the threshold has a positive slope
+inline bool   headerPersistTop   (HEADER h) {return (h & PERSIST_AND_SLOPE_MASK) == PERSIST_TOP;   } // determine if the top of the threshold affects the persistant state of the shapestack
+inline bool   headerPersistBottom(HEADER h) {return (h & PERSIST_AND_SLOPE_MASK) == PERSIST_BOTTOM;} // determine if the bottom of the threshold affects the persistant state of the shapestack
+inline bool   headerPersistEither(HEADER h) {return (h & PERSIST) != 0;  } // determine if either top or bottom of the threshold affects the persistant state of the shapestack
 inline HEADER unPersist      (HEADER h) {return h & UNPERSISTMASK;}
 
 inline ITEMTAGID headerItemTagId(HEADER h) {return  h & ITEMTAGIDMASK;} // get the index of the shape that corresponds to the threshold
@@ -250,19 +246,13 @@ typedef struct Slice
 inline int getGeometryStart(Slice ref) {return ref.sStart;}  // The first part of a shape slice refers to the position in the geometry buffer
 inline int getNumStrands(Slice ref)    {return ref.sLength;} // The second part refers to the number of strands that define the shape
                                                               // (the actual size of the strands is at the beginning of each strand heap)
-inline int boxLeft  (int4 box) {return box.x;}
-inline int boxTop   (int4 box) {return box.y;}
-inline int boxRight (int4 box) {return box.z;}
-inline int boxBottom(int4 box) {return box.w;}
-inline int2 boxLeftTop     (int4 box) {return box.xy;}
-inline int2 boxRightBottom (int4 box) {return box.zw;}
+#define boxLeft(box)   box.x
+#define boxTop(box)    box.y
+#define boxRight(box)  box.z
+#define boxBottom(box) box.w
 
-// Initial information about a tile.
-typedef struct TileInfo
-  { int4  tileBox    // boundaries of tile
-  ; int   tileHDepth // logarithmic horizontal depth in tree (tileHDepth ^ 2 == tile width)
-  ; int   tileVDepth // logarithmic vertical   depth in tree (tileVDepth ^ 2 == tile height)
-  ;} TileInfo;
+#define boxLeftTop(box) box.xy
+#define boxRightBottom(box) box.zw
 
 // A picture reference is a reference to bitmap data that can be the substance of a shape.
 typedef struct PictUse
@@ -298,13 +288,10 @@ typedef struct ColorState {
                 int2   absolutePosition;          // the absolute position of the current pixel.
   } ColorState;
 
-#define RENDERSTART 0
-#define RENDEREND tileS->floatHeight
-
 // the threshold queue stores references to the threshold buffers pointers to the start and end of the queue.
 typedef struct ThresholdQueue {
-               LMEM    HEADER thresholdHeaders[MAXTHRESHOLDS]; // array of threshold header
-               LMEM THRESHOLD thresholds[MAXTHRESHOLDS];       // array of threshold geometry
+               PMEM    HEADER thresholdHeaders[MAXTHRESHOLDS]; // array of threshold header
+               PMEM THRESHOLD thresholds[MAXTHRESHOLDS];       // array of threshold geometry
                         Slice qSlice;       // slice, the position of the top of the queue.
 } ThresholdQueue;
 
@@ -406,25 +393,11 @@ typedef struct ParseState {
             float8  accColorArea;       // accumulated color and area.
 
                int  sectionCount;
-               int  frameNumber;
+               int  frameCount;
                int  buildCount;
         RANDOM_POS  randomFieldCursor;
     CMEM     float *randomField;
   } ParseState;
-
-typedef struct TileState {
-      ITEMTAGIDREF  tileItemStart;
-               int  tileNumItems;
-               int  jobThread;
-              int2  bitmapSize;
-              int2  internalDelta;
-              int2  threadDelta;
-               int  tileIndex;
-               int  intHeight;
-             float  floatHeight;
-               int  threadUnique;
-               int  columnThread;
-} TileState;
 
 typedef struct Traversal {
     float4  travLeftControl;
@@ -452,21 +425,21 @@ void bifurcateCurve( Traversal *t
                    );
 
 void addLineSegment ( PMEM  ThresholdQueue *tQ
-                    , PMEM       TileState *tileS
                     ,               float2  left
                     ,               float2  right
                     ,            ITEMTAGID  itemTagId
+                    ,               float4  columnBox
                     );
 
 void addThreshold ( PMEM ThresholdQueue *tQ
-                  , PMEM      TileState *tileS
+                  ,              float4  columnBox
                   ,              HEADER  newHeader
                   ,           THRESHOLD  newThreshold
                   );
 
 bool traverseTree ( GMEM    float2 *strandHeap
                   ,            int  currentSize
-                  ,          float2 threadDelta
+                  ,          float4 columnBox
                   ,      Traversal *l
                   ,      Traversal *r
                   );
@@ -474,18 +447,18 @@ bool traverseTree ( GMEM    float2 *strandHeap
 void searchTree(      Traversal *trav
                , GMEM    float4 *tree
                ,            int  treeSize
-               ,         float4  threadDelta4
                ,           bool  isLeft
                );
 
 void spawnThresholds ( PMEM  ThresholdQueue *tQ
-                     , PMEM       TileState *tileS
+                     ,               float4  columnBox
                      ,            ITEMTAGID  itemTagId
                      ,            Traversal *l
                      ,            Traversal *r
                      );
 
 bool checkInRange ( Traversal *t
+                  ,    float4  columnBox
                   );
 
 inline THRESHOLD lineToThreshold ( float2  left
@@ -495,6 +468,7 @@ inline THRESHOLD lineToThreshold ( float2  left
 inline HEADER lineToHeader (    float2 left
                            ,    float2 right
                            , ITEMTAGID itemTagId
+                           ,    float4 columnBox
                            );
 
 float thresholdIntersectX(    HEADER header
@@ -585,23 +559,24 @@ COLOR compositeLayers( PMEM    ShapeState *shS
                      );
 
 void verticalAdvance( PMEM ThresholdQueue *tQ
-                    , PMEM      TileState *tileS
                     , PMEM     ParseState *pS
                     , PMEM     ShapeState *shS
+                    ,              float4  columnBox
                     );
 
 void horizontalAdvance ( PMEM ThresholdQueue *tQ
                        , PMEM     ParseState *pS
+                       ,              float4  columnBox
                        );
 
-void writePixelGlobal ( PMEM TileState *tileS
-                      ,          COLOR  color
-                      , GMEM       uint *out
-                      ,            int  y
+void writePixelGlobal (        int2  columnDelta
+                      ,        int2  bitmapSize
+                      ,       COLOR  color
+                      , GMEM   uint *out
+                      ,         int  y
                       );
 
-void buildThresholdArray ( PMEM       TileState *tileS
-                         , PMEM  ThresholdQueue *tQ
+void buildThresholdArray ( PMEM  ThresholdQueue *tQ
                          , GMEM          float4 *geometryHeap
                          , GMEM       HardFacet *facetHeap
                          , GMEM           Slice *geoRefHeap
@@ -609,13 +584,13 @@ void buildThresholdArray ( PMEM       TileState *tileS
                          , GMEM       ITEMTAGID *itemTagIdHeap
                          ,         ITEMTAGIDREF  itemStart
                          ,         ITEMTAGIDREF  numItems
-                         ,               float2  threadDelta
+                         ,               float4  columnBox
                          );
 
 void initRandomField( ParseState *pS
                     , CMEM float *randomField
                     , int blockId
-                    , int computeDepth
+                    , int columnDepth
                     , int columnThread
                     );
 
@@ -626,16 +601,15 @@ inline Slice initQueueSlice();
 void initThresholdQueue( PMEM ThresholdQueue  *tQ
                        ,               Slice   qSlice);
 
-int thresholdColumnStart( int   blockId
-                        , int   computeDepth
-                        , int   columnThread
-                        );
+int thresholdBlockStart( int   blockId
+                       , int   columnDepth
+                       );
 
 void loadThresholdQueue( PMEM ThresholdQueue  *tQ
                        , GMEM      THRESHOLD  *thresholdHeap
                        , GMEM         HEADER  *headerHeap
                        ,                 int   blockId
-                       ,                 int   computeDepth
+                       ,                 int   columnDepth
                        ,                 int   columnThread
                        );
 
@@ -643,7 +617,7 @@ void saveThresholdQueue( PMEM ThresholdQueue  *tQ
                        , GMEM      THRESHOLD  *thresholdHeap
                        , GMEM         HEADER  *headerHeap
                        ,                 int   blockId
-                       ,                 int   computeDepth
+                       ,                 int   columnDepth
                        ,                 int   columnThread
                        );
 
@@ -651,49 +625,42 @@ void initShapeState (PMEM    ShapeState *shS
                     );
 
 int queueSliceStart (            int   blockId
-                    ,            int   computeDepth
+                    ,            int   columnDepth
                     ,            int   columnThread
                     );
 
 Slice loadQueueSlice( GMEM     Slice  *qSliceHeap
                     ,            int   blockId
-                    ,            int   computeDepth
+                    ,            int   columnDepth
                     ,            int   columnThread
                     );
 
 void storeQueueSlice( GMEM     Slice  *qSliceHeap
                     ,          Slice   qSlice
                     ,            int   blockId
-                    ,            int   computeDepth
+                    ,            int   columnDepth
                     ,            int   columnThread
                     );
 
 void initParseState ( PMEM ParseState *pS
-                    ,             int  frameNumber
+                    ,             int  frameCount
                     , CMEM      float *randomField
                     , int blockId
-                    , int computeDepth
+                    , int columnDepth
                     , int columnThread
+                    , float4 columnBox
                     );
 
-GMEM TileInfo *getTileInfo ( GMEM  TileInfo *tileHeap
-                           ,  int  tileIndex
-                           );
+float4 getTileBox (int  tileIndex);
 
-void initTileState ( PMEM  TileState *tileS
-                   , GMEM   TileInfo *tileInfo
-                   ,            int2  bitmapSize
-                   ,             int  blockId
-                   ,             int  computeDepth
-                   ,             int  columnThread
-                   );
 
-bool pointTouchesThread( TileState *tileS
+
+bool pointTouchesThread( float4 columnBox
                        , SPACE2 point
                        );
 
-bool isActiveThread ( PMEM TileState *tileS
-                    , GMEM  TileInfo *tileInfo
+bool isActiveThread (  float4 columnBox
+                    ,    int2 bitmapSize
                     );
 
 float8 sectionColor ( PMEM     ParseState *pS
@@ -701,11 +668,11 @@ float8 sectionColor ( PMEM     ParseState *pS
                     , PMEM     ColorState *cS
                     );
 
-void calculatePixel ( PMEM      TileState *tileS
-                    , PMEM ThresholdQueue *tQ
+void calculatePixel ( PMEM ThresholdQueue *tQ
                     , PMEM     ShapeState *shS
                     , PMEM     ParseState *pS
                     , PMEM     ColorState *cS
+                    ,              float4  columnBox
                     );
 
 
@@ -713,31 +680,61 @@ void sortThresholdArray ( PMEM  ThresholdQueue *tQ);
 
 void prepThresholdArray( PMEM ThresholdQueue *tQ
                        , PMEM     ShapeState *shS
+                       ,              float4  columnBox
                        );
 
-void parallelMaxInt ( LMEM int *parts
-                    ,      int  totalThresholdsPerColumn
-                    ,      int  computeDepth
+int parallelMaxInt(LMEM  int *parts
+                  ,      int  x
+                  ,      int  columnDepth
+                  ,      int  columnThread
+                  );
+
+
+
+int parallelScanInt (LMEM  int *parts
+                    ,      int  x
+                    ,      int  columnDepth
                     ,      int  columnThread
+                    ,      int *finalLength
                     );
 
-void parallelMax ( LMEM int *parts
-                 ,      int  totalThresholdsPerColumn
-                 ,      int  tileIndex
-                 ,      int  computeDepth
-                 ,      int  columnThread
-                 , GMEM int *maximumsPerTile
+bool checkAdjacency( GMEM int4 *tileHeap
+                   , GMEM  int *blockIds
+                   ,       int  columnDepth
+                   ,       int  i
+                   ,       int  sizeLimit
+                   ,      int4  prevTile
+                   ,      int4  nextTile
+                   );
+
+bool compareTiles(int4 a, int4 b);
+
+void mergeBlocks ( GMEM       int4 *tileHeap
+                 , GMEM  THRESHOLD *thresholdHeap
+                 , GMEM     HEADER *headerHeap
+                 , GMEM      Slice *qSliceHeap
+                 , GMEM       int  *blockIds
+                 , GMEM      bool  *inUse
+                 ,            int   indexDest
+                 ,            int   indexSource
+                 ,            int   columnDepth
+                 ,            int   columnThread
+                 , LMEM       int  *parts
                  );
 
 void splitThresholdQueue( ThresholdQueue *tQSource
                         , ThresholdQueue *tQA
-                        ,      TileState *tileSA
+                        ,         float4  columnBoxA
                         , ThresholdQueue *tQB
-                        ,      TileState *tileSB
+                        ,         float4  columnBoxB
                         );
 
-void renderThresholdArray ( PMEM       TileState *tileS
-                          , PMEM  ThresholdQueue *tQ
+void splitTileVertical(      int4  source
+                      , PMEM int4 *top
+                      , PMEM int4 *bot
+                      );
+
+void renderThresholdArray ( PMEM  ThresholdQueue *tQ
                           , PMEM      ShapeState *shS
                           , GMEM         ITEMTAG *itemTagHeap
                           , GMEM    SUBSTANCETAG *substanceTagHeap
@@ -747,20 +744,23 @@ void renderThresholdArray ( PMEM       TileState *tileS
                           , GMEM           COLOR *solidColors
                           , CMEM           float *randomField
                           ,                COLOR  backgroundColor
-                          ,                  int  frameNumber
+                          ,                 int2  bitmapSize
+                          ,                  int  frameCount
                           ,                  int  blockId
-                          ,                  int  computeDepth
+                          ,                  int  columnDepth
                           ,                  int  columnThread
+                          ,               float4  columnBox
+                          ,                 int2  columnDelta
                           , GMEM            uint *out
                           );
 
-ITEMTAGID identifyPoint ( PMEM       TileState *tileS
-                        , PMEM  ThresholdQueue *tQ
+ITEMTAGID identifyPoint ( PMEM  ThresholdQueue *tQ
                         , PMEM      ShapeState *shS
                         , GMEM       HardFacet *facetHeap
-                        ,                  int  frameNumber
+                        ,                  int  frameCount
                         ,                  int  queryId
                         ,               SPACE2  point
+                        ,               float4  columnBox
                         );
 
 void initColorState ( PMEM   ColorState *init
@@ -785,8 +785,7 @@ void showThresholdGeo (THRESHOLD threshold);
 void showThreshold( HEADER header,
                     THRESHOLD threshold);
 void showThresholds (PMEM ThresholdQueue *tQ);
-void tileStateHs (TileState tileS);
-
+void showActiveThresholds (PMEM ThresholdQueue *tQ, int num);
 // ------------------- Inline Function Bodies -----------------------------
 // get the position of a pixel in a 2d bitmap
 inline int pos2 (x, y, width) {
@@ -1124,10 +1123,11 @@ inline THRESHOLD lineToThreshold ( float2  left
 inline HEADER lineToHeader (    float2 left
                            ,    float2 right
                            , ITEMTAGID itemTagId
+                           ,    float4 columnBox
                            ) {
     bool  positiveSlope = left.y <= right.y;
     bool  notVertical = left.x != right.x;
-    bool  touchingLeftBorder = left.x == LEFTBORDER;
+    bool  touchingLeftBorder = left.x == boxLeft(columnBox);
     bool  isPersistent = notVertical && touchingLeftBorder;
     HEADER slopeBit = positiveSlope ? POSITIVE_SLOPE : NEGATIVE_SLOPE;
     HEADER persistantBit = isPersistent ? PERSIST : NONPERSIST;
@@ -1138,25 +1138,25 @@ inline HEADER lineToHeader (    float2 left
 // if it's header information should be pre-parsed (because it's above the render area)
 // or if it should be ignored (below the render area, or a horizontal threshold that can be bypassed)
 void addLineSegment ( PMEM  ThresholdQueue *tQ
-                    , PMEM       TileState *tileS
                     ,               float2  left
                     ,               float2  right
                     ,            ITEMTAGID  itemTagId
+                    ,               float4  columnBox
                     ) {
-    //DEBUG_IF(printf("--------------- addLineSegment %i left: %v2f right: %v2f addType: %i\n", tS->addThresholdCount, left, right, addType);)
-
     THRESHOLD newThreshold = lineToThreshold( left
                                             , right
                                             );
+    //DEBUG_IF(printf("left %2.6f left.x == boxLeft(columnBox) %i\n", left.x, left.x == boxLeft(columnBox) );)
     HEADER newHeader = lineToHeader( left
                                    , right
                                    , itemTagId
+                                   , columnBox
                                    );
-    addThreshold(tQ, tileS, newHeader, newThreshold);
+    addThreshold(tQ, columnBox, newHeader, newThreshold);
 }
 
 void addThreshold ( PMEM  ThresholdQueue *tQ
-                  , PMEM       TileState *tileS
+                  ,               float4  columnBox
                   ,               HEADER  newHeader
                   ,            THRESHOLD  newThreshold
                   ) {
@@ -1167,7 +1167,7 @@ void addThreshold ( PMEM  ThresholdQueue *tQ
     if (tKeep(newHeader, newThreshold)) {
         // horizontal thresholds that have no persistance can be ignored.
         //DEBUG_IF(printf("mid add enclosed %i add %i ", *enclosedByStrand, addType);showThreshold(newHeader, newThreshold);printf("\n");)
-        if ((tTop(newThreshold) <= RENDEREND) && tLeft(newThreshold) < RIGHTBORDER) {
+        if ((tTop(newThreshold) <= boxBottom(columnBox)) && tLeft(newThreshold) < boxRight(columnBox)) {
                 // if the threshold is entirely below the bottom of the render area is can be ignored
                 // otherwise add it to the threshold array, and see if the bottom of the render area needs to be adjusted because the threshold array is not
                 // large enough.g
@@ -1230,27 +1230,27 @@ void bifurcateCurve( Traversal *t
 // This is generally on horizontal or angled threshold called the center,
 // and potentially two vertical thresholds called the wings
 void spawnThresholds ( PMEM  ThresholdQueue *tQ
-                     , PMEM       TileState *tileS
+                     ,               float4 columnBox
                      ,            ITEMTAGID  itemTagId
                      ,            Traversal *l
                      ,            Traversal *r
                      ) {
     float y_L; // this is the y value
     //DEBUG_IF(printf("spawnThresholds len %i count %i \n", tQ->qSlice.sLength);)
-    if (l->travLeftX >= LEFTBORDER) { // if the left side is the left edge of the strand, don't bifurcate.
+    if (l->travLeftX >= boxLeft(columnBox)) { // if the left side is the left edge of the strand, don't bifurcate.
       y_L = l->travLeftY;
     }
     else { // bifurcate the curve to find the left side of the segment
       y_L = intersectCurve(*l);
     }
     bool leftWing;
-    if ((l->travRightX < RIGHTBORDER) && (l->travRightX > LEFTBORDER)) {
+    if ((l->travRightX < boxRight(columnBox)) && (l->travRightX > boxLeft(columnBox))) {
         // add the threshold to the current state or buffer.
         addLineSegment (  tQ
-                       ,  tileS
                        ,  (float2) (l->travXPos, y_L)
                        ,  l->travRight
                        ,  itemTagId
+                       ,  columnBox
                        );
         leftWing = true;
     }
@@ -1258,19 +1258,19 @@ void spawnThresholds ( PMEM  ThresholdQueue *tQ
         leftWing = false;
     }
     float y_R;
-    if (r->travRightX <= RIGHTBORDER) { // if the right side is the right side of the strand, don't bifurcate.
+    if (r->travRightX <= boxRight(columnBox)) { // if the right side is the right side of the strand, don't bifurcate.
       y_R = r->travRightY;
     }
     else { // bifurcate the curve to find the right side of the center segment
       y_R = intersectCurve(*r);
     }
     bool rightWing;
-    if ((r->travLeftX > LEFTBORDER) && (r->travLeftX < RIGHTBORDER) && (l->travIndex != r->travIndex)) {
+    if ((r->travLeftX > boxLeft(columnBox)) && (r->travLeftX < boxRight(columnBox)) && (l->travIndex != r->travIndex)) {
         addLineSegment (  tQ
-                       ,  tileS
                        ,  r->travLeft
                        ,  (float2) (r->travXPos, y_R)
                        ,  itemTagId
+                       ,  columnBox
                        );
         rightWing = true;
     }
@@ -1281,10 +1281,10 @@ void spawnThresholds ( PMEM  ThresholdQueue *tQ
         float2 bridge_L = leftWing  || (l->travLeftX  == l->travRightX) ? l->travRight : (float2) (l->travXPos, y_L);
         float2 bridge_R = rightWing || (r->travLeftX  == r->travRightX) ? r->travLeft  : (float2) (r->travXPos, y_R);
         addLineSegment (  tQ
-                       ,  tileS
                        ,  bridge_L
                        ,  bridge_R
                        ,  itemTagId
+                       ,  columnBox
                        );
     }
 }
@@ -1294,12 +1294,11 @@ void spawnThresholds ( PMEM  ThresholdQueue *tQ
 void searchTree( Traversal *trav
                , GMEM float4 *tree
                , int treeSize
-               , float4 threadDelta4
                , bool isLeft
                ){
     trav->travIndex = 0;
     while (trav->travIndex < treeSize) {
-        float4 currentTree = tree[trav->travIndex] - threadDelta4;
+        float4 currentTree = tree[trav->travIndex];
         if ((trav->travXPos < currentTree.x) ||
             (isLeft && trav->travXPos == currentTree.x)) {
             /* notice his is not <= for the left traversal.*/
@@ -1315,8 +1314,9 @@ void searchTree( Traversal *trav
 
 // check if a section of a strand crosses a columnThread
 bool checkInRange ( Traversal *t
+                  , float4 columnBox
                   ) {
-    return (t->travLeftX <= RIGHTBORDER && t->travRightX > LEFTBORDER);
+    return (t->travLeftX <= boxRight(columnBox) && t->travRightX > boxLeft(columnBox));
 }
 
 // A strand is a list of on curve and off curve coordinates pairs rearranged in an order that allows easy access to the left and right boundaries of the strand
@@ -1334,28 +1334,28 @@ bool checkInRange ( Traversal *t
 
 bool traverseTree( GMEM    float2 *strandHeap
                  ,            int  currentSize
-                 ,         float2  threadDelta
+                 ,         float4  columnBox
                  ,      Traversal *l
                  ,      Traversal *r
                  ) {
     int    treeSize    =  (currentSize - 4) / 2; // take the total size in 64 bit parts and subtract the header and the left and right points. Divide by 2 becasue each left+control is 128 bytes
-    float4 threadDelta4  =  (float4)(threadDelta, threadDelta); // create a double vector that can be used to offset reads of two simultaneous reads
-    l->travRight       = *((GMEM float2 *)(strandHeap + 1)) - threadDelta; // load the rightmost point of the strand.
-    l->travLeftControl = *((GMEM float4 *)(strandHeap + 2)) - threadDelta4; // load the leftmost point of the strand and it's control point.
+    l->travRight       = *((GMEM float2 *)(strandHeap + 1)); // load the rightmost point of the strand.
+    l->travLeftControl = *((GMEM float4 *)(strandHeap + 2)); // load the leftmost point of the strand and it's control point.
     GMEM float4 *tree =   (GMEM float4 *)(strandHeap + 4); // Move to tree portion of strand array.
     //DEBUG_IF(printf("l->travLeftX: %f l->travRightX: %f \n", l->travLeftX, l->travRightX);)
-    bool inRange = checkInRange(l);
+    bool inRange = checkInRange(l,columnBox);
+    //DEBUG_IF(printf("inRange %i\n", inRange);)
     if (inRange) { // determine if the strand interacts at all with this columnThread.
         //DEBUG_IF(printf("--TREE--\n");showTree(*((float4 *)(strandHeap + 2)), *((float2 *)(strandHeap + 1)), tree, treeSize);)
         // now execute two tree traversals for the left and right borders of the pixel.
         *r = *l;
         // if the left side of the strand is within the pixel, treat the left side border as the tree traversal axis
         // otherwise treat the left border of the pixel as the axis.
-        l->travXPos = max(LEFTBORDER, l->travLeftX);
+        l->travXPos = max(boxLeft(columnBox), l->travLeftX);
         // do the same for the right side.
-        r->travXPos = min(RIGHTBORDER, l->travRightX);
-        searchTree(l, tree, treeSize, threadDelta4, true);  // traverse the tree biased to the left
-        searchTree(r, tree, treeSize, threadDelta4, false); // traverse the tree biased to the right
+        r->travXPos = min(boxRight(columnBox), l->travRightX);
+        searchTree(l, tree, treeSize, true);  // traverse the tree biased to the left
+        searchTree(r, tree, treeSize, false); // traverse the tree biased to the right
         //DEBUG_IF(printf("i_L %i i_R %i\n", i_L, i_R);)
         // build up to three thresholds based on the tree traversals
     }
@@ -1494,8 +1494,7 @@ inline void passHeaderPersistent( PMEM ShapeState *shS
 // Parse all of the current shapes adding as many thresholds as possible.
 // Return the bottom of the rendering area which is the bottom of the tile if everything fits and the last
 // complete section if it doesn't.
-void buildThresholdArray ( PMEM       TileState *tileS
-                         , PMEM  ThresholdQueue *tQ
+void buildThresholdArray ( PMEM  ThresholdQueue *tQ
                          , GMEM          float4 *geometryHeap
                          , GMEM       HardFacet *facetHeap
                          , GMEM           Slice *geoRefHeap
@@ -1503,21 +1502,22 @@ void buildThresholdArray ( PMEM       TileState *tileS
                          , GMEM       ITEMTAGID *itemTagIdHeap
                          ,         ITEMTAGIDREF  itemStart
                          ,         ITEMTAGIDREF  numItems
-                         ,               float2  threadDelta
+                         ,               float4  columnBox
                          ) {
     DEBUG_IF(printf("****************************numItems %i\n",numItems);)
     for (ITEMTAGID n = 0; n < numItems && n < MAXLAYERS; n++) { // iterate over every item in the current tile.
         int itemIndex = itemStart + n;
         ITEMTAGID itemTagId = itemTagIdHeap[itemIndex]; // get the current itemTagId
         ITEMTAG itemTag = itemTagHeap[itemTagId]; // get the current itemTag itself
-        //DEBUG_IF(printf("n %i lastSubstance %i ",n, lastSubstance);showItemTag(itemTag);printf("\n");)
-        //DEBUG_IF(printf("lastSubstance %i (int)itemTagSubstanceTagId(itemTag) %i\n",lastSubstance,(int)itemTagSubstanceTagId(itemTag));)
+        //DEBUG_IF(printf("n %i id %i ",n, itemTagId);showItemTag(itemTag);printf("\n");)
         if (itemTagIsShape(itemTag)) {
              // if you don't shift the shape to the tile size there will be accuracy errors with height floating point geometric values
             Slice geoRef = geoRefHeap[itemTagShapeId(itemTag)];
             if (queueSize(tQ) + (getNumStrands(geoRef)*3) < MAXTHRESHOLDS) {
             GMEM float2 *strandHeap = (GMEM float2 *)&geometryHeap[getGeometryStart(geoRef)];
+            //DEBUG_IF(printf("numStrands getNumStrands(geoRef) %i\n", getNumStrands(geoRef));)
             for (int currentStrand = 0; currentStrand < getNumStrands(geoRef); currentStrand++) {
+
                 uchar4 header = *((GMEM uchar4 *)strandHeap);
                 ushort currentSize = as_ushort(header.xy); // size of current strand being parsed.
                 Traversal left;
@@ -1525,13 +1525,13 @@ void buildThresholdArray ( PMEM       TileState *tileS
                 // search the tree on the left and right sides of the pixel (or strand) and return 2 traversal result structures.
                 bool inRange = traverseTree(  strandHeap
                                            ,  currentSize
-                                           ,  threadDelta
+                                           ,  columnBox
                                            , &left
                                            , &right
                                            );
                 if (inRange) {
                     spawnThresholds (  tQ
-                                    ,  tileS
+                                    ,  columnBox
                                     ,  itemTagId
                                     , &left
                                     , &right
@@ -1552,11 +1552,11 @@ void buildThresholdArray ( PMEM       TileState *tileS
 void initRandomField( ParseState *pS
                     , CMEM float *randomField
                     , int blockId
-                    , int computeDepth
+                    , int columnDepth
                     , int columnThread
                     ) {
   // find a random starting point in the field passed on the absolute start position of the columnThread.
-  int uniqueStart       = (int) ((((long)blockId) << computeDepth + columnThread) * LARGE_PRIME) & RANDOMFIELDMASK;
+  int uniqueStart       = (int) ((((long)blockId) << columnDepth + columnThread) * LARGE_PRIME) & RANDOMFIELDMASK;
   pS->randomFieldCursor = uniqueStart;
   pS->randomField       = randomField;
 }
@@ -1579,27 +1579,28 @@ void initThresholdQueue( PMEM ThresholdQueue  *tQ
     tQ->qSlice = qSlice;
 }
 
-int thresholdColumnStart( int   blockId
-                        , int   computeDepth
-                        , int   columnThread
+int thresholdBlockStart(  int   blockId
+                        , int   columnDepth
                         ) {
-    return ((blockId << computeDepth) + columnThread) * MAXTHRESHOLDS;
+    return ((blockId << columnDepth) * MAXTHRESHOLDS) ;
 }
 
 void loadThresholdQueue( PMEM ThresholdQueue  *tQ
                        , GMEM      THRESHOLD  *thresholdHeap
                        , GMEM         HEADER  *headerHeap
                        ,                 int   blockId
-                       ,                 int   computeDepth
+                       ,                 int   columnDepth
                        ,                 int   columnThread
                        ) {
-    GMEM HEADER *thresholdHeaders = headerHeap + thresholdColumnStart(blockId, computeDepth, columnThread);
-    for (int i = 0; i<MAXTHRESHOLDS; i ++) {
-        tQ->thresholdHeaders[i] = thresholdHeaders[i];
+    int blockStart = thresholdBlockStart(blockId, columnDepth);
+    //DEBUG_IF(printf("blockId %i columnDepth %i columnThread %i blockStart %i\n", blockId, columnDepth, columnThread, blockStart);)
+    GMEM HEADER *thresholdHeaders = headerHeap + blockStart;
+    for (int i = 0; i<MAXTHRESHOLDS; i++) {
+        tQ->thresholdHeaders[i] = thresholdHeaders[(i<<columnDepth) + columnThread];
     }
-    GMEM THRESHOLD *thresholds = thresholdHeap + thresholdColumnStart(blockId, computeDepth, columnThread);
-    for (int i = 0; i<MAXTHRESHOLDS; i ++) {
-         tQ->thresholds[i] = thresholds[i];
+    GMEM THRESHOLD *thresholds = thresholdHeap + thresholdBlockStart(blockId, columnDepth);
+    for (int i = 0; i<MAXTHRESHOLDS; i++) {
+         tQ->thresholds[i] = thresholds[((i<<columnDepth) + columnThread)];
     }
 }
 
@@ -1607,17 +1608,25 @@ void saveThresholdQueue( PMEM ThresholdQueue  *tQ
                        , GMEM      THRESHOLD  *thresholdHeap
                        , GMEM         HEADER  *headerHeap
                        ,                 int   blockId
-                       ,                 int   computeDepth
+                       ,                 int   columnDepth
                        ,                 int   columnThread
                        ) {
-    GMEM HEADER *thresholdHeaders = headerHeap + thresholdColumnStart(blockId, computeDepth, columnThread);
-    for (int i = 0; i<MAXTHRESHOLDS; i ++) {
-        thresholdHeaders[i] = tQ->thresholdHeaders[i];
+    int blockStart = thresholdBlockStart(blockId, columnDepth);
+    //DEBUG_IF(printf("blockId %i columnDepth %i columnThread %i blockStart %i\n", blockId, columnDepth, columnThread, blockStart);)
+    GMEM THRESHOLD *thresholds = thresholdHeap + blockStart;
+    //if ((columnThread & 0xFFFFFFFC) == columnThread) {
+    for (int i = 0; i<MAXTHRESHOLDS; i++) {
+        thresholds[((i<<columnDepth) + columnThread)] = tQ->thresholds[i];
     }
-    GMEM THRESHOLD *thresholds = thresholdHeap + thresholdColumnStart(blockId, computeDepth, columnThread);
-    for (int i = 0; i<MAXTHRESHOLDS; i ++) {
-        thresholds[i] = tQ->thresholds[i];
+    //}
+
+    GMEM HEADER *thresholdHeaders = headerHeap + blockStart;
+    //if ((columnThread % 4) == 0) {
+    for (int i = 0; i<MAXTHRESHOLDS; i++) {
+        thresholdHeaders[((i<<columnDepth) + columnThread)] = tQ->thresholdHeaders[i];
     }
+   //}
+
 }
 
 void initShapeState (PMEM    ShapeState *shS
@@ -1625,120 +1634,90 @@ void initShapeState (PMEM    ShapeState *shS
   shS->itemCount = 0;
 }
 
-int queueSliceStart (            int   blockId
-                    ,            int   computeDepth
-                    ,            int   columnThread
+int queueSliceStart ( int   blockId
+                    , int   columnDepth
+                    , int   columnThread
                     ) {
-    return (blockId << computeDepth) + columnThread;
+    return (blockId << columnDepth) + columnThread;
 }
 
 Slice loadQueueSlice( GMEM     Slice  *qSliceHeap
                     ,            int   blockId
-                    ,            int   computeDepth
+                    ,            int   columnDepth
                     ,            int   columnThread
                     ) {
-    return qSliceHeap[queueSliceStart(blockId, computeDepth, columnThread)];
+    return qSliceHeap[queueSliceStart(blockId, columnDepth, columnThread)];
 }
 
 
 void storeQueueSlice( GMEM     Slice  *qSliceHeap
                     ,          Slice   qSlice
                     ,            int   blockId
-                    ,            int   computeDepth
+                    ,            int   columnDepth
                     ,            int   columnThread
                     ) {
-    qSliceHeap[queueSliceStart(blockId, computeDepth, columnThread)] = qSlice;
+    qSliceHeap[queueSliceStart(blockId, columnDepth, columnThread)] = qSlice;
 }
 
 void initParseState ( PMEM ParseState *pS
-                    ,             int  frameNumber
+                    ,             int  frameCount
                     , CMEM      float *randomField
                     , int blockId
-                    , int computeDepth
+                    , int columnDepth
                     , int columnThread
+                    , float4 columnBox
                     ) {
     pS->currentThreshold = 0;
     pS->numActive        = 0; // the next threshold that is not currently active.
     pS->accColorArea = (float8)(TRANSPARENT_COLOR,(float4)(0,0,0,0));
     // if we go below render bottom we must rebuild the threshold list.
-    pS->sectionStart = (SPACE2)(LEFTBORDER, RENDERSTART); // the top of the current vertical section being processed
-    pS->sectionEnd   = (SPACE2)(RIGHTBORDER,RENDERSTART); // the bottom of the current vertical section being processed
+    pS->sectionStart = (SPACE2)(boxLeft(columnBox), boxTop(columnBox)); // the top of the current vertical section being processed
+    pS->sectionEnd   = (SPACE2)(boxRight(columnBox),boxTop(columnBox)); // the bottom of the current vertical section being processed
     pS->sectionCount = 0;
 
-    pS->frameNumber = frameNumber;
+    pS->frameCount = frameCount;
     pS->buildCount = 0;
-    initRandomField(pS, randomField, blockId, computeDepth, columnThread);
-}
-
-GMEM TileInfo *getTileInfo ( GMEM  TileInfo *tileHeap
-                           ,            int  tileIndex
-                           ) {
-    return (&tileHeap[tileIndex]);
+    initRandomField(pS, randomField, blockId, columnDepth, columnThread);
 }
 
 // Create a binary value where the rightmost n bits are set to 1.
 inline int bitmaskN(int n) {return (1 << n) - 1;}
 
+
+
 // Threads are arranged into the tile in several horizontal rows depending on the relative number of
 // availble compute threads vs the size of the tile. In small tiles, it can go all the way to one pixel per thread.
 // This allows the system to adapt to different levels of detail in different tiles.
 // The threads are organized into horizontal rows.
-void initTileState ( PMEM  TileState *tileS
-                   , GMEM   TileInfo *tileInfo
-                   ,            int2  bitmapSize
-                   ,             int  blockId
-                   ,             int  computeDepth
-                   ,             int  columnThread
-                   ) {
-    tileS->bitmapSize    = bitmapSize;
-    tileS->jobThread     = (blockId << computeDepth) + columnThread;
-    tileS->columnThread  = columnThread;
-    // 2^hDepth = the width of the tile (before being cropped)
-    int hDepth = (int)tileInfo->tileHDepth;
-    // 2^vDepth = the height of the tile (before being cropped)
-    int vDepth = (int)tileInfo->tileVDepth;
-    // The precropped tile has (2^hDepth)*(2^vDepth) pixels or 2^(hDepth + vDepth)
-    // 2^computeDepth = the total number of threads available.
-    // So the number of pixels per thread is 2^(hDepth + vDepth) / 2^(computeDepth)
-    // aka the total number of pixels divided by the number threads.
-    // which we refer to as the thread depth.
-    // 2^threadDepth = 2^(hDepth + vDepth) / 2^(computeDepth) so:
-    int threadDepth = max(0, vDepth + hDepth - computeDepth);
-    // The precropped thread height is the height of the vertical column of pixels covered by the thread (2^threadDepth)
-    int precroppedHeight = 1 << threadDepth;
-    // The internal x coordinate of the start of the thread, that is in pixels relative to the top left corner of the tile.
-    // is just the rightmost n bits of the columnThreadId, where n is hDepth
-    // This is equivalent to internalX = columnThread % (uncropped tileWidth which equals 2^hDepth)
-    int internalX = bitmaskN((int)hDepth) & columnThread;
-    // The internal y coordinate of the start of the thread, that is in pixels relative to the top left corner of the tile
-    // is just the tileId / (uncropped widthOf tile) * precroppedHeight
-    int internalY = (columnThread >> hDepth) << threadDepth;
-    tileS->internalDelta = (int2)(internalX, internalY);
-    // The threadDelta is the internal delta + the topleft corner of the tile. The is equivalent to the start point of the thread relative to the output image.
-    tileS->threadDelta   = tileS->internalDelta + boxLeftTop(tileInfo->tileBox);
-    // The actual height of the thread after being cropped by the bitmap boundaries.
-    tileS->intHeight     = min(precroppedHeight, tileS->bitmapSize.y-tileS->threadDelta.y);
-    tileS->floatHeight   = convert_float(tileS->intHeight);
+inline float4 initColumnBox( int4  tileBox
+                           , int2  bitmapSize
+                           ,  int  columnThread
+                           ) {
+
+    // The columnBox is the floating point box surrounding the pixels to be rendered.
+    // the bottom is cropped to the size of the bitmap.
+    return convert_float4((int4) ( boxLeft(tileBox) + columnThread
+                                 , boxTop(tileBox)
+                                 , boxLeft(tileBox) + columnThread + 1.0f
+                                 , min(boxBottom(tileBox),bitmapSize.y)
+                                 ));
 }
 
-bool pointTouchesThread( TileState *tileS
-                       , SPACE2 point
+bool pointTouchesThread(      float4  columnBox
+                       ,      SPACE2  point
                        ) {
-    SPACE2 threadDelta = convert_float2(tileS->threadDelta);
-    return (point.x >= threadDelta.x                      ) &&
-           (point.x <  threadDelta.x + 1                  ) &&
-           (point.y >= threadDelta.y                      ) &&
-           (point.y <  threadDelta.y + tileS->floatHeight );
+    return (point.x >= boxLeft(columnBox)    ) &&
+           (point.x <  boxRight(columnBox)   ) &&
+           (point.y >= boxTop(columnBox)     ) &&
+           (point.y <  boxBottom(columnBox)  );
 
 }
 
-bool isActiveThread ( PMEM TileState *tileS
-                    , GMEM  TileInfo *tileInfo
+bool isActiveThread ( float4 columnBox
+                    ,   int2 bitmapSize
                     ) {
-    int tileSizeY = boxBottom(tileInfo->tileBox) - boxTop(tileInfo->tileBox);
-    return (tileS->internalDelta.y < tileSizeY          ) && // can we base this on intHeight and eliminate tileSize
-           (tileS->threadDelta.x   < tileS->bitmapSize.x) &&
-           (tileS->threadDelta.y   < tileS->bitmapSize.y);
+    return (boxLeft(columnBox) < (float)bitmapSize.x) &&
+           (boxTop (columnBox) < (float)bitmapSize.y);
 }
 
 float8 sectionColor ( PMEM     ParseState *pS
@@ -1747,7 +1726,7 @@ float8 sectionColor ( PMEM     ParseState *pS
                     ) {
     float area = (pS->sectionEnd.x - pS->sectionStart.x) * (pS->sectionEnd.y - pS->sectionStart.y);
     if (area > 0.001) {
-        DEBUG_IF(printf("sectionColor sectionStart %v2f sectionEnd %v2f \n", pS->sectionStart, pS->sectionEnd);showShapeState(shS);)
+        //DEBUG_IF(printf("sectionColor sectionStart %v2f sectionEnd %v2f \n", pS->sectionStart, pS->sectionEnd);showShapeState(shS);)
         COLOR color;
         color = compositeLayers( shS
                                , cS
@@ -1757,17 +1736,18 @@ float8 sectionColor ( PMEM     ParseState *pS
         return (float8)(color * adjustedArea, adjustedArea);
     }
     else { // don't waste time calculating the color of insignificant sections.
+        //DEBUG_IF(printf("no time sectionStart %v2f sectionEnd %v2f \n", pS->sectionStart, pS->sectionEnd);showShapeState(shS);)
         return (float8)(TRANSPARENT_COLOR, (float4)0);
     }
 }
 
 void verticalAdvance( PMEM ThresholdQueue *tQ
-                    , PMEM      TileState *tileS
                     , PMEM     ParseState *pS
                     , PMEM     ShapeState *shS
+                    ,              float4  columnBox
                     ) {
-    if (pS->sectionEnd.x == RIGHTBORDER) {
-        DEBUG_IF(printf("---------- Vertical Advance -------------- \n");)
+    if (pS->sectionEnd.x == boxRight(columnBox)) {
+        // DEBUG_IF(printf("---------- Vertical Advance -------------- \n");)
         // Start by undoing all of the state changes from the horizontal traversal.
         // Occasionally a threshold gets skipped because they are out of order.
         // pass these.
@@ -1778,7 +1758,7 @@ void verticalAdvance( PMEM ThresholdQueue *tQ
         }
         //DEBUG_IF(printf("<-rev");)
         // Next break is the next natural break point (either the bottom of the pixel or the bottom of the render area.
-        float nextBreak = min(RENDEREND, pS->pixelY);
+        float nextBreak = min(boxBottom(columnBox), pS->pixelY);
         // The activeBottom is the bottom of the current group of horizontally adjacent thresholds or max float if none are left.
         float activeBottom = queueSize(tQ) > 0 ? tBottom(getThreshold(tQ, 0)) : FLT_MAX;
         // If the last section ended at the bottom of the current group.
@@ -1830,17 +1810,15 @@ void verticalAdvance( PMEM ThresholdQueue *tQ
         // advance the bottom of the section to either the next break or the bottom of the adjacent thresholds depending on what is next.
         pS->sectionEnd.y = nextBottom;
         // set the horizontal borders of the section to the far left to await a horizontal advance.
-        pS->sectionStart.x = pS->sectionEnd.x = LEFTBORDER;
+        pS->sectionStart.x = pS->sectionEnd.x = boxLeft(columnBox);
         // reset the cursor
         pS->currentThreshold = 0;
-        //DEBUG_IF(showLayerFlags(shS->layerFlags); printf("  ");
-        //         showActiveThresholds(tQ,pS->numActive);)
-
     }
 }
 
 void horizontalAdvance( PMEM ThresholdQueue *tQ
                       , PMEM     ParseState *pS
+                      ,              float4  columnBox
                       ) {
     // find the right side of the current section.
     SPACE nextX;
@@ -1852,28 +1830,29 @@ void horizontalAdvance( PMEM ThresholdQueue *tQ
                                 , getHeader(tQ, pS->currentThreshold)
                                 , pS->sectionStart.y
                                 , pS->sectionEnd.y
-                                , LEFTBORDER
-                                , RIGHTBORDER
+                                , boxLeft(columnBox)
+                                , boxRight(columnBox)
                                 );
         //DEBUG_IF(printf("midX %f\n", nextX);)
     }
     else {
-        //DEBUG_IF(printf("else: nextX = RIGHTBORDER\n");)
-        nextX = RIGHTBORDER;
+        //DEBUG_IF(printf("else: nextX = boxRight(columnBox)\n");)
+        nextX = boxRight(columnBox);
     }
     //DEBUG_IF(printf("nextX %f\n", nextX);)
     pS->sectionStart.x = pS->sectionEnd.x;
     pS->sectionEnd.x   = nextX;
 }
 
-void writePixelGlobal ( PMEM TileState *tileS
-                      ,          COLOR  color
-                      , GMEM      uint *out
-                      ,            int  y
+void writePixelGlobal (        int2  columnDelta
+                      ,        int2  bitmapSize
+                      ,       COLOR  color
+                      , GMEM   uint *out
+                      ,         int  y
                       ) {
     uint colorWord = colorToSolidPixel_Word32_BGRA(color);
-    //DEBUG_IF(printf("write %3i    %2.2v4f    %x\n", y, color,colorWord);)
-    int outPos = (mul24(tileS->threadDelta.y + y, tileS->bitmapSize.x)) + tileS->threadDelta.x;
+    //DEBUG_IF(printf("columnDelta %v2i y %i color %2.2v4f colorWord %x\n", columnDelta, y, color, colorWord);)
+    int outPos = mul24(columnDelta.y + y, bitmapSize.x) + columnDelta.x;
     out[outPos] = colorWord;
 }
 
@@ -1894,21 +1873,24 @@ void writePixelGlobal ( PMEM TileState *tileS
 // "Who creates an engine that can properly render an image with more than 128 horizontal thresholds in
 // one pixel?" You might ask. And we reply "We do, that's who."
 
-void calculatePixel ( PMEM      TileState *tileS
-                    , PMEM ThresholdQueue *tQ
+void calculatePixel ( PMEM ThresholdQueue *tQ
                     , PMEM     ShapeState *shS
                     , PMEM     ParseState *pS
                     , PMEM     ColorState *cS
+                    ,              float4  columnBox
                     ) {
     //DEBUG_IF(printf("                                              pixelY: %f \n", pS->pixelY);)
-    while (((pS->sectionEnd.x < RIGHTBORDER) || (pS->sectionEnd.y < pS->pixelY))/*&& count > 0*/) { // process all sections that do not reach the bottom of the pixel.
+    while (((pS->sectionEnd.x < boxRight(columnBox)) || (pS->sectionEnd.y < pS->pixelY))/*&& count > 0*/) { // process all sections that do not reach the bottom of the pixel.
         //DEBUG_IF(printf("loop        sectionStart %v2f sectionEnd %v2f \n", pS->sectionStart, pS->sectionEnd);)
         //DEBUG_IF(printf("beforeV cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);showShapeState(shS);)
-        verticalAdvance(tQ, tileS, pS, shS);
+        verticalAdvance(tQ, pS, shS, columnBox);
         //DEBUG_IF(printf("afterV  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);showShapeState(shS);)
-        horizontalAdvance(tQ, pS);
+        horizontalAdvance(tQ, pS, columnBox);
         //DEBUG_IF(printf("afterH  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);showShapeState(shS);)
-        //DEBUG_IF(printf("pixelY: %f \n", pS->pixelY);showShapeState(shS);)
+        if (pS->pixelY < 16.0f) {
+            //DEBUG_IF(printf("pixelY: %f \n", pS->pixelY);showShapeState(shS);)
+            //DEBUG_IF(printf("-------------- Active ---------------\n");showActiveThresholds(tQ,pS->numActive);)
+        }
         float8 colorArea = sectionColor( pS
                                        , shS
                                        , cS
@@ -1923,7 +1905,7 @@ void calculatePixel ( PMEM      TileState *tileS
         pS->currentThreshold += 1;
         pS->sectionCount += 1;
         //DEBUG_IF(printf("atEnd  cr %i ae %i sectionStart %v2f sectionEnd %v2f \n", pS->currentThreshold, pS->numActive, pS->sectionStart, pS->sectionEnd);)
-    } // while (((pS->sectionEnd.x < RIGHTBORDER) || (pS->sectionEnd.y < pS->pixelY)))
+    } // while (((pS->sectionEnd.x < boxRight(columnBox)) || (pS->sectionEnd.y < pS->pixelY)))
     //DEBUG_IF(printf("pixelDone\n");)=
 }
 
@@ -1966,13 +1948,13 @@ inline bool swapIfAbove( PMEM ThresholdQueue *tQ
                         )
                     )
             );
-     if (swap) {
-         setHeader(   tQ, i    , bHeader );
-         setThreshold(tQ, i    , b       );
-         setHeader(   tQ, i + 1, aHeader );
-         setThreshold(tQ, i + 1, a       );
-     }
-     return !swap; // if true then tripwire activated
+    if (swap) {
+        setHeader(   tQ, i    , bHeader );
+        setThreshold(tQ, i    , b       );
+        setHeader(   tQ, i + 1, aHeader );
+        setThreshold(tQ, i + 1, a       );
+    }
+    return !swap; // if true then tripwire activated
 }
 
 void sortThresholdArray( PMEM  ThresholdQueue *tQ
@@ -1985,7 +1967,7 @@ void sortThresholdArray( PMEM  ThresholdQueue *tQ
          //DEBUG_IF(printf("k=%i\n",k);)
          done = true; // Set tripwire
          // Sort the unsort part a[k..n] (n = a.length)
-         for (int i = 0 ; i < k-1 ; i ++ ) {
+         for (int i = 0 ; i < k-1 ; i++ ) {
             bool swapIf = swapIfAbove(tQ, i);
             done = done && swapIf;
             //DEBUG_IF(printf("inside ------------ k %i i %i done %i \n",k, i, done);showThresholds(tQ);)
@@ -1999,21 +1981,22 @@ void sortThresholdArray( PMEM  ThresholdQueue *tQ
 
 void prepThresholdArray( PMEM ThresholdQueue *tQ
                        , PMEM     ShapeState *shS
+                       ,              float4  columnBox
                        ) {
      // count all thresholds where the top is less than the top of the
      // threadColumn.
      int numAbove;
      bool done = false;
      while (!done && numAbove < queueSize(tQ)) {
-       if (tTop(getThreshold(tQ,numAbove)) < RENDERSTART) {
-         numAbove++;
-       }
-       else {
-         done = true;
-       }
+         if (tTop(getThreshold(tQ,numAbove)) < boxTop(columnBox)) {
+             numAbove++;
+         }
+         else {
+             done = true;
+         }
      }
       // Slice all active thresholds that pass over the zero mark.
-     sliceActive(tQ,RENDERSTART,numAbove);
+     sliceActive(tQ,boxTop(columnBox),numAbove);
      // Pass over all active thresholds
      while(numAbove > 0) {
          passHeaderPersistent(shS,getHeader(tQ,0));
@@ -2022,8 +2005,7 @@ void prepThresholdArray( PMEM ThresholdQueue *tQ
      }
 }
 
- void renderThresholdArray ( PMEM       TileState *tileS
-                           , PMEM  ThresholdQueue *tQ
+ void renderThresholdArray ( PMEM  ThresholdQueue *tQ
                            , PMEM      ShapeState *shS
                            , GMEM         ITEMTAG *itemTagHeap
                            , GMEM    SUBSTANCETAG *substanceTagHeap
@@ -2033,21 +2015,25 @@ void prepThresholdArray( PMEM ThresholdQueue *tQ
                            , GMEM           COLOR *solidColors
                            , CMEM           float *randomField
                            ,                COLOR  backgroundColor
-                           ,                  int  frameNumber
+                           ,                 int2  bitmapSize
+                           ,                  int  frameCount
                            ,                  int  blockId
-                           ,                  int  computeDepth
+                           ,                  int  columnDepth
                            ,                  int  columnThread
+                           ,               float4  columnBox
+                           ,                 int2  columnDelta
                            , GMEM            uint *out
                            ) {
-    //DEBUG_IF(printf("INDEX %i gTileIndex %i numItems %i \n", INDEX, gTileIndex, tileS->numItems);)
+    //DEBUG_IF(printf("INDEX %i gTileIndex %i numItems %i \n", INDEX, gTileIndex, columnState->numItems);)
     //barrier (CLK_LOCAL_MEM_FENCE);
     ParseState pS;
     initParseState( &pS
-                  ,  frameNumber
+                  ,  frameCount
                   ,  randomField
                   ,  blockId
-                  ,  computeDepth
+                  ,  columnDepth
                   ,  columnThread
+                  ,  columnBox
                   );
     ColorState cS;
     initColorState( &cS
@@ -2057,34 +2043,325 @@ void prepThresholdArray( PMEM ThresholdQueue *tQ
                   ,  pictureData
                   ,  pictureRefs
                   ,  solidColors
-                  ,  tileS->threadDelta
+                  ,  columnDelta
                   );
     // fix thresholds that start above
-    DEBUG_IF(printf("before prep\n");showThresholds(tQ);)
-    prepThresholdArray(tQ,shS);
-    DEBUG_IF(printf("after prep\n");showThresholds(tQ);)
-    DEBUG_IF(showShapeState(shS);)
+    //DEBUG_IF(printf("before prep\n");showThresholds(tQ);)
+    prepThresholdArray(tQ,shS,columnBox);
+    //DEBUG_IF(printf("after prep\n");showThresholds(tQ);)
+    //DEBUG_IF(showShapeState(shS);)
     int yInt = -1;
-    for (pS.pixelY = 1.0f; pS.pixelY <= tileS->floatHeight; pS.pixelY += PIXELHEIGHT) { // y is the bottom of the current pixel.
+    for (pS.pixelY = boxTop(columnBox)+1.0f; pS.pixelY <= boxBottom(columnBox); pS.pixelY += PIXELHEIGHT) { // y is the bottom of the current pixel.
         yInt += 1;
-        calculatePixel (  tileS
-                       ,  tQ
+        calculatePixel (  tQ
                        ,  shS
                        , &pS
                        , &cS
+                       ,  columnBox
                        );
         // write the accumulated color information to the pixel buffer.
         float4 color = pS.accColorArea.s0123 / pS.accColorArea.s4567;
-        writePixelGlobal ( tileS
+        writePixelGlobal ( columnDelta
+                         , bitmapSize
                          , color
                          , out
                          , yInt
                          );
         pS.accColorArea = (float8)(TRANSPARENT_COLOR,(float4)(0,0,0,0));
-        pS.sectionStart = (SPACE2)(LEFTBORDER,pS.pixelY);
+        pS.sectionStart = (SPACE2)(boxLeft(columnBox),pS.pixelY);
         cS.absolutePosition += (int2)(0,1);
     } // for y
     DEBUG_TRACE_END
+}
+
+int parallelMaxInt (LMEM  int *parts
+                   ,      int  x
+                   ,      int  depth
+                   ,      int  i
+                   ) {
+   //DEBUG_IF(printf("depth %i depth-1 %i 1<<(depth - 1) %i\n", depth, depth-1, 1<<(depth - 1));)
+   // Initial value into local memory
+   parts[i] = x;
+   // Loop for computing localSums : divide WorkGroup into 2 parts
+   barrier(CLK_LOCAL_MEM_FENCE);
+   for (int stride = 1<<(depth - 1); stride > 0; stride = stride >> 1) {
+       // Max elements 2 by 2 between local_id and local_id + stride
+       if (i < stride) {
+          parts[i] = max(parts[i],parts[i+stride]);
+       }
+       barrier(CLK_LOCAL_MEM_FENCE);
+   }
+   // Write result into partialSums[nWorkGroups]
+   return parts[0];
+}
+
+int parallelScanInt ( LMEM int *parts
+                    ,      int  x
+                    ,      int  columnDepth
+                    ,      int  i
+                    ,      int *finalLength
+                    ) {
+    parts[i] = x;
+    barrier(CLK_LOCAL_MEM_FENCE);
+    for (int stride = 1; stride <= (1 << (columnDepth-1)); stride = stride << 1) {
+        int j = i - stride;
+        if (j >= 0) {
+            parts[i] = parts[i] + parts[j];
+        }
+        barrier(CLK_LOCAL_MEM_FENCE);
+    }
+    //DEBUG_IF(printf("(1 << columnDepth) - 1 = %i parts[(1 << columnDepth) - 1] %i\n",(1 << columnDepth) - 1,parts[(1 << columnDepth) - 1]);)
+    *finalLength = parts[(1 << columnDepth) - 1];
+    barrier(CLK_LOCAL_MEM_FENCE);
+    return parts[i];
+}
+
+bool checkAdjacency( GMEM int4 *tileHeap
+                   , GMEM  int *blockIds
+                   ,       int  columnDepth
+                   ,       int  i
+                   ,       int  sizeLimit
+                   ,      int4  prevTile
+                   ,      int4  nextTile
+                   ) {
+    int4 prevTile0 = i == 0             ? prevTile : tileHeap[blockIds[i-1]];
+    int4 nextTile0 = i == sizeLimit - 1 ? nextTile : tileHeap[blockIds[i+1]];
+    int4 currentTile = tileHeap[blockIds[i]];
+    bool beforeMatches = compareTiles(prevTile0, currentTile);
+    bool afterMatches  = compareTiles(nextTile0, currentTile);
+    DEBUG_IF(printf("prevTile0 %v4i nextTile0 %v4i currentTile %v4i beforeMatches %i afterMatches %i !(beforeMatches || afterMatches) %i\n"
+                   , prevTile0     ,nextTile0     ,currentTile     ,beforeMatches   ,afterMatches   ,!(beforeMatches || afterMatches));   )
+    return !(beforeMatches || afterMatches);
+}
+
+bool compareTiles(int4 a, int4 b) {
+    return  a.x == b.x &&
+            a.y == b.y &&
+            a.z == b.z &&
+            a.w == b.w;
+}
+
+void mergeBlocks ( GMEM       int4  *tileHeap
+                 , GMEM  THRESHOLD  *thresholdHeap
+                 , GMEM     HEADER  *headerHeap
+                 , GMEM      Slice  *qSliceHeap
+                 , GMEM        int  *blockIds
+                 , GMEM       bool  *inUse
+                 ,             int   indexDest
+                 ,             int   indexSource
+                 ,             int   columnDepth
+                 ,             int   columnThread
+                 , LMEM        int  *parts
+                 ) {
+   int blockIdDest   = blockIds[indexDest  ];
+   int blockIdSource = blockIds[indexSource];
+   DEBUG_IF(printf("mergeBlocks indexDest %i indexSrc %i inUse[indexDest] %i inUse[indexSource] %i blockIdDest %i blockIdSource %i\n",indexDest,indexSource,inUse[indexDest],inUse[indexSource],blockIdDest,blockIdSource);)
+   barrier(CLK_LOCAL_MEM_FENCE);
+   if (compareTiles(tileHeap[blockIdDest],tileHeap[blockIdSource]) // do the blocks refer to the same tile.
+       && inUse[indexDest]   // are both the destination and source blocks active
+       && inUse[indexSource]
+       ) { // initial test to see if blocks are at all viable to merge.
+         // now do the work to calculate
+         int lengthA = loadQueueSlice(qSliceHeap, blockIdDest,   columnDepth, columnThread).sLength;
+         int lengthB = loadQueueSlice(qSliceHeap, blockIdSource, columnDepth, columnThread).sLength;
+         //DEBUG_IF(printf("checking blockIdDest %i blockIdSource %i lengthA %i lengthB %i\n",blockIdDest, blockIdSource, lengthA, lengthB);)
+         int maxSize = parallelMaxInt( parts
+                                     , lengthA + lengthB
+                                     , columnDepth
+                                     , columnThread
+                                     );
+         //DEBUG_IF(printf("columnThread %i maxSize %i \n",columnThread,maxSize);)
+         if (maxSize < MAXTHRESHOLDS) {
+             //DEBUG_IF(printf("merging blockIdDest %i blockIdSource %i\n",blockIdDest,blockIdSource);)
+             Slice qSliceSource = loadQueueSlice(qSliceHeap, blockIdSource, columnDepth, columnThread);
+             ThresholdQueue tQSource;
+             initThresholdQueue(&tQSource, qSliceSource);
+             loadThresholdQueue(&tQSource, thresholdHeap, headerHeap, blockIdSource, columnDepth, columnThread);
+
+             Slice qSliceDest = loadQueueSlice(qSliceHeap, blockIdDest, columnDepth, columnThread);
+             ThresholdQueue tQDest;
+             initThresholdQueue(&tQDest, qSliceDest);
+             loadThresholdQueue(&tQDest, thresholdHeap, headerHeap, blockIdDest, columnDepth, columnThread);
+             while (queueSize(&tQSource)) {
+                 THRESHOLD threshold = getThreshold(&tQSource, 0);
+                 HEADER    header    = getHeader(&tQSource, 0);
+                 popTop(&tQSource);
+                 pushThreshold(&tQDest, header, threshold);
+             }
+             saveThresholdQueue( &tQDest
+                               ,  thresholdHeap
+                               ,  headerHeap
+                               ,  blockIdDest
+                               ,  columnDepth
+                               ,  columnThread
+                               );
+             storeQueueSlice( qSliceHeap
+                            , tQDest.qSlice
+                            , blockIdDest
+                            , columnDepth
+                            , columnThread
+                            );
+             if (columnThread == 0) {
+                 inUse[indexSource] = false;
+             }
+         }
+    }
+}
+
+__kernel void mergeAdjacent
+    ( GMEM       int4 *tileHeap
+    , GMEM  THRESHOLD *thresholdHeap
+    , GMEM     HEADER *headerHeap
+    , GMEM      Slice *qSliceHeap
+    , GMEM        int *blockIds
+    , GMEM       bool *inUse
+    ,             int  jobDepth
+    ,             int  columnDepth
+    ,            int2  bitmapSize
+    ,             int  frameCount
+    ,             int  jobStep
+    ,             int  jobOffset
+    ,             int  jobSize
+    ,             int  strideExp
+    ,             int  strideOffset
+    , LMEM        int *parts
+    ) {
+    int stride = 1 << strideExp;
+    int strideMask   = 0xFFFFFFFF << (strideExp + 1);
+    int blockThread  = INDEX;
+    int columnThread = COLUMNTHREAD;
+    int indexStart = jobOffset + blockThread + strideOffset;
+    // This kernel is indexed by each block Pointer.
+    // Loop for computing localSums : divide WorkGroup into 2 parts
+    // Add elements 2 by 2 between local_id and local_id + stride
+    // Add elements 2 by 2 between local_id and local_id + stride
+    DEBUG_IF(printf("blockThread %i indexStart %i strideMask %x indexStart & strideMask %i ((1 << jobDepth) + jobOffset) %i (indexStart + stride)%i\n", blockThread, indexStart, strideMask, indexStart & strideMask, 1 << jobDepth,(indexStart + stride));)
+    if (((indexStart & strideMask) == indexStart) // start point is on a stride.
+       && (indexStart >= 0)                       // check that the destination point is range.
+       && ((indexStart + stride) < jobSize)       // check that the stride point is in range.
+       ) {
+        mergeBlocks( tileHeap
+                   , thresholdHeap
+                   , headerHeap
+                   , qSliceHeap
+                   , blockIds
+                   , inUse
+                   , indexStart
+                   , indexStart + stride
+                   , columnDepth
+                   , columnThread
+                   , parts
+                   );
+    }
+}
+
+__kernel void collectMergedBlocksKernel
+    ( GMEM   int4 *tileHeap
+    , GMEM   int  *blockIds
+    , GMEM   bool *inUse
+    ,        int   blockDepth
+    ,        int   blockSize
+    ,        int   frameCount
+    , GMEM   int  *outputInUseLength
+    , LMEM   int  *parts
+    ) {
+    int blockThread = INDEX;
+    int currentBlockId = blockIds[blockThread];
+    int inUseLength, availableLength;
+    int address;
+    int isInUse = inUse[blockThread];
+    address = parallelScanInt ( parts
+                              , isInUse
+                              , blockDepth
+                              , blockThread
+                              ,&inUseLength
+                              );
+    DEBUG_IF(printf("not available currentBlockId %i inUse[blockThread] %i address %i inUseLength %i\n",currentBlockId,inUse[blockThread],address, inUseLength);)
+    if (inUse[blockThread]) {
+       blockIds[address - 1] = currentBlockId;
+       inUse[address - 1] = true;
+       tileHeap[address - 1] = tileHeap[blockThread];
+    }
+    barrier(CLK_GLOBAL_MEM_FENCE);
+    address = parallelScanInt ( parts
+                              ,!isInUse
+                              , blockDepth
+                              , blockThread
+                              ,&availableLength
+                              );
+    DEBUG_IF(printf("available inUse[blockThread] %i address %i inUseLength %i\n",inUse[blockThread],address, inUseLength);)
+    if (!inUse[blockThread]) {
+       blockIds[address + inUseLength - 1] = currentBlockId;
+       inUse[address + inUseLength - 1] = false;
+       tileHeap[address + inUseLength -1] = tileHeap[blockThread];
+    }
+    *outputInUseLength = inUseLength;
+}
+
+__kernel void collectRenderBlocksKernel
+    ( GMEM   int4 *tileHeap
+    , GMEM   int  *blockIds
+    , GMEM   bool *inUse
+    ,        int   inUseLength
+    , GMEM   int  *renderBlocks
+    ,        int   blockDepth
+    ,        int   bufferSize
+    ,        int   frameCount
+    , GMEM   int  *outputRenderLength
+    , LMEM   int  *parts
+    ) {
+    // The blockId and the tileId are the same for this kernel.
+    int blockThread    = INDEX;
+    int currentBlockId = blockIds[blockThread];
+    int renderLength, splitLength;
+    int address;
+    // This could be a new kernel.
+    currentBlockId = blockIds[blockThread];
+    bool isInUse = inUse[blockThread];
+    // If the block has no adjacent blocks with the same tile assignment then
+    // it is singular and ready to render.
+    bool isSingular =
+           checkAdjacency( tileHeap
+                         , blockIds
+                         , blockDepth
+                         , blockThread
+                         , inUseLength
+                         , NULLTILE
+                         , NULLTILE
+                         );
+    // Collect all the blocks ready to render into a vector
+    address = parallelScanInt ( parts
+                              , isInUse && isSingular && (blockThread < inUseLength)
+                              , blockDepth
+                              , blockThread
+                              ,&renderLength
+                              );
+     if (isSingular) {
+         renderBlocks[address - 1] = currentBlockId;
+     }
+     barrier(CLK_GLOBAL_MEM_FENCE);
+     // Mark blocks that will be rendered as no longer in use
+     if (isSingular && (blockThread < inUseLength)) {
+         inUse[blockThread] = false;
+     }
+     barrier(CLK_GLOBAL_MEM_FENCE);
+     // Collect all the blocks ready to split into the thresholdBuffers
+     address = parallelScanInt ( parts
+                               , isInUse && (!isSingular) && (blockThread < inUseLength)
+                               , blockDepth
+                               , blockThread
+                               ,&splitLength
+                               );
+     // *outputSplitLength = splitLength;
+     if ((!isSingular) && (blockThread < inUseLength)) {
+        blockIds[address - 1] = currentBlockId;
+        inUse[address - 1] = true;
+     }
+     barrier(CLK_GLOBAL_MEM_FENCE);
+     DEBUG_IF(printf("renderLength %i\n",renderLength);)
+     if (blockThread == 0) {
+         *outputRenderLength = renderLength;
+     }
 }
 
 __kernel void generateThresholdsKernel
@@ -2093,40 +2370,39 @@ __kernel void generateThresholdsKernel
     , GMEM   HardFacet  *facetHeap
     , GMEM     ITEMTAG  *itemTagHeap
     , GMEM   ITEMTAGID  *itemTagIdHeap
-    ,              int   computeDepth
-    ,             int2   bitmapSize
-    ,              int   frameNumber
-    , GMEM    TileInfo  *tileHeap
+    // Each itemSlice points to a list of itemTagIds in the heap.
     , GMEM       Slice  *itemSliceHeap
-    ,              int   jobIndex
+    ,              int   columnDepth
+    ,             int2   bitmapSize
+    ,              int   frameCount
+    ,              int   jobStep
     ,              int   jobOffset
+    ,              int   jobSize
+    // These buffers represent each buffer to be generated they are indexed by blockId
+    , GMEM        int4  *tileHeap
     , GMEM   THRESHOLD  *thresholdHeap
     , GMEM      HEADER  *headerHeap
     , GMEM       Slice  *qSliceHeap
+    , GMEM         int  *blockIds
+    , GMEM        bool  *inUse
     ) {
     // This kernel is indexed onces for each block of thresholds to generate.
     // The blockId and the tileId are the same for this kernel.
     int   blockId      = jobOffset + INDEX;
     // Each column in the block has an individual thread.
     int   columnThread = COLUMNTHREAD;
-    // There is one tileInfo for each block (even though these may be duplicates that represent the same tile.)
-    GMEM TileInfo *tileInfo = getTileInfo(tileHeap, blockId); // blockId == tileId
+    // There is one tileBox for each block (even though these may be duplicates that represent the same tile.)
+    int4 tileBox = tileHeap[blockId];
     // Now initial the tile info for every block.
-    TileState tileS;
-    initTileState ( &tileS
-                  ,  tileInfo
-                  ,  bitmapSize
-                  ,  blockId
-                  ,  computeDepth
-                  ,  columnThread
-                  );
-    if (isActiveThread(&tileS, tileInfo)) {
+    float4 columnBox = initColumnBox(tileBox, bitmapSize, columnThread);
+    DEBUG_IF(printf("thresholdHeap %p headerHeap %p qSliceHeap %p\n",thresholdHeap, headerHeap, qSliceHeap);)
+    DEBUG_IF(printf("blockId %i columnBox %2.6v4f\n",blockId, columnBox);)
+    if (isActiveThread(columnBox, bitmapSize)) {
         ThresholdQueue tQ;
         initThresholdQueue(&tQ,initQueueSlice());
         // There is one slice from the itemHeap for every block.
         Slice itemSlice = itemSliceHeap[blockId];
-        buildThresholdArray ( &tileS
-                            , &tQ
+        buildThresholdArray ( &tQ
                             ,  geometryHeap
                             ,  facetHeap
                             ,  geoRefHeap
@@ -2134,292 +2410,175 @@ __kernel void generateThresholdsKernel
                             ,  itemTagIdHeap
                             ,  itemSlice.sStart
                             ,  itemSlice.sLength
-                            ,  convert_float2(tileS.threadDelta)
+                            ,  columnBox
                             );
-        storeQueueSlice(qSliceHeap, tQ.qSlice, blockId, computeDepth, columnThread);
-        saveThresholdQueue(&tQ, thresholdHeap, headerHeap, blockId, computeDepth, columnThread);
+        storeQueueSlice(qSliceHeap, tQ.qSlice, blockId, columnDepth, columnThread);
+        saveThresholdQueue(&tQ, thresholdHeap, headerHeap, blockId, columnDepth, columnThread);
+        DEBUG_IF(printf("after generate\n");showThresholds(&tQ);)
+    }
+    if (columnThread == 0) {
+        inUse[blockId] = true;
+        blockIds[blockId] = blockId;
     }
 }
-
-void parallelMax ( LMEM int *parts
-                 ,      int  totalThresholdsPerColumn
-                 ,      int  tileIndex
-                 ,      int  computeDepth
-                 ,      int  columnThread
-                 , GMEM int *maximumsPerTile
-                 ) {
-   // Copy from global to local memory
-   parts[columnThread] = totalThresholdsPerColumn;
-   // Loop for computing localSums : divide WorkGroup into 2 parts
-   for (int stride = 1<<(computeDepth - 1); stride>0; stride = stride >> 1) {
-       // Waiting for each 2x2 addition into given workgroup
-       barrier(CLK_LOCAL_MEM_FENCE);
-
-       // Add elements 2 by 2 between local_id and local_id + stride
-       if (columnThread < stride) {
-           parts[columnThread] = max(parts[columnThread], parts[columnThread + stride]);
-       }
-   }
-   // Write result into partialSums[nWorkGroups]
-   if (columnThread == 0) {
-       maximumsPerTile[tileIndex] = parts[0];
-   }
-}
-
-
-__kernel void checkSplitKernel
-    ( GMEM      Slice *qSliceHeap
-    , GMEM   TileInfo *tileHeap
-    , GMEM      Slice *checkBlockSlices
-    , GMEM        int *blockIdHeap
-    ,             int  computeDepth
-    ,            int2  bitmapSize
-    ,             int  frameNumber
-    ,             int  jobIndex
-    ,             int  jobOffset
-    , GMEM        int *maximumsPerTile
-    ) {
-    // This kernel is indexed by tile.
-    int   tileId  = INDEX + jobOffset; // the sequential number of the tile in the current workgroup.
-    int   columnThread = COLUMNTHREAD;
-    LMEM  int parts[THREADSPERBLOCK];
-    GMEM TileInfo *tileInfo = getTileInfo(tileHeap, tileId);
-    TileState tileS;
-    initTileState ( &tileS
-                  ,  tileInfo
-                  ,  bitmapSize
-                  ,  tileId
-                  ,  computeDepth
-                  ,  columnThread
-                  );
-    // All we are doing is taking the sum of all the queue sizes for each column
-    // of the blocks associated with the tile.
-    int totalThresholds = 0;
-    if (isActiveThread(&tileS, tileInfo)) {
-        // Each tile has a slice of blocks.
-        Slice blockSlice = checkBlockSlices[tileId];
-        for (int i = 0; i < blockSlice.sLength; i++) {
-           // Each blockId is stored in an array, referenced from the slice.
-           int blockId = blockIdHeap[blockSlice.sStart + i];
-           Slice qSlice = loadQueueSlice(qSliceHeap, blockId, computeDepth, columnThread);
-           totalThresholds += qSlice.sLength;
-        }
-    }
-    // Now we take the maximum sum from every column and store it.
-    int max = parallelMaxInt( parts + (tileId << computeDepth)
-                            , totalThresholds
-                            , computeDepth
-                            , columnThread
-                            );
-
-}
-
 
 void splitThresholdQueue( ThresholdQueue *tQSource
                         , ThresholdQueue *tQA
-                        ,      TileState *tileSA
+                        ,         float4  columnBoxA
                         , ThresholdQueue *tQB
-                        ,      TileState *tileSB
+                        ,         float4  columnBoxB
                         ) {
     while (queueSize(tQSource) > 0) {
         THRESHOLD threshold = getThreshold(tQSource, 0);
         HEADER    header    = getHeader(tQSource, 0);
         popTop(tQSource);
-        addThreshold(tQA, tileSA, header, threshold);
-        addThreshold(tQB, tileSB, header, threshold);
+        addThreshold(tQA, columnBoxA, header, threshold);
+        addThreshold(tQB, columnBoxB, header, threshold);
     }
+}
+
+void splitTileVertical(      int4  source
+                      , PMEM int4 *top
+                      , PMEM int4 *bot
+                      ) {
+  int split = (boxTop(source) + boxBottom(source)) / 2;
+  (*top) = source;
+  boxBottom((*top)) = split;
+  (*bot) = source;
+  boxTop((*bot)) = split;
 }
 
 __kernel void splitTileKernel
-    ( GMEM  THRESHOLD *thresholdHeap
-    , GMEM     HEADER *headerHeap
-    , GMEM      Slice *qSliceHeap
-    ,             int  computeDepth
+    ( GMEM       int4 *tileHeapSrc
+    , GMEM  THRESHOLD *thresholdHeapSrc
+    , GMEM     HEADER *headerHeapSrc
+    , GMEM      Slice *qSliceHeapSrc
+    , GMEM        int *blockIdPointersSrc
+    ,             int  offsetSrc
+
+    , GMEM       int4 *tileHeapDst
+    , GMEM  THRESHOLD *thresholdHeapDst
+    , GMEM     HEADER *headerHeapDst
+    , GMEM      Slice *qSliceHeapDst
+    , GMEM        int *blockIdPointersDst
+    ,             int  offsetDst
+
+    ,             int  columnDepth
     ,            int2  bitmapSize
-    ,             int  frameNumber
-    , GMEM   TileInfo *tileHeap
-    , GMEM        int *blockIdHeap
-    ,             int  jobIndex
-    ,             int  jobOffset
+    ,             int  frameCount
+    ,             int  jobStep
+    ,             int  jobSize
     ) {
     // This kernel is indexed be each pair of tiles that need to be split.
-    int   tilePairIndex  = (jobOffset + INDEX) * 2; // the sequential number of the tile in the current workgroup.
-    int   columnThread   = COLUMNTHREAD;
-    // The blockIdHeap is an array of pairs of blockIds, the first id is the source and top destination.
-    // The second id is the bottom destination.
-    int   blockIdA = blockIdHeap[tilePairIndex    ];
-    int   blockIdB = blockIdHeap[tilePairIndex + 1];
-    // in this case each tileId is the same as each blockId the tiles
-    // represent the destination tile for the thresholds once split.
-    GMEM TileInfo *tileInfoA = getTileInfo(tileHeap, tilePairIndex    );
-    GMEM TileInfo *tileInfoB = getTileInfo(tileHeap, tilePairIndex + 1);
-    TileState tileSA;
-    initTileState ( &tileSA
-                  ,  tileInfoA
-                  ,  bitmapSize
-                  ,  blockIdA
-                  ,  computeDepth
-                  ,  columnThread
-                  );
-    TileState tileSB;
-    initTileState ( &tileSB
-                  ,  tileInfoB
-                  ,  bitmapSize
-                  ,  blockIdB
-                  ,  computeDepth
-                  ,  columnThread
-                  );
-    if (isActiveThread(&tileSA, tileInfoA)) {
-      // Load the source thresholds from blockIdA, this will become the top block after the split.
-      Slice qSliceSource = loadQueueSlice(qSliceHeap, blockIdA, computeDepth, columnThread);
-      ThresholdQueue tQSource;
-      initThresholdQueue(&tQSource, qSliceSource);
-      loadThresholdQueue(&tQSource, thresholdHeap, headerHeap, blockIdA, computeDepth, columnThread);
+    int blockThread  = INDEX;
+    if (blockThread < jobSize) {
+        int   columnThread = COLUMNTHREAD;
+        int   blockIdSrc   = blockIdPointersSrc[offsetSrc + blockThread];
+        int   blockIdDst   = blockIdPointersDst[offsetDst + blockThread];
+        // The blockIdHeap is an array of pairs of blockIds, the first id is the source and top destination.
+        // The second id is the bottom destination.
+        // in this case each tileId is the same as each blockId the tiles
+        // represent the destination tile for the thresholds once split.
+        int4 tileSource = tileHeapSrc[blockIdSrc];
+        int4 tileTop, tileBot;
+        splitTileVertical(tileSource, &tileTop, &tileBot);
+        tileHeapSrc[blockIdSrc] = tileTop;
+        tileHeapDst[blockIdDst] = tileBot;
 
-      ThresholdQueue tQA;
-      initThresholdQueue(&tQA,initQueueSlice());
-      ThresholdQueue tQB;
-      initThresholdQueue(&tQB,initQueueSlice());
+        float4 columnBoxSource = initColumnBox(tileSource, bitmapSize, columnThread);
+        float4 columnBoxTop    = initColumnBox(tileTop,    bitmapSize, columnThread);
+        float4 columnBoxBot    = initColumnBox(tileBot,    bitmapSize, columnThread);
 
-      splitThresholdQueue( &tQSource
-                         , &tQA
-                         , &tileSA
-                         , &tQB
-                         , &tileSB
-                         );
+        if (isActiveThread(columnBoxSource, bitmapSize)) {
+            // Load the source thresholds from blockIdA, this will become the top block after the split.
+            Slice qSliceSrc = loadQueueSlice(qSliceHeapSrc, blockIdSrc, columnDepth, columnThread);
+            ThresholdQueue tQSrc;
+            initThresholdQueue(&tQSrc, qSliceSrc);
+            loadThresholdQueue(&tQSrc, thresholdHeapSrc, headerHeapSrc, blockIdSrc, columnDepth, columnThread);
 
-      saveThresholdQueue( &tQA
-                        ,  thresholdHeap
-                        ,  headerHeap
-                        ,  blockIdA
-                        ,  computeDepth
-                        ,  columnThread
-                        );
-      storeQueueSlice( qSliceHeap
-                     , tQA.qSlice
-                     , blockIdA
-                     , computeDepth
-                     , columnThread
-                     );
-      saveThresholdQueue( &tQB
-                        ,  thresholdHeap
-                        ,  headerHeap
-                        ,  blockIdB
-                        ,  computeDepth
-                        ,  columnThread
-                        );
-      storeQueueSlice( qSliceHeap
-                     , tQB.qSlice
-                     , blockIdB
-                     , computeDepth
-                     , columnThread
-                     );
-    }
-}
+            // Top queue will be copied back into the source block.
+            ThresholdQueue tQTop;
+            initThresholdQueue(&tQTop, initQueueSlice());
+            // The bottom queue will be copied into the destination block.
+            ThresholdQueue tQBot;
+            initThresholdQueue(&tQBot, initQueueSlice());
 
-__kernel void mergeTileKernel
-    ( GMEM  THRESHOLD *thresholdHeap
-    , GMEM     HEADER *headerHeap
-    , GMEM      Slice *qSliceHeap
-    , GMEM   TileInfo *tileHeap
-    , GMEM      Slice *mergeBlockSlices
-    , GMEM        int *mergeBlocks
-    ,             int  computeDepth
-    ,            int2  bitmapSize
-    ,             int  frameNumber
-    ,             int  jobIndex
-    ,             int  jobOffset
-    ) {
-    // This kernel is indexed by each slice of blocks that need to be merged into one block.
-    // The destination tiles are indexed in the same way.
-    int sliceId      = jobOffset + INDEX; // the sequential number of the tile in the current workgroup.
-    int columnThread = COLUMNTHREAD;
-    Slice blockSlice = mergeBlockSlices[sliceId];
-    GMEM TileInfo *tileInfo = getTileInfo(tileHeap, sliceId);
-    TileState tileS;
-    initTileState ( &tileS
-                  ,  tileInfo
-                  ,  bitmapSize
-                  ,  sliceId
-                  ,  computeDepth
-                  ,  columnThread
-                  );
-    if (isActiveThread(&tileS, tileInfo)) {
-        ThresholdQueue tQDestination;
-        initThresholdQueue(&tQDestination,initQueueSlice());
-        for (int i = 0; i < blockSlice.sLength; i++) {
-            int blockIdSource = mergeBlocks[blockSlice.sStart + 1];
-            Slice qSliceSource = loadQueueSlice(qSliceHeap, blockIdSource, computeDepth, columnThread);
-            ThresholdQueue tQSource;
-            initThresholdQueue(&tQSource, qSliceSource);
-            loadThresholdQueue(&tQSource, thresholdHeap, headerHeap, blockIdSource, computeDepth, columnThread);
-            while (queueSize(&tQSource)) {
-              THRESHOLD threshold = getThreshold(&tQSource, 0);
-              HEADER       header = getHeader(&tQSource, 0);
-              popTop(&tQSource);
-              pushThreshold(&tQDestination, header, threshold);
-            }
+            splitThresholdQueue( &tQSrc
+                               , &tQTop
+                               ,  columnBoxTop
+                               , &tQBot
+                               ,  columnBoxBot
+                               );
+
+            saveThresholdQueue( &tQTop
+                              ,  thresholdHeapSrc
+                              ,  headerHeapSrc
+                              ,  blockIdSrc
+                              ,  columnDepth
+                              ,  columnThread
+                              );
+            storeQueueSlice( qSliceHeapSrc
+                           , tQTop.qSlice
+                           , blockIdSrc
+                           , columnDepth
+                           , columnThread
+                           );
+            saveThresholdQueue( &tQBot
+                              ,  thresholdHeapDst
+                              ,  headerHeapDst
+                              ,  blockIdDst
+                              ,  columnDepth
+                              ,  columnThread
+                              );
+            storeQueueSlice( qSliceHeapDst
+                           , tQBot.qSlice
+                           , blockIdDst
+                           , columnDepth
+                           , columnThread
+                           );
         }
-        int blockIdDestination = mergeBlocks[blockSlice.sStart];
-        saveThresholdQueue( &tQDestination
-                          ,  thresholdHeap
-                          ,  headerHeap
-                          ,  blockIdDestination
-                          ,  computeDepth
-                          ,  columnThread
-                          );
-        storeQueueSlice( qSliceHeap
-                       , tQDestination.qSlice
-                       , blockIdDestination
-                       , computeDepth
-                       , columnThread
-                       );
     }
 }
 
 __kernel void sortThresholdsKernel
-    ( GMEM  THRESHOLD *thresholdHeap
+    ( GMEM       int4 *tileHeap
+    , GMEM  THRESHOLD *thresholdHeap
     , GMEM     HEADER *headerHeap
     , GMEM      Slice *qSliceHeap
-    , GMEM   TileInfo *tileHeap
     , GMEM        int *sortBlocks
-    ,             int  computeDepth
+    ,             int  columnDepth
     ,            int2  bitmapSize
-    ,             int  frameNumber
-    ,             int  jobIndex
+    ,             int  frameCount
+    ,             int  jobStep
     ,             int  jobOffset
     ) {
     int   blockId  = jobOffset + INDEX; // the sequential number of the tile in the current workgroup.
     int   columnThread = COLUMNTHREAD;
-    GMEM TileInfo *tileInfo = getTileInfo(tileHeap, blockId);
-    TileState tileS;
-    initTileState ( &tileS
-                  ,  tileInfo
-                  ,  bitmapSize
-                  ,  blockId
-                  ,  computeDepth
-                  ,  columnThread
-                  );
-    if (isActiveThread(&tileS, tileInfo)) {
+    int4  tileBox = tileHeap[blockId];
+    float4 columnBox = initColumnBox(tileBox, bitmapSize, columnThread);
+    //DEBUG_IF(printf("thresholdHeap %p headerHeap %p qSliceHeap %p\n",thresholdHeap, headerHeap, qSliceHeap);)
+    if (isActiveThread(columnBox, bitmapSize)) {
         DEBUG_TRACE_BEGIN
-        Slice qSlice = loadQueueSlice(qSliceHeap, blockId, computeDepth, columnThread);
+        Slice qSlice = loadQueueSlice(qSliceHeap, blockId, columnDepth, columnThread);
         //DEBUG_IF(printf("qSliceHeap %p columnThread %i qSlice.sStart %i qSlice.sLength %i\n", qSliceHeap, columnThread, qSlice.sStart, qSlice.sLength);)
         ThresholdQueue tQ;
         initThresholdQueue(&tQ, qSlice);
-        loadThresholdQueue(&tQ, thresholdHeap, headerHeap, blockId, computeDepth, columnThread);
-        DEBUG_IF(printf("before------------\n");showThresholds(&tQ);)
+        loadThresholdQueue(&tQ, thresholdHeap, headerHeap, blockId, columnDepth, columnThread);
+        //DEBUG_IF(printf("before------------\n");showThresholds(&tQ);)
         sortThresholdArray(&tQ);
-        DEBUG_IF(printf("after------------\n");showThresholds(&tQ);)
-        saveThresholdQueue(&tQ, thresholdHeap, headerHeap, blockId, computeDepth, columnThread);
+        //DEBUG_IF(printf("after------------\n");showThresholds(&tQ);)
+        saveThresholdQueue(&tQ, thresholdHeap, headerHeap, blockId, columnDepth, columnThread);
         // we don't need to store the qSlice here because it hasn't changed.
     }
 }
 
 __kernel void renderThresholdsKernel
     ( // Parameters passed between kernels
-      GMEM    THRESHOLD *thresholdHeap
+      GMEM         int4 *tileHeap
+    , GMEM    THRESHOLD *thresholdHeap
     , GMEM       HEADER *headerHeap
     , GMEM        Slice *qSliceHeap
+    , GMEM          int *renderBlockIds
       // Constant parameters for every kernel
     , GMEM     ITEMTAG  *itemTagHeap
     , GMEM SUBSTANCETAG *substanceTagHeap
@@ -2429,43 +2588,32 @@ __kernel void renderThresholdsKernel
     , GMEM        COLOR *solidColors
     , CMEM        float *randomField
     ,             COLOR  backgroundColor
-    ,               int  computeDepth
+    ,               int  columnDepth
     ,              int2  bitmapSize
-    ,               int  frameNumber
-    , GMEM     TileInfo *tileHeap
-    , GMEM          int *renderBlocks
-    ,               int  jobIndex
+    ,               int  frameCount
+    ,               int  jobStep
     ,               int  jobOffset
     , GMEM         uint *out
     ) {
-    int   blockId = renderBlocks[jobOffset + INDEX]; // the sequential number of the tile in the current workgroup.
-    int   columnThread = COLUMNTHREAD;
-    GMEM TileInfo *tileInfo = getTileInfo(tileHeap, blockId);
-    //DEBUG_IF(showTileInfoAlignment(0,tileInfo);)
-    TileState tileS;
-    initTileState ( &tileS
-                  ,  tileInfo
-                  ,  bitmapSize
-                  ,  blockId
-                  ,  computeDepth
-                  ,  columnThread
-                  );
-    //DEBUG_IF(tileStateHs(tileS);)
-    if (isActiveThread(&tileS, tileInfo)) {
+    int    blockId = renderBlockIds[jobOffset + INDEX]; // the sequential number of the tile in the current workgroup.
+    int    columnThread = COLUMNTHREAD;
+    int4   tileBox = tileHeap[blockId];
+    float4 columnBox = initColumnBox(tileBox, bitmapSize, columnThread);
+    int2   columnDelta = (int2)(boxLeft(tileBox) + columnThread, boxTop(tileBox));
+    if (isActiveThread(columnBox, bitmapSize)) {
         DEBUG_TRACE_BEGIN
-        Slice qSlice = loadQueueSlice(qSliceHeap, blockId, computeDepth, columnThread);
+        Slice qSlice = loadQueueSlice(qSliceHeap, blockId, columnDepth, columnThread);
         //DEBUG_IF(printf("qSliceHeap %p columnThread %i qSlice.sStart %i qSlice.sLength %i\n", qSliceHeap, columnThread, qSlice.sStart, qSlice.sLength);)
         ThresholdQueue tQ;
         initThresholdQueue(&tQ, qSlice);
-        loadThresholdQueue(&tQ, thresholdHeap, headerHeap, blockId, computeDepth, columnThread);
+        loadThresholdQueue(&tQ, thresholdHeap, headerHeap, blockId, columnDepth, columnThread);
         ShapeState shS;
         initShapeState(&shS);
         //DEBUG_IF(printf("render shapeState\n");)
         //DEBUG_IF(showShapeState(&shS);)
-        //DEBUG_IF(showThresholds(&tQ);)
+        //DEBUG_IF(printf("------------ render blockId %i \n", blockId);showThresholds(&tQ);)
         //DEBUG_TRACE_ITEM(thresholdStateHs(&tQ);)
-        renderThresholdArray ( &tileS
-                             , &tQ
+        renderThresholdArray ( &tQ
                              , &shS
                              ,  itemTagHeap
                              ,  substanceTagHeap
@@ -2475,22 +2623,25 @@ __kernel void renderThresholdsKernel
                              ,  solidColors
                              ,  randomField
                              ,  backgroundColor
-                             ,  frameNumber
+                             ,  bitmapSize
+                             ,  frameCount
                              ,  blockId
-                             ,  computeDepth
+                             ,  columnDepth
                              ,  columnThread
+                             ,  columnBox
+                             ,  columnDelta
                              ,  out
                              );
     }
 }
 
-ITEMTAGID identifyPoint ( PMEM       TileState *tileS
-                        , PMEM  ThresholdQueue *tQ
+ITEMTAGID identifyPoint ( PMEM  ThresholdQueue *tQ
                         , PMEM      ShapeState *shS
                         , GMEM       HardFacet *facetHeap
-                        ,                  int  frameNumber
+                        ,                  int  frameCount
                         ,                  int  queryId
                         ,               SPACE2  point
+                        ,               float4  columnBox
                         ) {
      for (int i = 0; i < queueSize(tQ); i++) {
        if (tBottom(getThreshold(tQ,i))<=point.y) {
@@ -2506,56 +2657,47 @@ ITEMTAGID identifyPoint ( PMEM       TileState *tileS
 }
 
 __kernel void pointQueryKernel
-   ( GMEM    THRESHOLD *thresholdHeap
+   ( GMEM         int4 *tileHeap
+   , GMEM    THRESHOLD *thresholdHeap
    , GMEM       HEADER *headerHeap
    , GMEM        Slice *qSliceHeap
    , GMEM    HardFacet *facetHeap
-   , GMEM     TileInfo *tileHeap
-   ,               int  computeDepth
+   ,               int  columnDepth
    ,              int2  bitmapSize
-   ,               int  frameNumber
-   ,               int  jobIndex
+   ,               int  frameCount
+   ,               int  jobStep
    ,               int  jobOffset
    ,               int  numQueries
    , GMEM     PointQuery *queryHeap
    , GMEM SUBSTANCETAGID *queryResults
    ) {
-    int  blockId  = INDEX;
-    int  columnThread  = COLUMNTHREAD;
-    GMEM TileInfo *tileInfo = getTileInfo(tileHeap, blockId);
-    //DEBUG_IF(showTileInfoAlignment(0,tileInfo);)
-    TileState tileS;
-    initTileState ( &tileS
-                  ,  tileInfo
-                  ,  bitmapSize
-                  ,  blockId
-                  ,  computeDepth
-                  ,  columnThread
-                  );
+    int  blockId      = INDEX;
+    int  columnThread = COLUMNTHREAD;
+    int4 tileBox = tileHeap[blockId];
+    float4 columnBox = initColumnBox(tileBox, bitmapSize, columnThread);
     for (int i = 0; i < numQueries; i++) {
         PointQuery query = queryHeap[i];
         if (blockId == 0 && columnThread == 0) {
           // Just one thread in the tile defaults the EMPTYSUBSTANCETAG.
           queryResults[i] = NOSUBSTANCEID;
         }
-        if (isActiveThread(&tileS, tileInfo) && pointTouchesThread(&tileS,query.queryLocation)) {
-            printf("i %i tileS.threadDelta %i,%i tileS.floatHeight %f queryLocation %v2f \n", i, tileS.threadDelta.x, tileS.threadDelta.y, tileS.floatHeight, query.queryLocation);
-            Slice qSlice = loadQueueSlice(qSliceHeap, blockId, computeDepth, columnThread);
+        if (isActiveThread(columnBox, bitmapSize) && pointTouchesThread(columnBox,query.queryLocation)) {
+            Slice qSlice = loadQueueSlice(qSliceHeap, blockId, columnDepth, columnThread);
             ThresholdQueue tQ;
             initThresholdQueue(&tQ, qSlice);
-            loadThresholdQueue(&tQ, thresholdHeap, headerHeap, blockId, computeDepth, columnThread);
+            loadThresholdQueue(&tQ, thresholdHeap, headerHeap, blockId, columnDepth, columnThread);
             ShapeState shS;
             initShapeState(&shS);
             //DEBUG_IF(printf("render shapeState\n");)
             //DEBUG_IF(showShapeState(&shS);)
             //DEBUG_IF(showThresholds(&tQ);)
-            SUBSTANCETAGID substanceTagId = identifyPoint ( &tileS
-                                                          , &tQ
+            SUBSTANCETAGID substanceTagId = identifyPoint ( &tQ
                                                           , &shS
                                                           ,  facetHeap
-                                                          ,  frameNumber
+                                                          ,  frameCount
                                                           ,  query.queryId
                                                           ,  query.queryLocation
+                                                          ,  columnBox
                                                           );
             //DEBUG_IF(printf("******** substanceId %i\n", substanceTagId);)
             if (substanceTagId != NOSUBSTANCEID) {
@@ -2565,11 +2707,12 @@ __kernel void pointQueryKernel
     }
 }
 
+
 void showShapeState(ShapeState *shS) {
    printf("--- Item Layers --- %i \n",shS->itemCount);
-   //for (int i = 0; i < shS->itemCount; i++) {
-   //  printf("%i itemTagId %i\n",i,shS->itemTagIdStack[i]);
-   //}
+   for (int i = 0; i < shS->itemCount; i++) {
+     printf("%i itemTagId %i\n",i,shS->itemTagIdStack[i]);
+   }
 }
 
 void showSubstanceTag(SUBSTANCETAG tag) {
@@ -2577,7 +2720,7 @@ void showSubstanceTag(SUBSTANCETAG tag) {
 }
 
 void showItemTag(ITEMTAG tag) {
-  printf("isFacet %i add %i substanceid %i facetid %i", itemTagIsFacet(tag), itemTagIsAdd(tag), itemTagSubstanceTagId(tag), itemTagFacetId(tag));
+  printf("isShape %i add %i substanceid %i facetid %i", itemTagIsShape(tag), itemTagIsAdd(tag), itemTagSubstanceTagId(tag), itemTagFacetId(tag));
 }
 
 void showThresholdHeader( HEADER header
@@ -2613,7 +2756,11 @@ void showThreshold( HEADER header,
 
 void showThresholds (PMEM ThresholdQueue *tQ) {
     printf ("Thresholds numThresholds %2i \n", queueSize(tQ));
-    for (int t = 0; t < queueSize(tQ); t++) {
+    showActiveThresholds(tQ,queueSize(tQ));
+}
+
+void showActiveThresholds (PMEM ThresholdQueue *tQ, int num) {
+    for (int t = 0; t < num; t++) {
         if (t < MAXTHRESHOLDS) {
         printf("t: %2i ", t);
         showThreshold( getHeader(tQ, t)
@@ -2623,19 +2770,4 @@ void showThresholds (PMEM ThresholdQueue *tQ) {
         }
         else {printf("out of bounds\n\n\n");}
     }
-}
-
-void tileStateHs (TileState tileS) {
-    printf("TileStateHs\n");
-    printf("{ tileItemStart = %i\n"     ,  tileS.tileItemStart);
-    printf(", tileNumItems = %i\n"      ,  tileS.tileNumItems);
-    printf(", bitmapSize = (%i,%i)\n"   ,  tileS.bitmapSize.x,  tileS.bitmapSize.y);
-    printf(", internalDelta = (%i,%i)\n",  tileS.internalDelta.x,  tileS.internalDelta.y);
-    printf(", threadDelta = (%i,%i)\n"  ,  tileS.threadDelta.x, tileS.threadDelta.y);
-    printf(", tileIndex = %i\n"         ,  tileS.tileIndex);
-    printf(", intHeight = %i\n"         ,  tileS.intHeight);
-    printf(", floatHeight = %f\n"       ,  tileS.floatHeight);
-    printf(", threadUnique = %i\n"      ,  tileS.threadUnique);
-    printf(", columnThread = %i\n"            ,  tileS.columnThread);
-    printf("}\n");
 }

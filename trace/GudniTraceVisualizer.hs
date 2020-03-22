@@ -1,6 +1,8 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module GudniTraceVisualizer
   ( main
@@ -179,7 +181,8 @@ instance Show TraceState where
 
 initialModel actions =
     TraceState
-    { _stateScale       = 10
+    {
+    , _stateScale       = 10
     , _stateDelta       = Point2 0 0
     , _stateCircleDelta = Point2 0 0
     , _stateAngle       = 0 @@ turn-- quarterTurn

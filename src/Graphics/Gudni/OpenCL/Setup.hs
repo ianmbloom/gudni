@@ -52,8 +52,10 @@ cppDefines spec =
   , Cpp "RANDOMFIELDSIZE"                (CppInt   rANDOMFIELDsIZE              )
   , Cpp "MAXTHRESHOLDS"                  (CppInt $ spec ^. specMaxThresholds    )
   , Cpp "MAXLAYERS"                      (CppInt $ spec ^. specMaxLayers        )
-  , Cpp "THREADSPERBLOCK"                (CppInt $ spec ^. specThreadsPerBlock  )
+  , Cpp "THREADSPERMERGEJOB"             (CppInt $ spec ^. specMergeJobSize     )
+  , Cpp "THREADSPERBLOCK"                (CppInt $ spec ^. specColumnsPerBlock  )
   , Cpp "LAYERFLAGSSECTIONS"             (CppInt $ lAYERfLAGSsECTIONS           )
+  , Cpp "NULLTILE"                       (CppHexUInt4 nULLtILE                  )
   , Cpp "ITEMTAG_ISFACET_BITMASK"        (CppHex64 iTEMtAGiSfACETbITMASK        )
   , Cpp "ITEMTAG_ISSHAPE"                (CppHex64 iTEMtAGiSsHAPE               )
   , Cpp "ITEMTAG_ISFACET"                (CppHex64 iTEMtAGiSfACET               )
@@ -68,10 +70,10 @@ cppDefines spec =
   , Cpp "SUBSTANCETAG_TYPE_SOLID_COLOR"  (CppHex64 sUBSTANCEtAGtYPEsOLIDcOLOR   )
   , Cpp "SUBSTANCETAG_TYPE_TEXTURE"      (CppHex64 sUBSTANCEtAGtYPEtEXTURE      )
   , Cpp "SUBSTANCETAG_REF_BITMASK"       (CppHex64 sUBSTANCEtAGrEFbITMASK       )
---, Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
+  , Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
 --, Cpp "DEBUG_TRACE"                    (CppNothing) -- uncomment this to turn on parsable debugging output
   , Cpp "DEBUGCOLUMNTHREAD"              (CppInt 0)   -- determines the column for DEBUG_IF macro
-  , Cpp "DEBUGINDEX"                     (CppInt 0)   -- determines the index for DEBUG_IF macro
+  , Cpp "DEBUGINDEX"                     (CppInt 3)   -- determines the index for DEBUG_IF macro
   ]
 
 -- | Embedded source with implanted definition pragmas.
@@ -96,36 +98,39 @@ determineRasterSpec device =
       -- The maximum number of threads that each tile can store is the maximum allocation size
       let -- | Determined maximum number of tiles per threshold generation kernel call for this device.
           maxGenerateJobSize   = maxGroupSize `div` 8 :: Int
-          -- | Determined maximum number of tiles per check split kernel call for this device.
-          maxCheckSplitJobSize = maxGroupSize :: Int
           -- | Determined maximum number of tiles per split kernel call for this device.
           maxSplitJobSize      = maxGroupSize :: Int
           -- | Determined maximum number of tiles per merge kernel call for this device.
-          maxMergeJobSize      = maxGroupSize :: Int
+          maxMergeJobSize      = maxGroupSize `div` 8 :: Int
           -- | Determined maximum number of tiles per sort kernel call for this device.
           maxSortJobSize       = maxGroupSize `div` 8 :: Int
           -- | Determined maximum number of tiles per render kernel call for this device.
           maxRenderJobSize     = maxGroupSize `div` 8 :: Int
-          blockSize = maxGroupSize * mAXtHRESHOLDS * (sizeOf (undefined :: THRESHOLDTYPE))
-          availableBlocks = fromIntegral maxMemAllocSize `div` blockSize
-      return DeviceSpec { _specMaxTileSize     = fromIntegral maxGroupSize
-                        , _specThreadsPerBlock = maxGroupSize
-                        , _specComputeDepth    = adjustedLog maxGroupSize
+          computeSize = maxGroupSize :: Int -- `div` 8 :: Int
+          computeDepth = adjustedLog computeSize
+          blockAllocSize = computeSize * mAXtHRESHOLDS * (sizeOf (undefined :: THRESHOLDTYPE))
+          desiredBlockBufferSize = tr "desiredBlockBufferSize" $ fromIntegral (maxMemAllocSize `div` 4) `div` blockAllocSize
+          blockBufferDepth = tr "blockBufferDepth" $ (adjustedLog desiredBlockBufferSize - 1)
+          blockBufferSize  = tr "blockBufferSize"  $ 2 ^ blockBufferDepth
+          actualBlockBufferSize = tr "actualBlockBufferSize" $ min computeSize blockBufferSize
+      return DeviceSpec { _specMaxTileSize     = fromIntegral computeSize
+                        , _specColumnsPerBlock = computeSize
+                        , _specColumnDepth     = adjustedLog computeSize
                         , _specMaxThresholds   = mAXtHRESHOLDS
                         , _specMaxLayers       = mAXlAYERS
-                        , _specAvailableBlocks = availableBlocks
+                        , _specBlocksPerSection = actualBlockBufferSize
+                        , _specBlockSectionDepth= adjustedLog actualBlockBufferSize
+                        , _specMergeJobDepth   = adjustedLog maxMergeJobSize
                           -- | Determined maximum number of tiles per threshold generation kernel call for this device.
-                        , _specMaxGenerateJobSize   = maxGenerateJobSize
-                          -- | Determined maximum number of tiles per check split kernel call for this device.
-                        , _specMaxCheckSplitJobSize = maxCheckSplitJobSize
+                        , _specGenerateJobSize   = maxGenerateJobSize
                           -- | Determined maximum number of tiles per split kernel call for this device.
-                        , _specMaxSplitJobSize      = maxSplitJobSize
+                        , _specSplitJobSize      = maxSplitJobSize
                           -- | Determined maximum number of tiles per merge kernel call for this device.
-                        , _specMaxMergeJobSize      = maxMergeJobSize
+                        , _specMergeJobSize      = maxMergeJobSize
                           -- | Determined maximum number of tiles per sort kernel call for this device.
-                        , _specMaxSortJobSize       = maxSortJobSize
+                        , _specMaxSortJobSize    = maxSortJobSize
                           -- | Determined maximum number of tiles per render kernel call for this device.
-                        , _specMaxRenderJobSize     = maxRenderJobSize
+                        , _specMaxRenderJobSize  = maxRenderJobSize
                         }
 
 -- | Order Devices based on the number of compute units
@@ -157,7 +162,7 @@ setupOpenCL enableProfiling useCLGLInterop src =
       --mapM (putStrLn . show) details
       -- Filter function for qualified devices to select.
       --let deviceFilter = deviceNameContains "Iris Pro"  -- select the first Iris Pro GPU
-      -- let deviceFilter = deviceNameContains "AMD"        -- select the first AMD GPU
+      --let deviceFilter = deviceNameContains "AMD"        -- select the first AMD GPU
       let deviceFilter = const True -- all GPUs qualify
       -- Try to select the best qualified device.
       case deviceSelect deviceFilter orderGPU details of
@@ -183,9 +188,10 @@ setupOpenCL enableProfiling useCLGLInterop src =
               putStrLn $ "Finished OpenCL kernel compile"
               -- get the rasterizer kernel.
               generateThresholdsKernel <- getKernelAndDump device program "generateThresholdsKernel"
-              checkSplitKernel         <- getKernelAndDump device program "checkSplitKernel"
+              collectMergedBlocksKernel<- getKernelAndDump device program "collectMergedBlocksKernel"
+              collectRenderBlocksKernel<- getKernelAndDump device program "collectRenderBlocksKernel"
               splitTileKernel          <- getKernelAndDump device program "splitTileKernel"
-              mergeTileKernel          <- getKernelAndDump device program "mergeTileKernel"
+              mergeTileKernel          <- getKernelAndDump device program "mergeAdjacent"
               sortThresholdsKernel     <- getKernelAndDump device program "sortThresholdsKernel"
               renderThresholdsKernel   <- getKernelAndDump device program "renderThresholdsKernel"
               pointQueryKernel         <- getKernelAndDump device program "pointQueryKernel"
@@ -194,13 +200,14 @@ setupOpenCL enableProfiling useCLGLInterop src =
                   { -- | The OpenCL state
                     _rasterClState = state
                     -- | The rasterizer kernels.
-                  , _rasterGenerateThresholdsKernel = generateThresholdsKernel
-                  , _rasterCheckSplitKernel         = checkSplitKernel
-                  , _rasterSplitTileKernel          = splitTileKernel
-                  , _rasterMergeTileKernel          = mergeTileKernel
-                  , _rasterSortThresholdsKernel     = sortThresholdsKernel
-                  , _rasterRenderThresholdsKernel   = renderThresholdsKernel
-                  , _rasterPointQueryKernel         = pointQueryKernel
+                  , _rasterGenerateThresholdsKernel  = generateThresholdsKernel
+                  , _rasterCollectMergedBlocksKernel = collectMergedBlocksKernel
+                  , _rasterCollectRenderBlocksKernel = collectRenderBlocksKernel
+                  , _rasterSplitTileKernel           = splitTileKernel
+                  , _rasterMergeTileKernel           = mergeTileKernel
+                  , _rasterSortThresholdsKernel      = sortThresholdsKernel
+                  , _rasterRenderThresholdsKernel    = renderThresholdsKernel
+                  , _rasterPointQueryKernel          = pointQueryKernel
                     -- | Flag for if OpenCL-OpenGL interop should be used to render the drawing target.
                   , _rasterUseGLInterop = useCLGLInterop
                   , _rasterDeviceSpec   = deviceSpec

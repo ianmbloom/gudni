@@ -13,7 +13,8 @@
 -- Global constants that paramaterize the rasterizer.
 
 module Graphics.Gudni.Raster.Constants
-    ( THRESHOLDTYPE(..)
+    ( UINT4(..)
+    , THRESHOLDTYPE(..)
     , HEADERTYPE(..)
     , tAXICABfLATNESS
     , sTOCHASTICfACTOR
@@ -26,6 +27,7 @@ module Graphics.Gudni.Raster.Constants
     , rANDOMFIELDsIZE
     , sOURCEfILEpADDING
     , iNITgEOMETRYpILEsIZE
+    , nULLtILE
     , iTEMtAGiSfACETbITMASK
     , iTEMtAGiSsHAPE
     , iTEMtAGiSfACET
@@ -49,13 +51,14 @@ import Foreign.C.Types (CInt, CUInt, CULong, CFloat, CDouble)
 import Data.Word
 import Linear.V4
 
+type UINT4 = V4 CUInt
 type THRESHOLDTYPE = V4 CFloat
 type HEADERTYPE    = CULong
 
 tAXICABfLATNESS    = 0.25 :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
 sIZEoFlAYERiD         = 4 :: Int -- sizof(uint)
 sIZEoFlOCALsUBSTANCEiD = 4 :: Int -- sizof(uint)
-sIZEoFlAYEReNTRY = 2 :: Int -- sizeof(ushort)
+sIZEoFlAYEReNTRY   = 2 :: Int -- sizeof(ushort)
 sIZEoFsUBSTANCETAG = 8 :: Int -- sizeof(ulong)
 sIZEoFfACETiD = 4 :: Int -- sizeof(uint)
 lAYERfLAGSsECTIONS = 8 :: Int
@@ -74,6 +77,8 @@ rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
 sOURCEfILEpADDING = 40 :: Int -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
 
 iNITgEOMETRYpILEsIZE = 65536 :: Int
+
+nULLtILE = V4 0xFFFFFFFF 0xFFFFFFFF 0xFFFFFFFF 0xFFFFFFFF :: UINT4
 
 -- Item Tag Bit Layout
 -- Bits | 1 bit   | 1 bit        | 30 bit      | 32 bit

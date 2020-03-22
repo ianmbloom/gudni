@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -24,7 +25,7 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
   , bicGeoBuffer
   , bicGeoRefBuffer
   , bicPictMemBuffer
-  , bicPictFacets
+  , bicFacetBuffer
   , bicItemTagBuffer
   , bicSubTagBuffer
   , bicSolidColors
@@ -34,13 +35,22 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
   , newBuffer
   , createBuffersInCommon
 
-  , ThresholdBuffers(..)
-  , tbThresholdBuffer
-  , tbHeaderBuffer
-  , tbQueueSliceBuffer
-
-  , createThresholdBuffers
-  , releaseThresholdBuffers
+  , BlockId(..)
+  , BlockSection(..)
+  , sectTileBuffer
+  , sectThresholdBuffer
+  , sectHeaderBuffer
+  , sectQueueSliceBuffer
+  , sectBlockIdBuffer
+  , sectRenderLength
+  , sectRenderBuffer
+  , sectInUseLength
+  , sectInUseBuffer
+  , sectFirstTile
+  , sectLastTile
+  , sectSize
+  , createBlockSection
+  , releaseBlockSection
 
   , PointQuery(..)
   )
@@ -66,6 +76,7 @@ import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Util.StorableM
+import Graphics.Gudni.Util.CTypeConversion
 
 import Graphics.Gudni.OpenCL.Rasterizer
 import Graphics.Gudni.OpenCL.DeviceQuery
@@ -79,7 +90,7 @@ import Control.Lens
 
 import qualified Data.Vector.Storable as VS
 
-import Foreign.C.Types(CUInt, CChar)
+import Foreign.C.Types(CUInt, CChar, CBool)
 import Foreign.Marshal.Alloc
 import Foreign.Ptr
 import Foreign.Storable
@@ -95,6 +106,8 @@ import Control.Concurrent.ParallelIO.Global
 
 import Control.Monad.Morph
 import Control.DeepSeq
+import qualified Data.Sequence as S
+
 
 import Data.Word
 import qualified Data.Map as M
@@ -104,7 +117,7 @@ data BuffersInCommon = BuffersInCommon
   { _bicGeoBuffer       :: CLBuffer CChar
   , _bicGeoRefBuffer    :: CLBuffer GeoReference
   , _bicPictMemBuffer   :: CLBuffer PictureMemoryReference
-  , _bicPictFacets      :: CLBuffer (HardFacet_ SubSpace TextureSpace)
+  , _bicFacetBuffer      :: CLBuffer (HardFacet_ SubSpace TextureSpace)
   , _bicItemTagBuffer   :: CLBuffer ItemTag
   , _bicSubTagBuffer    :: CLBuffer SubstanceTag
   , _bicSolidColors     :: CLBuffer Color
@@ -128,7 +141,7 @@ createBuffersInCommon params context = liftIO $
                  { _bicGeoBuffer     = geoBuffer
                  , _bicGeoRefBuffer  = geoRefBuffer
                  , _bicPictMemBuffer = pictMemBuffer
-                 , _bicPictFacets    = facetBuffer
+                 , _bicFacetBuffer    = facetBuffer
                  , _bicItemTagBuffer = itemTagBuffer
                  , _bicSubTagBuffer  = subTagBuffer
                  , _bicSolidColors   = colorBuffer
@@ -136,38 +149,72 @@ createBuffersInCommon params context = liftIO $
                  , _bicRandoms       = randoms
                  }
 
-data ThresholdBuffers = ThresholdBuffers
-  { _tbThresholdBuffer  :: CLBuffer THRESHOLDTYPE
-  , _tbHeaderBuffer     :: CLBuffer HEADERTYPE
-  , _tbQueueSliceBuffer :: CLBuffer (Slice Int)
+newtype BlockId = BlockId {unBlockId :: Int} deriving (Eq, Ord, Num)
+
+instance Show BlockId where
+  show (BlockId id) = show id
+
+data BlockSection = BlockSection
+  { _sectTileBuffer       :: CLBuffer Tile
+  , _sectThresholdBuffer  :: CLBuffer THRESHOLDTYPE
+  , _sectHeaderBuffer     :: CLBuffer HEADERTYPE
+  , _sectQueueSliceBuffer :: CLBuffer (Slice Int)
+  , _sectBlockIdBuffer    :: CLBuffer BlockId
+  , _sectRenderLength     :: Int
+  , _sectRenderBuffer     :: CLBuffer BlockId
+  , _sectInUseLength      :: Int
+  , _sectInUseBuffer      :: CLBuffer CBool
+  , _sectFirstTile        :: UINT4
+  , _sectLastTile         :: UINT4
+  , _sectSize             :: Int
   }
-makeLenses ''ThresholdBuffers
+makeLenses ''BlockSection
 
 newBuffer :: Storable a => Int -> CL (CLBuffer a)
-newBuffer size = allocBuffer [CL_MEM_READ_WRITE] $ tr "size" (max 1 size)
+newBuffer size = allocBuffer [CL_MEM_READ_WRITE] (max 1 size)
 
-createThresholdBuffers :: RasterParams token
-                       -> Int
-                       -> CL ThresholdBuffers
-createThresholdBuffers params blocksToAlloc =
-  do let threadsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specThreadsPerBlock
+createBlockSection :: RasterParams token
+                       -> CL BlockSection
+createBlockSection params =
+  do let blocksToAlloc   = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
+         columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
          maxThresholds   = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
-         blockSize       = blocksToAlloc * threadsPerBlock * maxThresholds
+         blockSize       = blocksToAlloc * columnsPerBlock * maxThresholds
+         context         = clContext (params ^. rpRasterizer . rasterClState)
+     liftIO $ putStrLn "---- Begin ThresholdBuffer Allocation ----"
+     tileBuffer       <- newBuffer blocksToAlloc :: CL (CLBuffer Tile)
      thresholdBuffer  <- newBuffer blockSize :: CL (CLBuffer THRESHOLDTYPE)
      headerBuffer     <- newBuffer blockSize :: CL (CLBuffer HEADERTYPE   )
-     queueSliceBuffer <- newBuffer (blocksToAlloc * threadsPerBlock) :: CL (CLBuffer (Slice Int))
-     return $ ThresholdBuffers
-         { _tbThresholdBuffer  = thresholdBuffer
-         , _tbHeaderBuffer     = headerBuffer
-         , _tbQueueSliceBuffer = queueSliceBuffer
-         }
+     queueSliceBuffer <- newBuffer (blocksToAlloc * columnsPerBlock) :: CL (CLBuffer (Slice Int))
+     blockIdBuffer    <- (liftIO . vectorToBuffer context . VS.replicate blocksToAlloc $ BlockId 99999 :: CL (CLBuffer BlockId))
+     renderBuffer     <- (liftIO . vectorToBuffer context . VS.replicate blocksToAlloc $ BlockId 13131 :: CL (CLBuffer BlockId))
+     inUseBuffer      <- (liftIO . vectorToBuffer context . VS.replicate blocksToAlloc . toCBool $ False :: CL (CLBuffer CBool))
+     liftIO $ putStrLn "---- Threshold Buffers Allocated ----"
+     return $ BlockSection
+              { _sectTileBuffer       = tileBuffer
+              , _sectThresholdBuffer  = thresholdBuffer
+              , _sectHeaderBuffer     = headerBuffer
+              , _sectQueueSliceBuffer = queueSliceBuffer
+              , _sectBlockIdBuffer    = blockIdBuffer
+              , _sectRenderBuffer     = renderBuffer
+              , _sectRenderLength     = 0
+              , _sectInUseBuffer      = inUseBuffer
+              , _sectInUseLength      = 0
+              , _sectFirstTile        = nULLtILE
+              , _sectLastTile         = nULLtILE
+              , _sectSize             = blocksToAlloc
+              }
 
-releaseThresholdBuffers :: ThresholdBuffers -> CL ()
-releaseThresholdBuffers thresholdBuffers =
-  liftIO $ do clReleaseMemObject . bufferObject $ thresholdBuffers ^. tbThresholdBuffer
-              clReleaseMemObject . bufferObject $ thresholdBuffers ^. tbHeaderBuffer
-              clReleaseMemObject . bufferObject $ thresholdBuffers ^. tbQueueSliceBuffer
-              return ()
+releaseBlockSection :: BlockSection -> CL ()
+releaseBlockSection blockSection =
+     liftIO $ do clReleaseMemObject . bufferObject $ blockSection ^. sectTileBuffer
+                 clReleaseMemObject . bufferObject $ blockSection ^. sectThresholdBuffer
+                 clReleaseMemObject . bufferObject $ blockSection ^. sectHeaderBuffer
+                 clReleaseMemObject . bufferObject $ blockSection ^. sectQueueSliceBuffer
+                 clReleaseMemObject . bufferObject $ blockSection ^. sectBlockIdBuffer
+                 clReleaseMemObject . bufferObject $ blockSection ^. sectRenderBuffer
+                 clReleaseMemObject . bufferObject $ blockSection ^. sectInUseBuffer
+                 return ()
 
 data PointQuery = PointQuery
     { pqTileId :: TileId
@@ -202,3 +249,9 @@ instance Storable PointQuery where
   alignment = alignmentV
   peek = peekV
   poke = pokeV
+
+instance Storable BlockId where
+    sizeOf (BlockId a) = sizeOf (undefined :: CInt)
+    alignment (BlockId a) = alignment (undefined :: CInt)
+    peek i = BlockId . fromCInt <$> peek (castPtr i)
+    poke i (BlockId a) = poke (castPtr i) . toCInt $ a

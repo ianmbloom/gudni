@@ -17,15 +17,18 @@ module Graphics.Gudni.OpenCL.CppDefines
   )
 where
 
+import Graphics.Gudni.Util.Debug
 import Numeric
 import Data.Word
 import Data.Char
 import Foreign.C.Types (CULong, CUInt)
+import Linear.V4
 
 -- | The type and display method of a value to be defined in a C Preprocessor pragma.
 data CppValueType
   = CppHex64 CULong
   | CppHex32 CUInt
+  | CppHexUInt4 (V4 CUInt)
   | CppInt   Int
   | CppFloat Float
   | CppNothing
@@ -36,11 +39,18 @@ data CppDefinition = Cpp
   , cppValue :: CppValueType
   }
 
+mkHex64 i = "0x" ++ (map toUpper $ showHex (fromIntegral i :: Word64) [])
+mkHex32 i = "0x" ++ (map toUpper $ showHex (fromIntegral i :: Word32) [])
+
 -- | Convert a CppValue to a string.
 instance Show CppValueType where
   show val = case val of
-    CppHex64 i -> map toUpper $ "0x" ++ showHex (fromIntegral i :: Word64) []
-    CppHex32 i -> map toUpper $ "0x" ++ showHex (fromIntegral i :: Word32) []
+    CppHex64 i -> mkHex64 i
+    CppHex32 i -> mkHex32 i
+    CppHexUInt4 (V4 a b c d) -> tr "Uint4" $  "(int4)(" ++ mkHex32 a
+                                                  ++ "," ++ mkHex32 b
+                                                  ++ "," ++ mkHex32 c
+                                                  ++ "," ++ mkHex32 d ++ ")"
     CppInt   i -> showInt i                          []
     CppFloat f -> showFFloat Nothing f               []
     CppNothing -> ""

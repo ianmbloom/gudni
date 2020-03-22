@@ -125,6 +125,7 @@ library
                      , Graphics.Gudni.Layout.Font
                      , Graphics.Gudni.Layout.Stroke
                      , Graphics.Gudni.Layout.Text
+                     , Graphics.Gudni.Util.CTypeConversion
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Util
                      , Graphics.Gudni.Util.Pile
@@ -233,28 +234,6 @@ executable gudni-benchmarks
   main-is: GudniBenchmarks.hs
   default-language: Haskell2010
   ghc-options: -main-is GudniBenchmarks
-               -O3
-               -threaded
-               -- -fprof-auto
-               -- "-with-rtsopts=-N -p -s -h -i0.1"
-
-executable gudni-trace-visualizer
-  if flag(trace)
-    build-depends:   gudni
-                   , base
-                   , lens
-                   , mtl
-                   , MonadRandom >=0.5 && <0.6
-                   , random >=1.1 && <1.2
-                   , JuicyPixels
-                   , silently
-                   , IfElse
-  else
-    buildable: False
-  hs-source-dirs: ./trace
-  main-is: GudniTraceVisualizer.hs
-  default-language: Haskell2010
-  ghc-options: -main-is GudniTraceVisualizer
                -O3
                -threaded
                -- -fprof-auto

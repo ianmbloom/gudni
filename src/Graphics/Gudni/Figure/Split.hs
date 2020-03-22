@@ -17,7 +17,6 @@ import Graphics.Gudni.Util.Debug
 import qualified Data.Vector as V
 
 import Control.Lens
-import Control.Loop
 import Control.Applicative
 
 -- * Remove Knobs

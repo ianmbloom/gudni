@@ -8,7 +8,7 @@ buildRasterJobs params =
       -- Determine the maximum number of tiles per RasterJob
       let maxThresholds = NumStrands $ fromIntegral $ params ^. rpRasterizer . rasterSpec . specMaxThresholds
           tilesPerCall = tr "tilesPerCall" $ fromIntegral $ params ^. rpRasterizer . rasterSpec . specMaxTilesPerJob
-          threadsPerBlock = tr "threadsPerBlock" $ fromIntegral $ params ^. rpRasterizer . rasterSpec . specThreadsPerBlock
+          threadsPerBlock = tr "threadsPerBlock" $ fromIntegral $ params ^. rpRasterizer . rasterSpec . specColumnsPerBlock
           splitTree = {-tr "splitTree" $-} splitTreeTiles maxThresholds tileTree
 
       -- Build all of the RasterJobs by traversing the TileTree.
@@ -262,3 +262,123 @@ instance NFData RasterJob where
 
     columnAllocation :: CInt <- peekM
     slice  <- peekM
+
+
+    runCheckSplitKernel :: RasterParams token
+                        -> BlockSection
+                        -> S.Seq Tile
+                        -> S.Seq (Slice BlockId)
+                        -> S.Seq BlockId
+                        -> CL (S.Seq Int)
+    runCheckSplitKernel params thresholdBuffers tiles checkBlockSlices checkBlocks =
+        let context        = clContext (params ^. rpRasterizer . rasterClState)
+            threadsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
+            maxJobSize     = params ^. rpRasterizer . rasterDeviceSpec . specMaxCheckSplitJobSize
+            checkJobs      = divideIntoJobs maxJobSize checkBlockSlices
+        in
+        do
+        tileBuffer            <- liftIO . vectorToBuffer context . fromSequence $ tiles
+        checkBlockSliceBuffer <- liftIO . vectorToBuffer context . fromSequence $ checkBlockSlices
+        checkBlockBuffer      <- liftIO . vectorToBuffer context . fromSequence $ checkBlocks
+        maximumsBuffer        <- newBuffer (S.length tiles) :: CL (CLBuffer CInt)
+        S.traverseWithIndex (
+               \jobIndex (jobSize, jobOffset) ->
+               do liftIO $ putStrLn ("checkSplitKernel " ++ show jobIndex ++ "           XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
+                  runKernel  (params ^. rpRasterizer . rasterCheckSplitKernel)
+                             (thresholdBuffers ^. tbTileBuffer      )
+                             (thresholdBuffers ^. tbQueueSliceBuffer)
+
+                             checkBlockSliceBuffer
+                             checkBlockBuffer
+                             (toCInt  $  params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth)
+                             (toCInt <$> params ^. rpFrameSpec  . specBitmapSize)
+                             (toCInt  $  params ^. rpFrameSpec  . specFrameCount)
+                             (toCInt jobIndex)
+                             (toCInt jobOffset)
+                             maximumsBuffer
+                             (Work2D jobSize threadsPerBlock)
+                             (WorkGroup [1, threadsPerBlock]) :: CL ()
+               ) checkJobs
+        maximumThresholds <- fmap fromCInt . S.fromList . VS.toList <$> readBuffer maximumsBuffer
+        liftIO . clReleaseMemObject . bufferObject $ checkBlockSliceBuffer
+        liftIO . clReleaseMemObject . bufferObject $ maximumsBuffer
+        return maximumThresholds
+
+
+data SplitState = SplitState
+   { _splitShoulds :: S.Seq Bool
+   , _splitTiles   :: S.Seq Tile
+   , _splitBlocks  :: S.Seq BlockId
+   , _splitNextBlocKId :: BlockId
+   }
+makeLenses ''SplitState
+
+addSplitTile top bottom topBlock bottomBlock =
+  do splitTiles  %= \tiles  -> tiles |> top |> bottom
+     splitBlocks %= \blocks -> blocks |> topBlock |> bottomBlock
+
+popShould :: State SplitState Bool
+popShould =
+   do shouldSplits <- use splitShoulds
+      let (should, rest) = case S.viewl shouldSplits of
+                             (S.:<) should rest -> (should, rest)
+                             S.EmptyL -> error "shouldSplits is empty"
+      splitShoulds .= rest
+      return should
+
+makeSplits :: S.Seq (Tile, S.Seq BlockId) -> State SplitState (S.Seq (Tile, S.Seq BlockId))
+makeSplits ss = join <$> mapM go ss
+  where go :: (Tile, S.Seq BlockId) -> State SplitState (S.Seq (Tile, S.Seq BlockId))
+        go (tile, blocks) =
+            do nextBlockId <- use splitNextBlocKId
+               should <- popShould
+               if should
+               then let (top, bottom) = verticalSplitTile tile
+                        len = S.length blocks
+                        newBlocks = S.iterateN len (+1) nextBlockId
+                    in  do traverse (uncurry (addSplitTile top bottom)) $ S.zip blocks newBlocks
+                           splitNextBlocKId += BlockId len
+                           return . S.fromList  $ [(top, blocks),(bottom,newBlocks)]
+                else  return . S.singleton $ (tile,blocks)
+
+shouldSplitTile :: RasterParams token -> Tile -> Int -> Bool
+shouldSplitTile params tile maxThresholdCount =
+  let maxThresholds = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
+  in  heightOf (tile ^. tileBox) > 1 && maxThresholdCount > maxThresholds
+
+
+splitTileLoop :: RasterParams token
+              -> BlockSection
+              -> TileTree (S.Seq (Tile, S.Seq BlockId))
+              -> BlockId
+              -> BlockId
+              -> CL (TileTree (S.Seq (Tile, S.Seq BlockId)))
+splitTileLoop params thresholdBuffers tileTree allocation availableAllocation =
+    -- Collect all of the tiles that need to be split.
+    do let (checkTiles, checkBlockSlices, checkBlocks, _) = execState (traverseTileTree collectTileBlocks tileTree) (S.empty, S.empty, S.empty, 0)
+       -- maximums <- tr "maximums" <$> runCheckSplitKernel params thresholdBuffers checkTiles checkBlockSlices checkBlocks
+       -- let shouldSplits = S.zipWith (shouldSplitTile params) checkTiles maximums
+       -- if or shouldSplits
+       -- then do let (splitTileTree, (SplitState _ splitTiles splitBlocks newAllocation)) = runState (traverseTileTree makeSplits tileTree) (SplitState shouldSplits S.empty S.empty allocation)
+       --         adjustedBlockSection <- if newAllocation <= availableAllocation
+       --                                     then return thresholdBuffers
+       --                                     else error "out of blocks"
+       --         runSplitKernel params adjustedBlockSection splitTiles splitBlocks
+       --         splitTileLoop params thresholdBuffers splitTileTree newAllocation availableAllocation
+       -- else return tileTree
+       return tileTree
+
+iterateJobSequence :: forall m a
+                   . Monad m
+                   => (a -> Int)
+                   -> S.Seq a
+                   -> (Int -> Int -> a -> m ())
+                   -> m ()
+iterateJobSequence getLength ssss f = go 0 0 ssss
+   where go :: Monad m => Int -> Int -> S.Seq a -> m ()
+         go count offset sss =
+            case S.viewl sss of
+              S.EmptyL -> return ()
+              (S.:<) s ss  -> do let size = getLength s
+                                 f count offset s
+                                 go (count + 1) (offset + size) ss

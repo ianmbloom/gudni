@@ -647,4 +647,184 @@ instance Storable (PictureFacet PictUsageId SubSpace) where
       }
       return baseColor;
       //return (COLOR)(0.0,0.0,0.5,1.0);
-  }
+
+
+
+
+      LMEM addressParts[THREADSPERJOB];
+      if (columnThread == 0) {
+          int address = parallelScanInt( addressParts
+                                       , inUse[blockThread]
+                                       , blockDepth
+                                       , columnThread
+                                       );
+          if (inUse[blockThread]) {
+              outputBlockIds[address] = blockIds[blockThread];
+              outputCanMerge[address] = canMerge[blockThread];
+          }
+          if(blockThread == 0) {
+            outputSize[0] = addressParts[THREADSPERJOB-1]
+          }
+      }
+
+      __kernel void checkSplitKernel
+          ( GMEM      Slice *qSliceHeap
+          , GMEM   TileInfo *tileHeap
+          , GMEM      Slice *checkBlockSlices
+          , GMEM        int *blockIdHeap
+          ,             int  columnDepth
+          ,            int2  bitmapSize
+          ,             int  frameNumber
+          ,             int  jobIndex
+          ,             int  jobOffset
+          , GMEM        int *maximumsPerTile
+          ) {
+          // This kernel is indexed by tile.
+          int   tileId  = INDEX + jobOffset; // the sequential number of the tile in the current workgroup.
+          int   columnThread = COLUMNTHREAD;
+          LMEM  int parts[THREADSPERBLOCK];
+          GMEM TileInfo *tileInfo = getTileInfo(tileHeap, tileId);
+          TileState tileS;
+          initTileState ( &tileS
+                        ,  tileInfo
+                        ,  bitmapSize
+                        ,  tileId
+                        ,  columnDepth
+                        ,  columnThread
+                        );
+          // All we are doing is taking the sum of all the queue sizes for each column
+          // of the blocks associated with the tile.
+          int totalThresholds = 0;
+          if (isActiveThread(&tileS, tileInfo)) {
+              // Each tile has a slice of blocks.
+              Slice blockSlice = checkBlockSlices[tileId];
+              for (int i = 0; i < blockSlice.sLength; i++) {
+                 // Each blockId is stored in an array, referenced from the slice.
+                 int blockId = blockIdHeap[blockSlice.sStart + i];
+                 Slice qSlice = loadQueueSlice(qSliceHeap, blockId, columnDepth, columnThread);
+                 totalThresholds += qSlice.sLength;
+              }
+          }
+          // Now we take the maximum sum from every column and store it.
+          int max = parallelMaxInt( parts + (tileId << columnDepth)
+                                  , totalThresholds
+                                  , columnDepth
+                                  , columnThread
+                                  );
+
+      }
+
+
+      void parallelMax ( LMEM int *parts
+                       ,      int  totalThresholdsPerColumn
+                       ,      int  tileIndex
+                       ,      int  columnDepth
+                       ,      int  columnThread
+                       , GMEM int *maximumsPerTile
+                       ) {
+         // Copy from global to local memory
+         parts[columnThread] = totalThresholdsPerColumn;
+         // Loop for computing localSums : divide WorkGroup into 2 parts
+         for (int stride = 1<<(columnDepth - 1); stride>0; stride = stride >> 1) {
+             // Waiting for each 2x2 addition into given workgroup
+             barrier(CLK_LOCAL_MEM_FENCE);
+
+             // Add elements 2 by 2 between local_id and local_id + stride
+             if (columnThread < stride) {
+                 parts[columnThread] = max(parts[columnThread], parts[columnThread + stride]);
+             }
+         }
+         // Write result into partialSums[nWorkGroups]
+         if (columnThread == 0) {
+             maximumsPerTile[tileIndex] = parts[0];
+         }
+      }
+
+void initColumnState ( PMEM  ColumnState *columnState
+                     ,          TileInfo  tileInfo
+                     ,              int2  bitmapSize
+                     ,               int  blockId
+                     ,               int  columnDepth
+                     ,               int  columnThread
+                     ) {
+    columnState->columnThread  = columnThread;
+    // 2^hDepth = the width of the tile (before being cropped)
+    int hDepth = (int)tileInfo.tileHDepth;
+    // 2^vDepth = the height of the tile (before being cropped)
+    int vDepth = (int)tileInfo.tileVDepth;
+    // The precropped tile has (2^hDepth)*(2^vDepth) pixels or 2^(hDepth + vDepth)
+    // 2^columnDepth = the total number of threads available.
+    // So the number of pixels per thread is 2^(hDepth + vDepth) / 2^(columnDepth)
+    // aka the total number of pixels divided by the number threads.
+    // which we refer to as the thread depth.
+    // 2^threadDepth = 2^(hDepth + vDepth) / 2^(columnDepth) so:
+    int threadDepth = max(0, vDepth + hDepth - columnDepth);
+    // The precropped thread height is the height of the vertical column of pixels covered by the thread (2^threadDepth)
+    int precroppedHeight = 1 << threadDepth;
+    // The internal x coordinate of the start of the thread, that is in pixels relative to the top left corner of the tile.
+    // is just the rightmost n bits of the columnThreadId, where n is hDepth
+    // This is equivalent to internalX = columnThread % (uncropped tileWidth which equals 2^hDepth)
+    int internalX = bitmaskN((int)hDepth) & columnThread;
+    // The internal y coordinate of the start of the thread, that is in pixels relative to the top left corner of the tile
+    // is just the tileId / (uncropped widthOf tile) * precroppedHeight
+    int internalY = (columnThread >> hDepth) << threadDepth;
+    // The columnDelta is the topleft corner of the column. The is equivalent to the start point of the thread relative to the output image.
+    columnState->columnDelta   = (int2)(internalX, internalY) + boxLeftTop(tileInfo.tileBox);
+    // The actual height of the thread after being cropped by the bitmap boundaries.
+    columnState->intHeight     = min(precroppedHeight, bitmapSize.y-columnState->columnDelta.y);
+    columnState->floatHeight   = convert_float(columnState->intHeight);
+}
+
+
+__kernel void mergeTileKernel
+    ( GMEM       int4 *tileHeap
+    , GMEM  THRESHOLD *thresholdHeap
+    , GMEM     HEADER *headerHeap
+    , GMEM      Slice *qSliceHeap
+    , GMEM      Slice *mergeBlockSlices
+    , GMEM        int *blockIds
+    ,             int  columnDepth
+    ,            int2  bitmapSize
+    ,             int  frameNumber
+    ,             int  jobIndex
+    ,             int  jobOffset
+    ) {
+    // This kernel is indexed by each slice of blocks that need to be merged into one block.
+    // The destination tiles are indexed in the same way.
+    int sliceId      = jobOffset + INDEX; // the sequential number of the tile in the current workgroup.
+    int columnThread = COLUMNTHREAD;
+    Slice blockSlice = mergeBlockSlices[sliceId];
+    int4 tileBox     = tileHeap[sliceId];
+    float4 columnBox = initColumnBox(tileBox, bitmapSize, columnThread);
+    if (isActiveThread(columnBox, bitmapSize)) {
+        ThresholdQueue tQDestination;
+        initThresholdQueue(&tQDestination,initQueueSlice());
+        for (int i = 0; i < blockSlice.sLength; i++) {
+            int blockIdSource = blockIds[blockSlice.sStart + 1];
+            Slice qSliceSource = loadQueueSlice(qSliceHeap, blockIdSource, columnDepth, columnThread);
+            ThresholdQueue tQSource;
+            initThresholdQueue(&tQSource, qSliceSource);
+            loadThresholdQueue(&tQSource, thresholdHeap, headerHeap, blockIdSource, columnDepth, columnThread);
+            while (queueSize(&tQSource)) {
+              THRESHOLD threshold = getThreshold(&tQSource, 0);
+              HEADER       header = getHeader(&tQSource, 0);
+              popTop(&tQSource);
+              pushThreshold(&tQDestination, header, threshold);
+            }
+        }
+        int blockIdDestination = blockIds[blockSlice.sStart];
+        saveThresholdQueue( &tQDestination
+                          ,  thresholdHeap
+                          ,  headerHeap
+                          ,  blockIdDestination
+                          ,  columnDepth
+                          ,  columnThread
+                          );
+        storeQueueSlice( qSliceHeap
+                       , tQDestination.qSlice
+                       , blockIdDestination
+                       , columnDepth
+                       , columnThread
+                       );
+    }
+}

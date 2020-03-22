@@ -126,7 +126,10 @@ refToBreadth (Ref i) = Breadth i
 data Slice t = Slice
   { sliceStart   :: !(Reference t)
   , sliceLength  :: !(Breadth t)
-  } deriving (Eq, Show)
+  } deriving (Eq)
+
+instance Show (Slice t) where
+  show (Slice (Ref a) (Breadth b)) = "(" ++ show a ++ "," ++ show b ++ ")"
 
 instance NFData t => NFData (Slice t) where
   rnf (Slice a b) = a `deepseq` b `deepseq` ()

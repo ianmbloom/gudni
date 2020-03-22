@@ -29,8 +29,6 @@ module Graphics.Gudni.Raster.TileTree
   , Tile (..)
   , TileId(..)
   , tileBox
-  , tileHDepth
-  , tileVDepth
   , locatePointInTileTree
   , foldMapTileTree
   , traverseTileTree
@@ -75,10 +73,6 @@ newtype PointQueryId = PointQueryId {unPointQueryId :: Int} deriving (Show, Eq, 
 data Tile = Tile
   { -- | Pixel boundaries of tile.
     _tileBox    :: !(Box PixelSpace)
-    -- | Logarithmic horizontal depth.
-  , _tileHDepth :: !Int
-    -- | Logarithmic vertical depth.
-  , _tileVDepth :: !Int
   } deriving (Show)
 makeLenses ''Tile
 
@@ -123,7 +117,7 @@ buildTileTree emptyRep tileSize canvasSize = goV canvasDepth box
       in  if depth > tileDepth
           then VTree vCut (goH depth (set bottomSide vIntCut box))
                           (goH depth (set topSide    vIntCut box))
-          else VLeaf (Tile box depth depth, emptyRep)
+          else VLeaf (Tile box, emptyRep)
     -- split the tile by dividing into a horizontal row.
     goH depth box =
       let hIntCut = box ^. leftSide + (2 ^ (depth - 1))
@@ -131,7 +125,7 @@ buildTileTree emptyRep tileSize canvasSize = goV canvasDepth box
       in  if depth > tileDepth
           then HTree hCut (goV (depth - 1) (set rightSide hIntCut box))
                           (goV (depth - 1) (set leftSide  hIntCut box))
-          else HLeaf (Tile box depth depth, emptyRep)
+          else HLeaf (Tile box, emptyRep)
 
 -- | Add an itemEntry to a sequence of entries.
 insertItem :: (Tile, S.Seq ItemEntry) -> ItemEntry -> (Tile, S.Seq ItemEntry)
@@ -239,19 +233,11 @@ instance Show a => Show (VTree (Tile, S.Seq a)) where
 
 instance StorableM Tile where
   sizeOfM _ = do sizeOfM (undefined :: Box PixelSpace)
-                 sizeOfM (undefined :: CInt)
-                 sizeOfM (undefined :: CInt)
   alignmentM _ = do alignmentM (undefined :: Box PixelSpace)
-                    alignmentM (undefined :: CInt)
-                    alignmentM (undefined :: CInt)
   peekM = do box    <- peekM
-             hDepth :: CInt <- peekM
-             vDepth :: CInt <- peekM
-             return (Tile box (fromIntegral hDepth) (fromIntegral vDepth))
-  pokeM (Tile box hDepth vDepth) =
+             return (Tile box)
+  pokeM (Tile box) =
           do pokeM box
-             pokeM (fromIntegral hDepth :: CInt)
-             pokeM (fromIntegral vDepth :: CInt)
 
 instance Storable Tile where
   sizeOf = sizeOfV
@@ -266,7 +252,7 @@ instance Storable TileId where
   poke i (TileId a) = poke (castPtr i) a
 
 instance NFData Tile where
-  rnf (Tile a b c) = a `deepseq` b `deepseq` c `deepseq` ()
+  rnf (Tile a) = a `deepseq` ()
 
 instance NFData (TileId) where
   rnf (TileId a) = a `deepseq`  ()
