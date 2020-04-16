@@ -61,8 +61,7 @@ import Graphics.Gudni.Interface.Token
 
 import Graphics.Gudni.OpenCL.Setup
 import Graphics.Gudni.OpenCL.Rasterizer
-import Graphics.Gudni.OpenCL.CallKernels
-
+import Graphics.Gudni.OpenCL.ProcessBuffers
 
 import Graphics.Gudni.Raster.Constants (rANDOMFIELDsIZE)
 import Graphics.Gudni.OpenCL.EmbeddedOpenCLSource

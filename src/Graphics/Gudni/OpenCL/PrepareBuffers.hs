@@ -43,7 +43,6 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
   , sectQueueSliceBuffer
   , sectBlockIdBuffer
   , sectRenderLength
-  , sectRenderBuffer
   , sectInUseLength
   , sectInUseBuffer
   , sectFirstTile
@@ -52,6 +51,7 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
   , createBlockSection
   , releaseBlockSection
 
+  , nullTile
   , PointQuery(..)
   )
 where
@@ -117,7 +117,7 @@ data BuffersInCommon = BuffersInCommon
   { _bicGeoBuffer       :: CLBuffer CChar
   , _bicGeoRefBuffer    :: CLBuffer GeoReference
   , _bicPictMemBuffer   :: CLBuffer PictureMemoryReference
-  , _bicFacetBuffer      :: CLBuffer (HardFacet_ SubSpace TextureSpace)
+  , _bicFacetBuffer     :: CLBuffer (HardFacet_ SubSpace TextureSpace)
   , _bicItemTagBuffer   :: CLBuffer ItemTag
   , _bicSubTagBuffer    :: CLBuffer SubstanceTag
   , _bicSolidColors     :: CLBuffer Color
@@ -161,17 +161,24 @@ data BlockSection = BlockSection
   , _sectQueueSliceBuffer :: CLBuffer (Slice Int)
   , _sectBlockIdBuffer    :: CLBuffer BlockId
   , _sectRenderLength     :: Int
-  , _sectRenderBuffer     :: CLBuffer BlockId
   , _sectInUseLength      :: Int
+  , _sectFirstTile        :: Tile
+  , _sectLastTile         :: Tile
   , _sectInUseBuffer      :: CLBuffer CBool
-  , _sectFirstTile        :: UINT4
-  , _sectLastTile         :: UINT4
   , _sectSize             :: Int
   }
 makeLenses ''BlockSection
 
 newBuffer :: Storable a => Int -> CL (CLBuffer a)
 newBuffer size = allocBuffer [CL_MEM_READ_WRITE] (max 1 size)
+
+v4ToBox (V4 a b c d) = makeBox (fromIntegral a)
+                               (fromIntegral b)
+                               (fromIntegral c)
+                               (fromIntegral d)
+
+nullTile = Tile $ v4ToBox nULLtILE
+
 
 createBlockSection :: RasterParams token
                        -> CL BlockSection
@@ -186,8 +193,7 @@ createBlockSection params =
      thresholdBuffer  <- newBuffer blockSize :: CL (CLBuffer THRESHOLDTYPE)
      headerBuffer     <- newBuffer blockSize :: CL (CLBuffer HEADERTYPE   )
      queueSliceBuffer <- newBuffer (blocksToAlloc * columnsPerBlock) :: CL (CLBuffer (Slice Int))
-     blockIdBuffer    <- (liftIO . vectorToBuffer context . VS.replicate blocksToAlloc $ BlockId 99999 :: CL (CLBuffer BlockId))
-     renderBuffer     <- (liftIO . vectorToBuffer context . VS.replicate blocksToAlloc $ BlockId 13131 :: CL (CLBuffer BlockId))
+     blockIdBuffer    <- (liftIO . vectorToBuffer context . VS.generate blocksToAlloc $ BlockId :: CL (CLBuffer BlockId))
      inUseBuffer      <- (liftIO . vectorToBuffer context . VS.replicate blocksToAlloc . toCBool $ False :: CL (CLBuffer CBool))
      liftIO $ putStrLn "---- Threshold Buffers Allocated ----"
      return $ BlockSection
@@ -196,12 +202,11 @@ createBlockSection params =
               , _sectHeaderBuffer     = headerBuffer
               , _sectQueueSliceBuffer = queueSliceBuffer
               , _sectBlockIdBuffer    = blockIdBuffer
-              , _sectRenderBuffer     = renderBuffer
               , _sectRenderLength     = 0
               , _sectInUseBuffer      = inUseBuffer
               , _sectInUseLength      = 0
-              , _sectFirstTile        = nULLtILE
-              , _sectLastTile         = nULLtILE
+              , _sectFirstTile        = nullTile
+              , _sectLastTile         = nullTile
               , _sectSize             = blocksToAlloc
               }
 
@@ -212,7 +217,6 @@ releaseBlockSection blockSection =
                  clReleaseMemObject . bufferObject $ blockSection ^. sectHeaderBuffer
                  clReleaseMemObject . bufferObject $ blockSection ^. sectQueueSliceBuffer
                  clReleaseMemObject . bufferObject $ blockSection ^. sectBlockIdBuffer
-                 clReleaseMemObject . bufferObject $ blockSection ^. sectRenderBuffer
                  clReleaseMemObject . bufferObject $ blockSection ^. sectInUseBuffer
                  return ()
 

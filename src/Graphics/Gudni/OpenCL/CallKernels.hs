@@ -6,7 +6,18 @@
 {-# LANGUAGE ViewPatterns               #-}
 
 module Graphics.Gudni.OpenCL.CallKernels
-  ( runRaster
+  ( dumpBufferPart
+  , dumpBufferPartTiles
+  , iterateJobs
+  , runGenerateThresholdsKernel
+  , runMergeKernel
+  , runCollectMergedKernel
+  , runCollectRenderKernel
+  , runSortKernel
+  , runRenderKernel
+  , runSplitKernel
+  , runCombineSectionKernel
+  , runPointQueryKernel
   )
 where
 
@@ -71,6 +82,29 @@ fromSequence = VS.fromList . toList
    the bottom most threshold information will be ignored, the assumption being that information that is below MAXLAYERS of other color information in one pixel, can safely be ignored.
 -}
 
+dumpBufferPart message buffer =
+  do liftIO . putStrLn $ "----------------------------------- " ++ message ++ " -----------------------------------"
+     hs <- readBuffer buffer
+     liftIO . putStrLn . show $ hs
+
+dumpBufferPartTiles :: String -> CLBuffer Tile -> CL ()
+dumpBufferPartTiles message buffer =
+  do liftIO . putStrLn $ "----------------------------------- " ++ message ++ " -----------------------------------"
+     hs <- VS.take 32 <$> readBuffer buffer
+     liftIO . putStrLn . concat . map (lpad 5 . show . view (tileBox . leftSide  )) . VS.toList $ hs
+     liftIO . putStrLn . concat . map (lpad 5 . show . view (tileBox . topSide   )) . VS.toList $ hs
+     liftIO . putStrLn . concat . map (lpad 5 . show . view (tileBox . rightSide )) . VS.toList $ hs
+     liftIO . putStrLn . concat . map (lpad 5 . show . view (tileBox . bottomSide)) . VS.toList $ hs
+
+
+iterateJobs :: Monad m => Int -> Int -> (Int -> Int -> Int -> m ()) -> m ()
+iterateJobs total chunk f = go 0 0
+  where go step offset = let size = min (total - offset) chunk
+                         in  if offset < total
+                             then do f step offset size
+                                     go (step + 1) (offset + chunk)
+                             else return ()
+
 announceKernel name jobStep jobOffset jobSize =
      liftIO $ putStrLn (name ++ " step:" ++ show jobStep ++ " offset:" ++ show jobOffset ++ " size:" ++ show jobSize ++ "    XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
 
@@ -86,7 +120,7 @@ runGenerateThresholdsKernel params buffersInCommon itemTagIdPile tileSlices =
       (tiles, itemSlices) = S.unzip tileSlices
   in
   do itemSliceBuffer <- liftIO . vectorToBuffer context . fromSequence $ itemSlices
-     blockSection <- createBlockSection params
+     blockSection    <- createBlockSection params
      writeBuffer (blockSection ^. sectTileBuffer) . fromSequence $ tiles
      let len = S.length tiles
      iterateJobs len maxJobSize $
@@ -119,17 +153,197 @@ runGenerateThresholdsKernel params buffersInCommon itemTagIdPile tileSlices =
                           (WorkGroup [1, columnsPerBlock]) :: CL ()
                 dumpBufferPart ("after generate inUseBuffer " ++ show jobStep) (blockSection ^. sectInUseBuffer)
                 dumpBufferPart ("after generate blockIdBuffer " ++ show jobStep) (blockSection ^. sectBlockIdBuffer)
-
+     -- TODO: Is itemSliceBuffer being freed
      return . set sectInUseLength len $ blockSection
 
+runMergeKernel :: RasterParams token
+               -> BlockSection
+               -> CL ()
+runMergeKernel params blockSection =
+  let columnsPerBlock  = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
+      columnDepth      = params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth
+      blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
+      maxJobSize       = params ^. rpRasterizer . rasterDeviceSpec . specMergeJobSize
+      jobDepth         = params ^. rpRasterizer . rasterDeviceSpec . specMergeJobDepth
+  in
+  do  iterateJobs (blockSection ^. sectInUseLength) maxJobSize $
+          \jobStep jobOffset jobSize ->
+             do  dumpBufferPartTiles ("tiles " ++ show jobStep) (blockSection ^. sectTileBuffer)
+                 dumpBufferPart ("inUseBuffer " ++ show jobStep) (blockSection ^. sectInUseBuffer)
+                 -- right now there are two passes looking for blocks that can be merged
+                 -- the stride offset determines the offset looking for these pairs.
+                 forM_ [0,(-1)] $ \ strideOffset -> -- TODO: this is probably unneccessary
+                    -- now loop through each exponent up to the job depth
+                    do   forLoop 0 (< jobDepth - 1) (+ 1) $ \ strideExp ->
+                            do announceKernel ("mergeAdjacent strideExp:" ++ show strideExp) jobStep jobOffset jobSize
+                               runKernel (params ^. rpRasterizer . rasterMergeTileKernel)
+                                         (blockSection ^. sectTileBuffer      )
+                                         (blockSection ^. sectThresholdBuffer )
+                                         (blockSection ^. sectHeaderBuffer    )
+                                         (blockSection ^. sectQueueSliceBuffer)
+                                         (blockSection ^. sectBlockIdBuffer   )
+                                         (blockSection ^. sectInUseBuffer     )
+                                         (toCInt jobDepth   )
+                                         (toCInt columnDepth)
+                                         (toCInt <$> params ^. rpFrameSpec . specBitmapSize)
+                                         (toCInt  $  params ^. rpFrameSpec . specFrameCount)
+                                         (toCInt jobStep      )
+                                         (toCInt jobOffset    )
+                                         (toCInt jobSize      )
+                                         (toCInt strideExp    )
+                                         (toCInt strideOffset )
+                                         (Local columnsPerBlock :: LocalMem CInt)
+                                         (Work2D jobSize columnsPerBlock)
+                                         (WorkGroup [1, columnsPerBlock]) :: CL ()
+                               dumpBufferPart ("afterMerge strideExp " ++ show strideExp ++ "inUseBuffer")   (blockSection ^. sectInUseBuffer)
+                               dumpBufferPart ("afterMerge strideExp " ++ show strideExp ++ "blockIdBuffer") (blockSection ^. sectBlockIdBuffer)
+
+runCollectMergedKernel :: RasterParams token
+                       -> BlockSection
+                       -> CL BlockSection
+runCollectMergedKernel params blockSection =
+    let blockDepth       = params ^. rpRasterizer . rasterDeviceSpec . specBlockSectionDepth
+        blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
+    in
+    do  announceKernel "collectMergedKernel" 0 0 0
+        (outputInUseLength, sideTiles) <-
+            runKernel (params ^. rpRasterizer . rasterCollectMergedBlocksKernel)
+                      (blockSection ^. sectTileBuffer     )
+                      (blockSection ^. sectBlockIdBuffer  )
+                      (blockSection ^. sectInUseBuffer    )
+                      (toCInt  $  blockDepth      )
+                      (toCInt  $  blocksPerSection)
+                      (toCInt  $  params ^. rpFrameSpec  . specFrameCount)
+                      (Out 1)
+                      (Out 2)
+                      (Local blocksPerSection :: LocalMem CInt)
+                      (Work1D blocksPerSection)
+                      (WorkGroup [blocksPerSection]) :: CL (VS.Vector CInt, VS.Vector Tile)
+        let inUseLength = fromCInt . VS.head $ outputInUseLength
+            firstTile   = (VS.!) sideTiles 0
+            lastTile    = (VS.!) sideTiles 1
+        dumpBufferPart ("afterCollectMerged inUseBuffer")   (blockSection ^. sectInUseBuffer)
+        dumpBufferPart ("afterCollectMerged blockIdBuffer") (blockSection ^. sectBlockIdBuffer)
+        dumpBufferPartTiles ("after Collect Merged Tiles ") (blockSection ^. sectTileBuffer)
+        return . set sectInUseLength inUseLength
+               . set sectFirstTile firstTile
+               . set sectLastTile  lastTile  $ blockSection
+
+runCollectRenderKernel :: RasterParams token
+                       -> BlockSection
+                       -> Tile
+                       -> Tile
+                       -> CL BlockSection
+runCollectRenderKernel params blockSection prevTile nextTile =
+    let blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
+    in
+    do  announceKernel "collectRenderKernel" 0 0 0
+        (outputSplitLength, outputRenderLength) <-
+            runKernel (params ^. rpRasterizer . rasterCollectRenderBlocksKernel)
+                      (blockSection ^. sectTileBuffer)
+                      (blockSection ^. sectBlockIdBuffer  )
+                      (blockSection ^. sectInUseBuffer    )
+                      (toCInt  $  blockSection ^. sectInUseLength)
+                      (VS.fromList [prevTile, nextTile])
+                      (toCInt  $  params ^. rpRasterizer . rasterDeviceSpec . specBlockSectionDepth)
+                      (toCInt  $  blocksPerSection)
+                      (toCInt  $  params ^. rpFrameSpec  . specFrameCount)
+                      (Out 1)
+                      (Out 1)
+                      (Local blocksPerSection :: LocalMem CInt)
+                      (Work1D blocksPerSection)
+                      (WorkGroup [blocksPerSection]) :: CL (VS.Vector CInt, VS.Vector CInt)
+        let splitLength  = fromCInt . VS.head $ outputSplitLength
+            renderLength = fromCInt . VS.head $ outputRenderLength
+        liftIO $ putStrLn $ "splitLength " ++ show splitLength ++ " renderLength " ++ show renderLength
+        dumpBufferPart ("afterCollectRender inUseBuffer")   (blockSection ^. sectInUseBuffer)
+        dumpBufferPart ("afterCollectRender blockIdBuffer") (blockSection ^. sectBlockIdBuffer)
+        dumpBufferPartTiles ("after Collect Render Tiles ") (blockSection ^. sectTileBuffer)
+
+        return . set sectRenderLength renderLength
+               . set sectInUseLength splitLength $ blockSection
+
+
+runSortKernel :: RasterParams token
+              -> BlockSection
+              -> CL ()
+runSortKernel params blockSection =
+    let columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
+        maxJobSize      = params ^. rpRasterizer . rasterDeviceSpec . specMaxSortJobSize
+        columnDepth     = params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth
+    in
+    do  iterateJobs (blockSection ^. sectRenderLength) maxJobSize $
+               \jobStep jobOffset jobSize ->
+               do announceKernel "sortKernel" jobStep jobOffset jobSize
+                  runKernel (params ^. rpRasterizer . rasterSortThresholdsKernel)
+                            (blockSection ^. sectTileBuffer      )
+                            (blockSection ^. sectThresholdBuffer )
+                            (blockSection ^. sectHeaderBuffer    )
+                            (blockSection ^. sectQueueSliceBuffer)
+                            (blockSection ^. sectBlockIdBuffer   )
+                            (toCInt $ blockSection ^. sectInUseLength )
+                            (toCInt $ blockSection ^. sectRenderLength)
+                            (toCInt columnDepth)
+                            (toCInt <$> params ^. rpFrameSpec  . specBitmapSize)
+                            (toCInt  $  params ^. rpFrameSpec  . specFrameCount)
+                            (toCInt jobStep)
+                            (toCInt jobOffset)
+                            (Work2D jobSize columnsPerBlock)
+                            (WorkGroup [1, columnsPerBlock]) :: CL ()
+        return ()
+
+runRenderKernel :: (  KernelArgs
+                     'KernelSync
+                     'NoWorkGroups
+                     'UnknownWorkItems
+                     'Z
+                     (target -> NumWorkItems -> WorkGroup -> CL ())
+                   )
+                => RasterParams token
+                -> BuffersInCommon
+                -> BlockSection
+                -> target
+                -> CL ()
+runRenderKernel params buffersInCommon blockSection target =
+    let columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
+        maxJobSize      = params ^. rpRasterizer . rasterDeviceSpec . specMaxRenderJobSize
+    in
+    do
+        iterateJobs (blockSection ^. sectRenderLength) maxJobSize $
+               \jobStep jobOffset jobSize ->
+               do liftIO $ putStrLn ("rasterRenderThresholdsKernel index:" ++ show jobStep ++ " size:" ++ show jobSize ++ "   XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
+                  runKernel (params ^. rpRasterizer . rasterRenderThresholdsKernel)
+                            (blockSection ^. sectTileBuffer      )
+                            (blockSection ^. sectThresholdBuffer )
+                            (blockSection ^. sectHeaderBuffer    )
+                            (blockSection ^. sectQueueSliceBuffer)
+                            (blockSection ^. sectBlockIdBuffer   )
+                            (toCInt $ blockSection ^. sectInUseLength )
+                            (toCInt $ blockSection ^. sectRenderLength)
+                            (buffersInCommon ^. bicItemTagBuffer)
+                            (buffersInCommon ^. bicSubTagBuffer )
+                            (buffersInCommon ^. bicFacetBuffer   )
+                            (buffersInCommon ^. bicPictBuffer   ) -- (params ^. rpPictData)
+                            (buffersInCommon ^. bicPictMemBuffer)
+                            (buffersInCommon ^. bicSolidColors  )
+                            (buffersInCommon ^. bicRandoms      ) -- (params ^. rpGeometryState  . geoRandomField)
+                            (params ^. rpSubstanceState . suBackgroundColor)
+                            (toCInt  $  params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth)
+                            (toCInt <$> params ^. rpFrameSpec  . specBitmapSize)
+                            (toCInt  $  params ^. rpFrameSpec  . specFrameCount)
+                            (toCInt jobStep)
+                            (toCInt jobOffset)
+                            target
+                            (Work2D jobSize columnsPerBlock)
+                            (WorkGroup [1, columnsPerBlock]) :: CL ()
+        return ()
 
 runSplitKernel :: RasterParams token
                -> BlockSection
                -> BlockSection
                -> CL (BlockSection, BlockSection)
 runSplitKernel params blockSection newBlockSection =
-    let context         = clContext (params ^. rpRasterizer . rasterClState)
-        columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
+    let columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
         maxJobSize      = params ^. rpRasterizer . rasterDeviceSpec . specSplitJobSize
         splitLength     = blockSection ^. sectInUseLength - blockSection ^. sectRenderLength
     in
@@ -159,183 +373,47 @@ runSplitKernel params blockSection newBlockSection =
                         (WorkGroup [1, columnsPerBlock]) :: CL ()
     return (blockSection, newBlockSection)
 
-iterateJobs :: Monad m => Int -> Int -> (Int -> Int -> Int -> m ()) -> m ()
-iterateJobs total chunk f = go 0 0
-  where go step offset = let size = min (total - offset) chunk
-                         in  if offset < total
-                             then do f step offset size
-                                     go (step + 1) (offset + chunk)
-                             else return ()
+runCombineSectionKernel :: RasterParams token
+                        -> BlockSection
+                        -> BlockSection
+                        -> CL (BlockSection, BlockSection)
+runCombineSectionKernel params blockSectionDst blockSectionSrc =
+   let columnsPerBlock  = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
+       blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
+   in
+   do  announceKernel "rasterCombineSectionKernel" 0 0 0
+       (outputInUseLengthDst, outputInUseLengthSrc) <-
+           runKernel (params ^. rpRasterizer . rasterSplitTileKernel)
+                     (blockSectionDst ^. sectTileBuffer      )
+                     (blockSectionDst ^. sectThresholdBuffer )
+                     (blockSectionDst ^. sectHeaderBuffer    )
+                     (blockSectionDst ^. sectQueueSliceBuffer)
+                     (blockSectionDst ^. sectBlockIdBuffer   )
+                     (blockSectionDst ^. sectInUseBuffer     )
+                     (toCInt $ blockSectionDst ^. sectInUseLength     )
 
+                     (blockSectionSrc ^. sectTileBuffer      )
+                     (blockSectionSrc ^. sectThresholdBuffer )
+                     (blockSectionSrc ^. sectHeaderBuffer    )
+                     (blockSectionSrc ^. sectQueueSliceBuffer)
+                     (blockSectionSrc ^. sectBlockIdBuffer   )
+                     (blockSectionSrc ^. sectInUseBuffer     )
+                     (toCInt $ blockSectionSrc ^. sectInUseLength     )
+                     (toCInt blocksPerSection)
 
-runMergeKernel :: RasterParams token
-               -> BlockSection
-               -> CL ()
-runMergeKernel params blockSection =
-  let context          = clContext (params ^. rpRasterizer . rasterClState)
-      columnsPerBlock  = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
-      columnDepth      = params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth
-      blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
-      maxJobSize       = params ^. rpRasterizer . rasterDeviceSpec . specMergeJobSize
-      jobDepth         = tr "jobDepth" $ params ^. rpRasterizer . rasterDeviceSpec . specMergeJobDepth
+                     (toCInt  $  params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth)
+                     (toCInt <$> params ^. rpFrameSpec  . specBitmapSize)
+                     (toCInt  $  params ^. rpFrameSpec  . specFrameCount)
+                     (Out 1)
+                     (Out 1)
+                     (Work2D blocksPerSection columnsPerBlock)
+                     (WorkGroup [1, columnsPerBlock]) :: CL (VS.Vector CInt, VS.Vector CInt)
+       let inUseLengthDst = fromCInt . VS.head $ outputInUseLengthDst
+           inUseLengthSrc = fromCInt . VS.head $ outputInUseLengthSrc
+       return ( set sectInUseLength inUseLengthDst blockSectionDst
+              , set sectInUseLength inUseLengthSrc blockSectionSrc
+              )
 
-  in
-  do  liftIO $ putStrLn "runMergeKernel Start ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-      iterateJobs (tr "sectInUseLength" $ blockSection ^. sectInUseLength) (tr "maxMergeJobSize" maxJobSize) $
-          \jobStep jobOffset jobSize ->
-             do  dumpBufferPartTiles ("tiles " ++ show jobStep) (blockSection ^. sectTileBuffer)
-                 dumpBufferPart ("inUseBuffer " ++ show jobStep) (blockSection ^. sectInUseBuffer)
-                 forM_ [0,(-1)] $ \ strideOffset ->
-                    do   forLoop 0 (< jobDepth - 1) (+ 1) $ \ strideExp ->
-                            do announceKernel ("mergeAdjacent strideExp:" ++ show strideExp) jobStep jobOffset jobSize
-                               runKernel (params ^. rpRasterizer . rasterMergeTileKernel)
-                                         (blockSection ^. sectTileBuffer      )
-                                         (blockSection ^. sectThresholdBuffer )
-                                         (blockSection ^. sectHeaderBuffer    )
-                                         (blockSection ^. sectQueueSliceBuffer)
-                                         (blockSection ^. sectBlockIdBuffer   )
-                                         (blockSection ^. sectInUseBuffer     )
-                                         (toCInt jobDepth   )
-                                         (toCInt columnDepth)
-                                         (toCInt <$> params ^. rpFrameSpec . specBitmapSize)
-                                         (toCInt  $  params ^. rpFrameSpec . specFrameCount)
-                                         (toCInt jobStep      )
-                                         (toCInt jobOffset    )
-                                         (toCInt jobSize      )
-                                         (toCInt strideExp    )
-                                         (toCInt strideOffset )
-                                         (Local columnsPerBlock :: LocalMem CInt)
-                                         (Work2D jobSize columnsPerBlock)
-                                         (WorkGroup [1, columnsPerBlock]) :: CL ()
-                               dumpBufferPart ("afterMerge strideExp " ++ show strideExp ++ "inUseBuffer")   (blockSection ^. sectInUseBuffer)
-                               dumpBufferPart ("afterMerge strideExp " ++ show strideExp ++ "blockIdBuffer") (blockSection ^. sectBlockIdBuffer)
-      liftIO $ putStrLn "runMergeKernel Done ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-
-
-runCollectMergedKernel :: RasterParams token
-                       -> BlockSection
-                       -> CL BlockSection
-runCollectMergedKernel params blockSection =
-    let blocksPerSection  = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
-    in
-    do  announceKernel "collectMergedKernel" 0 0 0
-        outputInUseLength <-
-            runKernel (params ^. rpRasterizer . rasterCollectMergedBlocksKernel)
-                      (blockSection ^. sectTileBuffer     )
-                      (blockSection ^. sectBlockIdBuffer  )
-                      (blockSection ^. sectInUseBuffer    )
-                      (toCInt  $  params ^. rpRasterizer . rasterDeviceSpec . specBlockSectionDepth)
-                      (toCInt  $  blocksPerSection)
-                      (toCInt  $  params ^. rpFrameSpec  . specFrameCount)
-                      (Out 1)
-                      (Local blocksPerSection :: LocalMem CInt)
-                      (Work1D blocksPerSection)
-                      (WorkGroup [blocksPerSection]) :: CL (VS.Vector CInt)
-        let inUseLength = tr "inUnseLength" $ fromCInt . VS.head $ outputInUseLength
-        dumpBufferPart ("afterCollectMerged inUseBuffer")   (blockSection ^. sectInUseBuffer)
-        dumpBufferPart ("afterCollectMerged blockIdBuffer") (blockSection ^. sectBlockIdBuffer)
-        return . set sectInUseLength inUseLength $ blockSection
-
-runCollectRenderKernel :: RasterParams token
-                       -> BlockSection
-                       -> CL BlockSection
-runCollectRenderKernel params blockSection =
-    let blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
-    in
-    do  announceKernel "collectRenderKernel" 0 0 0
-        outputRenderLength <-
-            runKernel (params ^. rpRasterizer . rasterCollectRenderBlocksKernel)
-                      (blockSection ^. sectTileBuffer)
-                      (blockSection ^. sectBlockIdBuffer  )
-                      (blockSection ^. sectInUseBuffer    )
-                      (toCInt  $  blockSection ^. sectInUseLength)
-                      (blockSection ^. sectRenderBuffer   )
-                      (toCInt  $  params ^. rpRasterizer . rasterDeviceSpec . specBlockSectionDepth)
-                      (toCInt  $  blocksPerSection)
-                      (toCInt  $  params ^. rpFrameSpec  . specFrameCount)
-                      (Out 1)
-                      (Local blocksPerSection :: LocalMem CInt)
-                      (Work1D blocksPerSection)
-                      (WorkGroup [blocksPerSection]) :: CL (VS.Vector CInt)
-        let renderLength = fromCInt . VS.head $ outputRenderLength
-            inUseLength' = blockSection ^. sectInUseLength - renderLength
-        dumpBufferPart ("afterCollectRender blockIdBuffer") (blockSection ^. sectRenderBuffer)
-            -- splitLength  = fromCInt . VS.head $ outputSplitLength
-        return . set sectRenderLength renderLength
-               . set sectInUseLength inUseLength' $ blockSection
-
-
-runSortKernel :: RasterParams token
-              -> BlockSection
-              -> CL ()
-runSortKernel params blockSection =
-    let context         = clContext (params ^. rpRasterizer . rasterClState)
-        columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
-        maxJobSize      = params ^. rpRasterizer . rasterDeviceSpec . specMaxSortJobSize
-        columnDepth     = params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth
-    in
-    do  iterateJobs (blockSection ^. sectRenderLength) maxJobSize $
-               \jobStep jobOffset jobSize ->
-               do announceKernel "sortKernel" jobStep jobOffset jobSize
-                  runKernel (params ^. rpRasterizer . rasterSortThresholdsKernel)
-                            (blockSection ^. sectTileBuffer      )
-                            (blockSection ^. sectThresholdBuffer )
-                            (blockSection ^. sectHeaderBuffer    )
-                            (blockSection ^. sectQueueSliceBuffer)
-                            (blockSection ^. sectRenderBuffer    )
-                            (toCInt columnDepth)
-                            (toCInt <$> params ^. rpFrameSpec  . specBitmapSize)
-                            (toCInt  $  params ^. rpFrameSpec  . specFrameCount)
-                            (toCInt jobStep)
-                            (toCInt jobOffset)
-                            (Work2D jobSize columnsPerBlock)
-                            (WorkGroup [1, columnsPerBlock]) :: CL ()
-        return ()
-
-runRenderKernel :: (  KernelArgs
-                     'KernelSync
-                     'NoWorkGroups
-                     'UnknownWorkItems
-                     'Z
-                     (target -> NumWorkItems -> WorkGroup -> CL ())
-                   )
-                => RasterParams token
-                -> BuffersInCommon
-                -> BlockSection
-                -> target
-                -> CL ()
-runRenderKernel params buffersInCommon blockSection target =
-    let context         = clContext (params ^. rpRasterizer . rasterClState)
-        columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
-        maxJobSize      = params ^. rpRasterizer . rasterDeviceSpec . specMaxRenderJobSize
-    in
-    do
-        iterateJobs (blockSection ^. sectRenderLength) maxJobSize $
-               \jobStep jobOffset jobSize ->
-               do liftIO $ putStrLn ("rasterRenderThresholdsKernel index:" ++ show jobStep ++ " size:" ++ show jobSize ++ "   XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
-                  runKernel (params ^. rpRasterizer . rasterRenderThresholdsKernel)
-                            (blockSection ^. sectTileBuffer      )
-                            (blockSection ^. sectThresholdBuffer )
-                            (blockSection ^. sectHeaderBuffer    )
-                            (blockSection ^. sectQueueSliceBuffer)
-                            (blockSection ^. sectRenderBuffer    )
-                            (buffersInCommon ^. bicItemTagBuffer)
-                            (buffersInCommon ^. bicSubTagBuffer )
-                            (buffersInCommon ^. bicFacetBuffer   )
-                            (buffersInCommon ^. bicPictBuffer   ) -- (params ^. rpPictData)
-                            (buffersInCommon ^. bicPictMemBuffer)
-                            (buffersInCommon ^. bicSolidColors  )
-                            (buffersInCommon ^. bicRandoms      ) -- (params ^. rpGeometryState  . geoRandomField)
-                            (params ^. rpSubstanceState . suBackgroundColor)
-                            (toCInt  $  params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth)
-                            (toCInt <$> params ^. rpFrameSpec  . specBitmapSize)
-                            (toCInt  $  params ^. rpFrameSpec  . specFrameCount)
-                            (toCInt jobStep)
-                            (toCInt jobOffset)
-                            target
-                            (Work2D jobSize columnsPerBlock)
-                            (WorkGroup [1, columnsPerBlock]) :: CL ()
-        return ()
 
 runPointQueryKernel :: RasterParams token
                     -> BlockSection
@@ -367,220 +445,3 @@ runPointQueryKernel params blockSection buffersInCommon pointQueries =
        --                                (WorkGroup [1, fromIntegral columnsPerBlock])
        let queryResults = []
        return queryResults
-
-
--- | Divide entrySequence based on number of items and total number of strands
-divideEntrySequences :: RasterParams token
-                     -> (Tile, S.Seq ItemEntry)
-                     -> Identity (Tile, (S.Seq (S.Seq ItemEntry)))
-divideEntrySequences params (tile, rep) = return $ (tile, go rep)
-  where
-  go ss = let len = S.length ss
-              maxLayers      = params ^. rpRasterizer . rasterDeviceSpec . specMaxLayers
-              maxThresholds  = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
-              totalStrands   = sum (fmap (unNumStrands . view itemStrandCount) ss) * 2
-              tooManyShapes  = len > maxLayers
-              tooManyStrands = totalStrands > fromIntegral maxThresholds
-          in
-          if (len > 1) && (tooManyShapes || tooManyStrands)
-          then let (left, right) = S.splitAt (len `div` 2) ss
-               in go left <|> go right
-          else S.singleton ss
-
-allocateTilePortion :: Tile
-                    -> Slice ItemTagId
-                    -> State ( S.Seq (Tile, Slice ItemTagId) ) ()
-allocateTilePortion tile slice =
-  do generatorJobs <- get
-     put (generatorJobs |> (tile, slice))
-
-allocateGeneration :: (Tile, S.Seq (Slice ItemTagId))
-                   -> State ( S.Seq (Tile, Slice ItemTagId) ) ()
-allocateGeneration (tile, slices) =
-    mapM_ (allocateTilePortion tile) slices
-
-mkSlice start len = Slice (Ref (fromIntegral start)) (Breadth (fromIntegral len))
-
-collectTileBlocks :: S.Seq (Tile, S.Seq BlockId) -> State (S.Seq Tile, S.Seq (Slice BlockId), S.Seq BlockId, Int) ()
-collectTileBlocks = mapM_ go
-    where go (newTile, newBlocks) =
-             do (tiles, blockSlices, blocks, current) <- get
-                let len = S.length newBlocks
-                put (tiles |> newTile, blockSlices |> mkSlice current len, blocks <|> newBlocks, current + len)
-
-mergeTileBlocks :: S.Seq (Tile, S.Seq BlockId) -> State (S.Seq Tile, S.Seq (Slice BlockId), S.Seq BlockId, Int) (S.Seq (Tile, BlockId))
-mergeTileBlocks ss = mapM go ss
-    where go :: (Tile, S.Seq BlockId) -> State (S.Seq Tile, S.Seq (Slice BlockId), S.Seq BlockId, Int) (Tile, BlockId)
-          go (newTile, newBlocks) =
-             do (tiles, blockSlices, blocks, current) <- get
-                let len = S.length newBlocks
-                put (tiles |> newTile, blockSlices |> mkSlice current len, blocks <|> newBlocks, current + len)
-                case S.viewl newBlocks of
-                  S.EmptyL -> error "empty blockId sequence."
-                  (S.:<) topBlockId _ -> return (newTile, topBlockId)
-
-verticalSplitTile :: Tile -> (Tile, Tile)
-verticalSplitTile tile =
-  let cut = (tile ^. tileBox . topSide + tile ^. tileBox . bottomSide) `div` 2
-      topTile    = Tile (set bottomSide cut (tile ^. tileBox))
-      bottomTile = Tile (set topSide    cut (tile ^. tileBox))
-  in  (topTile, bottomTile)
-
-dumpBufferPart message buffer =
-  do liftIO . putStrLn $ "----------------------------------- " ++ message ++ " -----------------------------------"
-     hs <-readBuffer buffer
-     liftIO . putStrLn . show $ hs
-
-dumpBufferPartTiles :: String -> CLBuffer Tile -> CL ()
-dumpBufferPartTiles message buffer =
-  do liftIO . putStrLn $ "----------------------------------- " ++ message ++ " -----------------------------------"
-     hs <- VS.take 32 <$> readBuffer buffer
-     liftIO . putStrLn . concat . map (lpad 5 . show . view (tileBox . leftSide  )) . VS.toList $ hs
-     liftIO . putStrLn . concat . map (lpad 5 . show . view (tileBox . topSide   )) . VS.toList $ hs
-     liftIO . putStrLn . concat . map (lpad 5 . show . view (tileBox . rightSide )) . VS.toList $ hs
-     liftIO . putStrLn . concat . map (lpad 5 . show . view (tileBox . bottomSide)) . VS.toList $ hs
-
-withBeforeAndAfter :: Monad m => S.Seq a ->(Maybe a -> Maybe a -> a -> m b) -> m (S.Seq b)
-withBeforeAndAfter ss f = iforM ss go
-   where
-   len = S.length ss
-   go i this =
-     let before = if i > 0 then Just $ S.index ss (i-1) else Nothing
-         after  = if i < len - 1 then Just $ S.index ss  (i+1)else Nothing
-     in  f before after this
-
-checkBlockSection section = if section ^. sectInUseLength == 0
-                            then do releaseBlockSection section
-                                    return Nothing
-                            else return . Just $ section
-
-condenseStack blockSectionStack = fmap fromJust . S.filter isJust <$> mapM checkBlockSection blockSectionStack
-
-processBufferStack :: (  KernelArgs
-                        'KernelSync
-                        'NoWorkGroups
-                        'UnknownWorkItems
-                        'Z
-                        (target -> NumWorkItems -> WorkGroup -> CL ())
-                      )
-                   => RasterParams token
-                   -> BuffersInCommon
-                   -> S.Seq BlockSection
-                   -> target
-                   -> CL (S.Seq BlockSection)
-processBufferStack params buffersInCommon blockSectionStack target =
-    do -- iforM blockSectionStack (\i buffers -> dumpBufferPart ("generated inUse part " ++ show i) (buffers ^. sectInUseBuffer))
-       -- iforM blockSectionStack (\i buffers -> dumpBufferPart ("generated bufferId part " ++ show i) (buffers ^. sectBlockIdBuffer))
-       liftIO $ putStrLn $ "|||||||||||||||||||||||| Merge Section Start Length " ++ show (S.length blockSectionStack) ++ "||||||||||||"
-       mergedStack <- iforM blockSectionStack $
-                                  \ i blockSection ->
-                                       do liftIO $ putStrLn $ "|||||||||||||||||||||||| Merge Section " ++ show i ++ " |||||||||||||||||||||||| "
-                                          runMergeKernel params blockSection
-                                          runCollectMergedKernel params blockSection
-       liftIO $ putStrLn $ "||||||||||||||||||||||||||||||||||||  Merge Section Done ||||||||||||||||||||||||"
-       splitStack <- withBeforeAndAfter mergedStack $
-                   \ before after blockSection ->
-                      do toRenderSection <- runCollectRenderKernel params blockSection
-                         --dumpBufferPart ("render length " ++ show (toRenderSection ^. sectRenderLength)) (toRenderSection ^. sectRenderBuffer)
-                         --dumpBufferPart "renderCollected bufferId part " (toRenderSection ^. sectBlockIdBuffer)
-                         if toRenderSection ^. sectRenderLength > 0
-                         then do runSortKernel params toRenderSection
-                                 runRenderKernel params buffersInCommon toRenderSection target
-                         else return ()
-                         if tr "**inUseLength" (toRenderSection ^. sectInUseLength) <= 0
-                         then return $ S.singleton toRenderSection
-                         else do newBlockSection <- createBlockSection params
-                                 runSplitKernel params toRenderSection newBlockSection
-                                 return $ S.singleton toRenderSection <|> S.singleton newBlockSection
-       let stack = trWith (show . fmap (view sectInUseLength)) "stack lengths" $ S.filter ((>0) . view sectInUseLength) $ join splitStack
-       iforM stack (\i buffers -> dumpBufferPart ("stack inuse  " ++ show i) (buffers ^. sectInUseBuffer))
-       iforM stack (\i buffers -> dumpBufferPart ("stack render " ++ show i) (buffers ^. sectBlockIdBuffer))
-       condensed <- condenseStack stack
-       if   not (S.null condensed)
-       then processBufferStack params buffersInCommon condensed target
-       else {-
-            queryResults <- runPointQueryKernel params blockSection buffersInCommon tiles (params ^. rasterQueries)
-            releaseBlockSection blockSection
-            putStrLn ("rasterKernels Done             XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
-            return queryResults
-            -}
-            return S.empty
-
-
-addPortionToPile :: S.Seq ItemEntry -> StateT (Pile ItemTagId) CL (Slice ItemTagId)
-addPortionToPile portion =
-    do pile <- get
-       (pile', slice) <- liftIO $ addSequenceToPile pile (fmap (view itemEntryTagId) portion)
-       put pile'
-       return slice
-
-makeItemEntrySlice :: (Tile, S.Seq (S.Seq ItemEntry)) -> StateT (Pile ItemTagId) CL (Tile, S.Seq (Slice ItemTagId))
-makeItemEntrySlice (tile, portions) = do slices <- mapM addPortionToPile portions
-                                         return (tile, slices)
-
-splitAndMergeTileTree :: ( KernelArgs
-                           'KernelSync
-                           'NoWorkGroups
-                           'UnknownWorkItems
-                           'Z
-                           (target -> NumWorkItems -> WorkGroup -> CL ())
-                         )
-                      => RasterParams token
-                      -> BuffersInCommon
-                      -> TileTree (Tile, S.Seq ItemEntry)
-                      -> target
-                      -> CL (S.Seq (PointQueryId, SubstanceTagId))
-splitAndMergeTileTree params
-                      buffersInCommon
-                      tree
-                      target =
-  do -- Start by dividing all of the items into sub seqeunces that can definitely be generated given the memory restraints of the generation kernel.
-     let dividedTileTree :: TileTree (Tile, S.Seq (S.Seq ItemEntry))
-         dividedTileTree = runIdentity (traverseTileTree (divideEntrySequences params) tree)
-     (sliceTree, itemTagIdPile) <- runStateT (traverseTileTree makeItemEntrySlice dividedTileTree) =<< (liftIO newPile)
-     -- Allocate space for each generation kernel.
-     let tileBlocks :: S.Seq (Tile, Slice ItemTagId)
-         tileBlocks = execState (traverseTileTree allocateGeneration sliceTree) S.empty
-         blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
-         sections :: S.Seq (S.Seq (Tile, Slice ItemTagId))
-         sections = trWith (show . S.length) "numSections"  $ S.chunksOf (tr "blocksPerSection" blocksPerSection) tileBlocks
-     -- Generate all of the thresholds from the items
-     blockSectionStack <- forM sections $ runGenerateThresholdsKernel params buffersInCommon itemTagIdPile
-     processBufferStack params buffersInCommon blockSectionStack target
-     return S.empty
-
-
-makeTokenQuery :: M.Map SubstanceTagId token
-               -> (PointQueryId, SubstanceTagId)
-               -> (PointQueryId, Maybe token)
-makeTokenQuery mapping (queryId, substanceId) =
-  (queryId,
-  if substanceId == noSubstanceTagId
-  then Nothing
-  else Just $ (M.!) mapping substanceId)
-
--- | Rasterize a rasterJob inside the CLMonad
-runRaster :: Show token
-          => RasterParams token
-          -> IO (S.Seq (PointQueryResult token))
-runRaster params =
-    do  let tileTree = params ^. rpGeometryState . geoTileTree
-        -- Get the OpenCL state from the Library structure.
-        let state = params ^. rpRasterizer . rasterClState
-        -- total number of 32 bit words in the output buffer.
-        -- liftIO $ outputGeometryState (params ^. rpGeometryState)
-        -- liftIO $ outputSubstanceState(params ^. rpSubstanceState)
-        runCL state $
-            do buffersInCommon <- createBuffersInCommon params (clContext state)
-               -- | Create the buffers in common, which are the read only buffers that the rasterization kernel will use
-               -- to generate thresholds and render images
-               queryResults <- case params ^. rpFrameSpec . specDrawTarget . targetBuffer of
-                                   HostBitmapTarget outputPtr ->
-                                       let outputSize   = fromIntegral $ pointArea (params ^. rpFrameSpec . specBitmapSize)
-                                       in  -- In this case the resulting bitmap will be stored in memory at outputPtr.
-                                           splitAndMergeTileTree params buffersInCommon tileTree (OutPtr outputPtr outputSize)
-                                   GLTextureTarget textureName ->
-                                       -- In this case an identifier for a Texture object that stays on the GPU would be stored∘
-                                       -- But currently this isn't working, so throw an error.
-                                       error "GLTextureTarget not implemented"
-               return $ fmap (makeTokenQuery (params ^. rpSubstanceState . suTokenMap)) queryResults

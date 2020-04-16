@@ -243,8 +243,8 @@ benchmark1 state =
 -- | A grid of rectangles.
 rectGrid :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 rectGrid state = return $
-    let grid  :: CompoundTree SubSpace
-        grid   = overlap . gridOf 1 200 200 . repeat . rectangle $ Point2 0.5 0.5
+    let grid :: CompoundTree SubSpace
+        grid =  overlap . gridOf 1 40 40 . repeat . rectangle $ Point2 0.5 0.5
     in
         colorWith (transparent 1.0 white) $
         grid
@@ -381,8 +381,9 @@ sixPointRectangle state = return $
 tinySquare :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 tinySquare state = return $
         translateByXY 0.1 0.1 .
+        rotateBy (45 @@ deg) .
         colorWith red $
-        rectangle (Point2 2 2)
+        rectangle (Point2 4 4)
 
 -- | Medium sized square with no rotation.
 mediumSquare :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)

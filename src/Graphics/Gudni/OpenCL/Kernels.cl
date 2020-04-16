@@ -716,7 +716,7 @@ void mergeBlocks ( GMEM       int4 *tileHeap
                  , GMEM       int  *blockIds
                  , GMEM      bool  *inUse
                  ,            int   indexDest
-                 ,            int   indexSource
+                 ,            int   indexSrc
                  ,            int   columnDepth
                  ,            int   columnThread
                  , LMEM       int  *parts
@@ -733,6 +733,21 @@ void splitTileVertical(      int4  source
                       , PMEM int4 *top
                       , PMEM int4 *bot
                       );
+
+void copyBlock
+    ( GMEM       int4 *tileHeapDst
+    , GMEM  THRESHOLD *thresholdHeapDst
+    , GMEM     HEADER *headerHeapDst
+    , GMEM      Slice *qSliceHeapDst
+    , GMEM       int4 *tileHeapSrc
+    , GMEM  THRESHOLD *thresholdHeapSrc
+    , GMEM     HEADER *headerHeapSrc
+    , GMEM      Slice *qSliceHeapSrc
+    ,             int  blockIdDst
+    ,             int  blockIdSrc
+    ,             int  columnThread
+    ,             int  columnDepth
+    );
 
 void renderThresholdArray ( PMEM  ThresholdQueue *tQ
                           , PMEM      ShapeState *shS
@@ -2124,9 +2139,10 @@ bool checkAdjacency( GMEM int4 *tileHeap
                    ,      int4  prevTile
                    ,      int4  nextTile
                    ) {
-    int4 prevTile0 = i == 0             ? prevTile : tileHeap[blockIds[i-1]];
-    int4 nextTile0 = i == sizeLimit - 1 ? nextTile : tileHeap[blockIds[i+1]];
-    int4 currentTile = tileHeap[blockIds[i]];
+    DEBUG_IF(printf("sizeLimit %i i %i blockIds[i+1] %i\n", sizeLimit   , i, blockIds[i+1]);)
+    int4 prevTile0 = i <= 0             ? prevTile : tileHeap[i-1];
+    int4 nextTile0 = i >= sizeLimit - 1 ? nextTile : tileHeap[i+1];
+    int4 currentTile = tileHeap[i];
     bool beforeMatches = compareTiles(prevTile0, currentTile);
     bool afterMatches  = compareTiles(nextTile0, currentTile);
     DEBUG_IF(printf("prevTile0 %v4i nextTile0 %v4i currentTile %v4i beforeMatches %i afterMatches %i !(beforeMatches || afterMatches) %i\n"
@@ -2148,23 +2164,23 @@ void mergeBlocks ( GMEM       int4  *tileHeap
                  , GMEM        int  *blockIds
                  , GMEM       bool  *inUse
                  ,             int   indexDest
-                 ,             int   indexSource
+                 ,             int   indexSrc
                  ,             int   columnDepth
                  ,             int   columnThread
                  , LMEM        int  *parts
                  ) {
-   int blockIdDest   = blockIds[indexDest  ];
-   int blockIdSource = blockIds[indexSource];
-   DEBUG_IF(printf("mergeBlocks indexDest %i indexSrc %i inUse[indexDest] %i inUse[indexSource] %i blockIdDest %i blockIdSource %i\n",indexDest,indexSource,inUse[indexDest],inUse[indexSource],blockIdDest,blockIdSource);)
+   int blockIdDest = blockIds[indexDest];
+   int blockIdSrc  = blockIds[indexSrc ];
+   DEBUG_IF(printf("mergeBlocks indexDest %i indexSrc %i inUse[indexDest] %i inUse[indexSrc] %i blockIdDest %i blockIdSrc %i\n",indexDest,indexSrc,inUse[indexDest],inUse[indexSrc],blockIdDest,blockIdSrc);)
    barrier(CLK_LOCAL_MEM_FENCE);
-   if (compareTiles(tileHeap[blockIdDest],tileHeap[blockIdSource]) // do the blocks refer to the same tile.
+   if (compareTiles(tileHeap[blockIdDest],tileHeap[blockIdSrc]) // do the blocks refer to the same tile.
        && inUse[indexDest]   // are both the destination and source blocks active
-       && inUse[indexSource]
+       && inUse[indexSrc]
        ) { // initial test to see if blocks are at all viable to merge.
          // now do the work to calculate
-         int lengthA = loadQueueSlice(qSliceHeap, blockIdDest,   columnDepth, columnThread).sLength;
-         int lengthB = loadQueueSlice(qSliceHeap, blockIdSource, columnDepth, columnThread).sLength;
-         //DEBUG_IF(printf("checking blockIdDest %i blockIdSource %i lengthA %i lengthB %i\n",blockIdDest, blockIdSource, lengthA, lengthB);)
+         int lengthA = loadQueueSlice(qSliceHeap, blockIdDest, columnDepth, columnThread).sLength;
+         int lengthB = loadQueueSlice(qSliceHeap, blockIdSrc,  columnDepth, columnThread).sLength;
+         //DEBUG_IF(printf("checking blockIdDest %i blockIdSrc %i lengthA %i lengthB %i\n",blockIdDest, blockIdSrc, lengthA, lengthB);)
          int maxSize = parallelMaxInt( parts
                                      , lengthA + lengthB
                                      , columnDepth
@@ -2172,17 +2188,17 @@ void mergeBlocks ( GMEM       int4  *tileHeap
                                      );
          //DEBUG_IF(printf("columnThread %i maxSize %i \n",columnThread,maxSize);)
          if (maxSize < MAXTHRESHOLDS) {
-             //DEBUG_IF(printf("merging blockIdDest %i blockIdSource %i\n",blockIdDest,blockIdSource);)
-             Slice qSliceSource = loadQueueSlice(qSliceHeap, blockIdSource, columnDepth, columnThread);
+             //DEBUG_IF(printf("merging blockIdDest %i blockIdSrc %i\n",blockIdDest,blockIdSrc);)
+             Slice qSliceSource = loadQueueSlice(qSliceHeap, blockIdSrc, columnDepth, columnThread);
              ThresholdQueue tQSource;
              initThresholdQueue(&tQSource, qSliceSource);
-             loadThresholdQueue(&tQSource, thresholdHeap, headerHeap, blockIdSource, columnDepth, columnThread);
+             loadThresholdQueue(&tQSource, thresholdHeap, headerHeap, blockIdSrc, columnDepth, columnThread);
 
              Slice qSliceDest = loadQueueSlice(qSliceHeap, blockIdDest, columnDepth, columnThread);
              ThresholdQueue tQDest;
              initThresholdQueue(&tQDest, qSliceDest);
              loadThresholdQueue(&tQDest, thresholdHeap, headerHeap, blockIdDest, columnDepth, columnThread);
-             while (queueSize(&tQSource)) {
+             while (queueSize(&tQSource) > 0) {
                  THRESHOLD threshold = getThreshold(&tQSource, 0);
                  HEADER    header    = getHeader(&tQSource, 0);
                  popTop(&tQSource);
@@ -2202,7 +2218,7 @@ void mergeBlocks ( GMEM       int4  *tileHeap
                             , columnThread
                             );
              if (columnThread == 0) {
-                 inUse[indexSource] = false;
+                 inUse[indexSrc] = false;
              }
          }
     }
@@ -2226,19 +2242,19 @@ __kernel void mergeAdjacent
     ,             int  strideOffset
     , LMEM        int *parts
     ) {
-    int stride = 1 << strideExp;
+    int stride       = 1 << strideExp;
     int strideMask   = 0xFFFFFFFF << (strideExp + 1);
     int blockThread  = INDEX;
     int columnThread = COLUMNTHREAD;
-    int indexStart = jobOffset + blockThread + strideOffset;
     // This kernel is indexed by each block Pointer.
     // Loop for computing localSums : divide WorkGroup into 2 parts
-    // Add elements 2 by 2 between local_id and local_id + stride
-    // Add elements 2 by 2 between local_id and local_id + stride
-    DEBUG_IF(printf("blockThread %i indexStart %i strideMask %x indexStart & strideMask %i ((1 << jobDepth) + jobOffset) %i (indexStart + stride)%i\n", blockThread, indexStart, strideMask, indexStart & strideMask, 1 << jobDepth,(indexStart + stride));)
-    if (((indexStart & strideMask) == indexStart) // start point is on a stride.
-       && (indexStart >= 0)                       // check that the destination point is range.
-       && ((indexStart + stride) < jobSize)       // check that the stride point is in range.
+    // Merge elements 2 by 2 between local_id and local_id + stride
+    // Merge elements 2 by 2 between local_id and local_id + stride
+    int indexDest = jobOffset + blockThread + strideOffset;
+    int indexSrc    = indexDest   + stride;
+    if (((indexDest & strideMask) == indexDest) // start point is on a stride.
+       && (indexDest >= 0)                       // check that the destination point is range.
+       && (indexSrc < jobSize)       // check that the stride point is in range.
        ) {
         mergeBlocks( tileHeap
                    , thresholdHeap
@@ -2246,8 +2262,8 @@ __kernel void mergeAdjacent
                    , qSliceHeap
                    , blockIds
                    , inUse
-                   , indexStart
-                   , indexStart + stride
+                   , indexDest
+                   , indexSrc
                    , columnDepth
                    , columnThread
                    , parts
@@ -2263,6 +2279,7 @@ __kernel void collectMergedBlocksKernel
     ,        int   blockSize
     ,        int   frameCount
     , GMEM   int  *outputInUseLength
+    , GMEM   int4 *outputTiles
     , LMEM   int  *parts
     ) {
     int blockThread = INDEX;
@@ -2277,7 +2294,7 @@ __kernel void collectMergedBlocksKernel
                               ,&inUseLength
                               );
     DEBUG_IF(printf("not available currentBlockId %i inUse[blockThread] %i address %i inUseLength %i\n",currentBlockId,inUse[blockThread],address, inUseLength);)
-    if (inUse[blockThread]) {
+    if (isInUse) {
        blockIds[address - 1] = currentBlockId;
        inUse[address - 1] = true;
        tileHeap[address - 1] = tileHeap[blockThread];
@@ -2292,10 +2309,14 @@ __kernel void collectMergedBlocksKernel
     DEBUG_IF(printf("available inUse[blockThread] %i address %i inUseLength %i\n",inUse[blockThread],address, inUseLength);)
     if (!inUse[blockThread]) {
        blockIds[address + inUseLength - 1] = currentBlockId;
-       inUse[address + inUseLength - 1] = false;
-       tileHeap[address + inUseLength -1] = tileHeap[blockThread];
+       inUse[   address + inUseLength - 1] = false;
+       tileHeap[address + inUseLength - 1] = tileHeap[blockThread];
     }
-    *outputInUseLength = inUseLength;
+    if (blockThread == 0) {
+       *outputInUseLength = inUseLength;
+       outputTiles[0] = (inUseLength > 0) ? tileHeap[0]               : NULLTILE;
+       outputTiles[1] = (inUseLength > 0) ? tileHeap[inUseLength - 1] : NULLTILE;
+    }
 }
 
 __kernel void collectRenderBlocksKernel
@@ -2303,10 +2324,11 @@ __kernel void collectRenderBlocksKernel
     , GMEM   int  *blockIds
     , GMEM   bool *inUse
     ,        int   inUseLength
-    , GMEM   int  *renderBlocks
+    , GMEM  int4*  sideTiles
     ,        int   blockDepth
     ,        int   bufferSize
     ,        int   frameCount
+    , GMEM   int  *outputSplitLength
     , GMEM   int  *outputRenderLength
     , LMEM   int  *parts
     ) {
@@ -2315,9 +2337,9 @@ __kernel void collectRenderBlocksKernel
     int currentBlockId = blockIds[blockThread];
     int renderLength, splitLength;
     int address;
-    // This could be a new kernel.
-    currentBlockId = blockIds[blockThread];
     bool isInUse = inUse[blockThread];
+    int4 prevTile = sideTiles[0];
+    int4 nextTile = sideTiles[1];
     // If the block has no adjacent blocks with the same tile assignment then
     // it is singular and ready to render.
     bool isSingular =
@@ -2326,9 +2348,23 @@ __kernel void collectRenderBlocksKernel
                          , blockDepth
                          , blockThread
                          , inUseLength
-                         , NULLTILE
-                         , NULLTILE
+                         , prevTile
+                         , nextTile
                          );
+    // Collect all the blocks ready to split into the thresholdBuffers
+    address = parallelScanInt ( parts
+                              , isInUse && (!isSingular) && (blockThread < inUseLength)
+                              , blockDepth
+                              , blockThread
+                              ,&splitLength
+                              );
+    if ((!isSingular) && (blockThread < inUseLength)) {
+       blockIds[address - 1] = currentBlockId;
+       inUse[   address - 1] = true;
+       tileHeap[address - 1] = tileHeap[blockThread];
+    }
+    DEBUG_IF(printf("isSingular %i address %i inUseLength %i\n", isSingular, address, inUseLength);)
+    barrier(CLK_GLOBAL_MEM_FENCE);
     // Collect all the blocks ready to render into a vector
     address = parallelScanInt ( parts
                               , isInUse && isSingular && (blockThread < inUseLength)
@@ -2337,29 +2373,13 @@ __kernel void collectRenderBlocksKernel
                               ,&renderLength
                               );
      if (isSingular) {
-         renderBlocks[address - 1] = currentBlockId;
+         blockIds[address + splitLength - 1] = currentBlockId;
+         inUse[   address + splitLength - 1] = false;
+         tileHeap[address + splitLength - 1] = tileHeap[blockThread];
      }
      barrier(CLK_GLOBAL_MEM_FENCE);
-     // Mark blocks that will be rendered as no longer in use
-     if (isSingular && (blockThread < inUseLength)) {
-         inUse[blockThread] = false;
-     }
-     barrier(CLK_GLOBAL_MEM_FENCE);
-     // Collect all the blocks ready to split into the thresholdBuffers
-     address = parallelScanInt ( parts
-                               , isInUse && (!isSingular) && (blockThread < inUseLength)
-                               , blockDepth
-                               , blockThread
-                               ,&splitLength
-                               );
-     // *outputSplitLength = splitLength;
-     if ((!isSingular) && (blockThread < inUseLength)) {
-        blockIds[address - 1] = currentBlockId;
-        inUse[address - 1] = true;
-     }
-     barrier(CLK_GLOBAL_MEM_FENCE);
-     DEBUG_IF(printf("renderLength %i\n",renderLength);)
      if (blockThread == 0) {
+         *outputSplitLength  = splitLength;
          *outputRenderLength = renderLength;
      }
 }
@@ -2446,6 +2466,97 @@ void splitTileVertical(      int4  source
   boxBottom((*top)) = split;
   (*bot) = source;
   boxTop((*bot)) = split;
+}
+
+void copyBlock
+    ( GMEM       int4 *tileHeapDst
+    , GMEM  THRESHOLD *thresholdHeapDst
+    , GMEM     HEADER *headerHeapDst
+    , GMEM      Slice *qSliceHeapDst
+    , GMEM       int4 *tileHeapSrc
+    , GMEM  THRESHOLD *thresholdHeapSrc
+    , GMEM     HEADER *headerHeapSrc
+    , GMEM      Slice *qSliceHeapSrc
+    ,             int  blockIdDst
+    ,             int  blockIdSrc
+    ,             int  columnThread
+    ,             int  columnDepth
+    ) {
+    if (columnThread == 0) {
+      tileHeapDst[blockIdDst] = tileHeapSrc[blockIdSrc];
+    }
+    Slice qSliceSrc = loadQueueSlice(qSliceHeapSrc, blockIdSrc, columnDepth, columnThread);
+    ThresholdQueue tQ;
+    initThresholdQueue(&tQ, qSliceSrc);
+    loadThresholdQueue(&tQ, thresholdHeapSrc, headerHeapSrc, blockIdSrc, columnDepth, columnThread);
+
+    saveThresholdQueue( &tQ
+                      ,  thresholdHeapDst
+                      ,  headerHeapDst
+                      ,  blockIdDst
+                      ,  columnDepth
+                      ,  columnThread
+                      );
+    storeQueueSlice( qSliceHeapDst
+                   , tQ.qSlice
+                   , blockIdDst
+                   , columnDepth
+                   , columnThread
+                   );
+}
+
+__kernel void combineSectionKernel
+    ( GMEM       int4 *tileHeapDst
+    , GMEM  THRESHOLD *thresholdHeapDst
+    , GMEM     HEADER *headerHeapDst
+    , GMEM      Slice *qSliceHeapDst
+    , GMEM        int *blockIdPointersDst
+    , GMEM       bool *inUseDst
+    ,             int  inUseLengthDst
+    ,             int  offsetDst
+
+    , GMEM       int4 *tileHeapSrc
+    , GMEM  THRESHOLD *thresholdHeapSrc
+    , GMEM     HEADER *headerHeapSrc
+    , GMEM      Slice *qSliceHeapSrc
+    , GMEM        int *blockIdPointersSrc
+    , GMEM       bool *inUseSrc
+    ,             int  inUseLengthSrc
+    ,             int  offsetSrc
+    ,             int  sectionSize
+
+    ,             int  columnDepth
+    ,            int2  bitmapSize
+    ,             int  frameCount
+    , GMEM        int* outputInUseLengthDst
+    , GMEM        int* outputInUseLengthSrc
+    ) {
+    int blockThread = INDEX;
+    int columnThread = COLUMNTHREAD;
+    int available = min(sectionSize - inUseLengthDst, inUseLengthSrc);
+    if (blockThread < available) {
+       int blockIdDst = blockIdPointersDst[blockThread + inUseLengthDst];
+       int blockIdSrc = blockIdPointersSrc[blockThread + inUseLengthSrc];
+       copyBlock ( tileHeapDst
+                 , thresholdHeapDst
+                 , headerHeapDst
+                 , qSliceHeapDst
+                 , tileHeapSrc
+                 , thresholdHeapSrc
+                 , headerHeapSrc
+                 , qSliceHeapSrc
+                 , blockIdDst
+                 , blockIdSrc
+                 , columnThread
+                 , columnDepth
+                 );
+       inUseDst[blockThread + inUseLengthDst] = true;
+       inUseSrc[blockThread + inUseLengthSrc] = false;
+    }
+    if (blockThread == 0 && columnThread == 0) {
+        *outputInUseLengthDst = inUseLengthDst + available;
+        *outputInUseLengthSrc = inUseLengthSrc - available;
+    }
 }
 
 __kernel void splitTileKernel
@@ -2545,19 +2656,21 @@ __kernel void sortThresholdsKernel
     , GMEM  THRESHOLD *thresholdHeap
     , GMEM     HEADER *headerHeap
     , GMEM      Slice *qSliceHeap
-    , GMEM        int *sortBlocks
+    , GMEM        int *blockIds
+    ,             int  inUseLength
+    ,             int  renderLength
     ,             int  columnDepth
     ,            int2  bitmapSize
     ,             int  frameCount
     ,             int  jobStep
     ,             int  jobOffset
     ) {
-    int   blockId  = jobOffset + INDEX; // the sequential number of the tile in the current workgroup.
+    int   blockPtr = jobOffset + INDEX;
     int   columnThread = COLUMNTHREAD;
-    int4  tileBox = tileHeap[blockId];
+    int   blockId  = blockIds[blockPtr]; // the sequential number of the tile in the current workgroup.
+    int4  tileBox = tileHeap[blockPtr];
     float4 columnBox = initColumnBox(tileBox, bitmapSize, columnThread);
-    //DEBUG_IF(printf("thresholdHeap %p headerHeap %p qSliceHeap %p\n",thresholdHeap, headerHeap, qSliceHeap);)
-    if (isActiveThread(columnBox, bitmapSize)) {
+    if (blockPtr >= inUseLength && blockPtr < renderLength && isActiveThread(columnBox, bitmapSize)) {
         DEBUG_TRACE_BEGIN
         Slice qSlice = loadQueueSlice(qSliceHeap, blockId, columnDepth, columnThread);
         //DEBUG_IF(printf("qSliceHeap %p columnThread %i qSlice.sStart %i qSlice.sLength %i\n", qSliceHeap, columnThread, qSlice.sStart, qSlice.sLength);)
@@ -2578,7 +2691,9 @@ __kernel void renderThresholdsKernel
     , GMEM    THRESHOLD *thresholdHeap
     , GMEM       HEADER *headerHeap
     , GMEM        Slice *qSliceHeap
-    , GMEM          int *renderBlockIds
+    , GMEM          int *blockIds
+    ,               int  inUseLength
+    ,               int  renderLength
       // Constant parameters for every kernel
     , GMEM     ITEMTAG  *itemTagHeap
     , GMEM SUBSTANCETAG *substanceTagHeap
@@ -2595,12 +2710,13 @@ __kernel void renderThresholdsKernel
     ,               int  jobOffset
     , GMEM         uint *out
     ) {
-    int    blockId = renderBlockIds[jobOffset + INDEX]; // the sequential number of the tile in the current workgroup.
-    int    columnThread = COLUMNTHREAD;
-    int4   tileBox = tileHeap[blockId];
-    float4 columnBox = initColumnBox(tileBox, bitmapSize, columnThread);
-    int2   columnDelta = (int2)(boxLeft(tileBox) + columnThread, boxTop(tileBox));
-    if (isActiveThread(columnBox, bitmapSize)) {
+     int   blockPtr = jobOffset + inUseLength + INDEX;
+     int   columnThread = COLUMNTHREAD;
+     int   blockId  = blockIds[blockPtr]; // the sequential number of the tile in the current workgroup.
+     int4  tileBox = tileHeap[blockPtr];
+     float4 columnBox = initColumnBox(tileBox, bitmapSize, columnThread);
+     int2   columnDelta = (int2)(boxLeft(tileBox) + columnThread, boxTop(tileBox));
+     if (blockPtr < (renderLength + inUseLength) && isActiveThread(columnBox, bitmapSize)) {
         DEBUG_TRACE_BEGIN
         Slice qSlice = loadQueueSlice(qSliceHeap, blockId, columnDepth, columnThread);
         //DEBUG_IF(printf("qSliceHeap %p columnThread %i qSlice.sStart %i qSlice.sLength %i\n", qSliceHeap, columnThread, qSlice.sStart, qSlice.sLength);)
@@ -2611,7 +2727,7 @@ __kernel void renderThresholdsKernel
         initShapeState(&shS);
         //DEBUG_IF(printf("render shapeState\n");)
         //DEBUG_IF(showShapeState(&shS);)
-        //DEBUG_IF(printf("------------ render blockId %i \n", blockId);showThresholds(&tQ);)
+        DEBUG_IF(printf("------------ render blockPtr %i blockId %i \n", blockPtr, blockId);showThresholds(&tQ);)
         //DEBUG_TRACE_ITEM(thresholdStateHs(&tQ);)
         renderThresholdArray ( &tQ
                              , &shS

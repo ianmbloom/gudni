@@ -103,6 +103,7 @@ library
                      , Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
                      , Graphics.Gudni.OpenCL.PrepareBuffers
                      , Graphics.Gudni.OpenCL.CallKernels
+                     , Graphics.Gudni.OpenCL.ProcessBuffers
                      , Graphics.Gudni.OpenCL.CppDefines
                      , Graphics.Gudni.OpenCL.Instances
                      , Graphics.Gudni.OpenCL.Rasterizer

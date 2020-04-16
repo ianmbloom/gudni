@@ -73,7 +73,7 @@ cppDefines spec =
   , Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
 --, Cpp "DEBUG_TRACE"                    (CppNothing) -- uncomment this to turn on parsable debugging output
   , Cpp "DEBUGCOLUMNTHREAD"              (CppInt 0)   -- determines the column for DEBUG_IF macro
-  , Cpp "DEBUGINDEX"                     (CppInt 3)   -- determines the index for DEBUG_IF macro
+  , Cpp "DEBUGINDEX"                     (CppInt 1)   -- determines the index for DEBUG_IF macro
   ]
 
 -- | Embedded source with implanted definition pragmas.
