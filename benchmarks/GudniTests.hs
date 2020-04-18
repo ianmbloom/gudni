@@ -244,7 +244,7 @@ benchmark1 state =
 rectGrid :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 rectGrid state = return $
     let grid :: CompoundTree SubSpace
-        grid =  overlap . gridOf 1 40 40 . repeat . rectangle $ Point2 0.5 0.5
+        grid =  overlap . gridOf 1 80 80 . repeat . rectangle $ Point2 0.5 0.5
     in
         colorWith (transparent 1.0 white) $
         grid

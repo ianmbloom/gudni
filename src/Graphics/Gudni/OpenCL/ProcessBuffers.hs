@@ -14,7 +14,7 @@ module Graphics.Gudni.OpenCL.ProcessBuffers
   , verticalSplitTile
   , dumpBufferPart
   , dumpBufferPartTiles
-  , withBeforeAndAfter
+  , withBeforeAndAfterIndex
   , checkBlockSection
   , condenseStack
   , processBufferStack
@@ -127,22 +127,87 @@ verticalSplitTile tile =
       bottomTile = Tile (set topSide    cut (tile ^. tileBox))
   in  (topTile, bottomTile)
 
-withBeforeAndAfter :: Monad m => S.Seq a ->(Maybe a -> Maybe a -> a -> m b) -> m (S.Seq b)
-withBeforeAndAfter ss f = iforM ss go
+processSection :: (  KernelArgs
+                    'KernelSync
+                    'NoWorkGroups
+                    'UnknownWorkItems
+                    'Z
+                    (target -> NumWorkItems -> WorkGroup -> CL ())
+                  )
+              => RasterParams token
+              -> BuffersInCommon
+              -> BlockSection
+              -> Tile
+              -> Tile
+              -> target
+              -> CL (BlockSection)
+processSection params buffersInCommon blockSection prevTile nextTile target =
+   do runMergeKernel params blockSection
+      runCollectMergedKernel params blockSection
+      toRenderSection <- runCollectRenderKernel params blockSection prevTile nextTile
+      --dumpBufferPart ("render length " ++ show (toRenderSection ^. sectRenderLength)) (toRenderSection ^. sectRenderBuffer)
+      --dumpBufferPart "renderCollected bufferId part " (toRenderSection ^. sectBlockIdBuffer)
+      when (toRenderSection ^. sectRenderLength > 0) $
+         do runSortKernel params toRenderSection
+            runRenderKernel params buffersInCommon toRenderSection target
+      return toRenderSection
+
+withBeforeAndAfterIndex :: Monad m => S.Seq a ->(Int -> Maybe a -> Maybe a -> a -> m b) -> m (S.Seq b)
+withBeforeAndAfterIndex ss f = iforM ss go
    where
    len = S.length ss
    go i this =
      let before = if i > 0 then Just $ S.index ss (i-1) else Nothing
          after  = if i < len - 1 then Just $ S.index ss  (i+1)else Nothing
-     in  f before after this
+     in  f i before after this
 
 checkBlockSection section = if section ^. sectInUseLength == 0
                             then do releaseBlockSection section
                                     return Nothing
                             else return . Just $ section
 
-condenseStack blockSectionStack =
+cleanStack blockSectionStack =
    fmap fromJust . S.filter isJust <$> mapM checkBlockSection blockSectionStack
+
+byPairs :: Monad m => (a -> a -> m (Bool, Maybe a, Maybe a)) -> S.Seq a -> m (Bool, S.Seq a)
+byPairs f ssss =
+   case S.viewl ssss of
+     S.EmptyL -> return (tr "ssss" False, ssss)
+     (S.:<) s0 sss -> case S.viewl sss of
+                        S.EmptyL -> return (tr "ssss2" False, ssss)
+                        (S.:<) s1 ss ->
+                           do (combined0, mA0, mA1) <- f s0 s1
+                              (combined1, r) <-
+                                  case mA1 of
+                                      Just a1 -> byPairs f (a1 <| ss)
+                                      Nothing -> byPairs f ss
+                              let combined = tr "combined" $ tr "combined0" combined0 || tr "combined1" combined1
+                              case mA0 of
+                                Just a0 -> return $ (combined, a0 <| r)
+                                Nothing -> return (combined, r)
+
+combineSections :: RasterParams token
+                -> BlockSection
+                -> BlockSection
+                -> CL (Bool, Maybe BlockSection, Maybe BlockSection)
+combineSections params a b =
+  do (combined, a', b') <- if (tr "a ^. sectInUseLength" $ a ^. sectInUseLength) > 0 &&
+                              (tr "b ^. sectInUseLength" $ b ^. sectInUseLength) > 0
+                           then do (a', b') <- runCombineSectionKernel params a b
+                                   return (True, a', b')
+                           else return (False, a, b)
+     mA <- if a' ^. sectInUseLength <= 0
+           then do releaseBlockSection a'
+                   return Nothing
+           else return $ Just a'
+     mB <- if b' ^. sectInUseLength <= 0
+           then do releaseBlockSection b'
+                   return Nothing
+           else return $ Just b'
+     return (combined, mA, mB)
+
+condenseStack :: RasterParams token -> S.Seq BlockSection -> CL (Bool, S.Seq BlockSection)
+condenseStack params ss = byPairs (combineSections params) ss
 
 processBufferStack :: (  KernelArgs
                         'KernelSync
@@ -157,39 +222,35 @@ processBufferStack :: (  KernelArgs
                    -> target
                    -> CL (S.Seq BlockSection)
 processBufferStack params buffersInCommon blockSectionStack target =
-    do -- iforM blockSectionStack (\i buffers -> dumpBufferPart ("generated inUse part " ++ show i) (buffers ^. sectInUseBuffer))
-       -- iforM blockSectionStack (\i buffers -> dumpBufferPart ("generated bufferId part " ++ show i) (buffers ^. sectBlockIdBuffer))
-       liftIO $ putStrLn $ "|||||||||||||||||||||||| Merge Section Start Length " ++ show (S.length blockSectionStack) ++ "||||||||||||"
-       mergedStack <- iforM blockSectionStack $
-                                  \ i blockSection ->
-                                       do liftIO $ putStrLn $ "|||||||||||||||||||||||| Merge Section " ++ show i ++ " |||||||||||||||||||||||| "
-                                          runMergeKernel params blockSection
-                                          runCollectMergedKernel params blockSection
-       liftIO $ putStrLn $ "||||||||||||||||||||||||||||||||||||  Merge Section Done ||||||||||||||||||||||||"
-       renderedStack <- withBeforeAndAfter mergedStack $
-                   \ before after blockSection ->
+    do liftIO $ putStrLn $ "|||||||||||||||||||||||| ProcessSection Section Start Length " ++ show (S.length blockSectionStack) ++ "||||||||||||"
+       processedStack <- withBeforeAndAfterIndex blockSectionStack $
+                   \ i before after blockSection ->
                       do let prevTile = maybe nullTile (view sectLastTile)  before
                              nextTile = maybe nullTile (view sectFirstTile) after
-                         toRenderSection <- runCollectRenderKernel params blockSection prevTile nextTile
-                         --dumpBufferPart ("render length " ++ show (toRenderSection ^. sectRenderLength)) (toRenderSection ^. sectRenderBuffer)
-                         --dumpBufferPart "renderCollected bufferId part " (toRenderSection ^. sectBlockIdBuffer)
-                         when (toRenderSection ^. sectRenderLength > 0) $
-                            do runSortKernel params toRenderSection
-                               runRenderKernel params buffersInCommon toRenderSection target
-                         return toRenderSection
-       condensed <- condenseStack renderedStack
-       splitStack <- forM condensed $
-                   \ blockSection ->
-                         if tr "**inUseLength" (blockSection ^. sectInUseLength) <= 0
-                         then return $ S.singleton blockSection
-                         else do newBlockSection <- createBlockSection params
-                                 runSplitKernel params blockSection newBlockSection
-                                 return $ S.singleton blockSection <|> S.singleton newBlockSection
-       let joinStack = join splitStack
-       iforM joinStack (\i buffers -> dumpBufferPart ("stack inuse  " ++ show i) (buffers ^. sectInUseBuffer))
-       iforM joinStack (\i buffers -> dumpBufferPart ("stack render " ++ show i) (buffers ^. sectBlockIdBuffer))
-       if   not (S.null joinStack)
-       then processBufferStack params buffersInCommon joinStack target
+                         liftIO $ putStrLn $ "|||||||||||||||||||||||| Process Section Start " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
+                         section' <- processSection params buffersInCommon blockSection prevTile nextTile target
+                         liftIO $ putStrLn $ "|||||||||||||||||||||||| Process Section End   " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
+                         return section'
+       liftIO $ putStrLn $ "{{{{{{{{{{{{{{{{{{{{{{{ Processed }}}}}}}}}}}}}}}}}}}}}}"
+       iforM processedStack (\i buffers -> dumpBufferPart ("processed inuse  " ++ show i) (buffers ^. sectInUseBuffer))
+       iforM processedStack (\i buffers -> dumpBufferPart ("processed render " ++ show i) (buffers ^. sectBlockIdBuffer))
+       (hasCombined, condensed) <- condenseStack params processedStack
+       liftIO $ putStrLn $ "{{{{{{{{{{{{{{{{{{{{{{{ Condensed " ++ show hasCombined ++ " }}}}}}}}}}}}}}}}}}}}}}"
+       iforM condensed (\i buffers -> dumpBufferPart ("condensed inuse  " ++ show i) (buffers ^. sectInUseBuffer))
+       iforM condensed (\i buffers -> dumpBufferPart ("condensed render " ++ show i) (buffers ^. sectBlockIdBuffer))
+       splitStack <-
+           if hasCombined
+           then return condensed
+           else uncurry (<|>) . S.unzip <$> (forM condensed $
+                    \ blockSection ->
+                          do newBlockSection <- createBlockSection params
+                             runSplitKernel params blockSection newBlockSection
+                             return $ (blockSection, newBlockSection))
+       liftIO $ putStrLn $ "{{{{{{{{{{{{{{{{{{{{{{{ SplitStack }}}}}}}}}}}}}}}}}}}}}}"
+       iforM splitStack (\i buffers -> dumpBufferPart ("splitStack inuse  " ++ show i) (buffers ^. sectInUseBuffer))
+       iforM splitStack (\i buffers -> dumpBufferPart ("splitStack render " ++ show i) (buffers ^. sectBlockIdBuffer))
+       if   not (S.null splitStack)
+       then processBufferStack params buffersInCommon splitStack target
        else {-
             queryResults <- runPointQueryKernel params blockSection buffersInCommon tiles (params ^. rasterQueries)
             releaseBlockSection blockSection

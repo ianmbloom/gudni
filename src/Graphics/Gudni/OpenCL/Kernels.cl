@@ -2359,11 +2359,11 @@ __kernel void collectRenderBlocksKernel
                               ,&splitLength
                               );
     if ((!isSingular) && (blockThread < inUseLength)) {
+       DEBUG_IF(printf("isSingular %i blockThread %i address %i inUseLength %i\n", isSingular, blockThread, address, inUseLength);)
        blockIds[address - 1] = currentBlockId;
        inUse[   address - 1] = true;
        tileHeap[address - 1] = tileHeap[blockThread];
     }
-    DEBUG_IF(printf("isSingular %i address %i inUseLength %i\n", isSingular, address, inUseLength);)
     barrier(CLK_GLOBAL_MEM_FENCE);
     // Collect all the blocks ready to render into a vector
     address = parallelScanInt ( parts
@@ -2372,7 +2372,8 @@ __kernel void collectRenderBlocksKernel
                               , blockThread
                               ,&renderLength
                               );
-     if (isSingular) {
+     if (isSingular && (blockThread < inUseLength)) {
+         DEBUG_IF(printf("isSingular %i blockThread %i address %i inUseLength %i\n", isSingular, blockThread, address, inUseLength);)
          blockIds[address + splitLength - 1] = currentBlockId;
          inUse[   address + splitLength - 1] = false;
          tileHeap[address + splitLength - 1] = tileHeap[blockThread];
@@ -2513,7 +2514,6 @@ __kernel void combineSectionKernel
     , GMEM        int *blockIdPointersDst
     , GMEM       bool *inUseDst
     ,             int  inUseLengthDst
-    ,             int  offsetDst
 
     , GMEM       int4 *tileHeapSrc
     , GMEM  THRESHOLD *thresholdHeapSrc
@@ -2522,7 +2522,6 @@ __kernel void combineSectionKernel
     , GMEM        int *blockIdPointersSrc
     , GMEM       bool *inUseSrc
     ,             int  inUseLengthSrc
-    ,             int  offsetSrc
     ,             int  sectionSize
 
     ,             int  columnDepth
@@ -2534,9 +2533,10 @@ __kernel void combineSectionKernel
     int blockThread = INDEX;
     int columnThread = COLUMNTHREAD;
     int available = min(sectionSize - inUseLengthDst, inUseLengthSrc);
+    int tempId;
     if (blockThread < available) {
        int blockIdDst = blockIdPointersDst[blockThread + inUseLengthDst];
-       int blockIdSrc = blockIdPointersSrc[blockThread + inUseLengthSrc];
+       int blockIdSrc = blockIdPointersSrc[blockThread];
        copyBlock ( tileHeapDst
                  , thresholdHeapDst
                  , headerHeapDst
@@ -2551,7 +2551,10 @@ __kernel void combineSectionKernel
                  , columnDepth
                  );
        inUseDst[blockThread + inUseLengthDst] = true;
-       inUseSrc[blockThread + inUseLengthSrc] = false;
+       inUseSrc[blockThread + available     ] = false;
+       tempId = blockIdPointersSrc[blockThread];
+       blockIdPointersSrc[blockThread] = blockIdPointersSrc[blockThread + available];
+       blockIdPointersSrc[blockThread + available] = tempId;
     }
     if (blockThread == 0 && columnThread == 0) {
         *outputInUseLengthDst = inUseLengthDst + available;
@@ -2620,7 +2623,6 @@ __kernel void splitTileKernel
                                , &tQBot
                                ,  columnBoxBot
                                );
-
             saveThresholdQueue( &tQTop
                               ,  thresholdHeapSrc
                               ,  headerHeapSrc

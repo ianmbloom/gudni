@@ -73,7 +73,7 @@ cppDefines spec =
   , Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
 --, Cpp "DEBUG_TRACE"                    (CppNothing) -- uncomment this to turn on parsable debugging output
   , Cpp "DEBUGCOLUMNTHREAD"              (CppInt 0)   -- determines the column for DEBUG_IF macro
-  , Cpp "DEBUGINDEX"                     (CppInt 1)   -- determines the index for DEBUG_IF macro
+  , Cpp "DEBUGINDEX"                     (CppInt 0)   -- determines the index for DEBUG_IF macro
   ]
 
 -- | Embedded source with implanted definition pragmas.
@@ -191,6 +191,7 @@ setupOpenCL enableProfiling useCLGLInterop src =
               collectMergedBlocksKernel<- getKernelAndDump device program "collectMergedBlocksKernel"
               collectRenderBlocksKernel<- getKernelAndDump device program "collectRenderBlocksKernel"
               splitTileKernel          <- getKernelAndDump device program "splitTileKernel"
+              combineSectionKernel     <- getKernelAndDump device program "combineSectionKernel"
               mergeTileKernel          <- getKernelAndDump device program "mergeAdjacent"
               sortThresholdsKernel     <- getKernelAndDump device program "sortThresholdsKernel"
               renderThresholdsKernel   <- getKernelAndDump device program "renderThresholdsKernel"
@@ -204,6 +205,7 @@ setupOpenCL enableProfiling useCLGLInterop src =
                   , _rasterCollectMergedBlocksKernel = collectMergedBlocksKernel
                   , _rasterCollectRenderBlocksKernel = collectRenderBlocksKernel
                   , _rasterSplitTileKernel           = splitTileKernel
+                  , _rasterCombineSectionKernel      = combineSectionKernel
                   , _rasterMergeTileKernel           = mergeTileKernel
                   , _rasterSortThresholdsKernel      = sortThresholdsKernel
                   , _rasterRenderThresholdsKernel    = renderThresholdsKernel

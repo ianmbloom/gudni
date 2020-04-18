@@ -172,9 +172,9 @@ runMergeKernel params blockSection =
                  dumpBufferPart ("inUseBuffer " ++ show jobStep) (blockSection ^. sectInUseBuffer)
                  -- right now there are two passes looking for blocks that can be merged
                  -- the stride offset determines the offset looking for these pairs.
-                 forM_ [0,(-1)] $ \ strideOffset -> -- TODO: this is probably unneccessary
+                 --forM_ [0,(-1)] $ \ strideOffset -> do -- TODO: this is probably unneccessary
                     -- now loop through each exponent up to the job depth
-                    do   forLoop 0 (< jobDepth - 1) (+ 1) $ \ strideExp ->
+                 forLoop 0 (< jobDepth - 1) (+ 1) $ \ strideExp ->
                             do announceKernel ("mergeAdjacent strideExp:" ++ show strideExp) jobStep jobOffset jobSize
                                runKernel (params ^. rpRasterizer . rasterMergeTileKernel)
                                          (blockSection ^. sectTileBuffer      )
@@ -191,7 +191,7 @@ runMergeKernel params blockSection =
                                          (toCInt jobOffset    )
                                          (toCInt jobSize      )
                                          (toCInt strideExp    )
-                                         (toCInt strideOffset )
+                                         (toCInt 0) -- (toCInt strideOffset )
                                          (Local columnsPerBlock :: LocalMem CInt)
                                          (Work2D jobSize columnsPerBlock)
                                          (WorkGroup [1, columnsPerBlock]) :: CL ()
@@ -383,7 +383,7 @@ runCombineSectionKernel params blockSectionDst blockSectionSrc =
    in
    do  announceKernel "rasterCombineSectionKernel" 0 0 0
        (outputInUseLengthDst, outputInUseLengthSrc) <-
-           runKernel (params ^. rpRasterizer . rasterSplitTileKernel)
+           runKernel (params ^. rpRasterizer . rasterCombineSectionKernel)
                      (blockSectionDst ^. sectTileBuffer      )
                      (blockSectionDst ^. sectThresholdBuffer )
                      (blockSectionDst ^. sectHeaderBuffer    )
