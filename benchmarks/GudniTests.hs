@@ -48,7 +48,7 @@ initialModel pictureMap =
     BenchmarkState
     { _stateBase = BasicSceneState
         { _stateScale       = 1
-        , _stateDelta       = Point2 0 0
+        , _stateDelta       = Point2 (-6) (-4)
         , _stateAngle       = 0 @@ rad
         , _statePaused      = True
         , _stateSpeed       = 0.1
@@ -64,7 +64,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 8 -- 10
+    , _stateCurrentTest = 28 -- 10
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
@@ -122,7 +122,7 @@ maxShapeTest ::  Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpac
 maxShapeTest state =
     return .
     overlap .
-    gridOf 1 1 (state ^. stateBase . stateStep + 20 + 1) .
+    gridOf 1 1 (state ^. stateBase . stateStep + 200 + 1) .
     concat .
     repeat $
         [ colorWith (transparent 1.0 (pureRed    )) $ rectangle (Point2 10000 1)
@@ -244,7 +244,7 @@ benchmark1 state =
 rectGrid :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 rectGrid state = return $
     let grid :: CompoundTree SubSpace
-        grid =  overlap . gridOf 1 80 80 . repeat . rectangle $ Point2 0.5 0.5
+        grid =  overlap . gridOf 1 160 160 . repeat . rectangle $ Point2 0.5 0.5
     in
         colorWith (transparent 1.0 white) $
         grid

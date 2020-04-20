@@ -127,30 +127,6 @@ verticalSplitTile tile =
       bottomTile = Tile (set topSide    cut (tile ^. tileBox))
   in  (topTile, bottomTile)
 
-processSection :: (  KernelArgs
-                    'KernelSync
-                    'NoWorkGroups
-                    'UnknownWorkItems
-                    'Z
-                    (target -> NumWorkItems -> WorkGroup -> CL ())
-                  )
-              => RasterParams token
-              -> BuffersInCommon
-              -> BlockSection
-              -> Tile
-              -> Tile
-              -> target
-              -> CL (BlockSection)
-processSection params buffersInCommon blockSection prevTile nextTile target =
-   do runMergeKernel params blockSection
-      runCollectMergedKernel params blockSection
-      toRenderSection <- runCollectRenderKernel params blockSection prevTile nextTile
-      --dumpBufferPart ("render length " ++ show (toRenderSection ^. sectRenderLength)) (toRenderSection ^. sectRenderBuffer)
-      --dumpBufferPart "renderCollected bufferId part " (toRenderSection ^. sectBlockIdBuffer)
-      when (toRenderSection ^. sectRenderLength > 0) $
-         do runSortKernel params toRenderSection
-            runRenderKernel params buffersInCommon toRenderSection target
-      return toRenderSection
 
 withBeforeAndAfterIndex :: Monad m => S.Seq a ->(Int -> Maybe a -> Maybe a -> a -> m b) -> m (S.Seq b)
 withBeforeAndAfterIndex ss f = iforM ss go
@@ -177,14 +153,14 @@ byPairs f ssss =
                         S.EmptyL -> return (tr "ssss2" False, ssss)
                         (S.:<) s1 ss ->
                            do (combined0, mA0, mA1) <- f s0 s1
-                              (combined1, r) <-
-                                  case mA1 of
-                                      Just a1 -> byPairs f (a1 <| ss)
-                                      Nothing -> byPairs f ss
-                              let combined = tr "combined" $ tr "combined0" combined0 || tr "combined1" combined1
-                              case mA0 of
-                                Just a0 -> return $ (combined, a0 <| r)
-                                Nothing -> return (combined, r)
+                              (combined1, r) <- case (mA0, mA1) of
+                                                    (Just a0, Just a1) -> do (combined1, r) <- byPairs f (a1 <| ss)
+                                                                             return (combined1, a0 <| r)
+                                                    (Just a0, Nothing) -> byPairs f (a0 <| ss)
+                                                    (Nothing, Just a1) -> byPairs f (a1 <| ss)
+                                                    (Nothing, Nothing) -> byPairs f ss
+                              let combined = combined0 || combined1
+                              return (combined, r)
 
 combineSections :: RasterParams token
                 -> BlockSection
@@ -209,6 +185,12 @@ combineSections params a b =
 condenseStack :: RasterParams token -> S.Seq BlockSection -> CL (Bool, S.Seq BlockSection)
 condenseStack params ss = byPairs (combineSections params) ss
 
+showSections title stack =
+    do liftIO $ putStrLn $ "{{{{{{{{{{{{{{{{{{{{{{{ " ++ title ++ " }}}}}}}}}}}}}}}}}}}}}}"
+       iforM stack (\i buffers -> do dumpBufferPart (title ++ " inuse  " ++ show i) (buffers ^. sectInUseBuffer)
+                                     dumpBufferPart (title ++ " render " ++ show i) (buffers ^. sectBlockIdBuffer)
+                                     dumpBufferPartTiles (title ++ " tiles " ++ show i) (buffers ^. sectTileBuffer)
+                        )
 processBufferStack :: (  KernelArgs
                         'KernelSync
                         'NoWorkGroups
@@ -220,37 +202,48 @@ processBufferStack :: (  KernelArgs
                    -> BuffersInCommon
                    -> S.Seq BlockSection
                    -> target
+                   -> Int
                    -> CL (S.Seq BlockSection)
-processBufferStack params buffersInCommon blockSectionStack target =
-    do liftIO $ putStrLn $ "|||||||||||||||||||||||| ProcessSection Section Start Length " ++ show (S.length blockSectionStack) ++ "||||||||||||"
-       processedStack <- withBeforeAndAfterIndex blockSectionStack $
+processBufferStack params buffersInCommon blockSectionStack target pass =
+    do liftIO $ putStrLn $ "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+       liftIO $ putStrLn $ "||||||||||||||||||||||||       " ++ show pass ++ "       |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+       liftIO $ putStrLn $ "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+       showSections "before" blockSectionStack
+       liftIO $ putStrLn $ "|||||||||||||||||||||||| ProcessSection Section Start Length " ++ show (S.length blockSectionStack) ++ "||||||||||||"
+       mergedStack <- forM blockSectionStack $ \ blockSection ->
+                            do runMergeKernel params blockSection
+                               runCollectMergedKernel params blockSection
+       processedStack <- withBeforeAndAfterIndex mergedStack $
                    \ i before after blockSection ->
                       do let prevTile = maybe nullTile (view sectLastTile)  before
                              nextTile = maybe nullTile (view sectFirstTile) after
                          liftIO $ putStrLn $ "|||||||||||||||||||||||| Process Section Start " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
-                         section' <- processSection params buffersInCommon blockSection prevTile nextTile target
+                         section' <- do toRenderSection <- runCollectRenderKernel params blockSection prevTile nextTile
+                                        --dumpBufferPart ("render length " ++ show (toRenderSection ^. sectRenderLength)) (toRenderSection ^. sectRenderBuffer)
+                                        --dumpBufferPart "renderCollected bufferId part " (toRenderSection ^. sectBlockIdBuffer)
+                                        when (toRenderSection ^. sectRenderLength > 0) $
+                                           do runSortKernel params toRenderSection
+                                              runRenderKernel params buffersInCommon toRenderSection target
+                                        return toRenderSection
                          liftIO $ putStrLn $ "|||||||||||||||||||||||| Process Section End   " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
                          return section'
-       liftIO $ putStrLn $ "{{{{{{{{{{{{{{{{{{{{{{{ Processed }}}}}}}}}}}}}}}}}}}}}}"
-       iforM processedStack (\i buffers -> dumpBufferPart ("processed inuse  " ++ show i) (buffers ^. sectInUseBuffer))
-       iforM processedStack (\i buffers -> dumpBufferPart ("processed render " ++ show i) (buffers ^. sectBlockIdBuffer))
+       showSections "processed" processedStack
        (hasCombined, condensed) <- condenseStack params processedStack
-       liftIO $ putStrLn $ "{{{{{{{{{{{{{{{{{{{{{{{ Condensed " ++ show hasCombined ++ " }}}}}}}}}}}}}}}}}}}}}}"
-       iforM condensed (\i buffers -> dumpBufferPart ("condensed inuse  " ++ show i) (buffers ^. sectInUseBuffer))
-       iforM condensed (\i buffers -> dumpBufferPart ("condensed render " ++ show i) (buffers ^. sectBlockIdBuffer))
+       showSections ("condensed " ++ show hasCombined) condensed
        splitStack <-
-           if hasCombined
+           if tr "hasCombined" hasCombined
            then return condensed
            else uncurry (<|>) . S.unzip <$> (forM condensed $
                     \ blockSection ->
                           do newBlockSection <- createBlockSection params
+                             dumpBufferPartTiles ("blockSection tiles ") (blockSection ^. sectTileBuffer)
+                             dumpBufferPartTiles ("newBlockSection tiles ") (newBlockSection ^. sectTileBuffer)
                              runSplitKernel params blockSection newBlockSection
-                             return $ (blockSection, newBlockSection))
-       liftIO $ putStrLn $ "{{{{{{{{{{{{{{{{{{{{{{{ SplitStack }}}}}}}}}}}}}}}}}}}}}}"
-       iforM splitStack (\i buffers -> dumpBufferPart ("splitStack inuse  " ++ show i) (buffers ^. sectInUseBuffer))
-       iforM splitStack (\i buffers -> dumpBufferPart ("splitStack render " ++ show i) (buffers ^. sectBlockIdBuffer))
-       if   not (S.null splitStack)
-       then processBufferStack params buffersInCommon splitStack target
+
+                             return $ (blockSection, set sectInUseLength (blockSection ^. sectInUseLength) newBlockSection))
+       showSections "splitStack" splitStack
+       if   not (S.null splitStack) && pass < 5
+       then processBufferStack params buffersInCommon splitStack target (pass + 1)
        else {-
             queryResults <- runPointQueryKernel params blockSection buffersInCommon tiles (params ^. rasterQueries)
             releaseBlockSection blockSection
@@ -299,7 +292,7 @@ splitAndMergeTileTree params
          sections = trWith (show . S.length) "numSections"  $ S.chunksOf (tr "blocksPerSection" blocksPerSection) tileBlocks
      -- Generate all of the thresholds from the items
      blockSectionStack <- forM sections $ runGenerateThresholdsKernel params buffersInCommon itemTagIdPile
-     processBufferStack params buffersInCommon blockSectionStack target
+     processBufferStack params buffersInCommon blockSectionStack target 0
      return S.empty
 
 

@@ -47,7 +47,7 @@ instance HasToken BenchmarkState where
 instance Model BenchmarkState where
     screenSize state = --FullScreen
                        Window $ Point2 256 128
-    --shouldLoop _ = False
+    -- shouldLoop _ = False
     updateModelState frame elapsedTime inputs state =
         over stateBase (updateSceneState frame elapsedTime) $ foldl (flip processInput) state inputs
     constructScene state status =

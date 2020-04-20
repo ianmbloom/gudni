@@ -206,6 +206,7 @@ runCollectMergedKernel params blockSection =
         blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
     in
     do  announceKernel "collectMergedKernel" 0 0 0
+        dumpBufferPartTiles ("before Collect Merged Tiles ") (blockSection ^. sectTileBuffer)
         (outputInUseLength, sideTiles) <-
             runKernel (params ^. rpRasterizer . rasterCollectMergedBlocksKernel)
                       (blockSection ^. sectTileBuffer     )
@@ -215,7 +216,7 @@ runCollectMergedKernel params blockSection =
                       (toCInt  $  blocksPerSection)
                       (toCInt  $  params ^. rpFrameSpec  . specFrameCount)
                       (Out 1)
-                      (Out 2)
+                      (Out 8)
                       (Local blocksPerSection :: LocalMem CInt)
                       (Work1D blocksPerSection)
                       (WorkGroup [blocksPerSection]) :: CL (VS.Vector CInt, VS.Vector Tile)
@@ -225,6 +226,8 @@ runCollectMergedKernel params blockSection =
         dumpBufferPart ("afterCollectMerged inUseBuffer")   (blockSection ^. sectInUseBuffer)
         dumpBufferPart ("afterCollectMerged blockIdBuffer") (blockSection ^. sectBlockIdBuffer)
         dumpBufferPartTiles ("after Collect Merged Tiles ") (blockSection ^. sectTileBuffer)
+        liftIO . putStrLn $ "firstTile:" ++ show firstTile
+        liftIO . putStrLn $ "lastTile: " ++ show lastTile
         return . set sectInUseLength inUseLength
                . set sectFirstTile firstTile
                . set sectLastTile  lastTile  $ blockSection
@@ -357,18 +360,21 @@ runSplitKernel params blockSection newBlockSection =
                         (blockSection ^. sectHeaderBuffer    )
                         (blockSection ^. sectQueueSliceBuffer)
                         (blockSection ^. sectBlockIdBuffer   )
+                        (blockSection ^. sectInUseBuffer     )
                         (0 :: CInt)
                         (newBlockSection ^. sectTileBuffer      )
                         (newBlockSection ^. sectThresholdBuffer )
                         (newBlockSection ^. sectHeaderBuffer    )
                         (newBlockSection ^. sectQueueSliceBuffer)
                         (newBlockSection ^. sectBlockIdBuffer   )
+                        (newBlockSection ^. sectInUseBuffer     )
                         (0 :: CInt)
                         (toCInt  $  params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth)
                         (toCInt <$> params ^. rpFrameSpec  . specBitmapSize)
                         (toCInt  $  params ^. rpFrameSpec  . specFrameCount)
                         (toCInt jobStep)
                         (toCInt jobOffset)
+                        (toCInt jobSize)
                         (Work2D jobSize columnsPerBlock)
                         (WorkGroup [1, columnsPerBlock]) :: CL ()
     return (blockSection, newBlockSection)
