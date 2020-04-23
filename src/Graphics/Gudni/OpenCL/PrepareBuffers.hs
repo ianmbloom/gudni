@@ -188,14 +188,14 @@ createBlockSection params =
          maxThresholds   = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
          blockSize       = blocksToAlloc * columnsPerBlock * maxThresholds
          context         = clContext (params ^. rpRasterizer . rasterClState)
-     liftIO $ putStrLn "---- Begin ThresholdBuffer Allocation ----"
+     -- liftIO $ putStrLn "---- Begin ThresholdBuffer Allocation ----"
      tileBuffer       <- newBuffer blocksToAlloc :: CL (CLBuffer Tile)
      thresholdBuffer  <- newBuffer blockSize :: CL (CLBuffer THRESHOLDTYPE)
      headerBuffer     <- newBuffer blockSize :: CL (CLBuffer HEADERTYPE   )
      queueSliceBuffer <- newBuffer (blocksToAlloc * columnsPerBlock) :: CL (CLBuffer (Slice Int))
      blockIdBuffer    <- (liftIO . vectorToBuffer context . VS.generate blocksToAlloc $ BlockId :: CL (CLBuffer BlockId))
      inUseBuffer      <- (liftIO . vectorToBuffer context . VS.replicate blocksToAlloc . toCBool $ False :: CL (CLBuffer CBool))
-     liftIO $ putStrLn "---- Threshold Buffers Allocated ----"
+     -- liftIO $ putStrLn "---- Threshold Buffers Allocated ----"
      return $ BlockSection
               { _sectTileBuffer       = tileBuffer
               , _sectThresholdBuffer  = thresholdBuffer

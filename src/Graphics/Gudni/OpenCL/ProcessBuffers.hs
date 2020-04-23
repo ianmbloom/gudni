@@ -145,52 +145,70 @@ checkBlockSection section = if section ^. sectInUseLength == 0
 cleanStack blockSectionStack =
    fmap fromJust . S.filter isJust <$> mapM checkBlockSection blockSectionStack
 
-byPairs :: Monad m => (a -> a -> m (Bool, Maybe a, Maybe a)) -> S.Seq a -> m (Bool, S.Seq a)
-byPairs f ssss =
-   case S.viewl ssss of
-     S.EmptyL -> return (tr "ssss" False, ssss)
-     (S.:<) s0 sss -> case S.viewl sss of
-                        S.EmptyL -> return (tr "ssss2" False, ssss)
-                        (S.:<) s1 ss ->
-                           do (combined0, mA0, mA1) <- f s0 s1
-                              (combined1, r) <- case (mA0, mA1) of
-                                                    (Just a0, Just a1) -> do (combined1, r) <- byPairs f (a1 <| ss)
-                                                                             return (combined1, a0 <| r)
-                                                    (Just a0, Nothing) -> byPairs f (a0 <| ss)
-                                                    (Nothing, Just a1) -> byPairs f (a1 <| ss)
-                                                    (Nothing, Nothing) -> byPairs f ss
-                              let combined = combined0 || combined1
-                              return (combined, r)
+byPairs :: RasterParams token
+        -> S.Seq BlockSection
+        -> CL (Bool, S.Seq BlockSection)
+byPairs p ssss =
+    do --liftIO $ putStrLn $ "byPairs " ++ show (S.length ssss)
+       case S.viewl ssss of
+         S.EmptyL -> return (False, S.empty)
+         (S.:<) s0 sss -> case S.viewl sss of
+                            S.EmptyL -> do s0' <- checkSection s0
+                                           case s0' of
+                                             Just s0 -> return (False, S.singleton s0)
+                                             Nothing -> return (False, S.empty)
+                            (S.:<) s1 ss ->
+                               do combinedSections <- combineSections p s0 s1
+                                  (combined0, mS0, mS1) <- checkSections combinedSections
+                                  (combined1, r) <- case (mS0, mS1) of
+                                                        (Just s0',  Just s1') -> do (combined1, r) <- byPairs p (s1' <| ss)
+                                                                                    return (combined1, s0' <| r)
+                                                        (Just s0',  Nothing ) -> byPairs p (s0' <| ss)
+                                                        (Nothing, Just s1'  ) -> byPairs p (s1' <| ss)
+                                                        (Nothing, Nothing   ) -> byPairs p ss
+                                  let combined = combined0 || combined1
+                                  return (combined, r)
+
+checkSection :: BlockSection -> CL (Maybe BlockSection)
+checkSection s =
+      if s ^. sectInUseLength <= 0
+      then do releaseBlockSection s
+              return Nothing
+      else return $ Just s
+
+checkSections :: (Bool, BlockSection, BlockSection) -> CL (Bool, Maybe BlockSection, Maybe BlockSection)
+checkSections (t, a, b) =
+  do mA <- checkSection a
+     mB <- checkSection b
+     return (t, mA, mB)
 
 combineSections :: RasterParams token
                 -> BlockSection
                 -> BlockSection
-                -> CL (Bool, Maybe BlockSection, Maybe BlockSection)
-combineSections params a b =
-  do (combined, a', b') <- if (tr "a ^. sectInUseLength" $ a ^. sectInUseLength) > 0 &&
-                              (tr "b ^. sectInUseLength" $ b ^. sectInUseLength) > 0
-                           then do (a', b') <- runCombineSectionKernel params a b
-                                   return (True, a', b')
-                           else return (False, a, b)
-     mA <- if a' ^. sectInUseLength <= 0
-           then do releaseBlockSection a'
-                   return Nothing
-           else return $ Just a'
-     mB <- if b' ^. sectInUseLength <= 0
-           then do releaseBlockSection b'
-                   return Nothing
-           else return $ Just b'
-     return (combined, mA, mB)
+                -> CL (Bool, BlockSection, BlockSection)
+combineSections params dst src =
+   let blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
+       available = min (blocksPerSection - dst ^. sectInUseLength) (src ^. sectInUseLength)
+   in
+   if available > 0 &&
+      dst ^. sectInUseLength > 0 &&
+      src ^. sectInUseLength > 0 &&
+      dst ^. sectLastTile == src ^. sectFirstTile
+   then do (dst', src') <- runCombineSectionKernel params dst src
+           return (True, dst', src')
+   else return (False, dst, src)
 
 condenseStack :: RasterParams token -> S.Seq BlockSection -> CL (Bool, S.Seq BlockSection)
-condenseStack params ss = byPairs (combineSections params) ss
+condenseStack params ss = byPairs params ss
 
-showSections title stack =
-    do liftIO $ putStrLn $ "{{{{{{{{{{{{{{{{{{{{{{{ " ++ title ++ " }}}}}}}}}}}}}}}}}}}}}}"
-       iforM stack (\i buffers -> do dumpBufferPart (title ++ " inuse  " ++ show i) (buffers ^. sectInUseBuffer)
-                                     dumpBufferPart (title ++ " render " ++ show i) (buffers ^. sectBlockIdBuffer)
-                                     dumpBufferPartTiles (title ++ " tiles " ++ show i) (buffers ^. sectTileBuffer)
-                        )
+mergeAndCollect params section strideExp =
+   do let startLength = section ^. sectInUseLength
+      section' <- foldM (runMergeKernel params 0) section [0,(-1)]
+      collectedSection <- runCollectMergedKernel params section'
+      if collectedSection ^. sectInUseLength < startLength
+      then mergeAndCollect params collectedSection strideExp
+      else return collectedSection
+
 processBufferStack :: (  KernelArgs
                         'KernelSync
                         'NoWorkGroups
@@ -205,44 +223,47 @@ processBufferStack :: (  KernelArgs
                    -> Int
                    -> CL (S.Seq BlockSection)
 processBufferStack params buffersInCommon blockSectionStack target pass =
-    do liftIO $ putStrLn $ "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
-       liftIO $ putStrLn $ "||||||||||||||||||||||||       " ++ show pass ++ "       |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
-       liftIO $ putStrLn $ "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
-       showSections "before" blockSectionStack
-       liftIO $ putStrLn $ "|||||||||||||||||||||||| ProcessSection Section Start Length " ++ show (S.length blockSectionStack) ++ "||||||||||||"
-       mergedStack <- forM blockSectionStack $ \ blockSection ->
-                            do runMergeKernel params blockSection
-                               runCollectMergedKernel params blockSection
+    do --liftIO $ putStrLn $ "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+       --liftIO $ putStrLn $ "||||||||||||||||||||||||       " ++ show pass ++ "       |||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+       --liftIO $ putStrLn $ "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+       --liftIO $ putStrLn $ "|||||||||||||||||||||||| ProcessSection Section Start Length " ++ show (S.length blockSectionStack) ++ "||||||||||||"
+       mergedStack <- iforM blockSectionStack $ \ i blockSection ->
+                            do --liftIO $ putStrLn $ "|||||||||||||||||||||||| Merge Section Start " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
+                               --showSection params "before" i blockSection
+                               -- right now there are two passes looking for blocks that can be merged
+                               -- the stride offset determines the offset looking for these pairs.
+                               -- now loop through each exponent up to the job depth
+                               let jobDepth = params ^. rpRasterizer . rasterDeviceSpec . specMergeJobDepth
+                               blockSection' <- mergeAndCollect params blockSection 0
+                               --showSection params "after" i blockSection'
+                               --liftIO $ putStrLn $ "|||||||||||||||||||||||| Merge Section End   " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
+                               return blockSection'
        processedStack <- withBeforeAndAfterIndex mergedStack $
                    \ i before after blockSection ->
                       do let prevTile = maybe nullTile (view sectLastTile)  before
                              nextTile = maybe nullTile (view sectFirstTile) after
-                         liftIO $ putStrLn $ "|||||||||||||||||||||||| Process Section Start " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
+                         --liftIO $ putStrLn $ "|||||||||||||||||||||||| Process Section Start " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
                          section' <- do toRenderSection <- runCollectRenderKernel params blockSection prevTile nextTile
-                                        --dumpBufferPart ("render length " ++ show (toRenderSection ^. sectRenderLength)) (toRenderSection ^. sectRenderBuffer)
-                                        --dumpBufferPart "renderCollected bufferId part " (toRenderSection ^. sectBlockIdBuffer)
                                         when (toRenderSection ^. sectRenderLength > 0) $
                                            do runSortKernel params toRenderSection
                                               runRenderKernel params buffersInCommon toRenderSection target
                                         return toRenderSection
-                         liftIO $ putStrLn $ "|||||||||||||||||||||||| Process Section End   " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
+                         --liftIO $ putStrLn $ "|||||||||||||||||||||||| Process Section End   " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
                          return section'
-       showSections "processed" processedStack
+       --showSections params "rendered" processedStack
        (hasCombined, condensed) <- condenseStack params processedStack
-       showSections ("condensed " ++ show hasCombined) condensed
+       --showSections params ("condensed " ++ show hasCombined) condensed
        splitStack <-
-           if tr "hasCombined" hasCombined
+           if hasCombined
            then return condensed
            else uncurry (<|>) . S.unzip <$> (forM condensed $
                     \ blockSection ->
                           do newBlockSection <- createBlockSection params
-                             dumpBufferPartTiles ("blockSection tiles ") (blockSection ^. sectTileBuffer)
-                             dumpBufferPartTiles ("newBlockSection tiles ") (newBlockSection ^. sectTileBuffer)
                              runSplitKernel params blockSection newBlockSection
 
                              return $ (blockSection, set sectInUseLength (blockSection ^. sectInUseLength) newBlockSection))
-       showSections "splitStack" splitStack
-       if   not (S.null splitStack) && pass < 5
+       --showSections params "splitStack" splitStack
+       if   not (S.null splitStack) -- && pass < 5
        then processBufferStack params buffersInCommon splitStack target (pass + 1)
        else {-
             queryResults <- runPointQueryKernel params blockSection buffersInCommon tiles (params ^. rasterQueries)

@@ -73,7 +73,7 @@ newtype PointQueryId = PointQueryId {unPointQueryId :: Int} deriving (Show, Eq, 
 data Tile = Tile
   { -- | Pixel boundaries of tile.
     _tileBox    :: !(Box PixelSpace)
-  } deriving (Show)
+  } deriving (Show, Eq)
 makeLenses ''Tile
 
 -- | A TileTree is a XY partition tree for dividing the canvas into tiles.
