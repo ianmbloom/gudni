@@ -22,7 +22,6 @@ module Graphics.Gudni.Raster.Serialize
   , geoReorderTable
   , geoMaxStrandSize
   , geoGeometryPile
-  , geoRefPile
   , geoTileTree
   , geoCanvasSize
   , geoRandomField
@@ -79,24 +78,19 @@ import Control.Parallel.Strategies
 -- | GeometryPile is just a synonym for a bytepile that stores serialized geometry data for the scene.
 type GeometryPile = BytePile
 -- add the enclosure data to the geometry pile
-appendGeoRef :: Enclosure
-             -> StateT GeometryPile IO GeoReference
-appendGeoRef enclosure =
-    do  geometryPile <- get
-        (pile', offsetShapeStartBytes) <- liftIO $ addToBytePile "appendGeoRef" geometryPile enclosure
-        put pile'
+appendEnclosure :: Enclosure
+                -> StateT GeometryPile IO [StrandReference]
+appendEnclosure enclosure =
+    do  strandRefs <- forM (enclosureStrands enclosure) ( \strand ->
+           do  geometryPile <- get
+               (geometryPile', ref) <- liftIO $ addToBytePile "appendEnclosure" geometryPile strand
+               put geometryPile'
+               return ref
+           )
         -- the size of the shape data is measured in 64 bit chunks so that a short int can address more data.
-        let offsetShapeStart = Ref $ fromIntegral offsetShapeStartBytes `div` fromIntegral (sizeOf (undefined :: Point2 SubSpace) * 2)
-        return $ GeoRef offsetShapeStart (enclosureNumStrands enclosure)
-
--- | Append a shape to the Geometry pile and return a ShapeEntry that contains a reference to its geometry data, the strand count
--- and a the bounding box. This can be added to the tiletree to determine in which tiles the shape is present.
-makeGeoRef :: Enclosure
-               -> StateT GeometryPile IO GeoReference
-makeGeoRef enclosure =
-    do  -- append the geometric enclosure data to the heap and return a reference
-        geoRef <- appendGeoRef enclosure
-        return geoRef
+        let sizePair = fromIntegral (sizeOf (undefined :: Point2 SubSpace) * 2)
+            adjustedRefs = fmap (StrandRef . fromIntegral . (`div` sizePair)) strandRefs
+        return adjustedRefs
 
 -- | Return True if a BoundingBox is outside of the canvas.
 excludeBox :: Point2 SubSpace
@@ -113,8 +107,7 @@ data GeometryState = GeometryState
     { _geoReorderTable      :: ReorderTable
     , _geoMaxStrandSize     :: Int
     , _geoGeometryPile      :: GeometryPile
-    , _geoRefPile           :: Pile GeoReference
-    , _geoTileTree          :: TileTree (Tile, S.Seq ItemEntry)
+    , _geoTileTree          :: TileTree (Tile, S.Seq ItemTagId)
     , _geoCanvasSize        :: Point2 SubSpace
     , _geoRandomField       :: RandomField
     }
@@ -131,9 +124,8 @@ runGeometryMonad :: (MonadIO m)
                  -> m t
 runGeometryMonad randomField mf =
   do geometryPile <- liftIO (newPileSize iNITgEOMETRYpILEsIZE :: IO BytePile)
-     geoRefPile <- liftIO (newPile :: IO (Pile GeoReference))
      let reorderTable = buildReorderTable mAXsECTIONsIZE
-     let geometryState = GeometryState reorderTable mAXsECTIONsIZE geometryPile geoRefPile undefined undefined randomField
+     let geometryState = GeometryState reorderTable mAXsECTIONsIZE geometryPile undefined undefined randomField
      evalStateT mf geometryState
 
 -- | Reuse the geometry monad without reallocating the geometry pile.
@@ -145,7 +137,7 @@ resetGeometryMonad = do geoGeometryPile %= resetPile
 data SubstanceState token s = SubstanceState
     { -- | A map from tokens to substance id for later identification of shapes.
       -- The token is any type with an instance of Ord that the client program can use to identify shapes in the scene.
-      _suTokenMap          :: M.Map SubstanceTagId token
+      _suTokenMap          :: M.Map SubstanceTag token
       -- | A Pile of pictureMemoryReferences
     , _suPictureMems       :: Pile (PictureMemoryReference)
       -- | A list of texture facets collected from the scene.
@@ -184,54 +176,54 @@ execSubstanceMonad mf =
 
 addItem :: MonadIO m
         => BoundingBox
-        -> NumStrands
-        -> ItemTag
+        -> [ItemTag]
         -> SubstanceMonad token s (GeometryMonad m) ()
-addItem boundingBox numStrands itemTag =
-  do itemTagId <- ItemTagId <$> addToPileState suItemTagPile itemTag
-     lift $ do tileTree <- use geoTileTree
-               geoTileTree .= addItemToTree tileTree
-                    (ItemEntry itemTagId numStrands boundingBox) -- the maximum strands a facet can create is 3
+addItem boundingBox itemTags =
+  forM_ itemTags $ \itemTag ->
+     do itemTagId <- ItemTagId <$> addToPileState suItemTagPile itemTag
+        lift $ do tileTree <- use geoTileTree
+                  geoTileTree .= addItemToTree tileTree boundingBox itemTagId -- the maximum strands a facet can create is 3
 
 -- | On each shape in the shape tree run add the appropriate data to the appropriate buffers and the TileTree.
 onShape :: MonadIO m
-        => SubstanceTagId
+        => SubstanceTag
         -> Compound
         -> Transformer SubSpace
         -> Shape SubSpace
         -> SubstanceMonad token s (GeometryMonad m) ()
-onShape substanceId combineType transformer shape =
-  do let transformedOutlines = V.fromList . map (applyTransformer transformer) $ view shapeOutlines shape
+onShape substanceTag combineType transformer shape =
+  do substanceTagId <- SubstanceTagId <$> addToPileState suSubstanceTagPile substanceTag
+     let transformedOutlines = V.fromList . map (applyTransformer transformer) $ view shapeOutlines shape
          boundingBox = boxOf transformedOutlines
      canvasSize <- lift $ use geoCanvasSize
      if excludeBox canvasSize boundingBox
      then return ()
-     else do (geoId, numStrands) <- lift $ do -- Table used to convert strands of coordinates to trees.
-                                              reorderTable <- use geoReorderTable
-                                              -- Maximum size of a strand.
-                                              maxStrandSize <- use geoMaxStrandSize
-                                              -- Build an enclosure from the outlines.
-                                              let enclosure = enclose reorderTable maxStrandSize transformedOutlines
-                                              -- Get the geometry pile.
-                                              geometryPile <- use geoGeometryPile
-                                              -- Add the shape to the geometry pile.
-                                              (geoRef, geometryPile') <- liftIO $ runStateT (appendGeoRef enclosure) geometryPile
-                                              -- Put the geometry pile back in the monad.
-                                              geoGeometryPile .= geometryPile'
-                                              geoId <- addToPileState geoRefPile geoRef
-                                              return $ (geoId, enclosureNumStrands enclosure)
-             let itemTag = shapeInfoTag combineType substanceId (GeoId geoId)
-             addItem boundingBox numStrands itemTag
+     else do strandRefs <-
+                 lift $ do -- Table used to convert strands of coordinates to trees.
+                           reorderTable <- use geoReorderTable
+                           -- Maximum size of a strand.
+                           maxStrandSize <- use geoMaxStrandSize
+                           -- Build an enclosure from the outlines.
+                           let enclosure = enclose reorderTable maxStrandSize transformedOutlines
+                           -- Get the geometry pile.
+                           geometryPile <- use geoGeometryPile
+                           -- Add the shape to the geometry pile.
+                           (strandRefs, geometryPile') <- liftIO $ runStateT (appendEnclosure enclosure) geometryPile
+                           -- Put the geometry pile back in the monad.
+                           geoGeometryPile .= geometryPile'
+                           return strandRefs
+             let itemTags = map (strandInfoTag combineType substanceTagId) strandRefs
+             addItem boundingBox itemTags
 
 addHardFacet :: MonadIO m
              => SubstanceTagId
              -> HardFacet_ SubSpace TextureSpace
              -> SubstanceMonad token SubSpace (GeometryMonad m) ()
-addHardFacet substanceId hardFacet =
+addHardFacet substanceTagId hardFacet =
   do facetId <- FacetId <$> addToPileState suFacetPile hardFacet
-     let facetTag = facetInfoTag facetId substanceId
+     let facetTag = facetInfoTag facetId substanceTagId
          boundingBox = boxOf hardFacet
-     addItem boundingBox (NumStrands 3) facetTag
+     addItem boundingBox [facetTag]
 
 -- | For each shape in the shapeTree serialize the substance metadata and serialize the compound subtree.
 onSubstance :: forall m item token .
@@ -249,49 +241,42 @@ onSubstance :: forall m item token .
 onSubstance fromTextureSpace tolerance Overlap transformer (SRep mToken substance subTree) =
     do  -- Depending on the substance of the shape take appropriate actions.
         let (subTransform, baseSubstance) = breakdownSubstance substance
-        substanceId <-
-           case baseSubstance of
-               Texture pictMemReference ->
-                   do -- Get the current usage id.
-                      pictMemId <- TextureId <$> addToPileState suPictureMems pictMemReference
-                      let substanceInfo = TextureInfo pictMemId
-                          substanceTag  = substanceInfoToTag substanceInfo
-                      textureTagId <- SubstanceTagId <$> addToPileState suSubstanceTagPile substanceTag
-                      let -- Transformation information is transfered to the texture here.
-                          facets :: [Facet_ (SpaceOf item) TextureSpace]
-                          facets = rectangleToFacets fromTextureSpace . pictureTextureSize $ pictMemReference
-                          combined :: Transformer (SpaceOf item)
-                          combined = CombineTransform transformer subTransform
-                          transformedFacets :: [Facet_ (SpaceOf item) TextureSpace]
-                          transformedFacets = fmap (applyTransformer combined) facets
-                          tesselatedFacets :: [[Facet_ (SpaceOf item) TextureSpace]]
-                          tesselatedFacets = fmap (tesselateFacet tolerance) transformedFacets
-                          hardFacets :: [HardFacet_ (SpaceOf item) TextureSpace]
-                          hardFacets = fmap (hardenFacet) . join $ tesselatedFacets
-                      -- Add the new usage of the picture to the pile.
-                      mapM (addHardFacet textureTagId) hardFacets
-                      return textureTagId
-               Solid color ->
-                   do colorId <- ColorId <$> addToPileState suSolidColorPile color
-                      let substanceInfo = SolidInfo colorId
-                          substanceTag = substanceInfoToTag substanceInfo
-                      colorTagId <- SubstanceTagId <$> addToPileState suSubstanceTagPile substanceTag
-                      return colorTagId
-        -- Get the token map.
+        substanceReference <-
+            case baseSubstance of
+                Texture pictMemReference ->
+                    do -- Get the current usage id.
+                       pictMemId <- TextureId <$> addToPileState suPictureMems pictMemReference
+                       return $ TextureInfo pictMemId
+                Solid color ->
+                    do colorId <- ColorId <$> addToPileState suSolidColorPile color
+                       return $ SolidInfo colorId
+        let substanceTag = substanceInfoToTag substanceReference
+        traverseCompoundTree defaultValue transformer (onShape substanceTag) subTree
         case mToken of
-          Nothing -> return ()
-          Just token ->
-              do tokenMap <- use suTokenMap
-                 -- Store the token in the map.
-                 suTokenMap .= M.insert substanceId token tokenMap
-        -- Traverse the compound tree and serialize each component shape.
-        -- onShape :: MonadIO m
-        --         => SubstanceTagId
-        --         -> Compound
-        --         -> Transformer SubSpace
-        --         -> Shape SubSpace
-        --         -> GeometryMonad m ()
-        traverseCompoundTree defaultValue transformer (onShape substanceId) subTree
+             Nothing -> return ()
+             Just token ->
+                 do tokenMap <- use suTokenMap
+                    -- Store the token in the map.
+                    suTokenMap .= M.insert substanceTag token tokenMap
+        case baseSubstance of
+            Texture pictMemReference ->
+                do
+                   let -- Transformation information is transfered to the texture here.
+                       facets :: [Facet_ (SpaceOf item) TextureSpace]
+                       facets = rectangleToFacets fromTextureSpace . pictureTextureSize $ pictMemReference
+                       combined :: Transformer (SpaceOf item)
+                       combined = CombineTransform transformer subTransform
+                       transformedFacets :: [Facet_ (SpaceOf item) TextureSpace]
+                       transformedFacets = fmap (applyTransformer combined) facets
+                       tesselatedFacets :: [[Facet_ (SpaceOf item) TextureSpace]]
+                       tesselatedFacets = fmap (tesselateFacet tolerance) transformedFacets
+                       hardFacets :: [HardFacet_ (SpaceOf item) TextureSpace]
+                       hardFacets = fmap (hardenFacet) . join $ tesselatedFacets
+                   -- Add the new usage of the picture to the pile.
+                   substanceTagId <- SubstanceTagId <$> addToPileState suSubstanceTagPile substanceTag
+                   mapM (addHardFacet substanceTagId) hardFacets
+                   return ()
+            _ ->   return ()
 
 buildOverScene :: (MonadIO m, Show token)
                => Scene (ShapeTreePictureMemory token SubSpace)

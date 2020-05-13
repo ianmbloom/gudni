@@ -108,12 +108,13 @@ library
                      , Graphics.Gudni.OpenCL.Instances
                      , Graphics.Gudni.OpenCL.Rasterizer
                      , Graphics.Gudni.Raster.ItemInfo
+                     , Graphics.Gudni.Raster.PackTree
                      , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.Strand
                      , Graphics.Gudni.Raster.Enclosure
                      , Graphics.Gudni.Raster.ReorderTable
                      , Graphics.Gudni.Raster.TileTree
-                     , Graphics.Gudni.Raster.GeoReference
+                     , Graphics.Gudni.Raster.StrandReference
                      , Graphics.Gudni.Raster.TraverseShapeTree
                      , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.SubstanceInfo
@@ -173,7 +174,7 @@ library
                      , mtl
                      , array
                      , bytestring
-                     --, primitive-simd
+                     , primitive
                      , transformers
                      , time
                      , clock

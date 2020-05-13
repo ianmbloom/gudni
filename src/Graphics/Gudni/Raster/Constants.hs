@@ -28,20 +28,27 @@ module Graphics.Gudni.Raster.Constants
     , sOURCEfILEpADDING
     , iNITgEOMETRYpILEsIZE
     , nULLtILE
+    , iTEMtAGsLOPEbITMASK
+    , iTEMtAGsLOPEpOSITVE
+    , iTEMtAGsLOPEnEGATIVE
+    , iTEMtAGpERSISTbITMASK
+    , iTEMtAGpERSISTANT
+    , iTEMtAGnONPERSISTANT
     , iTEMtAGiSfACETbITMASK
     , iTEMtAGiSsHAPE
     , iTEMtAGiSfACET
-    , iTEMtAGcOMPOUNDtYPEbITMASK
-    , iTEMtAGcOMPOUNDtYPEaDD
-    , iTEMtAGcOMPOUNDtYPEsUBTRACT
+    , iTEMtAGcOMPOUNDbITMASK
+    , iTEMtAGcOMPOUNDaDD
+    , iTEMtAGcOMPOUNDsUBTRACT
     , iTEMtAGsUBSTANCEIDbITMASK
     , iTEMtAGsUBSTANCEIDsHIFT
-    , iTEMtAGiTEMrEFbITMASK
+    , iTEMtAGrEFERENCEbITMASK
+    , nOiTEMtAG
     , sUBSTANCEtAGtYPEbITmASK
     , sUBSTANCEtAGtYPEsOLIDcOLOR
     , sUBSTANCEtAGtYPEtEXTURE
     , sUBSTANCEtAGrEFbITMASK
-    , nOsUBSTANCEiD
+    , nOsUBSTANCEtAG
     )
 where
 
@@ -81,40 +88,53 @@ iNITgEOMETRYpILEsIZE = 65536 :: Int
 nULLtILE = V4 0xFFFFFFFF 0xFFFFFFFF 0xFFFFFFFF 0xFFFFFFFF :: UINT4
 
 -- Item Tag Bit Layout
--- Bits | 1 bit   | 1 bit        | 30 bit      | 32 bit
--- Type | bool    | bool         | uint        | geoId
--- Desc | true =  | true =       | substanceId | or
---      | facet   | additive     |             | facetId
---      | false = | false =      |             |
---      | shape   | subtractive  |             |
+-- Bits | 1 bit    | 1 bit       | 1 bit     | 1 bit           | 28 bit      | 32 bit    |
+-- Type | bool     | bool        | bool      | bool            | uint        |           |
+-- Desc | reserved | reserved    | 0 = shape | 0 = subtractive | substanceId | strandRef |
+--      | for      | for         | 1 = facet | 1 = additive    |             | or        |
+--      | slope    | persistence |           |                 |             | facetRef  |
+--      |          |             |           |                 |             |           |
 
 -- Bit 63
-iTEMtAGiSfACETbITMASK          = 0x8000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
-iTEMtAGiSsHAPE                 = 0x0000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
-iTEMtAGiSfACET                 = 0x8000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
--- Bit 62
-iTEMtAGcOMPOUNDtYPEbITMASK     = 0x4000000000000000 :: CULong -- & with this to isolate the compound type bit.
-iTEMtAGcOMPOUNDtYPEaDD         = 0x4000000000000000 :: CULong
-iTEMtAGcOMPOUNDtYPEsUBTRACT    = 0x0000000000000000 :: CULong
+iTEMtAGsLOPEbITMASK          = 0x8000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
+iTEMtAGsLOPEpOSITVE          = 0x8000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
+iTEMtAGsLOPEnEGATIVE         = 0x0000000000000000 :: CULong
 
--- Bits 61 - 32
-iTEMtAGsUBSTANCEIDbITMASK      = 0x3FFFFFFF00000000 :: CULong -- & with this to isolate the substanceId
-iTEMtAGsUBSTANCEIDsHIFT        = 32 :: Int
+-- Bit 62
+iTEMtAGpERSISTbITMASK        = 0x4000000000000000 :: CULong
+iTEMtAGpERSISTANT            = 0x4000000000000000 :: CULong
+iTEMtAGnONPERSISTANT         = 0x0000000000000000 :: CULong
+
+-- Bit 61
+iTEMtAGiSfACETbITMASK        = 0x2000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
+iTEMtAGiSsHAPE               = 0x0000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
+iTEMtAGiSfACET               = 0x2000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
+
+-- Bit 60
+iTEMtAGcOMPOUNDbITMASK       = 0x1000000000000000 :: CULong -- & with this to isolate the compound type bit.
+iTEMtAGcOMPOUNDaDD           = 0x1000000000000000 :: CULong
+iTEMtAGcOMPOUNDsUBTRACT      = 0x0000000000000000 :: CULong
+
+-- Bits 59 - 32
+iTEMtAGsUBSTANCEIDbITMASK    = 0x0FFFFFFF00000000 :: CULong -- & with this to isolate the substanceId
+iTEMtAGsUBSTANCEIDsHIFT      = 32 :: Int
 
 -- Bits 31 - 0
-iTEMtAGiTEMrEFbITMASK           = 0x00000000FFFFFFFF :: CULong
+iTEMtAGrEFERENCEbITMASK      = 0x00000000FFFFFFFF :: CULong
 
--- Substance Tag Bit Layout
--- Bits | 8 bit          | 56 bit                           |
--- Type | enumerated     | uint                             |
--- Desc | substancetype  | substance info record offset     |
+nOiTEMtAG                    = 0xFFFFFFFFFFFFFFFF :: CULong
+-- Substance Tag Bit Layout for parents
+-- Bits | 1 bit                | 7 bit         | 56 bit                           |
+-- Type | bool                 | enumerated    | uint                             |
+-- Desc | true = additive      | substancetype | substance info record offset     |
+--      | false = subtractive  |               | or parent substanceId            |
 
--- Bits 63 - 56
-sUBSTANCEtAGtYPEbITmASK    = 0xFF00000000000000 :: CULong -- & with this to determine if the shapetag is for mask colorWith shape or a picture.
+-- Bit 62 - 56
+sUBSTANCEtAGtYPEbITmASK    = 0x7F00000000000000 :: CULong -- & with this to determine if the shapetag is for mask colorWith shape or a picture.
 sUBSTANCEtAGtYPEsOLIDcOLOR = 0x0000000000000000 :: CULong -- & with this to determine if the shapetag is additive.
 sUBSTANCEtAGtYPEtEXTURE    = 0x0100000000000000 :: CULong
 
 -- Bits 55 - 0
 sUBSTANCEtAGrEFbITMASK     = 0x00FFFFFFFFFFFFFF :: CULong -- & with this to get the reference for the substance tag
 
-nOsUBSTANCEiD              = 0xFFFFFFFF :: CUInt
+nOsUBSTANCEtAG             = 0xFFFFFFFFFFFFFFFF :: CULong

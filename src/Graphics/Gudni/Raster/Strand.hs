@@ -58,11 +58,13 @@ import Linear
 -- point of the sequence and it's control point. This allows the raster thread to quickly look at the horizontal range of the strand. These are followed by the middle points
 -- of the sequence ordered as a complete binary tree.
 
-newtype Strand =  Strand {unStrand :: V.Vector (Point2 SubSpace)}
+data Strand =  Strand { strandVector :: V.Vector (Point2 SubSpace)
+                      , strandLeft   :: SubSpace
+                      , strandRight  :: SubSpace
+                      }
 
 instance Show Strand where
-  show = show . unStrand
-
+  show = show . strandVector
 
 -- | Compare the begining and end of a triple, horizontally. (Assumes its not a knob).
 compareHorizontal :: Ord s => Bezier s -> Ordering
@@ -126,10 +128,12 @@ reverseIfBackwards vector =
 
 -- | Reorder a vector into a horizontally searchable tree based on a predermined lookup table
 -- of tree shapes.
-reorder :: Storable a => ReorderTable -> V.Vector a -> V.Vector a
+reorder :: ReorderTable -> V.Vector (Point2 SubSpace) -> Strand
 reorder table vector =
   let len = V.length vector
-  in  V.generate len ((V.!) vector . fromReorderTable table len)
+      left = V.head vector ^. pX
+      right = V.last vector ^. pX
+  in  Strand (V.generate len ((V.!) vector . fromReorderTable table len)) left right
 
 -- | Split an outline into strands.
 splitShape :: ReorderTable
@@ -138,8 +142,7 @@ splitShape :: ReorderTable
            -> V.Vector Strand
 splitShape table maxSectionSize beziers =
     -- read this composition from bottom to top
-    V.map ( Strand
-          . reorder table      -- use a lookup take to turn the strand into a horizontally searchable tree of points
+    V.map ( reorder table      -- use a lookup take to turn the strand into a horizontally searchable tree of points
           . beziersToPoints    -- remove additional points making each strand into a list of points.
           . reverseIfBackwards -- make each strands go in order from left to right.
           ) .
@@ -170,21 +173,17 @@ outlineToStrands table sectionSize (Outline ps) =
 --  | in 64bit pieces    |           | ending curve point| leftmost curve point and control        | complete binary tree of point control point pairs...
 
 instance StorableM Strand where
-  sizeOfM (Strand vector) =
-    do sizeOfM (undefined::CUShort) -- size
-       sizeOfM (undefined::CUShort) -- unused
-       sizeOfM (undefined::CUInt  ) -- unused
+  sizeOfM (Strand vector _ _) =
+    do sizeOfM (undefined::CUInt) -- size
+       sizeOfM (undefined::CUInt) -- reserved
        sizeOfM vector
-  alignmentM _  = do alignmentM (undefined::CUShort) -- size
-                     alignmentM (undefined::CUShort) -- unused
-                     alignmentM (undefined::CUInt  ) -- unused
-                     --alignmentM range
+  alignmentM _  = do alignmentM (undefined::CUInt) -- size
+                     alignmentM (undefined::CUInt) -- reserved
   peekM = error "no peek for Strand."
-  pokeM strand@(Strand vector) =
-    do let size = (fromIntegral $ sizeOfV strand) `div` 8 :: CUShort
-       pokeM size         -- size
-       pokeM (0::CUShort) -- empty
-       pokeM (0::CUInt)   -- empty
+  pokeM strand@(Strand vector _ _) =
+    do let size = (fromIntegral $ sizeOfV strand) `div` 8 :: CUInt
+       pokeM size       -- size
+       pokeM (0::CUInt) -- reserved
        pokeM vector
 
 instance Storable a => StorableM (V.Vector a) where
@@ -193,7 +192,6 @@ instance Storable a => StorableM (V.Vector a) where
   alignmentM _   = do alignmentM (undefined :: a)
   peekM          = error "peek not implemented for Range"
   pokeM vector   = numLoop 0 (V.length vector - 1) (\i -> pokeM ((V.!) vector i))
-
 
 instance Storable Strand where
   sizeOf    = sizeOfV

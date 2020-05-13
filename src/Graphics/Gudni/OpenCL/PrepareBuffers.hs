@@ -22,14 +22,13 @@
 
 module Graphics.Gudni.OpenCL.PrepareBuffers
   ( BuffersInCommon(..)
-  , bicGeoBuffer
-  , bicGeoRefBuffer
-  , bicPictMemBuffer
-  , bicFacetBuffer
-  , bicItemTagBuffer
-  , bicSubTagBuffer
+  , bicGeometryHeap
+  , bicPictMemRefHeap
+  , bicFacetHeap
+  , bicItemTagHeap
+  , bicSubTagHeap
   , bicSolidColors
-  , bicPictBuffer
+  , bicPictHeap
   , bicRandoms
 
   , newBuffer
@@ -43,11 +42,10 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
   , sectQueueSliceBuffer
   , sectBlockIdBuffer
   , sectRenderLength
-  , sectInUseLength
-  , sectInUseBuffer
+  , sectNumActive
+  , sectActiveFlagBuffer
   , sectFirstTile
   , sectLastTile
-  , sectSize
   , createBlockSection
   , releaseBlockSection
 
@@ -114,22 +112,20 @@ import qualified Data.Map as M
 import GHC.Exts
 
 data BuffersInCommon = BuffersInCommon
-  { _bicGeoBuffer       :: CLBuffer CChar
-  , _bicGeoRefBuffer    :: CLBuffer GeoReference
-  , _bicPictMemBuffer   :: CLBuffer PictureMemoryReference
-  , _bicFacetBuffer     :: CLBuffer (HardFacet_ SubSpace TextureSpace)
-  , _bicItemTagBuffer   :: CLBuffer ItemTag
-  , _bicSubTagBuffer    :: CLBuffer SubstanceTag
-  , _bicSolidColors     :: CLBuffer Color
-  , _bicPictBuffer      :: CLBuffer Word8
-  , _bicRandoms         :: CLBuffer CFloat
+  { _bicGeometryHeap   :: CLBuffer CChar
+  , _bicPictMemRefHeap :: CLBuffer PictureMemoryReference
+  , _bicFacetHeap      :: CLBuffer (HardFacet_ SubSpace TextureSpace)
+  , _bicItemTagHeap    :: CLBuffer ItemTag
+  , _bicSubTagHeap     :: CLBuffer SubstanceTag
+  , _bicSolidColors    :: CLBuffer Color
+  , _bicPictHeap       :: CLBuffer Word8
+  , _bicRandoms        :: CLBuffer CFloat
   }
 makeLenses ''BuffersInCommon
 
 createBuffersInCommon :: RasterParams token -> CLContext -> CL BuffersInCommon
 createBuffersInCommon params context = liftIO $
     do geoBuffer      <- pileToBuffer context (params ^. rpGeometryState  . geoGeometryPile   )
-       geoRefBuffer   <- pileToBuffer context (params ^. rpGeometryState  . geoRefPile        )
        pictMemBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suPictureMems     )
        facetBuffer    <- pileToBuffer context (params ^. rpSubstanceState . suFacetPile       )
        itemTagBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suItemTagPile     )
@@ -138,15 +134,14 @@ createBuffersInCommon params context = liftIO $
        pictDataBuffer <- pileToBuffer context (params ^. rpPictDataPile)
        randoms        <- vectorToBuffer context (params ^. rpGeometryState  . geoRandomField)
        return $  BuffersInCommon
-                 { _bicGeoBuffer     = geoBuffer
-                 , _bicGeoRefBuffer  = geoRefBuffer
-                 , _bicPictMemBuffer = pictMemBuffer
-                 , _bicFacetBuffer    = facetBuffer
-                 , _bicItemTagBuffer = itemTagBuffer
-                 , _bicSubTagBuffer  = subTagBuffer
-                 , _bicSolidColors   = colorBuffer
-                 , _bicPictBuffer    = pictDataBuffer
-                 , _bicRandoms       = randoms
+                 { _bicGeometryHeap   = geoBuffer
+                 , _bicPictMemRefHeap = pictMemBuffer
+                 , _bicFacetHeap      = facetBuffer
+                 , _bicItemTagHeap    = itemTagBuffer
+                 , _bicSubTagHeap     = subTagBuffer
+                 , _bicSolidColors    = colorBuffer
+                 , _bicPictHeap       = pictDataBuffer
+                 , _bicRandoms        = randoms
                  }
 
 newtype BlockId = BlockId {unBlockId :: Int} deriving (Eq, Ord, Num)
@@ -161,11 +156,10 @@ data BlockSection = BlockSection
   , _sectQueueSliceBuffer :: CLBuffer (Slice Int)
   , _sectBlockIdBuffer    :: CLBuffer BlockId
   , _sectRenderLength     :: Int
-  , _sectInUseLength      :: Int
+  , _sectNumActive        :: Int
   , _sectFirstTile        :: Tile
   , _sectLastTile         :: Tile
-  , _sectInUseBuffer      :: CLBuffer CBool
-  , _sectSize             :: Int
+  , _sectActiveFlagBuffer :: CLBuffer CBool
   }
 makeLenses ''BlockSection
 
@@ -181,7 +175,7 @@ nullTile = Tile $ v4ToBox nULLtILE
 
 
 createBlockSection :: RasterParams token
-                       -> CL BlockSection
+                   -> CL BlockSection
 createBlockSection params =
   do let blocksToAlloc   = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
          columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
@@ -194,7 +188,7 @@ createBlockSection params =
      headerBuffer     <- newBuffer blockSize :: CL (CLBuffer HEADERTYPE   )
      queueSliceBuffer <- newBuffer (blocksToAlloc * columnsPerBlock) :: CL (CLBuffer (Slice Int))
      blockIdBuffer    <- (liftIO . vectorToBuffer context . VS.generate blocksToAlloc $ BlockId :: CL (CLBuffer BlockId))
-     inUseBuffer      <- (liftIO . vectorToBuffer context . VS.replicate blocksToAlloc . toCBool $ False :: CL (CLBuffer CBool))
+     activeFlagBuffer <- (liftIO . vectorToBuffer context . VS.replicate blocksToAlloc . toCBool $ False :: CL (CLBuffer CBool))
      -- liftIO $ putStrLn "---- Threshold Buffers Allocated ----"
      return $ BlockSection
               { _sectTileBuffer       = tileBuffer
@@ -203,11 +197,10 @@ createBlockSection params =
               , _sectQueueSliceBuffer = queueSliceBuffer
               , _sectBlockIdBuffer    = blockIdBuffer
               , _sectRenderLength     = 0
-              , _sectInUseBuffer      = inUseBuffer
-              , _sectInUseLength      = 0
+              , _sectActiveFlagBuffer = activeFlagBuffer
+              , _sectNumActive        = 0
               , _sectFirstTile        = nullTile
               , _sectLastTile         = nullTile
-              , _sectSize             = blocksToAlloc
               }
 
 releaseBlockSection :: BlockSection -> CL ()
@@ -217,7 +210,7 @@ releaseBlockSection blockSection =
                  clReleaseMemObject . bufferObject $ blockSection ^. sectHeaderBuffer
                  clReleaseMemObject . bufferObject $ blockSection ^. sectQueueSliceBuffer
                  clReleaseMemObject . bufferObject $ blockSection ^. sectBlockIdBuffer
-                 clReleaseMemObject . bufferObject $ blockSection ^. sectInUseBuffer
+                 clReleaseMemObject . bufferObject $ blockSection ^. sectActiveFlagBuffer
                  return ()
 
 data PointQuery = PointQuery

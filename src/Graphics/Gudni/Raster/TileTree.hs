@@ -18,11 +18,6 @@
 
 module Graphics.Gudni.Raster.TileTree
   ( TileTree(..)
-  -- , TileEntry(..)
-  , ItemEntry(..)
-  , itemEntryTagId
-  , itemStrandCount
-  , itemBox
   --, tileItems
   , buildTileTree
   , addItemToTree
@@ -36,7 +31,7 @@ module Graphics.Gudni.Raster.TileTree
 where
 
 import Graphics.Gudni.Raster.Constants
-import Graphics.Gudni.Raster.GeoReference
+import Graphics.Gudni.Raster.StrandReference
 import Graphics.Gudni.Raster.ItemInfo
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.TraverseShapeTree
@@ -58,14 +53,6 @@ import Foreign.Ptr
 
 type TileId_ = Int
 newtype TileId = TileId {unTileId :: TileId_} deriving (Show, Eq, Ord, Num)
-
--- | A wrapper for ItemTags
-data ItemEntry = ItemEntry
-    { _itemEntryTagId  :: ItemTagId
-    , _itemStrandCount :: NumStrands
-    , _itemBox         :: BoundingBox
-    } deriving (Show)
-makeLenses ''ItemEntry
 
 newtype PointQueryId = PointQueryId {unPointQueryId :: Int} deriving (Show, Eq, Ord)
 
@@ -128,39 +115,39 @@ buildTileTree emptyRep tileSize canvasSize = goV canvasDepth box
           else HLeaf (Tile box, emptyRep)
 
 -- | Add an itemEntry to a sequence of entries.
-insertItem :: (Tile, S.Seq ItemEntry) -> ItemEntry -> (Tile, S.Seq ItemEntry)
+insertItem :: (Tile, S.Seq ItemTagId) -> ItemTagId -> (Tile, S.Seq ItemTagId)
 insertItem (tile, items) itemEntry = (tile, items |> itemEntry)
 
 -- | Add an itemEntry to a tile tree.
-addItemToTree :: TileTree (Tile, S.Seq ItemEntry) -> ItemEntry -> TileTree (Tile, S.Seq ItemEntry)
+addItemToTree :: TileTree (Tile, S.Seq ItemTagId) -> BoundingBox -> ItemTagId -> TileTree (Tile, S.Seq ItemTagId)
 addItemToTree tree = insertItemV tree
 
 -- | Add a shape to an HTree
-insertItemH :: HTree (Tile, S.Seq ItemEntry) -> ItemEntry -> HTree (Tile, S.Seq ItemEntry)
-insertItemH (HTree cut left right) itemEntry =
+insertItemH :: HTree (Tile, S.Seq ItemTagId) -> BoundingBox -> ItemTagId -> HTree (Tile, S.Seq ItemTagId)
+insertItemH (HTree cut left right) box itemTagId =
     let left'  = -- if the left side of the shape is left of the cut add it to the left branch
-                 if itemEntry ^. itemBox . leftSide < cut
-                 then insertItemV left itemEntry
+                 if box ^. leftSide < cut
+                 then insertItemV left box itemTagId
                  else left
         right' = -- if the right side of the shape is right of the cut add it to the right branch
-                 if itemEntry ^. itemBox . rightSide > cut
-                 then insertItemV right itemEntry
+                 if box ^. rightSide > cut
+                 then insertItemV right box itemTagId
                  else right
     in  HTree cut left' right'
-insertItemH (HLeaf leaf) itemEntry =
-    HLeaf $ insertItem leaf itemEntry
+insertItemH (HLeaf leaf) box itemTagId =
+    HLeaf $ insertItem leaf itemTagId
 
-insertItemV :: VTree (Tile, S.Seq ItemEntry) -> ItemEntry -> VTree (Tile, S.Seq ItemEntry)
-insertItemV (VTree cut top bottom) itemEntry =
-    let top'    = if itemEntry ^. itemBox . topSide < cut
-                  then insertItemH top itemEntry
+insertItemV :: VTree (Tile, S.Seq ItemTagId) -> BoundingBox -> ItemTagId -> VTree (Tile, S.Seq ItemTagId)
+insertItemV (VTree cut top bottom) box itemTagId =
+    let top'    = if box ^. topSide < cut
+                  then insertItemH top box itemTagId
                   else top
-        bottom' = if itemEntry ^. itemBox . bottomSide > cut
-                  then insertItemH bottom itemEntry
+        bottom' = if box ^. bottomSide > cut
+                  then insertItemH bottom box itemTagId
                   else bottom
     in  VTree cut top' bottom'
-insertItemV (VLeaf leaf) itemEntry =
-    VLeaf $ insertItem leaf itemEntry
+insertItemV (VLeaf leaf) box itemTagId =
+    VLeaf $ insertItem leaf itemTagId
 
 
 -- | Display the contents of a tile.

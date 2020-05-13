@@ -56,7 +56,7 @@ instance Show NumStrands where
 -- enclosureNumStrands should be equivalent to length . enclosureEnclosureStrands
 data Enclosure = Enclosure
     { enclosureNumStrands   :: !NumStrands
-    , enclosureStrands      :: V.Vector Strand
+    , enclosureStrands      :: [Strand]
     } deriving (Show)
 
 -- | Convert a list of outlines into an enclosure.
@@ -66,26 +66,14 @@ enclose :: ReorderTable
         -> Enclosure
 enclose curveTable maxSectionSize outlines =
   let -- Convert the list of outlines into a list of strands.
-      strands = join . fmap (outlineToStrands curveTable maxSectionSize) $ outlines
+      strands = V.toList . join . fmap (outlineToStrands curveTable maxSectionSize) $ outlines
       -- Count the strands.
-      numStrands = V.length strands :: Int
+      numStrands = length strands :: Int
   in  Enclosure { enclosureNumStrands = fromIntegral numStrands
                 , enclosureStrands    = strands
                 }
 
 ------------------ Instances --------------------------
-
-instance StorableM Enclosure where
-  sizeOfM    (Enclosure _ items) = V.mapM_ sizeOfM items
-  alignmentM (Enclosure _ items) = V.mapM_ alignmentM items
-  peekM                          = error "no peek for Enclosure"
-  pokeM      (Enclosure _ items) = V.mapM_ pokeM items
-
-instance Storable Enclosure where
-  sizeOf    = sizeOfV
-  alignment = alignmentV
-  peek      = peekV
-  poke      = pokeV
 
 instance NFData NumStrands where
   rnf (NumStrands i) = i `deepseq` ()

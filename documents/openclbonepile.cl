@@ -1,3 +1,43 @@
+// determine the current color based on the layer stack
+COLOR compositeLayers( PMEM    ShapeState *shS
+                     , PMEM    ColorState *cS
+                     ) {
+    COLOR color = TRANSPARENT_COLOR;
+    int topLayer = 0;
+    SUBSTANCETAG lastSubstance = NOSUBSTANCETAG;
+    bool lastIsAdditive = true;
+    FACETID currentFacet = NOFACET;
+    DEBUG_IF(printf("composite layers --------------------- color %2.2v4f \n", color);)
+    while (topLayer < shS->itemCount && !(OPAQUE(color))) {
+        DEBUG_IF(printf("topLayer %i lastIsAdditive %i lastSubstance ",topLayer,lastIsAdditive);showSubstanceTag(lastSubstance);printf("\n");)
+        ITEMTAG currentItemTag = shS->itemTagStack[topLayer];
+        if (itemTagIsShape(currentItemTag)) {
+            SUBSTANCETAG currentSubstance = cS->csSubstanceTagHeap[itemTagSubstanceTagId(currentItemTag)];
+            DEBUG_IF(printf("currentSubstance ");showSubstanceTag(currentSubstance);printf("\n");)
+            bool currentIsAdditive = itemTagIsAdd(currentItemTag);
+            bool readyToCompositeLast = currentSubstance != lastSubstance && lastSubstance != NOSUBSTANCETAG;
+            DEBUG_IF(printf("readyToCompositeLast %i currentIsAdditive %i lastIsAdditive %i\n", readyToCompositeLast, currentIsAdditive, lastIsAdditive);)
+            color = readyToCompositeLast ? compositeLayer (shS, cS, color, lastSubstance, lastIsAdditive, currentFacet) : color;
+            lastIsAdditive = readyToCompositeLast
+                           ? currentIsAdditive
+                           : lastIsAdditive && currentIsAdditive;
+            topLayer++;
+            lastSubstance = currentSubstance;
+            currentFacet = NOFACET;
+        }
+        else { //itemTagIsFacet(currentItemTag)
+            currentFacet = itemTagFacetId(currentItemTag);
+        }
+    }
+    //DEBUG_IF(printf("afterl top %i ", topLayer);printf(" color %2.2v4f ", color);printf("lastSub %i lastAdd %i\n", lastSubstance, lastIsAdditive);)
+    color = (lastSubstance == NOSUBSTANCETAG) ? color : compositeLayer (shS, cS, color, lastSubstance, lastIsAdditive, currentFacet);
+    DEBUG_IF(printf("final color %2.2v4f ---------------------\n", color);)
+    color = composite(color, cS->csBackgroundColor);
+    return color;
+}
+
+
+
 accumulatePictureReference :: PictureMemoryReference -> StateT (Pile PictureMemoryReference) IO PictMemId
 accumulatePictureReference memory =
   do refPile <- get
@@ -608,7 +648,7 @@ instance Storable (PictureFacet PictUsageId SubSpace) where
       while (!done) {
           bool shouldComposite = true;
           topLayer = findTopLayer(shS, topLayer);
-          DEBUG_IF(printf("topLayer %i ", topLayer);/*showLayerFlags(shS->layerFlags);*/printf("\n");)
+          // DEBUG_IF(printf("topLayer %i ", topLayer);/*showLayerFlags(shS->layerFlags);*/printf("\n");)
           if (topLayer > shS->layerCount) {
               nextColor = cS->csBackgroundColor;
               done = true;
@@ -633,8 +673,8 @@ instance Storable (PictureFacet PictUsageId SubSpace) where
               topLayer += 1;
               done = false;
           }
-          DEBUG_IF(printf("done %i lastIsSet %i shouldComposite %i baseColor %2.2v4f nextColor %2.2v4f \n",
-                           done,   lastIsSet,   shouldComposite,   baseColor,        nextColor          );)
+          // DEBUG_IF(printf("done %i lastIsSet %i shouldComposite %i baseColor %2.2v4f nextColor %2.2v4f \n",
+          //                  done,   lastIsSet,   shouldComposite,   baseColor,        nextColor          );)
           if (shouldComposite) {
               if (lastIsSet) {
                   baseColor = composite(baseColor, nextColor);

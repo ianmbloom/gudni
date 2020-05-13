@@ -28,6 +28,8 @@ module Graphics.Gudni.OpenCL.Rasterizer
   , specMaxRenderJobSize
   , Rasterizer(..)
   , rasterClState
+  , rasterInitializeSectionKernel
+  , rasterInitializeBlockKernel
   , rasterGenerateThresholdsKernel
   , rasterCollectMergedBlocksKernel
   , rasterCollectRenderBlocksKernel
@@ -97,6 +99,8 @@ data Rasterizer = Rasterizer
   { -- | The OpenCL state
     _rasterClState :: OpenCLState
     -- | The rasterizer kernels.
+  , _rasterInitializeSectionKernel   :: CLKernel
+  , _rasterInitializeBlockKernel    :: CLKernel
   , _rasterGenerateThresholdsKernel  :: CLKernel
   , _rasterCollectMergedBlocksKernel :: CLKernel
   , _rasterCollectRenderBlocksKernel :: CLKernel

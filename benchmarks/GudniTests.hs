@@ -49,7 +49,7 @@ initialModel pictureMap =
     { _stateBase = BasicSceneState
         { _stateScale       = 1
         , _stateDelta       = Point2 0 0
-        , _stateAngle       = 0 @@ rad -- 0.23038 @@ rad
+        , _stateAngle       = 0 @@ rad
         , _statePaused      = True
         , _stateSpeed       = 0.1
         , _statePace        = 1
@@ -64,7 +64,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 31 -- 10
+    , _stateCurrentTest = 29
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
@@ -87,20 +87,22 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("simpleKnob"        , simpleKnob          ) -- 17 -
            , ("hourGlass"         , hourGlass           ) -- 18 -
            , ("simpleGlyph"       , simpleGlyph         ) -- 19 -
-           , ("sixPointRectangle" , sixPointRectangle   ) -- 20 -
-           , ("tinySquare"        , tinySquare          ) -- 21 -
-           , ("mediumSequare"     , mediumSquare        ) -- 22 -
-           , ("simpleRectangle"   , simpleRectangle     ) -- 23 -
-           , ("tallRectangle"     , tallRectangle       ) -- 24 -
-           , ("twoBrackets"       , twoBrackets         ) -- 25 -
-           , ("fuzzySquares2"     , fuzzySquares2       ) -- 26 -
-           , ("maxThresholdTest"  , maxThresholdTest    ) -- 27 -
-           , ("maxShapeTest"      , maxShapeTest        ) -- 28 -
-           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 29 -
-           , ("fullRectangle"     , fullRectangle       ) -- 30 -
-           , ("overlappingSquares", overlappingSquares  ) -- 31 -
-           , ("overlappingCircles", overlappingCircles  ) -- 32 -
-           , ("1 Million Circles" , millionFuzzyCircles ) -- 33 -
+           , ("triangle"          , triangle            ) -- 20 -
+           , ("sixPointRectangle" , sixPointRectangle   ) -- 21 -
+           , ("tinySquare"        , tinySquare          ) -- 22 -
+           , ("mediumSequare"     , mediumSquare        ) -- 23 -
+           , ("simpleRectangle"   , simpleRectangle     ) -- 24 -
+           , ("tallRectangle"     , tallRectangle       ) -- 25 -
+           , ("twoBrackets"       , twoBrackets         ) -- 26 -
+           , ("fuzzySquares2"     , fuzzySquares2       ) -- 27 -
+           , ("maxThresholdTest"  , maxThresholdTest    ) -- 28 -
+           , ("maxShapeTest"      , maxShapeTest        ) -- 29 -
+           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 30 -
+           , ("fullRectangle"     , fullRectangle       ) -- 31 -
+           , ("overlappingSquares", overlappingSquares  ) -- 32 -
+           , ("overlappingCircles", overlappingCircles  ) -- 33 -
+           , ("1 Million Circles" , millionFuzzyCircles ) -- 34 -
+           , ("bigGrid"           , bigGrid             ) -- 35 -
            ]
 
 maxThresholdTest :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
@@ -159,7 +161,7 @@ overlappingSquares state = return $
 overlappingCircles :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 overlappingCircles state = return $
                let time = view (stateBase . stateLastTime) state
-               in  translateByXY (-4) (-3) .
+               in  --translateByXY (-4) (-3) .
                    --scaleBy 0.5 .
                    overlap $
                    evalRand (sequence . replicate 100 $ fuzzyCircle (makePoint 2 2) 5 5) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
@@ -245,6 +247,15 @@ rectGrid :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 rectGrid state = return $
     let grid :: CompoundTree SubSpace
         grid =  overlap . gridOf 1 160 160 . repeat . rectangle $ Point2 0.5 0.5
+    in  scaleBy 4 .
+        colorWith (transparent 1.0 white) $
+        grid
+
+-- | A very big grid of rectangles.
+bigGrid :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
+bigGrid state = return $
+    let grid :: CompoundTree SubSpace
+        grid =  overlap . gridOf 1 1600 1600 . repeat . rectangle $ Point2 0.5 0.5
     in
         colorWith (transparent 1.0 white) $
         grid
@@ -377,18 +388,24 @@ sixPointRectangle state = return $
                      ,straightXY 2 1, straightXY 1 1, straightXY 0 1
                      ]
 
+-- | Simple Triangle
+triangle :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
+triangle state = return $
+        colorWith (transparent 1.0 (dark green)) $
+        fromSegments [straightXY 0 0, straightXY 5 0, straightXY 0 5
+                     ]
 -- | Very tiny square with no rotation. Usually the first thing tested for a new build.
 tinySquare :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 tinySquare state = return $
-        translateByXY 0.1 0.1 .
-        rotateBy (45 @@ deg) .
+        translateByXY 0.0 0.5 .
+        --rotateBy (45 @@ deg) .
         colorWith red $
         rectangle (Point2 4 4)
 
 -- | Medium sized square with no rotation.
 mediumSquare :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 mediumSquare state = return $
-        translateByXY 0.1 0.1 .
+        translateByXY 0.0 1.0 .
         colorWith red $
         rectangle (Point2 10 10)
 

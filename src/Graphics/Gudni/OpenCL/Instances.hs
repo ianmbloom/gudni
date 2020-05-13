@@ -26,6 +26,7 @@ import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Interface.DrawTarget(OutputPtr(..), TextureObject(..))
 import Graphics.Gudni.Interface.GLInterop
 import Graphics.Rendering.OpenGL(GLuint)
+import Graphics.Gudni.Raster.TileTree
 import Foreign.Storable
 import Foreign.Ptr
 import Foreign.C.Types
@@ -41,6 +42,13 @@ pileToBuffer context (Pile cursor _ startPtr) =
     let vecSize = cursor * sizeOf (undefined :: t)
         adjustedVecSize = max 1 vecSize -- OpenCL will reject a memory buffer with size 0 so the minimum size is 1.
     in  CLBuffer vecSize <$> clCreateBuffer context [CL_MEM_READ_ONLY, CL_MEM_USE_HOST_PTR] (adjustedVecSize, castPtr startPtr)
+
+
+instance KernelArgs s g w o r => KernelArgs s g w o (Tile -> r) where
+  prepArg = stoPrepArg
+
+instance KernelArgs s g w o r => KernelArgs s g w o (Slice x -> r) where
+  prepArg = stoPrepArg
 
 -- | Make a color into an individual kernel argument.
 instance KernelArgs s g w o r => KernelArgs s g w o (Color -> r) where

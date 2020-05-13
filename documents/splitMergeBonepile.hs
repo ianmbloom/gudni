@@ -83,7 +83,7 @@ generateCall params bic job bitmapSize frameCount jobIndex target =
 -- OpenCL kernel call.
 
 module Graphics.Gudni.Raster.Job
-  ( GeoReference(..)
+  ( StrandReference(..)
   , BuildState(..)
 
   , rJItemTagIdPile

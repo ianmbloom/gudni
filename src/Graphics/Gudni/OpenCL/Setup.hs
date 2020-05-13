@@ -56,20 +56,27 @@ cppDefines spec =
   , Cpp "THREADSPERBLOCK"                (CppInt $ spec ^. specColumnsPerBlock  )
   , Cpp "LAYERFLAGSSECTIONS"             (CppInt $ lAYERfLAGSsECTIONS           )
   , Cpp "NULLTILE"                       (CppHexUInt4 nULLtILE                  )
+  , Cpp "ITEMTAG_SLOPE_BITMASK"          (CppHex64 iTEMtAGsLOPEbITMASK          )
+  , Cpp "ITEMTAG_SLOPE_POSITIVE"         (CppHex64 iTEMtAGsLOPEpOSITVE          )
+  , Cpp "ITEMTAG_SLOPE_NEGATIVE"         (CppHex64 iTEMtAGsLOPEnEGATIVE         )
+  , Cpp "ITEMTAG_PERSIST_BITMASK"        (CppHex64 iTEMtAGpERSISTbITMASK        )
+  , Cpp "ITEMTAG_PERSISTANT"             (CppHex64 iTEMtAGpERSISTANT            )
+  , Cpp "ITEMTAG_NONPERSISTANT"          (CppHex64 iTEMtAGnONPERSISTANT         )
   , Cpp "ITEMTAG_ISFACET_BITMASK"        (CppHex64 iTEMtAGiSfACETbITMASK        )
   , Cpp "ITEMTAG_ISSHAPE"                (CppHex64 iTEMtAGiSsHAPE               )
   , Cpp "ITEMTAG_ISFACET"                (CppHex64 iTEMtAGiSfACET               )
-  , Cpp "ITEMTAG_COMPOUNDTYPE_BITMASK"   (CppHex64 iTEMtAGcOMPOUNDtYPEbITMASK   )
-  , Cpp "ITEMTAG_COMPOUNDTYPE_ADD"       (CppHex64 iTEMtAGcOMPOUNDtYPEaDD       )
-  , Cpp "ITEMTAG_COMPOUNDTYPE_SUBTRACT"  (CppHex64 iTEMtAGcOMPOUNDtYPEsUBTRACT  )
-  , Cpp "ITEMTAG_SUBSTANCE_ID_BITMASK"   (CppHex64 iTEMtAGsUBSTANCEIDbITMASK    )
   , Cpp "ITEMTAG_SUBSTANCE_ID_SHIFT"     (CppInt   iTEMtAGsUBSTANCEIDsHIFT      )
-  , Cpp "ITEMTAG_ITEM_ID_BITMASK"        (CppHex64 iTEMtAGiTEMrEFbITMASK        )
-  , Cpp "NOSUBSTANCEID"                  (CppHex32 nOsUBSTANCEiD                )
+  , Cpp "ITEMTAG_COMPOUND_BITMASK"       (CppHex64 iTEMtAGcOMPOUNDbITMASK       )
+  , Cpp "ITEMTAG_COMPOUND_ADD"           (CppHex64 iTEMtAGcOMPOUNDaDD           )
+  , Cpp "ITEMTAG_COMPOUND_SUBTRACT"      (CppHex64 iTEMtAGcOMPOUNDsUBTRACT      )
+  , Cpp "ITEMTAG_SUBSTANCE_ID_BITMASK"   (CppHex64 iTEMtAGsUBSTANCEIDbITMASK    )
+  , Cpp "ITEMTAG_REFERENCE_BITMASK"      (CppHex64 iTEMtAGrEFERENCEbITMASK      )
+  , Cpp "NOITEMTAG"                      (CppHex64 nOiTEMtAG                    )
   , Cpp "SUBSTANCETAG_TYPE_BITMASK"      (CppHex64 sUBSTANCEtAGtYPEbITmASK      )
   , Cpp "SUBSTANCETAG_TYPE_SOLID_COLOR"  (CppHex64 sUBSTANCEtAGtYPEsOLIDcOLOR   )
   , Cpp "SUBSTANCETAG_TYPE_TEXTURE"      (CppHex64 sUBSTANCEtAGtYPEtEXTURE      )
   , Cpp "SUBSTANCETAG_REF_BITMASK"       (CppHex64 sUBSTANCEtAGrEFbITMASK       )
+  , Cpp "NOSUBSTANCETAG"                 (CppHex64 nOsUBSTANCEtAG               )
   , Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
 --, Cpp "DEBUG_TRACE"                    (CppNothing) -- uncomment this to turn on parsable debugging output
   , Cpp "DEBUGCOLUMNTHREAD"              (CppInt 0)   -- determines the column for DEBUG_IF macro
@@ -187,6 +194,8 @@ setupOpenCL enableProfiling useCLGLInterop src =
               program <- loadProgramWOptions options state modifiedSrc
               putStrLn $ "Finished OpenCL kernel compile"
               -- get the rasterizer kernel.
+              initializeSectionKernel  <- getKernelAndDump device program "initializeSectionKernel"
+              initializeBlockKernel    <- getKernelAndDump device program "initializeBlockKernel"
               generateThresholdsKernel <- getKernelAndDump device program "generateThresholdsKernel"
               collectMergedBlocksKernel<- getKernelAndDump device program "collectMergedBlocksKernel"
               collectRenderBlocksKernel<- getKernelAndDump device program "collectRenderBlocksKernel"
@@ -201,6 +210,8 @@ setupOpenCL enableProfiling useCLGLInterop src =
                   { -- | The OpenCL state
                     _rasterClState = state
                     -- | The rasterizer kernels.
+                  , _rasterInitializeSectionKernel   = initializeSectionKernel
+                  , _rasterInitializeBlockKernel     = initializeBlockKernel
                   , _rasterGenerateThresholdsKernel  = generateThresholdsKernel
                   , _rasterCollectMergedBlocksKernel = collectMergedBlocksKernel
                   , _rasterCollectRenderBlocksKernel = collectRenderBlocksKernel

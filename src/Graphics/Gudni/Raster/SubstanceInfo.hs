@@ -18,7 +18,7 @@
 module Graphics.Gudni.Raster.SubstanceInfo
   ( SubstanceInfo (..)
   , SubstanceTagId (..)
-  , noSubstanceTagId
+  , noSubstanceTag
   , SubstanceTag (..)
   , ColorId(..)
   , TextureId(..)
@@ -52,7 +52,7 @@ newtype SubstanceTag
 
 newtype SubstanceTagId = SubstanceTagId {unSubstanceTagId :: Reference SubstanceTag} deriving (Ord, Eq, Num, Enum)
 
-noSubstanceTagId = SubstanceTagId (Ref nOsUBSTANCEiD)
+noSubstanceTag = SubstanceTag nOsUBSTANCEtAG
 
 instance Show SubstanceTagId where
     show (SubstanceTagId i) = show i ++ "sid"

@@ -16,13 +16,13 @@
 -- Constructors for attaching metadata to shapes∘
 
 module Graphics.Gudni.Raster.ItemInfo
-  ( GeoReference(..)
-  , GeoId(..)
+  ( StrandReference(..)
+  , StrandId(..)
   , FacetId(..)
   , ItemTag(..)
   , ItemTagId(..)
   , ItemInfo (..)
-  , shapeInfoTag
+  , strandInfoTag
   , facetInfoTag
   , tagToSubstanceTagId
   , tagIsFacet
@@ -38,7 +38,7 @@ import Graphics.Gudni.Util.StorableM
 
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.SubstanceInfo
-import Graphics.Gudni.Raster.GeoReference
+import Graphics.Gudni.Raster.StrandReference
 
 import Data.Bits
 import Numeric
@@ -49,10 +49,10 @@ import Control.DeepSeq
 import Foreign.C.Types (CUInt, CULong, CChar)
 import Foreign.Ptr
 
-newtype GeoId = GeoId {unGeoId :: Reference GeoReference} deriving (Ord, Eq, Num, Enum)
+newtype StrandId = StrandId {unStrandId :: Reference StrandReference} deriving (Ord, Eq, Num, Enum)
 
-instance Show GeoId where
-    show (GeoId i) = show i ++ "gid"
+instance Show StrandId where
+    show (StrandId i) = show i ++ "gid"
 
 newtype FacetId = FacetId {unFacetId :: Reference (HardFacet_ SubSpace TextureSpace)} deriving (Ord, Eq, Num, Enum)
 
@@ -82,17 +82,17 @@ tagToSubstanceTagId :: ItemTag -> SubstanceTagId
 tagToSubstanceTagId (ItemTag tag) = SubstanceTagId . fromIntegral $ ((tag .&. iTEMtAGsUBSTANCEIDbITMASK) `shiftR` iTEMtAGsUBSTANCEIDsHIFT)
 
 
-shapeInfoTag :: Compound -> SubstanceTagId -> GeoId -> ItemTag
-shapeInfoTag combineType substanceId geoId =
+strandInfoTag :: Compound -> SubstanceTagId -> StrandReference -> ItemTag
+strandInfoTag combineType substanceId strandRef =
       let combineFlag =
               case combineType of
-                  CompoundAdd      -> iTEMtAGcOMPOUNDtYPEaDD
-                  CompoundSubtract -> iTEMtAGcOMPOUNDtYPEsUBTRACT
+                  CompoundAdd      -> iTEMtAGcOMPOUNDaDD
+                  CompoundSubtract -> iTEMtAGcOMPOUNDsUBTRACT
       in  if (unRef . unSubstanceTagId $ substanceId) <= mAXsUBSTANCEiD
           then ItemTag (   iTEMtAGiSsHAPE
                        .|. combineFlag
                        .|. itemSubstanceTagIdBits substanceId
-                       .|. (fromIntegral (unGeoId geoId) .&. iTEMtAGiTEMrEFbITMASK)
+                       .|. (fromIntegral (strandRef ^. unStrandRef) .&. iTEMtAGrEFERENCEbITMASK)
                        )
           else error "shapeID out of bounds"
 
@@ -100,7 +100,7 @@ facetInfoTag :: FacetId -> SubstanceTagId -> ItemTag
 facetInfoTag (FacetId facetId) substanceId =
     ItemTag (   iTEMtAGiSfACET
             .|. itemSubstanceTagIdBits substanceId
-            .|. (fromIntegral facetId .&. iTEMtAGiTEMrEFbITMASK)
+            .|. (fromIntegral facetId .&. iTEMtAGrEFERENCEbITMASK)
             )
 
 tagIsFacet :: ItemTag -> Bool
@@ -108,28 +108,28 @@ tagIsFacet tag = (unItemTag tag .&. iTEMtAGiSfACETbITMASK) == iTEMtAGiSfACET
 
 -- | Extract the 'Compound' from a 'ShapeTag'.
 tagToCompound :: ItemTag -> Compound
-tagToCompound tag = tagBitsToCompound (unItemTag tag .&. iTEMtAGcOMPOUNDtYPEbITMASK)
+tagToCompound tag = tagBitsToCompound (unItemTag tag .&. iTEMtAGcOMPOUNDbITMASK)
 
 -- | Select the 'Compound' from the masked 'ShapeTag_'.
 tagBitsToCompound :: ItemTag_ -> Compound
 tagBitsToCompound tagBits
-  | tagBits == iTEMtAGcOMPOUNDtYPEaDD      = CompoundAdd
-  | tagBits == iTEMtAGcOMPOUNDtYPEsUBTRACT = CompoundSubtract
+  | tagBits == iTEMtAGcOMPOUNDaDD      = CompoundAdd
+  | tagBits == iTEMtAGcOMPOUNDsUBTRACT = CompoundSubtract
   | otherwise = error "bitMask does not correspond to a valid Compound."
 
 -- | Extract the 'FacetId' from the 'ItemTag'.
 tagToFacetId :: ItemTag -> FacetId
-tagToFacetId (ItemTag tag) = FacetId $ Ref $ fromIntegral (tag .&. iTEMtAGiTEMrEFbITMASK)
+tagToFacetId (ItemTag tag) = FacetId $ Ref $ fromIntegral (tag .&. iTEMtAGrEFERENCEbITMASK)
 
--- | Extract the 'GeoId' from the 'ItemTag'.
-tagToGeoId :: ItemTag -> GeoId
-tagToGeoId (ItemTag tag) = GeoId $ Ref $ fromIntegral (tag .&. iTEMtAGiTEMrEFbITMASK)
+-- | Extract the 'StrandId' from the 'ItemTag'.
+tagToStrandId :: ItemTag -> StrandId
+tagToStrandId (ItemTag tag) = StrandId $ Ref $ fromIntegral (tag .&. iTEMtAGrEFERENCEbITMASK)
 
 -- | ItemInfo includes substance flags and the combination method for a particular shape or facet.
 data ItemInfo
     = ShapeInfo
     { _itemCombine        :: Compound
-    , _itemGeometry       :: GeoId
+    , _itemGeometry       :: StrandId
     , _itemSubstanceTagId    :: SubstanceTagId
     }
     | FacetInfo
@@ -139,7 +139,7 @@ data ItemInfo
 makeLenses ''ItemInfo
 
 instance Show ItemInfo where
-  show (ShapeInfo compound geoId substanceId) = "ShapeInfo "++show compound ++ " " ++ show geoId ++ " " ++ show substanceId
+  show (ShapeInfo compound strandId substanceId) = "ShapeInfo "++show compound ++ " " ++ show strandId ++ " " ++ show substanceId
   show (FacetInfo facetId substanceId) = "FacetInfo " ++ show facetId ++ " " ++ show substanceId
 
 -- | Extract the 'ItemInfo' from the 'ItemTag'.
@@ -152,14 +152,14 @@ extractItemInfo tag =
        in  FacetInfo facetId substanceId
   else
        let combineType = tagToCompound tag
-           geoId       = tagToGeoId tag
-       in  ShapeInfo combineType geoId substanceId
+           strandId       = tagToStrandId tag
+       in  ShapeInfo combineType strandId substanceId
 
 instance Show ItemTag where
   show = show . extractItemInfo
 
-instance NFData GeoId where
-  rnf (GeoId a) = a `deepseq` ()
+instance NFData StrandId where
+  rnf (StrandId a) = a `deepseq` ()
 
 instance NFData ItemInfo where
   rnf (ShapeInfo a b c) = a `deepseq` b `deepseq` c `deepseq` ()
