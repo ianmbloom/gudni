@@ -133,7 +133,7 @@ condenseStack :: RasterParams token
               -> S.Seq BlockSection
               -> CL (Bool, S.Seq BlockSection)
 condenseStack params ssss =
-    do --liftIO $ putStrLn $ "condenseStack " ++ show (S.length ssss)
+    do -- liftIO $ putStrLn $ "condenseStack " ++ show (S.length ssss)
        let blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
        case S.viewl ssss of
          S.EmptyL -> return (False, S.empty)
@@ -141,14 +141,14 @@ condenseStack params ssss =
                             S.EmptyL -> return (False, ssss)
                             (S.:<) s1 ss ->
                                do (combined0, c0, c1) <- combineSections params s0 s1
-                                  let c0L =c0 ^. sectNumActive
-                                      before0 = if (c0L >= blocksPerSection - 1)            then S.singleton c0 else S.empty
-                                      mid0    = if (c0L  > 0 && c0L < blocksPerSection - 1) then S.singleton c0 else S.empty
-                                      after0  = if (c0L <= 0)                               then S.singleton c0 else S.empty
+                                  let c0L = c0 ^. sectNumActive
+                                      before0 = if not combined0 && c0L > 0 then S.singleton c0 else S.empty
+                                      mid0    = if combined0     && c0L > 0 then S.singleton c0 else S.empty
+                                      after0  = if c0L <= 0                 then S.singleton c0 else S.empty
                                       c1L = c1 ^. sectNumActive
-                                      before1 = if (c1L >= blocksPerSection - 1)            then S.singleton c1 else S.empty
-                                      mid1    = if (c1L  > 0 && c1L < blocksPerSection - 1) then S.singleton c1 else S.empty
-                                      after1  = if (c1L <= 0)                               then S.singleton c1 else S.empty
+                                      before1 = if not combined0 && c1L > 0 then S.singleton c1 else S.empty
+                                      mid1    = if combined0     && c1L > 0 then S.singleton c1 else S.empty
+                                      after1  = if c1L <= 0                 then S.singleton c1 else S.empty
                                   (combined1, middle) <- condenseStack params (mid0 <> mid1 <> ss)
                                   let combined = combined0 || combined1
                                   return (combined, before0 <> before1 <> middle <> after0 <> after1)
@@ -202,13 +202,14 @@ generateLoop params buffersInCommon target itemTagIdPile tileSlices batchSize =
                maxThresholds    = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
                processTile :: (Tile, Slice ItemTagId) -> GenerateMonad (S.Seq BlockSection) ()
                processTile (tile, slice) =
-                   do  liftIO $ putStrLn $ "~~~~~~~ Tile " ++ show tile
+                   do  liftIO $ putStrLn $ "~~~~~~~ Tile Start" ++ show tile
                        genProgress .= 0
                        sectionLoop tile slice
                        stack <- use genData
                        lift $ showSections params "sectionLoopStack" stack
                        stack' <- lift $ processStack stack 0
                        genData .= stack'
+                       liftIO $ putStrLn $ "~~~~~~~ Tile Complete " ++ show tile
                sectionLoop :: Tile -> Slice ItemTagId -> GenerateMonad (S.Seq BlockSection) ()
                sectionLoop tile slice =
                  do -- attempt to fill a block and see if the task is completed afterward.
@@ -303,6 +304,7 @@ generateLoop params buffersInCommon target itemTagIdPile tileSlices batchSize =
 
           finishedStack <- withStack (mapM_ processTile tileSlices) S.empty -- loop through each tile slice while reusing the stack
           releaseStack finishedStack -- deallocate all blockSections
+
           return ()
 
 processBufferStack :: (  KernelArgs
@@ -351,9 +353,9 @@ processBufferStack params buffersInCommon target blockSectionStack pass =
                                         return toRenderSection
                          --liftIO $ putStrLn $ "|||||||||||||||||||||||| Process Section End   " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
                          return section'
-       --showSections params "rendered" processedStack
+       showSections params "rendered" processedStack
        (hasCombined, condensed) <- condenseStack params processedStack
-       --showSections params ("condensed " ++ show hasCombined) condensed
+       showSections params ("condensed " ++ show hasCombined) condensed
        splitStack <-
            if hasCombined
            then return condensed
@@ -363,7 +365,7 @@ processBufferStack params buffersInCommon target blockSectionStack pass =
                              --liftIO $ threadDelay 1000
                              runSplitKernel params blockSection newBlockSection
                              return $ (blockSection, set sectNumActive (blockSection ^. sectNumActive) newBlockSection))
-       --showSections params "splitStack" splitStack
+       showSections params "splitStack" splitStack
        if   not (sectionStackIsClear splitStack) -- && pass < 5
        then processBufferStack params buffersInCommon target splitStack (pass + 1)
        else {-
