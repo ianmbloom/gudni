@@ -33,6 +33,7 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
 
   , newBuffer
   , createBuffersInCommon
+  , releaseBuffersInCommon
 
   , BlockId(..)
   , BlockSection(..)
@@ -123,26 +124,41 @@ data BuffersInCommon = BuffersInCommon
   }
 makeLenses ''BuffersInCommon
 
-createBuffersInCommon :: RasterParams token -> CLContext -> CL BuffersInCommon
-createBuffersInCommon params context = liftIO $
-    do geoBuffer      <- pileToBuffer context (params ^. rpGeometryState  . geoGeometryPile   )
-       pictMemBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suPictureMems     )
-       facetBuffer    <- pileToBuffer context (params ^. rpSubstanceState . suFacetPile       )
-       itemTagBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suItemTagPile     )
-       subTagBuffer   <- pileToBuffer context (params ^. rpSubstanceState . suSubstanceTagPile)
-       colorBuffer    <- pileToBuffer context (params ^. rpSubstanceState . suSolidColorPile  )
-       pictDataBuffer <- pileToBuffer context (params ^. rpPictDataPile)
-       randoms        <- vectorToBuffer context (params ^. rpGeometryState  . geoRandomField)
-       return $  BuffersInCommon
-                 { _bicGeometryHeap   = geoBuffer
-                 , _bicPictMemRefHeap = pictMemBuffer
-                 , _bicFacetHeap      = facetBuffer
-                 , _bicItemTagHeap    = itemTagBuffer
-                 , _bicSubTagHeap     = subTagBuffer
-                 , _bicSolidColors    = colorBuffer
-                 , _bicPictHeap       = pictDataBuffer
-                 , _bicRandoms        = randoms
-                 }
+createBuffersInCommon :: RasterParams token -> CL BuffersInCommon
+createBuffersInCommon params =
+    do context <- clContext <$> ask
+       liftIO $
+         do
+            geoBuffer      <- pileToBuffer context (params ^. rpGeometryState  . geoGeometryPile   )
+            pictMemBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suPictureMems     )
+            facetBuffer    <- pileToBuffer context (params ^. rpSubstanceState . suFacetPile       )
+            itemTagBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suItemTagPile     )
+            subTagBuffer   <- pileToBuffer context (params ^. rpSubstanceState . suSubstanceTagPile)
+            colorBuffer    <- pileToBuffer context (params ^. rpSubstanceState . suSolidColorPile  )
+            pictDataBuffer <- pileToBuffer context (params ^. rpPictDataPile)
+            randoms        <- vectorToBuffer context (params ^. rpGeometryState  . geoRandomField)
+            return $  BuffersInCommon
+                      { _bicGeometryHeap   = geoBuffer
+                      , _bicPictMemRefHeap = pictMemBuffer
+                      , _bicFacetHeap      = facetBuffer
+                      , _bicItemTagHeap    = itemTagBuffer
+                      , _bicSubTagHeap     = subTagBuffer
+                      , _bicSolidColors    = colorBuffer
+                      , _bicPictHeap       = pictDataBuffer
+                      , _bicRandoms        = randoms
+                      }
+
+releaseBuffersInCommon :: BuffersInCommon -> CL ()
+releaseBuffersInCommon bic =
+     liftIO $ do clReleaseMemObject . bufferObject $ bic ^. bicGeometryHeap
+                 clReleaseMemObject . bufferObject $ bic ^. bicPictMemRefHeap
+                 clReleaseMemObject . bufferObject $ bic ^. bicFacetHeap
+                 clReleaseMemObject . bufferObject $ bic ^. bicItemTagHeap
+                 clReleaseMemObject . bufferObject $ bic ^. bicSubTagHeap
+                 clReleaseMemObject . bufferObject $ bic ^. bicSolidColors
+                 clReleaseMemObject . bufferObject $ bic ^. bicPictHeap
+                 clReleaseMemObject . bufferObject $ bic ^. bicRandoms
+                 return ()
 
 newtype BlockId = BlockId {unBlockId :: Int} deriving (Eq, Ord, Num)
 
@@ -181,14 +197,16 @@ createBlockSection params =
          columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
          maxThresholds   = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
          blockSize       = blocksToAlloc * columnsPerBlock * maxThresholds
-         context         = clContext (params ^. rpRasterizer . rasterClState)
      -- liftIO $ putStrLn "---- Begin ThresholdBuffer Allocation ----"
+     context <- clContext <$> ask
      tileBuffer       <- newBuffer blocksToAlloc :: CL (CLBuffer Tile)
      thresholdBuffer  <- newBuffer blockSize :: CL (CLBuffer THRESHOLDTYPE)
      headerBuffer     <- newBuffer blockSize :: CL (CLBuffer HEADERTYPE   )
      queueSliceBuffer <- newBuffer (blocksToAlloc * columnsPerBlock) :: CL (CLBuffer (Slice Int))
-     blockIdBuffer    <- (liftIO . vectorToBuffer context . VS.generate blocksToAlloc $ BlockId :: CL (CLBuffer BlockId))
-     activeFlagBuffer <- (liftIO . vectorToBuffer context . VS.replicate blocksToAlloc . toCBool $ False :: CL (CLBuffer CBool))
+     let blockIdVector = VS.generate blocksToAlloc BlockId
+     blockIdBuffer    <- (liftIO . vectorToBuffer context $ blockIdVector :: CL (CLBuffer BlockId))
+     let activeFlagVector = VS.replicate blocksToAlloc . toCBool $ False
+     activeFlagBuffer <- (liftIO . vectorToBuffer context $ activeFlagVector :: CL (CLBuffer CBool))
      -- liftIO $ putStrLn "---- Threshold Buffers Allocated ----"
      return $ BlockSection
               { _sectTileBuffer       = tileBuffer
