@@ -254,6 +254,7 @@ drawFrame frameCount scene queries =
         appMessage "===================== rasterDone ====================="
         markAppTime "Rasterize Threads"
         lift resetGeometryMonad
+        lift $ freeSubstanceState substanceState
         --liftIO $ threadDelay 3000000
         return (target, toList queryResults)
 

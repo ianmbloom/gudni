@@ -30,6 +30,7 @@ module Graphics.Gudni.Raster.Serialize
   , resetGeometryMonad
   , SubstanceMonad(..)
   , execSubstanceMonad
+  , freeSubstanceState
   , buildOverScene
   , SubstanceState(..)
   , suTokenMap
@@ -167,12 +168,29 @@ execSubstanceMonad ::( MonadIO m
                    => SubstanceMonad token s m a
                    -> m (SubstanceState token s)
 execSubstanceMonad mf =
-  do itemTagPile <- liftIO $ newPile
+  do itemTagPile      <- liftIO $ newPile
      substanceTagPile <- liftIO $ newPile
-     pictMemPile <- liftIO $ newPile
-     facetPile <- liftIO $ newPile
-     colorPile <- liftIO $ newPile
-     execStateT mf (SubstanceState M.empty pictMemPile facetPile clearBlack itemTagPile substanceTagPile colorPile)
+     pictMemPile      <- liftIO $ newPile
+     facetPile        <- liftIO $ newPile
+     colorPile        <- liftIO $ newPile
+     execStateT mf $ SubstanceState
+                         { _suTokenMap         = M.empty
+                         , _suPictureMems      = pictMemPile
+                         , _suFacetPile        = facetPile
+                         , _suBackgroundColor  = clearBlack
+                         , _suItemTagPile      = itemTagPile
+                         , _suSubstanceTagPile = substanceTagPile
+                         , _suSolidColorPile   = colorPile
+                         }
+
+freeSubstanceState :: MonadIO m => SubstanceState token s -> m ()
+freeSubstanceState state =
+  liftIO $
+      do freePile $ state ^. suPictureMems
+         freePile $ state ^. suFacetPile
+         freePile $ state ^. suItemTagPile
+         freePile $ state ^. suSubstanceTagPile
+         freePile $ state ^. suSolidColorPile
 
 addItem :: MonadIO m
         => BoundingBox
