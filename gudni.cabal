@@ -71,6 +71,7 @@ library
                      , Graphics.Gudni.OpenCL.KernelQuery
                      , Graphics.Gudni.Layout
                      , Graphics.Gudni.Figure.Angle
+                     , Graphics.Gudni.Experimental.Scaffolding
 
   -- Modules included in this library but not exported.
   other-modules:       Graphics.Gudni.Figure.HasDefault
@@ -109,6 +110,7 @@ library
                      , Graphics.Gudni.OpenCL.Rasterizer
                      , Graphics.Gudni.Raster.ItemInfo
                      , Graphics.Gudni.Raster.PackTree
+                     , Graphics.Gudni.Raster.Params
                      , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.Strand
                      , Graphics.Gudni.Raster.Enclosure
@@ -238,7 +240,6 @@ executable gudni-benchmarks
   ghc-options: -main-is GudniBenchmarks
                -O3
                -threaded
-               -- -fprof-auto
                -- "-with-rtsopts=-N -p -s -h -i0.1"
 
 executable square-example
@@ -255,7 +256,6 @@ executable square-example
   ghc-options: -main-is Square
                -O3
                -threaded
-               -- -fprof-auto
                -- "-with-rtsopts=-N -p -s -h -i0.1"
 
 executable pointquery-example
@@ -344,7 +344,6 @@ executable plot-example
   ghc-options: -main-is Plot
                -O3
                -threaded
-               -- -fprof-auto
                -- "-with-rtsopts=-N -p -s -h -i0.1"
 
 executable paragraph-example
@@ -363,7 +362,6 @@ executable paragraph-example
   ghc-options: -main-is Paragraph
                -O3
                -threaded
-               -- -fprof-auto
                -- "-with-rtsopts=-N -p -s -h -i0.1"
 
 executable tree-example
@@ -376,13 +374,12 @@ executable tree-example
                    , mtl
   else
     buildable: False
-  hs-source-dirs: ./examples
+  hs-source-dirs: ./src/Graphics/Gudni/Experimental
   main-is: ScaffoldTree.hs
   default-language: Haskell2010
-  ghc-options: -main-is Paragraph
+  ghc-options: -main-is ScaffoldTree
                -O3
                -threaded
-               -- -fprof-auto
                -- "-with-rtsopts=-N -p -s -h -i0.1"
 
 benchmark criterion

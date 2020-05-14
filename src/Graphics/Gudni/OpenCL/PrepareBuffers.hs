@@ -69,6 +69,7 @@ import Graphics.Gudni.Raster.SubstanceInfo
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.Serialize
 import Graphics.Gudni.Raster.TileTree
+import Graphics.Gudni.Raster.Params
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Pile
@@ -129,14 +130,14 @@ createBuffersInCommon params =
     do context <- clContext <$> ask
        liftIO $
          do
-            geoBuffer      <- pileToBuffer context (params ^. rpGeometryState  . geoGeometryPile   )
-            pictMemBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suPictureMems     )
-            facetBuffer    <- pileToBuffer context (params ^. rpSubstanceState . suFacetPile       )
-            itemTagBuffer  <- pileToBuffer context (params ^. rpSubstanceState . suItemTagPile     )
-            subTagBuffer   <- pileToBuffer context (params ^. rpSubstanceState . suSubstanceTagPile)
-            colorBuffer    <- pileToBuffer context (params ^. rpSubstanceState . suSolidColorPile  )
-            pictDataBuffer <- pileToBuffer context (params ^. rpPictDataPile)
-            randoms        <- vectorToBuffer context (params ^. rpGeometryState  . geoRandomField)
+            geoBuffer      <- pileToBuffer context   (params ^. rpSerialState . serGeometryPile    )
+            pictMemBuffer  <- pileToBuffer context   (params ^. rpSerialState . serPictureMems     )
+            facetBuffer    <- pileToBuffer context   (params ^. rpSerialState . serFacetPile       )
+            itemTagBuffer  <- pileToBuffer context   (params ^. rpSerialState . serItemTagPile     )
+            subTagBuffer   <- pileToBuffer context   (params ^. rpSerialState . serSubstanceTagPile)
+            colorBuffer    <- pileToBuffer context   (params ^. rpSerialState . serSolidColorPile  )
+            pictDataBuffer <- pileToBuffer context   (params ^. rpPictDataPile)
+            randoms        <- vectorToBuffer context (params ^. rpRasterizer  . rasterRandomField  )
             return $  BuffersInCommon
                       { _bicGeometryHeap   = geoBuffer
                       , _bicPictMemRefHeap = pictMemBuffer

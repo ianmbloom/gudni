@@ -84,15 +84,15 @@ data VTree leaf = VTree
     }
     | VLeaf leaf
 
-buildTileTree :: a -> PixelSpace -> Point2 PixelSpace -> TileTree (Tile, a)
-buildTileTree emptyRep tileSize canvasSize = goV canvasDepth box
+buildTileTree :: Point2 PixelSpace -> PixelSpace -> a -> TileTree (Tile, a)
+buildTileTree canvasSize tileSize emptyRep = goV canvasDepth box
     where
     -- Choose the largest dimension of the canvas as the square side dimension of the area covered by the tileTree.
     maxCanvasDimension = max (canvasSize ^. pX) (canvasSize ^. pY)
     -- Canvas depth is the adjusted log2 of the larges side of the canvas.
-    canvasDepth = adjustedLog maxCanvasDimension
+    canvasDepth = adjustedLog (fromIntegral maxCanvasDimension)
     -- Initial tile depth is the adjusted log of the max tileSize
-    tileDepth   = adjustedLog tileSize
+    tileDepth   = adjustedLog (fromIntegral $ tileSize)
     -- The dimensions of the area covered by the tree will be a square with dimensions the smallest power of two
     -- the contains both sides of the canvas. This is not a problem because the incoming shapes will still be excluded
     -- based on the dimensions of the canvas and empty tiles will just have their threads inactive.

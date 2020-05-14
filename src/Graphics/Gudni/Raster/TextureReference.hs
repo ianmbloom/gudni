@@ -27,7 +27,7 @@ module Graphics.Gudni.Raster.TextureReference
   , pictureTextureSize
   --, makePictData
   , collectPictureMemory
-  , assignScenePictureMemory
+  , withScenePictureMemory
   )
 where
 
@@ -126,12 +126,18 @@ assignPictUsage mapping (SRep token substance rep) =
                  Solid color  -> Solid color
      in  SRep token substance' rep
 
-assignScenePictureMemory :: PictureMap -> Scene (ShapeTree token s) -> IO (Scene (ShapeTreePictureMemory token s), Pile Word8)
-assignScenePictureMemory pictureMap scene =
+withScenePictureMemory :: (MonadIO m)
+                       => PictureMap
+                       -> Scene (ShapeTree token s)
+                       -> (Scene (ShapeTreePictureMemory token s) -> Pile Word8 -> m a)
+                       -> m a
+withScenePictureMemory pictureMap scene code =
   do let (namedTree, pictureMap') = runState (namePicturesInShapeTree (scene ^. sceneShapeTree)) pictureMap
-     (pictureRefMap, pictDataPile) <- collectPictureMemory pictureMap'
+     (pictureRefMap, pictDataPile) <- liftIO $ collectPictureMemory pictureMap'
      let pictRefScene = set sceneShapeTree (mapSTree (assignPictUsage pictureRefMap) namedTree) scene
-     return (pictRefScene, pictDataPile)
+     result <- code pictRefScene pictDataPile
+     liftIO $ freePile pictDataPile
+     return result
 
 
 instance StorableM PictureMemoryReference where

@@ -23,6 +23,8 @@ import Graphics.Gudni.Interface.GLInterop
 import Graphics.Gudni.OpenCL.CppDefines
 
 import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.ReorderTable
+import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
 
@@ -121,6 +123,7 @@ determineRasterSpec device =
           blockBufferSize  = tr "blockBufferSize"  $ 2 ^ blockBufferDepth
           actualBlockBufferSize = tr "actualBlockBufferSize" $ min computeSize blockBufferSize
       return DeviceSpec { _specMaxTileSize     = fromIntegral computeSize
+                        , _specMaxStrandSize   = mAXsTRANDsIZE
                         , _specColumnsPerBlock = computeSize
                         , _specColumnDepth     = adjustedLog computeSize
                         , _specMaxThresholds   = mAXtHRESHOLDS
@@ -188,7 +191,8 @@ setupOpenCL enableProfiling useCLGLInterop src =
               -- Get metadata from the openCL device.
               let device = clDevice state
               deviceSpec <- determineRasterSpec device
-              let modifiedSrc = addDefinesToSource deviceSpec src
+              let modifiedSrc  = addDefinesToSource deviceSpec src
+                  reorderTable = buildReorderTable mAXsTRANDsIZE
               -- Compile the source.
               putStrLn $ "Starting OpenCL kernel compile"
               program <- loadProgramWOptions options state modifiedSrc
@@ -205,6 +209,8 @@ setupOpenCL enableProfiling useCLGLInterop src =
               sortThresholdsKernel     <- getKernelAndDump device program "sortThresholdsKernel"
               renderThresholdsKernel   <- getKernelAndDump device program "renderThresholdsKernel"
               pointQueryKernel         <- getKernelAndDump device program "pointQueryKernel"
+              -- Generate a random field for the stochastic aliasing of the rasterizer.
+              randomField <- makeRandomField rANDOMFIELDsIZE
               -- Return a Library constructor with relevant information about the device for the rasterizer.
               return $ Rasterizer
                   { -- | The OpenCL state
@@ -224,4 +230,6 @@ setupOpenCL enableProfiling useCLGLInterop src =
                     -- | Flag for if OpenCL-OpenGL interop should be used to render the drawing target.
                   , _rasterUseGLInterop = useCLGLInterop
                   , _rasterDeviceSpec   = deviceSpec
+                  , _rasterReorderTable = reorderTable
+                  , _rasterRandomField  = randomField
                   }

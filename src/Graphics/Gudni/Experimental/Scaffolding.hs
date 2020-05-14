@@ -15,7 +15,7 @@
 -- Portability :  portable
 --
 -- Top level functions for creating bounding box based layouts.
-module Graphics.Gudni.Layout.Scaffolding
+module Graphics.Gudni.Experimental.Scaffolding
   ( ScafName(..)
   , PointRef(..)
   , Scaf(..)

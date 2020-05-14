@@ -1,6 +1,8 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module ScaffoldTree
   ( main
@@ -13,6 +15,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Application
 import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Experimental.Scaffolding
 
 import Data.Maybe(listToMaybe, fromMaybe, fromJust)
 import Control.Lens
@@ -43,18 +46,21 @@ initialModel tree =
         , _statePlayhead    = 0
         , _stateFrameNumber = 0
         , _stateStep        = 0
+        , _stateRepMode     = False
+        , _stateRepDk       = False
         }
     , _stateTree        = tree
     }
+
+instance HasToken TreeState where
+  type TokenOf TreeState = Int
 
 instance Model TreeState where
     screenSize state = --FullScreen
                        Window $ Point2 1024 900
     shouldLoop _ = True
     fontFile _ = findDefaultFont
-    updateModelState frame elapsedTime inputs state =
-        let state' = foldl (flip processInput) state inputs
-        in  over stateBase (updateSceneState frame elapsedTime) state'
+    updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     ioTask = return
     constructScene state status =
         do  let treeScaffold = undefined -- scafTree (state ^. stateTree)
@@ -67,8 +73,16 @@ instance Model TreeState where
     handleOutput state target = do  presentTarget target
                                     return state
 
-instance HandlesInput TreeState where
-    processInput input = over stateBase (processInput input)
+instance HandlesInput token TreeState where
+   processInput input =
+          over stateBase (processInput input) . (
+          execState $
+          case input ^. inputType of
+              (InputKey Pressed _ inputKeyboard) ->
+                  do  case inputKeyboard of
+                          _ -> return ()
+              _ -> return ()
+          )
 
 main :: IO ()
 main = --silence $
@@ -81,8 +95,8 @@ scafTree (Branch l r) =
   let left  = SLeaf $ Named "left"  $ scafTree l
       right = SLeaf $ Named "right" $ scafTree r
   in  SLeaf $ Named "origin" $
-      overlap [ stack AlignMin [left, right]
-              , SLeaf $ Build2 (\x y -> stroke 0.1 $ line x y) (From ["left" , "origin"]) (Offset zeroPoint)
+      overlap [ {-stack AlignMin [left, right]
+              ,-} SLeaf $ Build2 (\x y -> stroke 0.1 $ line x y) (From ["left" , "origin"]) (Offset zeroPoint)
               , SLeaf $ Build2 (\x y -> stroke 0.1 $ line x y) (From ["right", "origin"]) (Offset zeroPoint)
               ]
 scafTree (Leaf i) = SLeaf $ Named "origin" $ SLeaf $ Build circle

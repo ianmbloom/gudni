@@ -19,7 +19,7 @@ module Graphics.Gudni.Raster.Constants
     , tAXICABfLATNESS
     , sTOCHASTICfACTOR
     , mINtILEsIZE
-    , mAXsECTIONsIZE
+    , mAXsTRANDsIZE
     , mAXlAYERS
     , mAXtHRESHOLDS
     , mAXfACETiD
@@ -78,7 +78,7 @@ mAXlAYERS        = 256 :: Int -- a hard limit on the number of shapes based on t
 mAXtHRESHOLDS    = 256 :: Int
 
 mINtILEsIZE      = Point2 16 32 :: Point2 PixelSpace
-mAXsECTIONsIZE   = 32   :: Int
+mAXsTRANDsIZE   = 32   :: Int
 rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
 
 sOURCEfILEpADDING = 40 :: Int -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines

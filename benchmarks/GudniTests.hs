@@ -64,7 +64,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 1
+    , _stateCurrentTest = 0
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
@@ -73,36 +73,37 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("fuzzy basic"       , fuzzyBasic          ) --  3 -
            , ("fuzzy circles"     , fuzzyCircles        ) --  4 -
            , ("fuzzy squares"     , fuzzySquares        ) --  5 -
-           , ("fuzzy glyphs"      , fuzzyGlyphs2        ) --  6 -
-           , ("testPict"          , testPict            ) --  7 -
-           , ("rectGrid"          , rectGrid            ) --  8 -
-           , ("solidGrid"         , solidGrid           ) --  9 -
-           , ("checkerBoard"      , checkerBoard        ) -- 10 -
-           , ("openSquare"        , openSquare          ) -- 11 -
-           , ("openSquareOverlap2", openSquareOverlap2  ) -- 12 -
-           , ("stackOfSquares"    , stackOfSquares      ) -- 13 -
-           , ("concentricSquares2", concentricSquares2  ) -- 14 -
-           , ("concentricSquares3", concentricSquares3  ) -- 15 -
-           , ("subtractDiamond "  , subtractDiamond     ) -- 16 -
-           , ("simpleKnob"        , simpleKnob          ) -- 17 -
-           , ("hourGlass"         , hourGlass           ) -- 18 -
-           , ("simpleGlyph"       , simpleGlyph         ) -- 19 -
-           , ("triangle"          , triangle            ) -- 20 -
-           , ("sixPointRectangle" , sixPointRectangle   ) -- 21 -
-           , ("tinySquare"        , tinySquare          ) -- 22 -
-           , ("mediumSequare"     , mediumSquare        ) -- 23 -
-           , ("simpleRectangle"   , simpleRectangle     ) -- 24 -
-           , ("tallRectangle"     , tallRectangle       ) -- 25 -
-           , ("twoBrackets"       , twoBrackets         ) -- 26 -
-           , ("fuzzySquares2"     , fuzzySquares2       ) -- 27 -
-           , ("maxThresholdTest"  , maxThresholdTest    ) -- 28 -
-           , ("maxShapeTest"      , maxShapeTest        ) -- 29 -
-           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 30 -
-           , ("fullRectangle"     , fullRectangle       ) -- 31 -
-           , ("overlappingSquares", overlappingSquares  ) -- 32 -
-           , ("overlappingCircles", overlappingCircles  ) -- 33 -
-           , ("1 Million Circles" , millionFuzzyCircles ) -- 34 -
-           , ("bigGrid"           , bigGrid             ) -- 35 -
+           , ("fuzzy glyphs"      , fuzzyGlyphs         ) --  6 -
+           , ("fuzzy glyphs2"     , fuzzyGlyphs2        ) --  7 -
+           , ("testPict"          , testPict            ) --  8 -
+           , ("rectGrid"          , rectGrid            ) --  9 -
+           , ("solidGrid"         , solidGrid           ) -- 10 -
+           , ("checkerBoard"      , checkerBoard        ) -- 11 -
+           , ("openSquare"        , openSquare          ) -- 12 -
+           , ("openSquareOverlap2", openSquareOverlap2  ) -- 13 -
+           , ("stackOfSquares"    , stackOfSquares      ) -- 14 -
+           , ("concentricSquares2", concentricSquares2  ) -- 15 -
+           , ("concentricSquares3", concentricSquares3  ) -- 16 -
+           , ("subtractDiamond "  , subtractDiamond     ) -- 17 -
+           , ("simpleKnob"        , simpleKnob          ) -- 18 -
+           , ("hourGlass"         , hourGlass           ) -- 19 -
+           , ("simpleGlyph"       , simpleGlyph         ) -- 20 -
+           , ("triangle"          , triangle            ) -- 21 -
+           , ("sixPointRectangle" , sixPointRectangle   ) -- 22 -
+           , ("tinySquare"        , tinySquare          ) -- 23 -
+           , ("mediumSequare"     , mediumSquare        ) -- 24 -
+           , ("simpleRectangle"   , simpleRectangle     ) -- 25 -
+           , ("tallRectangle"     , tallRectangle       ) -- 26 -
+           , ("twoBrackets"       , twoBrackets         ) -- 27 -
+           , ("fuzzySquares2"     , fuzzySquares2       ) -- 28 -
+           , ("maxThresholdTest"  , maxThresholdTest    ) -- 29 -
+           , ("maxShapeTest"      , maxShapeTest        ) -- 30 -
+           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 31 -
+           , ("fullRectangle"     , fullRectangle       ) -- 32 -
+           , ("overlappingSquares", overlappingSquares  ) -- 33 -
+           , ("overlappingCircles", overlappingCircles  ) -- 34 -
+           , ("1 Million Circles" , millionFuzzyCircles ) -- 35 -
+           , ("bigGrid"           , bigGrid             ) -- 36 -
            ]
 
 maxThresholdTest :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
@@ -137,7 +138,7 @@ fuzzyDonut :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyDonut state = return $
                let time = view (stateBase . stateLastTime) state
                in  translateByXY 500 500 .
-                   overlap $ evalRand (sequence . replicate 4 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+                   overlap $ evalRand (sequence . replicate 16 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 -- | A basic fuzz test of random curves contained in a rectagular area.
 fuzzyBasic :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
@@ -198,7 +199,7 @@ fuzzySquares :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace
 fuzzySquares state = return $
                let time = view (stateBase . stateLastTime) state
                in  overlap $
-                   evalRand (sequence . replicate 5000 $ fuzzySquare (makePoint 1440 900) 10 60) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+                   evalRand (sequence . replicate 5000 $ fuzzySquare (makePoint 2880 1800) 10 60) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 -- | Smaller random field of transparent squares.
 fuzzySquares2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
@@ -212,17 +213,17 @@ fuzzyGlyphs state =
   do defaultGlyphs <- V.fromList <$> glyphString ['!'..'z']
      let len = length defaultGlyphs
      return $  let time = view (stateBase . stateLastTime) state
-               in  overlap $
-                   evalRand (sequence . replicate 10000 $ fuzzyGlyph defaultGlyphs (2 * (makePoint 2880 1800)) 10 300) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+               in  translateByXY 200 200 .
+                   overlap $
+                   evalRand (sequence . replicate 1000 $ fuzzyGlyph defaultGlyphs (makePoint 512 512) 10 300) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 fuzzyGlyphs2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 fuzzyGlyphs2 state =
   do defaultGlyphs <- V.fromList <$> glyphString ['!'..'z']
      let len = length defaultGlyphs
      return $  let time = view (stateBase . stateLastTime) state
-               in  translateByXY 200 200 .
-                   overlap $
-                   evalRand (sequence . replicate 2000 $ fuzzyGlyph defaultGlyphs (makePoint 800 800) 10 200) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+               in  overlap $
+                   evalRand (sequence . replicate 25000 $ fuzzyGlyph defaultGlyphs (makePoint 2880 2000) 10 200) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 -- | A grid of rotating glyphs with overlapping subtracted glyphs
 benchmark1 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)

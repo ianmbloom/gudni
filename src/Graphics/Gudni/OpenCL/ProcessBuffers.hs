@@ -28,6 +28,7 @@ import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.OpenCL.Rasterizer
 import Graphics.Gudni.OpenCL.PrepareBuffers
 import Graphics.Gudni.OpenCL.CallKernels
+import Graphics.Gudni.Raster.Params
 import Graphics.Gudni.Raster.Serialize
 import Graphics.Gudni.Raster.ItemInfo
 import Graphics.Gudni.Raster.SubstanceInfo
@@ -396,19 +397,19 @@ runRaster :: Show token
           => RasterParams token
           -> IO (S.Seq (PointQueryResult token))
 runRaster params =
-    do  let tileTree = params ^. rpGeometryState . geoTileTree
+    do  let tileTree = params ^. rpSerialState . serTileTree
         -- Get the OpenCL state from the Library structure.
         let state = params ^. rpRasterizer . rasterClState
         -- total number of 32 bit words in the output buffer.
         -- liftIO $ outputGeometryState (params ^. rpGeometryState)
-        -- liftIO $ outputSubstanceState(params ^. rpSubstanceState)
+        -- liftIO $ outputSerialState(params ^. rpSerialState)
         runCL state $
             do buffersInCommon <- createBuffersInCommon params
                -- | Create the buffers in common, which are the read only buffers that the rasterization kernel will use
                -- to generate thresholds and render images
-               queryResults <- case params ^. rpFrameSpec . specDrawTarget . targetBuffer of
+               queryResults <- case params ^. rpDrawTarget . targetBuffer of
                                    HostBitmapTarget outputPtr ->
-                                       let outputSize   = fromIntegral $ pointArea (params ^. rpFrameSpec . specBitmapSize)
+                                       let outputSize   = fromIntegral $ pointArea (params ^. rpBitmapSize)
                                        in  -- In this case the resulting bitmap will be stored in memory at outputPtr.
                                            generateLoop params buffersInCommon tileTree (OutPtr outputPtr outputSize)
                                    GLTextureTarget textureName ->
@@ -416,4 +417,4 @@ runRaster params =
                                        -- But currently this isn't working, so throw an error.
                                        error "GLTextureTarget not implemented"
                releaseBuffersInCommon buffersInCommon
-               return $ fmap (makeTokenQuery (params ^. rpSubstanceState . suTokenMap)) queryResults
+               return $ fmap (makeTokenQuery (params ^. rpSerialState . serTokenMap)) queryResults

@@ -68,6 +68,7 @@ import Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.TileTree
 import Graphics.Gudni.Raster.Serialize
+import Graphics.Gudni.Raster.Params
 import Graphics.Gudni.Raster.TraverseShapeTree
 
 import Graphics.Gudni.Figure
@@ -129,9 +130,9 @@ data ApplicationState s = AppState
 makeLenses ''ApplicationState
 
 -- | Monad Stack for the event loop.
-type ApplicationMonad s = StateT (ApplicationState s) (GeometryMonad (FontMonad IO))
+type ApplicationMonad s = StateT (ApplicationState s) (FontMonad IO)
 
-runApplicationMonad :: ApplicationState s -> ApplicationMonad s a -> GeometryMonad (FontMonad IO) a
+runApplicationMonad :: ApplicationState s -> ApplicationMonad s a -> FontMonad IO a
 runApplicationMonad = flip evalStateT
 
 -- | Initializes openCL, frontend interface, timekeeper, randomfield data and returns the initial `ApplicationState`
@@ -161,16 +162,12 @@ runApplication state =
                 mFontFile <- liftIO $ fontFile state
                 -- Add the font file to the glyph monad.
                 addFont mFontFile
-                -- Generate a random field for the stochastic aliasing of the rasterizer.
-                randomField <- liftIO $ makeRandomField rANDOMFIELDsIZE
-                -- Run the geometry serialization monad.
-                runGeometryMonad randomField $
-                    -- Run the application monad.
-                    runApplicationMonad appState $
-                        do  -- start the event loop.
-                            loop []
-                            -- when the loop exits close the application.
-                            closeApplication
+                -- Run the application monad.
+                runApplicationMonad appState $
+                    do  -- start the event loop.
+                        loop []
+                        -- when the loop exits close the application.
+                        closeApplication
 
 -- | Convert a `Timespec` to the `SimpleTime` (a double in seconds from application start)
 toSimpleTime :: TimeSpec -> SimpleTime
@@ -216,7 +213,7 @@ processState elapsedTime inputs =
         then appMessage $ show finalState
         else appMessage $ show finalState ++ show inputs
         status <- use appStatus
-        scene <- lift . lift $ constructScene finalState status
+        scene <- lift $ constructScene finalState status
         markAppTime "Build State"
         return scene
 
@@ -226,36 +223,30 @@ drawFrame frameCount scene queries =
     do  --appMessage "ResetJob"
         rasterizer <- use appRasterizer
         target <- withIO appBackend (prepareTarget (rasterizer ^. rasterUseGLInterop))
+        let canvasSize = P $ fromIntegral <$> target ^. targetArea
         state <- use appState
         pictureMap <- liftIO $ providePictureMap state
-        let canvasSize = P (target ^. targetArea)
-        lift (geoCanvasSize .= (fromIntegral <$> canvasSize))
-        let maxTileSize = rasterizer ^. rasterDeviceSpec . specMaxTileSize
-        lift (geoTileTree .= buildTileTree S.empty maxTileSize (fromIntegral <$> canvasSize))
         markAppTime "Build TileTree"
-        (scenePictMem, pictDataPile) <- liftIO $ assignScenePictureMemory pictureMap scene
-        substanceState <- lift ( execSubstanceMonad $ buildOverScene scenePictMem)
-        --liftIO $ evaluate $ rnf (substances, boundedShapedEnclosures, substanceState)
-        markAppTime "Traverse ShapeTree"
-        geometryState <- lift $ get
-        --liftIO $ putStrLn $ "TileTree " ++ show (geometryState ^. geoTileTree)
+        queryResults <- withSerializedScene rasterizer canvasSize pictureMap scene $
+             \ pictDataPile serialState ->
+                   do  --liftIO $ evaluate $ rnf (substances, boundedShapedEnclosures, SerialState)
+                       markAppTime "Traverse ShapeTree"
+                       --liftIO $ putStrLn $ "TileTree " ++ show (geometryState ^. geoTileTree)
 
-        -- | Create a specification for the current frame.
-        let bitmapSize   = P $ fromIntegral <$> target ^. targetArea
-            frameSpec    = FrameSpec bitmapSize target frameCount
-            rasterParams = RasterParams frameSpec
-                                        rasterizer
-                                        geometryState
-                                        substanceState
-                                        pictDataPile
-                                        queries
-        appMessage "===================== rasterStart ====================="
-        queryResults <- liftIO $ runRaster rasterParams
-        appMessage "===================== rasterDone ====================="
-        markAppTime "Rasterize Threads"
-        lift resetGeometryMonad
-        lift $ freeSubstanceState substanceState
-        --liftIO $ threadDelay 3000000
+                       -- | Create a specification for the current frame.
+                       let rasterParams = RasterParams rasterizer
+                                                       serialState
+                                                       pictDataPile
+                                                       queries
+                                                       canvasSize
+                                                       target
+                                                       frameCount
+                       appMessage "===================== rasterStart ====================="
+                       queryResults <- liftIO $ runRaster rasterParams
+                       appMessage "===================== rasterDone ====================="
+                       markAppTime "Rasterize Threads"
+                       --liftIO $ threadDelay 3000000
+                       return queryResults
         return (target, toList queryResults)
 
 -- Final phase of the event loop.
