@@ -26,6 +26,7 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
   , bicPictMemRefHeap
   , bicFacetHeap
   , bicItemTagHeap
+  , bicItemTagIdHeap
   , bicSubTagHeap
   , bicSolidColors
   , bicPictHeap
@@ -33,8 +34,9 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
 
   , newBuffer
   , releaseBuffer
-  , createBuffersInCommon
-  , releaseBuffersInCommon
+  , bufferFromPile
+  , bufferFromVector
+  , withBuffersInCommon
 
   , BlockId(..)
   , BlockSection(..)
@@ -119,6 +121,7 @@ data BuffersInCommon = BuffersInCommon
   , _bicPictMemRefHeap :: CLBuffer PictureMemoryReference
   , _bicFacetHeap      :: CLBuffer (HardFacet_ SubSpace TextureSpace)
   , _bicItemTagHeap    :: CLBuffer ItemTag
+  , _bicItemTagIdHeap  :: CLBuffer ItemTagId
   , _bicSubTagHeap     :: CLBuffer SubstanceTag
   , _bicSolidColors    :: CLBuffer Color
   , _bicPictHeap       :: CLBuffer Word8
@@ -126,47 +129,66 @@ data BuffersInCommon = BuffersInCommon
   }
 makeLenses ''BuffersInCommon
 
-newBuffer :: (Storable a) => Int -> CL (CLBuffer a)
-newBuffer size = trWith (show . bufferObject) "   newBuffer" <$> allocBuffer [CL_MEM_READ_WRITE] (max 1 size)
+newBuffer :: (Storable a) => String -> Int -> CL (CLBuffer a)
+newBuffer message size = trWith (show . bufferObject) ("   newBuffer " ++ message) <$> allocBuffer [CL_MEM_READ_WRITE] (max 1 size)
 
-releaseBuffer :: CLBuffer a -> CL Bool
-releaseBuffer buffer = liftIO $ clReleaseMemObject . bufferObject . trWith (show . bufferObject) "releaseBuffer" $ buffer
+releaseBuffer :: String -> CLBuffer a -> CL Bool
+releaseBuffer message buffer = liftIO $ clReleaseMemObject . bufferObject . trWith (show . bufferObject) ("releaseBuffer " ++ message) $ buffer
 
+bufferFromPile :: (Storable a) => String -> Pile a -> CL (CLBuffer a)
+bufferFromPile message pile =
+   do context <- clContext <$> ask
+      buffer <- liftIO $ pileToBuffer context pile
+      return $ trWith (show . bufferObject) ("  pileBuffer " ++ message) buffer
 
-createBuffersInCommon :: RasterParams token -> CL BuffersInCommon
-createBuffersInCommon params =
-    do context <- clContext <$> ask
-       liftIO $
-         do
-            geoBuffer      <- pileToBuffer context   (params ^. rpSerialState . serGeometryPile    )
-            pictMemBuffer  <- pileToBuffer context   (params ^. rpSerialState . serPictureMems     )
-            facetBuffer    <- pileToBuffer context   (params ^. rpSerialState . serFacetPile       )
-            itemTagBuffer  <- pileToBuffer context   (params ^. rpSerialState . serItemTagPile     )
-            subTagBuffer   <- pileToBuffer context   (params ^. rpSerialState . serSubstanceTagPile)
-            colorBuffer    <- pileToBuffer context   (params ^. rpSerialState . serSolidColorPile  )
-            pictDataBuffer <- pileToBuffer context   (params ^. rpPictDataPile)
-            randoms        <- vectorToBuffer context (params ^. rpRasterizer  . rasterRandomField  )
-            return $  BuffersInCommon
-                      { _bicGeometryHeap   = geoBuffer
-                      , _bicPictMemRefHeap = pictMemBuffer
-                      , _bicFacetHeap      = facetBuffer
-                      , _bicItemTagHeap    = itemTagBuffer
-                      , _bicSubTagHeap     = subTagBuffer
-                      , _bicSolidColors    = colorBuffer
-                      , _bicPictHeap       = pictDataBuffer
-                      , _bicRandoms        = randoms
-                      }
+bufferFromVector :: (Storable a) => String -> VS.Vector a -> CL (CLBuffer a)
+bufferFromVector message vector =
+   do context <- clContext <$> ask
+      buffer <- liftIO $ vectorToBuffer context vector
+      return $ trWith (show . bufferObject) ("vectorBuffer " ++ message) buffer
+
+withBuffersInCommon :: RasterParams token -> Pile ItemTagId -> (BuffersInCommon -> CL a) -> CL a
+withBuffersInCommon params itemTagIdPile code =
+   do  bic <- createBuffersInCommon params itemTagIdPile
+       result <- code bic
+       releaseBuffersInCommon bic
+       return result
+
+createBuffersInCommon :: RasterParams token -> Pile ItemTagId -> CL BuffersInCommon
+createBuffersInCommon params itemTagIdPile =
+    do  itemTagIdBuffer <- bufferFromPile "itemTagIdPile" itemTagIdPile
+        geoBuffer       <- bufferFromPile   "geoBuffer     " (params ^. rpSerialState . serGeometryPile    )
+        pictMemBuffer   <- bufferFromPile   "pictMemBuffer " (params ^. rpSerialState . serPictureMems     )
+        facetBuffer     <- bufferFromPile   "facetBuffer   " (params ^. rpSerialState . serFacetPile       )
+        itemTagBuffer   <- bufferFromPile   "itemTagBuffer " (params ^. rpSerialState . serItemTagPile     )
+        subTagBuffer    <- bufferFromPile   "subTagBuffer  " (params ^. rpSerialState . serSubstanceTagPile)
+        colorBuffer     <- bufferFromPile   "colorBuffer   " (params ^. rpSerialState . serSolidColorPile  )
+        pictDataBuffer  <- bufferFromPile   "pictDataBuffer" (params ^. rpPictDataPile)
+        randoms         <- bufferFromVector "randoms       " (params ^. rpRasterizer  . rasterRandomField  )
+        return $  BuffersInCommon
+                  { _bicGeometryHeap   = geoBuffer
+                  , _bicPictMemRefHeap = pictMemBuffer
+                  , _bicFacetHeap      = facetBuffer
+                  , _bicItemTagHeap    = itemTagBuffer
+                  , _bicItemTagIdHeap  = itemTagIdBuffer
+                  , _bicSubTagHeap     = subTagBuffer
+                  , _bicSolidColors    = colorBuffer
+                  , _bicPictHeap       = pictDataBuffer
+                  , _bicRandoms        = randoms
+                  }
 
 releaseBuffersInCommon :: BuffersInCommon -> CL ()
 releaseBuffersInCommon bic =
-    do  releaseBuffer $ bic ^. bicGeometryHeap
-        releaseBuffer $ bic ^. bicPictMemRefHeap
-        releaseBuffer $ bic ^. bicFacetHeap
-        releaseBuffer $ bic ^. bicItemTagHeap
-        releaseBuffer $ bic ^. bicSubTagHeap
-        releaseBuffer $ bic ^. bicSolidColors
-        releaseBuffer $ bic ^. bicPictHeap
-        releaseBuffer $ bic ^. bicRandoms
+    do
+        releaseBuffer "bicGeometryHeap  " $ bic ^. bicGeometryHeap
+        releaseBuffer "bicPictMemRefHeap" $ bic ^. bicPictMemRefHeap
+        releaseBuffer "bicFacetHeap     " $ bic ^. bicFacetHeap
+        releaseBuffer "bicItemTagHeap   " $ bic ^. bicItemTagHeap
+        releaseBuffer "bicItemTagIdHeap " $ bic ^. bicItemTagIdHeap
+        releaseBuffer "bicSubTagHeap    " $ bic ^. bicSubTagHeap
+        releaseBuffer "bicSolidColors   " $ bic ^. bicSolidColors
+        releaseBuffer "bicPictHeap      " $ bic ^. bicPictHeap
+        releaseBuffer "bicRandoms       " $ bic ^. bicRandoms
         return ()
 
 newtype BlockId = BlockId {unBlockId :: Int} deriving (Eq, Ord, Num)
@@ -203,14 +225,14 @@ createBlockSection params =
          maxThresholds   = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
          blockSize       = blocksToAlloc * columnsPerBlock * maxThresholds
      context <- clContext <$> ask
-     tileBuffer       <- newBuffer blocksToAlloc :: CL (CLBuffer Tile)
-     thresholdBuffer  <- newBuffer blockSize :: CL (CLBuffer THRESHOLDTYPE)
-     headerBuffer     <- newBuffer blockSize :: CL (CLBuffer HEADERTYPE   )
-     queueSliceBuffer <- newBuffer (blocksToAlloc * columnsPerBlock) :: CL (CLBuffer (Slice Int))
+     tileBuffer       <- newBuffer "tileBuffer      "  blocksToAlloc :: CL (CLBuffer Tile)
+     thresholdBuffer  <- newBuffer "thresholdBuffer "  blockSize :: CL (CLBuffer THRESHOLDTYPE)
+     headerBuffer     <- newBuffer "headerBuffer    "  blockSize :: CL (CLBuffer HEADERTYPE   )
+     queueSliceBuffer <- newBuffer "queueSliceBuffer"  (blocksToAlloc * columnsPerBlock) :: CL (CLBuffer (Slice Int))
      let blockIdVector = VS.generate blocksToAlloc BlockId
-     blockIdBuffer    <- (liftIO . vectorToBuffer context $ blockIdVector :: CL (CLBuffer BlockId))
+     blockIdBuffer    <- bufferFromVector "blockIdBuffer" $ blockIdVector :: CL (CLBuffer BlockId)
      let activeFlagVector = VS.replicate blocksToAlloc . toCBool $ False
-     activeFlagBuffer <- (liftIO . vectorToBuffer context $ activeFlagVector :: CL (CLBuffer CBool))
+     activeFlagBuffer <- bufferFromVector "activeFlagVector" $ activeFlagVector :: CL (CLBuffer CBool)
      return $ BlockSection
               { _sectTileBuffer       = tileBuffer
               , _sectThresholdBuffer  = thresholdBuffer
@@ -226,12 +248,12 @@ createBlockSection params =
 
 releaseBlockSection :: BlockSection -> CL ()
 releaseBlockSection blockSection =
-  do releaseBuffer $ blockSection ^. sectTileBuffer
-     releaseBuffer $ blockSection ^. sectThresholdBuffer
-     releaseBuffer $ blockSection ^. sectHeaderBuffer
-     releaseBuffer $ blockSection ^. sectQueueSliceBuffer
-     releaseBuffer $ blockSection ^. sectBlockIdBuffer
-     releaseBuffer $ blockSection ^. sectActiveFlagBuffer
+  do releaseBuffer "sectTileBuffer      " $ blockSection ^. sectTileBuffer
+     releaseBuffer "sectThresholdBuffer " $ blockSection ^. sectThresholdBuffer
+     releaseBuffer "sectHeaderBuffer    " $ blockSection ^. sectHeaderBuffer
+     releaseBuffer "sectQueueSliceBuffer" $ blockSection ^. sectQueueSliceBuffer
+     releaseBuffer "sectBlockIdBuffer   " $ blockSection ^. sectBlockIdBuffer
+     releaseBuffer "sectActiveFlagBuffer" $ blockSection ^. sectActiveFlagBuffer
      return ()
 
 data PointQuery = PointQuery

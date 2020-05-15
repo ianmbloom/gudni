@@ -1477,7 +1477,7 @@ COLOR compositeLayers( PMEM    ShapeState *shS
    while (layer < shS->itemCount && !(OPAQUE(color))) {
      ITEMTAG currentItemTag = shS->itemTagStack[layer];
      SUBSTANCETAG currentSubstanceTag = cS->csSubstanceTagHeap[itemTagSubstanceTagId(currentItemTag)];
-     COLOR testColor = cS->csSolidColors[substanceTagColorId(currentSubstanceTag)];
+     //COLOR testColor = cS->csSolidColors[substanceTagColorId(currentSubstanceTag)];
      //DEBUG_IF(printf("layer %i", layer);showItemTag(currentItemTag);showSubstanceTag(currentSubstanceTag);printf("color %2.2v4f \n", testColor);)
      if (itemTagIsFacet(currentItemTag)) {
        currentFacet = itemTagFacetId(currentItemTag);
@@ -2865,7 +2865,7 @@ __kernel void pointQueryKernel
     // WRONG
     int4 tileBox = tileHeap[blockId];
     float4 columnBox = initColumnBox(tileBox, bitmapSize, columnThread);
-    int2   columnDelta = (int2)(boxLeft(tileBox) + columnThread, boxTop(tileBox));
+    //int2   columnDelta = (int2)(boxLeft(tileBox) + columnThread, boxTop(tileBox));
     for (int i = 0; i < numQueries; i++) {
         PointQuery query = queryHeap[i];
         if (blockId == 0 && columnThread == 0) {

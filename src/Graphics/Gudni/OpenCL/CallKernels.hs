@@ -184,14 +184,13 @@ runInitializeBlockKernel params blockSection blockId tile =
 
 runGenerateThresholdsKernel :: RasterParams token
                             -> BuffersInCommon
-                            -> Pile ItemTagId
                             -> Reference ItemTagId
                             -> BlockSection
                             -> BlockId
                             -> Int
                             -> Int
                             -> CL (Int, BlockSection)
-runGenerateThresholdsKernel params buffersInCommon itemTagIdPile itemStart blockSection blockId progress batchSize =
+runGenerateThresholdsKernel params buffersInCommon itemStart blockSection blockId progress batchSize =
   do let context         = clContext (params ^. rpRasterizer . rasterClState)
          columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
      announceKernel "rasterGenerateThresholdsKernel" 0 0 0
@@ -201,7 +200,7 @@ runGenerateThresholdsKernel params buffersInCommon itemTagIdPile itemStart block
                      (buffersInCommon ^. bicGeometryHeap  )
                      (buffersInCommon ^. bicFacetHeap     )
                      (buffersInCommon ^. bicItemTagHeap   )
-                     itemTagIdPile
+                     (buffersInCommon ^. bicItemTagIdHeap )
                      (toCInt . unBlockId $ blockId)
                      (toCInt $ fromIntegral itemStart)
                      (toCInt progress )

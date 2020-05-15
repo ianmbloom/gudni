@@ -194,12 +194,11 @@ generateLoop :: ( KernelArgs
                 )
              => RasterParams token
              -> BuffersInCommon
-             -> TileTree (Tile, S.Seq ItemTagId)
+             -> TileTree (Tile, Slice ItemTagId)
              -> target
              -> CL (S.Seq (PointQueryId, SubstanceTag))
-generateLoop params buffersInCommon tree target =
-    do  (sliceTree, itemTagIdPile) <- runStateT (traverseTileTree makeItemEntrySlice tree) =<< (liftIO newPile)
-        let  blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
+generateLoop params buffersInCommon sliceTree target =
+    do  let  blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
              maxThresholds    = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
              batchSize        = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds `div` 2
              tileSlices :: S.Seq (Tile, Slice ItemTagId)
@@ -213,7 +212,7 @@ generateLoop params buffersInCommon tree target =
                      processStack 0
                      liftIO $ putStrLn $ "~~~~~~~ Tile Complete " ++ show tile
              sectionLoop :: Tile -> Slice ItemTagId -> GenerateMonad (S.Seq BlockSection) ()
-             sectionLoop tile slice =
+             sectionLoop  tile slice =
                do -- attempt to fill a block and see if the task is completed afterward.
                   moreToGenerate <- withSection (blockLoop tile slice)
                   if moreToGenerate
@@ -253,7 +252,7 @@ generateLoop params buffersInCommon tree target =
              generateBatch blockId itemStart size =
                do section <- use genData
                   progress <- use genProgress
-                  (maxQueue, section') <- lift $ runGenerateThresholdsKernel params buffersInCommon itemTagIdPile itemStart section blockId progress size
+                  (maxQueue, section') <- lift $ runGenerateThresholdsKernel params buffersInCommon itemStart section blockId progress size
                   genData .= section'
                   genProgress += size
                   return maxQueue
@@ -359,7 +358,6 @@ generateLoop params buffersInCommon tree target =
         --liftIO $ putStrLn $ "tileSlices " ++ show tileSlices
         finishedStack <- withStack (mapM_ processTile tileSlices) S.empty -- loop through each tile slice while reusing the stack
         releaseStack finishedStack -- deallocate all blockSections
-        liftIO $ freePile itemTagIdPile
         return S.empty
 
 addPortionToPile :: S.Seq ItemTagId -> StateT (Pile ItemTagId) CL (Slice ItemTagId)
@@ -394,17 +392,20 @@ runRaster params =
         -- liftIO $ outputGeometryState (params ^. rpGeometryState)
         -- liftIO $ outputSerialState(params ^. rpSerialState)
         runCL state $
-            do buffersInCommon <- createBuffersInCommon params
+            do (sliceTree, itemTagIdPile) <- runStateT (traverseTileTree makeItemEntrySlice tileTree) =<< (liftIO newPile)
+               queryResults <- withBuffersInCommon params itemTagIdPile $
+                 \ buffersInCommon ->
                -- | Create the buffers in common, which are the read only buffers that the rasterization kernel will use
                -- to generate thresholds and render images
-               queryResults <- case params ^. rpDrawTarget . targetBuffer of
-                                   HostBitmapTarget outputPtr ->
-                                       let outputSize   = fromIntegral $ pointArea (params ^. rpBitmapSize)
-                                       in  -- In this case the resulting bitmap will be stored in memory at outputPtr.
-                                           generateLoop params buffersInCommon tileTree (OutPtr outputPtr outputSize)
-                                   GLTextureTarget textureName ->
-                                       -- In this case an identifier for a Texture object that stays on the GPU would be stored∘
-                                       -- But currently this isn't working, so throw an error.
-                                       error "GLTextureTarget not implemented"
-               releaseBuffersInCommon buffersInCommon
+                     case params ^. rpDrawTarget . targetBuffer of
+                           HostBitmapTarget outputPtr ->
+                               let outputSize   = fromIntegral $ pointArea (params ^. rpBitmapSize)
+                               in  -- In this case the resulting bitmap will be stored in memory at outputPtr.
+                                  do
+                                     generateLoop params buffersInCommon sliceTree (OutPtr outputPtr outputSize)
+                           GLTextureTarget textureName ->
+                               -- In this case an identifier for a Texture object that stays on the GPU would be stored∘
+                               -- But currently this isn't working, so throw an error.
+                               error "GLTextureTarget not implemented"
+               liftIO $ freePile itemTagIdPile
                return $ fmap (makeTokenQuery (params ^. rpSerialState . serTokenMap)) queryResults
