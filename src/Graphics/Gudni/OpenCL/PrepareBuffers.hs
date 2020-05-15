@@ -130,22 +130,30 @@ data BuffersInCommon = BuffersInCommon
 makeLenses ''BuffersInCommon
 
 newBuffer :: (Storable a) => String -> Int -> CL (CLBuffer a)
-newBuffer message size = trWith (show . bufferObject) ("   newBuffer " ++ message) <$> allocBuffer [CL_MEM_READ_WRITE] (max 1 size)
+newBuffer message size =
+  do buffer <- allocBuffer [CL_MEM_READ_WRITE] (max 1 size)
+     --liftIO $ putStrLn $ "   newBuffer " ++ message ++ " " ++ (show . bufferObject $ buffer)
+     return buffer
 
 releaseBuffer :: String -> CLBuffer a -> CL Bool
-releaseBuffer message buffer = liftIO $ clReleaseMemObject . bufferObject . trWith (show . bufferObject) ("releaseBuffer " ++ message) $ buffer
+releaseBuffer message buffer =
+  do result <- liftIO $ clReleaseMemObject . bufferObject $ buffer
+     --liftIO $ putStrLn $ "releaseBuffer " ++ message ++ " " ++ (show . bufferObject $ buffer)
+     return result
 
 bufferFromPile :: (Storable a) => String -> Pile a -> CL (CLBuffer a)
 bufferFromPile message pile =
    do context <- clContext <$> ask
       buffer <- liftIO $ pileToBuffer context pile
-      return $ trWith (show . bufferObject) ("  pileBuffer " ++ message) buffer
+      --liftIO $ putStrLn $ "  pileBuffer " ++ message ++ " " ++ (show . bufferObject $ buffer)
+      return buffer
 
 bufferFromVector :: (Storable a) => String -> VS.Vector a -> CL (CLBuffer a)
 bufferFromVector message vector =
    do context <- clContext <$> ask
       buffer <- liftIO $ vectorToBuffer context vector
-      return $ trWith (show . bufferObject) ("vectorBuffer " ++ message) buffer
+      --liftIO $ putStrLn $ "vectorBuffer " ++ message ++ " " ++ (show . bufferObject $ buffer)
+      return buffer
 
 withBuffersInCommon :: RasterParams token -> Pile ItemTagId -> (BuffersInCommon -> CL a) -> CL a
 withBuffersInCommon params itemTagIdPile code =
@@ -156,7 +164,7 @@ withBuffersInCommon params itemTagIdPile code =
 
 createBuffersInCommon :: RasterParams token -> Pile ItemTagId -> CL BuffersInCommon
 createBuffersInCommon params itemTagIdPile =
-    do  itemTagIdBuffer <- bufferFromPile "itemTagIdPile" itemTagIdPile
+    do  itemTagIdBuffer <- bufferFromPile   "itemTagIdPile " itemTagIdPile
         geoBuffer       <- bufferFromPile   "geoBuffer     " (params ^. rpSerialState . serGeometryPile    )
         pictMemBuffer   <- bufferFromPile   "pictMemBuffer " (params ^. rpSerialState . serPictureMems     )
         facetBuffer     <- bufferFromPile   "facetBuffer   " (params ^. rpSerialState . serFacetPile       )
@@ -224,6 +232,7 @@ createBlockSection params =
          columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
          maxThresholds   = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
          blockSize       = blocksToAlloc * columnsPerBlock * maxThresholds
+     --liftIO $ putStrLn "createBlockSection"
      context <- clContext <$> ask
      tileBuffer       <- newBuffer "tileBuffer      "  blocksToAlloc :: CL (CLBuffer Tile)
      thresholdBuffer  <- newBuffer "thresholdBuffer "  blockSize :: CL (CLBuffer THRESHOLDTYPE)

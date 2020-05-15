@@ -7,6 +7,6 @@ package sdl2
 
 jobs: 4
 
-package gudni
-   profiling: True
-   profiling-detail: all-functions
+-- package gudni
+--    profiling: True
+--    profiling-detail: all-functions

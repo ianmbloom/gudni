@@ -208,6 +208,7 @@ library
                      , colour
                      , monadlist
                      , IfElse
+                     , filtrable
 
 
   -- Directories containing source files.

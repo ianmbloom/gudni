@@ -148,12 +148,12 @@ announceKernel name jobStep jobOffset jobSize =
      liftIO $ putStrLn (name ++ " step:" ++ show jobStep ++ " offset:" ++ show jobOffset ++ " size:" ++ show jobSize ++ "    XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
 
 runInitializeSectionKernel :: RasterParams token
+                           -> BlockSection
                            -> CL BlockSection
-runInitializeSectionKernel params =
+runInitializeSectionKernel params blockSection =
    do let columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
           blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
-      blockSection <- createBlockSection params
-      announceKernel "rasterInitializeSectionKernel" 0 0 0
+      --announceKernel "rasterInitializeSectionKernel" 0 0 0
       runKernel  (params ^. rpRasterizer . rasterInitializeSectionKernel)
                  (blockSection ^. sectBlockIdBuffer    )
                  (blockSection ^. sectActiveFlagBuffer )
@@ -169,7 +169,7 @@ runInitializeBlockKernel :: RasterParams token
 runInitializeBlockKernel params blockSection blockId tile =
    do let columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
           columnDepth      = params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth
-      announceKernel "rasterInitializeBlockKernel" 0 0 0
+      --announceKernel "rasterInitializeBlockKernel" 0 0 0
       runKernel  (params ^. rpRasterizer . rasterInitializeBlockKernel)
                  (blockSection ^. sectTileBuffer       )
                  (blockSection ^. sectQueueSliceBuffer )
@@ -193,7 +193,7 @@ runGenerateThresholdsKernel :: RasterParams token
 runGenerateThresholdsKernel params buffersInCommon itemStart blockSection blockId progress batchSize =
   do let context         = clContext (params ^. rpRasterizer . rasterClState)
          columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
-     announceKernel "rasterGenerateThresholdsKernel" 0 0 0
+     --announceKernel "rasterGenerateThresholdsKernel" 0 0 0
      outputMaxQueue <-
            runKernel (params ^. rpRasterizer . rasterGenerateThresholdsKernel)
                      -- constant data buffers
