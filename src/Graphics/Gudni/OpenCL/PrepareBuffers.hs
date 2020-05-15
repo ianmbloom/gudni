@@ -32,6 +32,7 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
   , bicRandoms
 
   , newBuffer
+  , releaseBuffer
   , createBuffersInCommon
   , releaseBuffersInCommon
 
@@ -125,6 +126,13 @@ data BuffersInCommon = BuffersInCommon
   }
 makeLenses ''BuffersInCommon
 
+newBuffer :: (Storable a) => Int -> CL (CLBuffer a)
+newBuffer size = trWith (show . bufferObject) "   newBuffer" <$> allocBuffer [CL_MEM_READ_WRITE] (max 1 size)
+
+releaseBuffer :: CLBuffer a -> CL Bool
+releaseBuffer buffer = liftIO $ clReleaseMemObject . bufferObject . trWith (show . bufferObject) "releaseBuffer" $ buffer
+
+
 createBuffersInCommon :: RasterParams token -> CL BuffersInCommon
 createBuffersInCommon params =
     do context <- clContext <$> ask
@@ -151,15 +159,15 @@ createBuffersInCommon params =
 
 releaseBuffersInCommon :: BuffersInCommon -> CL ()
 releaseBuffersInCommon bic =
-     liftIO $ do clReleaseMemObject . bufferObject $ bic ^. bicGeometryHeap
-                 clReleaseMemObject . bufferObject $ bic ^. bicPictMemRefHeap
-                 clReleaseMemObject . bufferObject $ bic ^. bicFacetHeap
-                 clReleaseMemObject . bufferObject $ bic ^. bicItemTagHeap
-                 clReleaseMemObject . bufferObject $ bic ^. bicSubTagHeap
-                 clReleaseMemObject . bufferObject $ bic ^. bicSolidColors
-                 clReleaseMemObject . bufferObject $ bic ^. bicPictHeap
-                 clReleaseMemObject . bufferObject $ bic ^. bicRandoms
-                 return ()
+    do  releaseBuffer $ bic ^. bicGeometryHeap
+        releaseBuffer $ bic ^. bicPictMemRefHeap
+        releaseBuffer $ bic ^. bicFacetHeap
+        releaseBuffer $ bic ^. bicItemTagHeap
+        releaseBuffer $ bic ^. bicSubTagHeap
+        releaseBuffer $ bic ^. bicSolidColors
+        releaseBuffer $ bic ^. bicPictHeap
+        releaseBuffer $ bic ^. bicRandoms
+        return ()
 
 newtype BlockId = BlockId {unBlockId :: Int} deriving (Eq, Ord, Num)
 
@@ -180,16 +188,12 @@ data BlockSection = BlockSection
   }
 makeLenses ''BlockSection
 
-newBuffer :: Storable a => Int -> CL (CLBuffer a)
-newBuffer size = allocBuffer [CL_MEM_READ_WRITE] (max 1 size)
-
 v4ToBox (V4 a b c d) = makeBox (fromIntegral a)
                                (fromIntegral b)
                                (fromIntegral c)
                                (fromIntegral d)
 
 nullTile = Tile $ v4ToBox nULLtILE
-
 
 createBlockSection :: RasterParams token
                    -> CL BlockSection
@@ -198,7 +202,6 @@ createBlockSection params =
          columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
          maxThresholds   = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
          blockSize       = blocksToAlloc * columnsPerBlock * maxThresholds
-     -- liftIO $ putStrLn "---- Begin ThresholdBuffer Allocation ----"
      context <- clContext <$> ask
      tileBuffer       <- newBuffer blocksToAlloc :: CL (CLBuffer Tile)
      thresholdBuffer  <- newBuffer blockSize :: CL (CLBuffer THRESHOLDTYPE)
@@ -208,7 +211,6 @@ createBlockSection params =
      blockIdBuffer    <- (liftIO . vectorToBuffer context $ blockIdVector :: CL (CLBuffer BlockId))
      let activeFlagVector = VS.replicate blocksToAlloc . toCBool $ False
      activeFlagBuffer <- (liftIO . vectorToBuffer context $ activeFlagVector :: CL (CLBuffer CBool))
-     -- liftIO $ putStrLn "---- Threshold Buffers Allocated ----"
      return $ BlockSection
               { _sectTileBuffer       = tileBuffer
               , _sectThresholdBuffer  = thresholdBuffer
@@ -224,13 +226,13 @@ createBlockSection params =
 
 releaseBlockSection :: BlockSection -> CL ()
 releaseBlockSection blockSection =
-     liftIO $ do clReleaseMemObject . bufferObject $ blockSection ^. sectTileBuffer
-                 clReleaseMemObject . bufferObject $ blockSection ^. sectThresholdBuffer
-                 clReleaseMemObject . bufferObject $ blockSection ^. sectHeaderBuffer
-                 clReleaseMemObject . bufferObject $ blockSection ^. sectQueueSliceBuffer
-                 clReleaseMemObject . bufferObject $ blockSection ^. sectBlockIdBuffer
-                 clReleaseMemObject . bufferObject $ blockSection ^. sectActiveFlagBuffer
-                 return ()
+  do releaseBuffer $ blockSection ^. sectTileBuffer
+     releaseBuffer $ blockSection ^. sectThresholdBuffer
+     releaseBuffer $ blockSection ^. sectHeaderBuffer
+     releaseBuffer $ blockSection ^. sectQueueSliceBuffer
+     releaseBuffer $ blockSection ^. sectBlockIdBuffer
+     releaseBuffer $ blockSection ^. sectActiveFlagBuffer
+     return ()
 
 data PointQuery = PointQuery
     { pqTileId :: TileId
