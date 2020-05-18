@@ -18,7 +18,6 @@ module Graphics.Gudni.Raster.Constants
     , HEADERTYPE(..)
     , tAXICABfLATNESS
     , sTOCHASTICfACTOR
-    , mINtILEsIZE
     , mAXsTRANDsIZE
     , mAXlAYERS
     , mAXtHRESHOLDS
@@ -77,7 +76,6 @@ mAXfACETiD       = (2^20) :: Int -- 1048576 total possible number of facets per 
 mAXlAYERS        = 256 :: Int -- a hard limit on the number of shapes based on the empirical testing of the timeout period of the GPU.
 mAXtHRESHOLDS    = 256 :: Int
 
-mINtILEsIZE      = Point2 16 32 :: Point2 PixelSpace
 mAXsTRANDsIZE   = 32   :: Int
 rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
 

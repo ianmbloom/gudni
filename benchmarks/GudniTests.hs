@@ -64,7 +64,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 36
+    , _stateCurrentTest = 0
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
@@ -247,8 +247,8 @@ benchmark1 state =
 rectGrid :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 rectGrid state = return $
     let grid :: CompoundTree SubSpace
-        grid =  overlap . gridOf 1 160 160 . repeat . rectangle $ Point2 0.5 0.5
-    in  scaleBy 4 .
+        grid =  overlap . gridOf 1 256 256 . repeat . rectangle $ Point2 0.5 0.5
+    in  scaleBy 2 .
         colorWith (transparent 1.0 white) $
         grid
 
@@ -265,7 +265,7 @@ bigGrid state = return $
 solidGrid :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 solidGrid state = return $
     let grid  :: CompoundTree SubSpace
-        grid   = overlap . gridOf 1 200 200 . repeat . rectangle $ Point2 1 1
+        grid   = overlap . gridOf 1 600 600 . repeat . rectangle $ Point2 1 1
     in
         colorWith (transparent 1.0 white) $
         grid

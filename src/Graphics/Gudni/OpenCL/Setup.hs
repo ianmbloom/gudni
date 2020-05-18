@@ -81,7 +81,7 @@ cppDefines spec =
   , Cpp "NOSUBSTANCETAG"                 (CppHex64 nOsUBSTANCEtAG               )
   , Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output
 --, Cpp "DEBUG_TRACE"                    (CppNothing) -- uncomment this to turn on parsable debugging output
-  , Cpp "DEBUGCOLUMNTHREAD"              (CppInt 0)   -- determines the column for DEBUG_IF macro
+  , Cpp "DEBUGCOLUMNTHREAD"              (CppInt 5)   -- determines the column for DEBUG_IF macro
   , Cpp "DEBUGINDEX"                     (CppInt 0)   -- determines the index for DEBUG_IF macro
   ]
 
@@ -118,19 +118,19 @@ determineRasterSpec device =
           computeSize = maxGroupSize :: Int -- `div` 8 :: Int
           computeDepth = adjustedLog computeSize
           blockAllocSize = computeSize * mAXtHRESHOLDS * (sizeOf (undefined :: THRESHOLDTYPE))
-          desiredBlockBufferSize = tr "desiredBlockBufferSize" $ fromIntegral (maxMemAllocSize `div` 4) `div` blockAllocSize
-          blockBufferDepth = tr "blockBufferDepth" $ (adjustedLog desiredBlockBufferSize - 1)
-          blockBufferSize  = tr "blockBufferSize"  $ 2 ^ blockBufferDepth
-          actualBlockBufferSize = tr "actualBlockBufferSize" $ min computeSize blockBufferSize
-      return DeviceSpec { _specMaxTileSize     = fromIntegral computeSize
-                        , _specMaxStrandSize   = mAXsTRANDsIZE
-                        , _specColumnsPerBlock = computeSize
-                        , _specColumnDepth     = adjustedLog computeSize
-                        , _specMaxThresholds   = mAXtHRESHOLDS
-                        , _specMaxLayers       = mAXlAYERS
-                        , _specBlocksPerSection = actualBlockBufferSize
-                        , _specBlockSectionDepth= adjustedLog actualBlockBufferSize
-                        , _specMergeJobDepth   = adjustedLog maxMergeJobSize
+          desiredBlockBufferSize = fromIntegral (maxMemAllocSize `div` 4) `div` blockAllocSize
+          blockBufferDepth = (adjustedLog desiredBlockBufferSize - 1)
+          blockBufferSize  = 2 ^ blockBufferDepth
+          actualBlockBufferSize = min computeSize blockBufferSize
+      return DeviceSpec { _specMaxTileSize       = fromIntegral computeSize
+                        , _specMaxStrandSize     = mAXsTRANDsIZE
+                        , _specColumnsPerBlock   = computeSize
+                        , _specColumnDepth       = adjustedLog computeSize
+                        , _specMaxThresholds     = mAXtHRESHOLDS
+                        , _specMaxLayers         = mAXlAYERS
+                        , _specBlocksPerSection  = actualBlockBufferSize
+                        , _specBlockSectionDepth = adjustedLog actualBlockBufferSize
+                        , _specMergeJobDepth     = adjustedLog maxMergeJobSize
                           -- | Determined maximum number of tiles per threshold generation kernel call for this device.
                         , _specGenerateJobSize   = maxGenerateJobSize
                           -- | Determined maximum number of tiles per split kernel call for this device.
@@ -199,6 +199,7 @@ setupOpenCL enableProfiling useCLGLInterop src =
               putStrLn $ "Finished OpenCL kernel compile"
               -- get the rasterizer kernel.
               initializeSectionKernel  <- getKernelAndDump device program "initializeSectionKernel"
+              totalThresholdsKernel    <- getKernelAndDump device program "totalThresholdsKernel"
               initializeBlockKernel    <- getKernelAndDump device program "initializeBlockKernel"
               generateThresholdsKernel <- getKernelAndDump device program "generateThresholdsKernel"
               collectMergedBlocksKernel<- getKernelAndDump device program "collectMergedBlocksKernel"
@@ -217,6 +218,7 @@ setupOpenCL enableProfiling useCLGLInterop src =
                     _rasterClState = state
                     -- | The rasterizer kernels.
                   , _rasterInitializeSectionKernel   = initializeSectionKernel
+                  , _rasterTotalThresholdKernel      = totalThresholdsKernel
                   , _rasterInitializeBlockKernel     = initializeBlockKernel
                   , _rasterGenerateThresholdsKernel  = generateThresholdsKernel
                   , _rasterCollectMergedBlocksKernel = collectMergedBlocksKernel

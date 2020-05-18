@@ -39,6 +39,7 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
   , withBuffersInCommon
 
   , BlockId(..)
+  , BlockPtr(..)
   , BlockSection(..)
   , sectTileBuffer
   , sectThresholdBuffer
@@ -200,6 +201,7 @@ releaseBuffersInCommon bic =
         return ()
 
 newtype BlockId = BlockId {unBlockId :: Int} deriving (Eq, Ord, Num)
+newtype BlockPtr = BlockPtr {unBlockPtr :: Int} deriving (Eq, Ord, Num)
 
 instance Show BlockId where
   show (BlockId id) = show id

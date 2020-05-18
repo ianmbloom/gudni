@@ -223,13 +223,15 @@ generateLoop params buffersInCommon sliceTree target =
              tileSlices :: S.Seq (Tile, Slice ItemTagId)
              tileSlices = execState (traverseTileTree (\t -> modify ( |> t)) sliceTree) S.empty
              processTile :: (Tile, Slice ItemTagId) -> GenerateMonad (S.Seq BlockSection) ()
-             processTile (tile, slice) = --announceStack "tile" $
+             processTile (tile, slice) = announceStack ("tile: " ++ show tile) $
                  do  genProgress .= 0
                      sectionLoop tile slice
-                     --lift $ showSections params "sectionLoopStack" stack
+                     stack <- use genData
+                     --lift $ showSections params "generated" stack
+                     mergeAll
                      processStack 0
              sectionLoop :: Tile -> Slice ItemTagId -> GenerateMonad (S.Seq BlockSection) ()
-             sectionLoop  tile slice = --announceStack "section" $
+             sectionLoop  tile slice = -- announceStack "section" $
                do -- attempt to fill a block and see if the task is completed afterward.
                   moreToGenerate <- withSection (blockLoop tile slice)
                   if moreToGenerate
@@ -247,45 +249,45 @@ generateLoop params buffersInCommon sliceTree target =
              blockLoop tile slice  = --announceSection "block" $
                do -- use new blocks as required to generate thresholds for all the items in the tile.
                   -- initialize a block from the available blocks in the section
-                  blockId <- initBlock tile
+                  blockPtr <- initBlock tile
                   -- loop through each batch until no new items can be safely added to the block.
-                  moreToGenerate <- batchLoop slice blockId
+                  moreToGenerate <- batchLoop slice blockPtr
                   len <- use (genData . sectNumActive)
                   if moreToGenerate && len < blocksPerSection
                   then blockLoop tile slice
                   else return moreToGenerate
-             batchLoop :: Slice ItemTagId -> BlockId -> GenerateMonad BlockSection Bool
-             batchLoop slice blockId = --announceSection "batch" $
+             batchLoop :: Slice ItemTagId -> BlockPtr -> GenerateMonad BlockSection Bool
+             batchLoop slice blockPtr = --announceSection "batch" $
                do let numItems = fromIntegral $ unBreadth $ sliceLength slice
                   progressBefore <- use genProgress
-                  maxQueue <- generateBatch blockId (sliceStart slice) (min (numItems - progressBefore) batchSize)
+                  maxQueue <- generateBatch blockPtr (sliceStart slice) (min (numItems - progressBefore) batchSize)
                   progress <- use genProgress
                   let spaceAvailableForBatch = maxQueue + batchSize < maxThresholds
                       moreToGenerate = progress < (fromIntegral . unBreadth) (sliceLength slice)
                   if  spaceAvailableForBatch && moreToGenerate
-                  then batchLoop slice blockId
+                  then batchLoop slice blockPtr
                   else return moreToGenerate
-             generateBatch :: BlockId -> Reference ItemTagId -> Int -> GenerateMonad BlockSection Int
-             generateBatch blockId itemStart size = --announceSection "generateBatch" $
+             generateBatch :: BlockPtr -> Reference ItemTagId -> Int -> GenerateMonad BlockSection Int
+             generateBatch blockPtr itemStart size = --announceSection "generateBatch" $
                do section <- use genData
                   progress <- use genProgress
-                  (maxQueue, section') <- lift $ runGenerateThresholdsKernel params buffersInCommon itemStart section blockId progress size
+                  (maxQueue, section') <- lift $ runGenerateThresholdsKernel params buffersInCommon itemStart section blockPtr progress size
                   genData .= section'
                   genProgress += size
                   return maxQueue
-             initBlock :: Tile -> GenerateMonad BlockSection BlockId
+             initBlock :: Tile -> GenerateMonad BlockSection BlockPtr
              initBlock tile =
                  do section <- use genData
-                    let blockId = BlockId $ section ^. sectNumActive
-                    section' <- lift $ runInitializeBlockKernel params section blockId tile
+                    let blockPtr = BlockPtr $ section ^. sectNumActive
+                    section' <- lift $ runInitializeBlockKernel params section blockPtr tile
                     genData .= over sectNumActive (+1) section'
-                    return blockId
+                    return blockPtr
              newSection :: GenerateMonad (S.Seq BlockSection) BlockSection
-             newSection = --announceStack "newSection" $
+             newSection = -- announceStack "newSection" $
                  lift $ do blockSection <- createBlockSection params
                            runInitializeSectionKernel params blockSection
              popSection :: GenerateMonad (S.Seq BlockSection) BlockSection
-             popSection = --announceStack "popSection" $
+             popSection = -- announceStack "popSection" $
                  do stack <- use genData
                     case S.viewl stack of
                             S.EmptyL -> do n <- newSection
@@ -296,12 +298,12 @@ generateLoop params buffersInCommon sliceTree target =
                                               return s
 
              topNumActive :: GenerateMonad (S.Seq BlockSection) Int
-             topNumActive = --announceStack "topNumActive" $
+             topNumActive = -- announceStack "topNumActive" $
                do section <- popSection
                   pushSection section
                   return (section ^. sectNumActive)
              pushSection :: BlockSection -> GenerateMonad (S.Seq BlockSection) ()
-             pushSection section = --announceStack "pushSection" $
+             pushSection section = -- announceStack "pushSection" $
                   do genData %= (section <|)
              withStack :: GenerateMonad (S.Seq BlockSection) () -> S.Seq BlockSection -> CL (S.Seq BlockSection)
              withStack code stack = do (GenState stack' progress') <- execStateT code (GenState stack 0)
@@ -320,7 +322,7 @@ generateLoop params buffersInCommon sliceTree target =
                                    pushSection hold
                                    return a
              processStack :: Int -> GenerateMonad (S.Seq BlockSection) ()
-             processStack pass = --announceStack "processStack" $
+             processStack pass = -- announceStack "processStack" $
                do collectAndRender
                   condenseAndSplit
                   mergeAll
@@ -329,27 +331,25 @@ generateLoop params buffersInCommon sliceTree target =
                   then processStack (pass + 1)
                   else return ()
              collectAndRender :: GenerateMonad (S.Seq BlockSection) ()
-             collectAndRender = --announceStack "collectAndRender" $
+             collectAndRender = -- announceStack "collectAndRender" $
                  do stack <- use genData
-                    processedStack <- withBeforeAndAfterIndex stack $
+                    renderedStack <- withBeforeAndAfterIndex stack $
                                 \ i before after blockSection ->
                                    do let prevTile = maybe nullTile (view sectLastTile)  before
                                           nextTile = maybe nullTile (view sectFirstTile) after
-                                      --liftIO $ putStrLn $ "|||||||||||||||||||||||| Process Section Start " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
                                       section' <- lift $ do toRenderSection <- runCollectRenderKernel params blockSection prevTile nextTile
                                                             when (toRenderSection ^. sectRenderLength > 0) $
                                                                do runSortKernel params toRenderSection
                                                                   runRenderKernel params buffersInCommon toRenderSection target
                                                             return toRenderSection
-                                      --liftIO $ putStrLn $ "|||||||||||||||||||||||| Process Section End   " ++ show i ++ " of " ++ show (S.length blockSectionStack) ++ "  |||||||||||||||||||||||| "
                                       return section'
-                    genData .= processedStack
+                    --lift $ showSections params "rendered" renderedStack
+                    genData .= renderedStack
              condenseAndSplit :: GenerateMonad (S.Seq BlockSection) ()
-             condenseAndSplit = --announceStack "condenseAndSplit" $
+             condenseAndSplit = -- announceStack "condenseAndSplit" $
                do stack <- use genData
-                  --showSections params "rendered" processedStack
                   (hasCombined, condensed) <- lift $ condenseStack params stack
-                  --showSections params ("condensed " ++ show hasCombined) condensed
+                  --lift $ showSections params ("condensed " ++ show hasCombined) condensed
                   splitStack <-
                       if hasCombined
                       then return condensed
@@ -357,18 +357,23 @@ generateLoop params buffersInCommon sliceTree target =
                                iforM condensed $
                                \ i blockSection -> --announceStack ("split " ++ show i) $
                                      if (blockSection ^. sectNumActive > 0)
-                                     then lift $ do newBlockSection <- createBlockSection params
-                                                    --liftIO $ putStrLn $ "blockSection to split " ++ show (blockSection ^. sectNumActive)
-                                                    runSplitKernel params blockSection newBlockSection
-                                                    return (Just blockSection, Just $ set sectNumActive (blockSection ^. sectNumActive) newBlockSection)
-                                     else return (Just blockSection, Nothing)
+                                     then if (blockSection ^. sectNumActive * 2 > blocksPerSection)
+                                          then  lift $ do newBlockSection <- createBlockSection params
+                                                          --liftIO $ putStrLn $ "blockSection to split " ++ show (blockSection ^. sectNumActive)
+                                                          runSplitKernel params blockSection 0 newBlockSection 0
+                                                          return (Just blockSection, Just $ set sectNumActive (blockSection ^. sectNumActive) newBlockSection)
+                                          else lift $ do runSplitKernel params blockSection 0 blockSection (blockSection ^. sectNumActive)
+                                                         return (Just (over sectNumActive (*2) blockSection), Nothing)
+                                     else lift $ return (Just blockSection, Nothing)
                               )
+                  --lift $ showSections params ("split " ++ show hasCombined) splitStack
                   genData .= splitStack
              mergeAll :: GenerateMonad (S.Seq BlockSection) ()
              mergeAll = --announceStack "mergeAll" $
                do stack <- use genData
                   mergedStack <- iforM stack $ \ i blockSection ->
                                        lift $ mergeAndCollect params 0 blockSection
+                  --lift $ showSections params ("mergedAll ") mergedStack
                   genData .= mergedStack
              mergePass :: GenerateMonad BlockSection ()
              mergePass = do section <- use genData
@@ -406,22 +411,22 @@ runRaster :: Show token
 runRaster params =
     do  let tileTree = params ^. rpSerialState . serTileTree
         -- Get the OpenCL state from the Library structure.
-        let state = params ^. rpRasterizer . rasterClState
+            state = params ^. rpRasterizer . rasterClState
         -- total number of 32 bit words in the output buffer.
         -- liftIO $ outputGeometryState (params ^. rpGeometryState)
         -- liftIO $ outputSerialState(params ^. rpSerialState)
         runCL state $
             do (sliceTree, itemTagIdPile) <- runStateT (traverseTileTree makeItemEntrySlice tileTree) =<< (liftIO newPile)
+               liftIO $ putStrLn "tileTreeTraversal complete"
                queryResults <- withBuffersInCommon params itemTagIdPile $
-                 \ buffersInCommon ->
-               -- | Create the buffers in common, which are the read only buffers that the rasterization kernel will use
-               -- to generate thresholds and render images
+                     \ buffersInCommon ->
+                     -- | Create the buffers in common, which are the read only buffers that the rasterization kernel will use
+                     -- to generate thresholds and render images
                      case params ^. rpDrawTarget . targetBuffer of
                            HostBitmapTarget outputPtr ->
                                let outputSize   = fromIntegral $ pointArea (params ^. rpBitmapSize)
                                in  -- In this case the resulting bitmap will be stored in memory at outputPtr.
-                                  do
-                                     generateLoop params buffersInCommon sliceTree (OutPtr outputPtr outputSize)
+                                   generateLoop params buffersInCommon sliceTree (OutPtr outputPtr outputSize)
                            GLTextureTarget textureName ->
                                -- In this case an identifier for a Texture object that stays on the GPU would be stored∘
                                -- But currently this isn't working, so throw an error.

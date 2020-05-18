@@ -680,6 +680,11 @@ int parallelMaxInt(LMEM  int *parts
                   ,      int  columnThread
                   );
 
+int parallelSumInt(LMEM  int *parts
+                  ,      int  x
+                  ,      int  columnDepth
+                  ,      int  columnThread
+                  );
 
 
 int parallelScanInt (LMEM  int *parts
@@ -1884,7 +1889,7 @@ void writePixelGlobal (        int2  columnDelta
                       ,         int  y
                       ) {
     uint colorWord = colorToSolidPixel_Word32_BGRA(color);
-    //DEBUG_IF(printf("columnDelta %v2i y %i color %2.2v4f colorWord %x\n", columnDelta, y, color, colorWord);)
+    //DEBUG_IF(printf("y %i color %2.2v4f colorWord %x columnDelta %v2i \n", y, color, colorWord, columnDelta);)
     int outPos = mul24(columnDelta.y + y, bitmapSize.x) + columnDelta.x;
     out[outPos] = colorWord;
 }
@@ -2106,6 +2111,27 @@ int parallelMaxInt (LMEM  int *parts
    return parts[0];
 }
 
+int parallelSumInt (LMEM  int *parts
+                   ,      int  x
+                   ,      int  depth
+                   ,      int  i
+                   ) {
+   //DEBUG_IF(printf("depth %i depth-1 %i 1<<(depth - 1) %i\n", depth, depth-1, 1<<(depth - 1));)
+   // Initial value into local memory
+   parts[i] = x;
+   // Loop for computing localSums : divide WorkGroup into 2 parts
+   barrier(CLK_LOCAL_MEM_FENCE);
+   for (int stride = 1<<(depth - 1); stride > 0; stride = stride >> 1) {
+       // Max elements 2 by 2 between local_id and local_id + stride
+       if (i < stride) {
+          parts[i] = parts[i] + parts[i+stride];
+       }
+       barrier(CLK_LOCAL_MEM_FENCE);
+   }
+   // Write result into partialSums[nWorkGroups]
+   return parts[0];
+}
+
 int parallelScanInt ( LMEM int *parts
                     ,      int  x
                     ,      int  columnDepth
@@ -2283,6 +2309,34 @@ __kernel void mergeAdjacent
     }
 }
 
+__kernel void totalThresholdsKernel
+    ( GMEM      Slice *qSliceHeap
+    , GMEM        int *blockIds
+    , GMEM       bool *activeFlag
+    ,             int  columnDepth
+    , LMEM        int *parts
+    , GMEM        int *totals
+    ) {
+    int blockThread  = get_global_id(0);
+    int columnThread = get_global_id(1);
+    int total = 0;
+    if (activeFlag[blockThread]) {
+      ThresholdQueue tQ;
+      int blockId = blockIds[blockThread];
+      Slice qSlice = loadQueueSlice(qSliceHeap, blockId, columnDepth, columnThread);
+      initThresholdQueue(&tQ, qSlice);
+      total = parallelSumInt( parts
+                            , queueSize(&tQ)
+                            , columnDepth
+                            , columnThread
+                            );
+    }
+    barrier(CLK_GLOBAL_MEM_FENCE);
+    if (columnThread == 0) {
+      totals[blockThread] = total;
+    }
+}
+
 __kernel void collectMergedBlocksKernel
     ( GMEM   int4 *tileHeap
     , GMEM   int  *blockIds
@@ -2300,6 +2354,7 @@ __kernel void collectMergedBlocksKernel
     int address;
     int isInUse = activeFlag[blockThread];
     barrier(CLK_GLOBAL_MEM_FENCE);
+
     address = parallelScanInt ( parts
                               , isInUse
                               , blockDepth
@@ -2326,9 +2381,8 @@ __kernel void collectMergedBlocksKernel
     barrier(CLK_GLOBAL_MEM_FENCE);
     if (blockThread == 0) {
        *outputInUseLength = numActive;
-       outputTiles[0] = (numActive > 0) ? tileHeap[blockIds[0]]               : NULLTILE;
+       outputTiles[0] = (numActive > 0) ? tileHeap[blockIds[0]]             : NULLTILE;
        outputTiles[1] = (numActive > 0) ? tileHeap[blockIds[numActive - 1]] : NULLTILE;
-       barrier(CLK_GLOBAL_MEM_FENCE);
        //DEBUG_IF(printf("numActive %i blockIds[0] %i blockIds[numActive - 1] %i\noutputTiles[0] %v4i tileHeap[blockIds[0]] %v4i outputTiles[1] %v4i tileHeap[blockIds[numActive - 1]] %v4i \n",
        //                 numActive,   blockIds[0],   blockIds[numActive - 1],    outputTiles[0],     tileHeap[blockIds[0]],     outputTiles[1],     tileHeap[blockIds[numActive - 1]]       );)
        //DEBUG_IF(printf("(numActive > 0) ? tileHeap[blockIds[0]]               : NULLTILE %v4i \n", (numActive > 0) ? tileHeap[blockIds[0]]: NULLTILE);)
@@ -2438,7 +2492,7 @@ __kernel void generateThresholdsKernel
     , GMEM     ITEMTAG  *itemTagHeap
     , GMEM   ITEMTAGID  *itemTagIdHeap
     // Each itemSlice points to a list of itemTagIds in the heap.
-    ,              int   blockId
+    ,              int   blockPtr
     ,              int   itemStart
     ,              int   itemProgress
     ,              int   batchSize
@@ -2448,7 +2502,7 @@ __kernel void generateThresholdsKernel
     // These buffers represent each buffer to be generated they are indexed by blockId
     , GMEM        int4  *tileHeap
     , GMEM   THRESHOLD  *thresholdHeap
-    , GMEM      ITEMTAG  *thresholdTagHeap
+    , GMEM      ITEMTAG *thresholdTagHeap
     , GMEM       Slice  *qSliceHeap
     , GMEM         int  *blockIds
     , GMEM        bool  *activeFlag
@@ -2458,10 +2512,11 @@ __kernel void generateThresholdsKernel
     // Each column in the block has an individual thread.
     int  columnThread = get_global_id(1);
     // There is one tileBox for each block (even though these may be duplicates that represent the same tile.)
+    int blockId = blockIds[blockPtr];
     int4 tileBox = tileHeap[blockId];
     // Now initial the tile info for every block.
     float4 columnBox = initColumnBox(tileBox, bitmapSize, columnThread);
-    //DEBUG_IF(printf("itemStart %i itemProgress %i batchSize %i\n", itemStart, itemProgress, batchSize);)
+    DEBUG_IF(printf("=========================== generate tile %v4i itemStart %i itemProgress %i batchSize %i blockPtr %i blockId %i \n", tileBox, itemStart, itemProgress, batchSize, blockPtr, blockId);/*showThresholds(&tQ);*/)
     ThresholdQueue tQ;
     initThresholdQueue(&tQ, initQueueSlice()); // needed for parallel max queue size
     if (isActiveThread(columnBox, bitmapSize)) {
@@ -2483,18 +2538,19 @@ __kernel void generateThresholdsKernel
         saveThresholdQueue(&tQ, thresholdHeap, thresholdTagHeap, blockId, columnDepth, columnThread);
         //if (columnThread == 0) {printf("G---> queueSize %i blockThread %i\n",queueSize(&tQ), blockThread);}// showThresholds(&tQ);)
     }
-    //if (columnThread == 0) {printf("A---> queueSize %i blockThread %i\n",queueSize(&tQ), blockThread);}
+    //if (columnThread == 0) {printf("A---> queueSize %i \n",queueSize(&tQ));}
     int mxQ = parallelMaxInt ( parts
                              , queueSize(&tQ)
                              , columnDepth
                              , columnThread
                              );
     if (columnThread == 0) {
-        activeFlag[blockId] = true;
-        blockIds[blockId] = blockId;
+        activeFlag[blockPtr] = true;
         *outputMaxQueue = mxQ;
-        //printf("B---> mxQ %i queueSize %i blockThread %i\n", mxQ, queueSize(&tQ), blockThread);
+
+        //printf("B---> mxQ %i queueSize %i\n", mxQ, queueSize(&tQ));
     }
+    DEBUG_IF(printf("=========================== done generate tile %v4i\n", tileBox);/*showThresholds(&tQ);*/)
 }
 
 void splitThresholdQueue( ThresholdQueue *tQSource
@@ -2622,7 +2678,7 @@ __kernel void combineSectionKernel
 __kernel void splitTileKernel
     ( GMEM       int4 *tileHeapSrc
     , GMEM  THRESHOLD *thresholdHeapSrc
-    , GMEM     ITEMTAG *thresholdTagHeapSrc
+    , GMEM    ITEMTAG *thresholdTagHeapSrc
     , GMEM      Slice *qSliceHeapSrc
     , GMEM        int *blockIdPointersSrc
     , GMEM       bool *inUseSrc
@@ -2630,7 +2686,7 @@ __kernel void splitTileKernel
 
     , GMEM       int4 *tileHeapDst
     , GMEM  THRESHOLD *thresholdHeapDst
-    , GMEM     ITEMTAG *thresholdTagHeapDst
+    , GMEM    ITEMTAG *thresholdTagHeapDst
     , GMEM      Slice *qSliceHeapDst
     , GMEM        int *blockIdPointersDst
     , GMEM       bool *inUseDst
@@ -2798,8 +2854,8 @@ __kernel void renderThresholdsKernel
         loadThresholdQueue(&tQ, thresholdHeap, thresholdTagHeap, blockId, columnDepth, columnThread);
         ShapeState shS;
         initShapeState(&shS);
-        // DEBUG_IF(printf("blockId %i columnBox %2.6v4f\n",blockId, columnBox);)
-        //DEBUG_IF(printf("=========================== render tile %v4i blockThread %i blockId %i \n", tileBox, blockThread, blockId);showThresholds(&tQ);)
+        //DEBUG_IF(printf("blockId %i columnBox %2.6v4f\n",blockId, columnBox);)
+        DEBUG_IF(printf("=========================== render tile %v4i queueSize %i blockThread %i blockId %i \n", tileBox, queueSize(&tQ), blockThread, blockId);/*showThresholds(&tQ);*/)
         renderThresholdArray ( &tQ
                              , &shS
                              ,  itemTagHeap
@@ -2819,6 +2875,7 @@ __kernel void renderThresholdsKernel
                              ,  columnDelta
                              ,  out
                              );
+        DEBUG_IF(printf("=========================== done render tile %v4i\n", tileBox);/*showThresholds(&tQ);*/)    
     }
 }
 

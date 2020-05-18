@@ -281,9 +281,11 @@ buildOverScene :: (MonadIO m, Show token)
                -> SerialMonad token SubSpace m ()
 buildOverScene rasterizer canvasSize scene =
   do   -- Move the backgound color into the serializer state.
+       liftIO $ putStrLn "===================== Serialize scene start ====================="
        serBackgroundColor .= scene ^. sceneBackgroundColor
        -- Serialize the shape tree.
        traverseShapeTree (onSubstance rasterizer canvasSize textureSpaceToSubspace (SubSpace tAXICABfLATNESS)) (scene ^. sceneShapeTree)
+       liftIO $ putStrLn "===================== Serialize scene end   ====================="
 
 outputSerialState :: (Show s, Show token, Storable (HardFacet_ s TextureSpace))
                      => SerialState token s -> IO ()
