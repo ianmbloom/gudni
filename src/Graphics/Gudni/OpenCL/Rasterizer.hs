@@ -21,12 +21,6 @@ module Graphics.Gudni.OpenCL.Rasterizer
   , specMaxLayers
   , specBlocksPerSection
   , specBlockSectionDepth
-  , specGenerateJobSize
-  , specSplitJobSize
-  , specMergeJobSize
-  , specMergeJobDepth
-  , specMaxSortJobSize
-  , specMaxRenderJobSize
   , Rasterizer(..)
   , rasterClState
   , rasterInitializeSectionKernel
@@ -78,18 +72,6 @@ data DeviceSpec = DeviceSpec
     , _specBlocksPerSection     :: Int
       -- | The block buffer depth is the adjusted log2 of the blockBufferSize
     , _specBlockSectionDepth    :: Int
-      -- | Determined maximum number of tiles per threshold generation kernel call for this device.
-    , _specGenerateJobSize      :: Int
-      -- | Determined maximum number of tiles per split kernel call for this device.
-    , _specSplitJobSize         :: Int
-      -- | Determined maximum number of tiles per merge kernel call for this device.
-    , _specMergeJobSize         :: Int
-    -- | Determined log depth of number of blocks per tile.
-    , _specMergeJobDepth        :: Int
-      -- | Determined maximum number of tiles per sort kernel call for this device.
-    , _specMaxSortJobSize       :: Int
-      -- | Determined maximum number of tiles per render kernel call for this device.
-    , _specMaxRenderJobSize     :: Int
     } deriving (Show)
 makeLenses ''DeviceSpec
 

@@ -168,7 +168,7 @@ type GenerateMonad s a = StateT (GenerateState s) CL a
 mergeAndCollect :: RasterParams token -> Int -> BlockSection -> CL BlockSection
 mergeAndCollect params strideExp section =
    do let startLength = section ^. sectNumActive
-      section' <- foldM (runMergeKernel params 0) section [0,(-1)]
+      section' <- foldM (runMergeBlockKernel params 0) section [0,(-1)]
       collectedSection <- runCollectMergedKernel params section'
       if collectedSection ^. sectNumActive < startLength
       then mergeAndCollect params strideExp collectedSection
@@ -339,8 +339,8 @@ generateLoop params buffersInCommon sliceTree target =
                                           nextTile = maybe nullTile (view sectFirstTile) after
                                       section' <- lift $ do toRenderSection <- runCollectRenderKernel params blockSection prevTile nextTile
                                                             when (toRenderSection ^. sectRenderLength > 0) $
-                                                               do runSortKernel params toRenderSection
-                                                                  runRenderKernel params buffersInCommon toRenderSection target
+                                                               do runSortThresholdsKernel params toRenderSection
+                                                                  runRenderThresholdsKernel params buffersInCommon toRenderSection target
                                                             return toRenderSection
                                       return section'
                     --lift $ showSections params "rendered" renderedStack
@@ -360,9 +360,9 @@ generateLoop params buffersInCommon sliceTree target =
                                      then if (blockSection ^. sectNumActive * 2 > blocksPerSection)
                                           then  lift $ do newBlockSection <- createBlockSection params
                                                           --liftIO $ putStrLn $ "blockSection to split " ++ show (blockSection ^. sectNumActive)
-                                                          runSplitKernel params blockSection 0 newBlockSection 0
+                                                          runSplitBlocksKernel params blockSection 0 newBlockSection 0
                                                           return (Just blockSection, Just $ set sectNumActive (blockSection ^. sectNumActive) newBlockSection)
-                                          else lift $ do runSplitKernel params blockSection 0 blockSection (blockSection ^. sectNumActive)
+                                          else lift $ do runSplitBlocksKernel params blockSection 0 blockSection (blockSection ^. sectNumActive)
                                                          return (Just (over sectNumActive (*2) blockSection), Nothing)
                                      else lift $ return (Just blockSection, Nothing)
                               )

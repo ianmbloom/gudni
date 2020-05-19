@@ -43,7 +43,7 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
   , BlockSection(..)
   , sectTileBuffer
   , sectThresholdBuffer
-  , sectHeaderBuffer
+  , sectThresholdTagBuffer
   , sectQueueSliceBuffer
   , sectBlockIdBuffer
   , sectRenderLength
@@ -209,7 +209,7 @@ instance Show BlockId where
 data BlockSection = BlockSection
   { _sectTileBuffer       :: CLBuffer Tile
   , _sectThresholdBuffer  :: CLBuffer THRESHOLDTYPE
-  , _sectHeaderBuffer     :: CLBuffer HEADERTYPE
+  , _sectThresholdTagBuffer     :: CLBuffer HEADERTYPE
   , _sectQueueSliceBuffer :: CLBuffer (Slice Int)
   , _sectBlockIdBuffer    :: CLBuffer BlockId
   , _sectRenderLength     :: Int
@@ -247,7 +247,7 @@ createBlockSection params =
      return $ BlockSection
               { _sectTileBuffer       = tileBuffer
               , _sectThresholdBuffer  = thresholdBuffer
-              , _sectHeaderBuffer     = headerBuffer
+              , _sectThresholdTagBuffer     = headerBuffer
               , _sectQueueSliceBuffer = queueSliceBuffer
               , _sectBlockIdBuffer    = blockIdBuffer
               , _sectRenderLength     = 0
@@ -261,7 +261,7 @@ releaseBlockSection :: BlockSection -> CL ()
 releaseBlockSection blockSection =
   do releaseBuffer "sectTileBuffer      " $ blockSection ^. sectTileBuffer
      releaseBuffer "sectThresholdBuffer " $ blockSection ^. sectThresholdBuffer
-     releaseBuffer "sectHeaderBuffer    " $ blockSection ^. sectHeaderBuffer
+     releaseBuffer "sectThresholdTagBuffer    " $ blockSection ^. sectThresholdTagBuffer
      releaseBuffer "sectQueueSliceBuffer" $ blockSection ^. sectQueueSliceBuffer
      releaseBuffer "sectBlockIdBuffer   " $ blockSection ^. sectBlockIdBuffer
      releaseBuffer "sectActiveFlagBuffer" $ blockSection ^. sectActiveFlagBuffer

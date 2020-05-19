@@ -54,9 +54,6 @@ cppDefines spec =
   , Cpp "RANDOMFIELDSIZE"                (CppInt   rANDOMFIELDsIZE              )
   , Cpp "MAXTHRESHOLDS"                  (CppInt $ spec ^. specMaxThresholds    )
   , Cpp "MAXLAYERS"                      (CppInt $ spec ^. specMaxLayers        )
-  , Cpp "THREADSPERMERGEJOB"             (CppInt $ spec ^. specMergeJobSize     )
-  , Cpp "THREADSPERBLOCK"                (CppInt $ spec ^. specColumnsPerBlock  )
-  , Cpp "LAYERFLAGSSECTIONS"             (CppInt $ lAYERfLAGSsECTIONS           )
   , Cpp "NULLTILE"                       (CppHexUInt4 nULLtILE                  )
   , Cpp "ITEMTAG_SLOPE_BITMASK"          (CppHex64 iTEMtAGsLOPEbITMASK          )
   , Cpp "ITEMTAG_SLOPE_POSITIVE"         (CppHex64 iTEMtAGsLOPEpOSITVE          )
@@ -105,13 +102,7 @@ determineRasterSpec device =
       -- | Maximum memory size that can be allocated for each global memory buffer
       maxMemAllocSize <- clGetDeviceMaxMemAllocSize     device
       -- The maximum number of threads that each tile can store is the maximum allocation size
-      let -- | Determined maximum number of tiles per threshold generation kernel call for this device.
-          maxGenerateJobSize   = maxGroupSize `div` 8 :: Int
-          -- | Determined maximum number of tiles per split kernel call for this device.
-          maxSplitJobSize      = maxGroupSize :: Int
-          -- | Determined maximum number of tiles per merge kernel call for this device.
-          maxMergeJobSize      = maxGroupSize `div` 8 :: Int
-          -- | Determined maximum number of tiles per sort kernel call for this device.
+      let -- | Determined maximum number of tiles per sort kernel call for this device.
           maxSortJobSize       = maxGroupSize `div` 8 :: Int
           -- | Determined maximum number of tiles per render kernel call for this device.
           maxRenderJobSize     = maxGroupSize `div` 8 :: Int
@@ -124,23 +115,12 @@ determineRasterSpec device =
           actualBlockBufferSize = min computeSize blockBufferSize
       return DeviceSpec { _specMaxTileSize       = fromIntegral computeSize
                         , _specMaxStrandSize     = mAXsTRANDsIZE
-                        , _specColumnsPerBlock   = computeSize
-                        , _specColumnDepth       = adjustedLog computeSize
                         , _specMaxThresholds     = mAXtHRESHOLDS
                         , _specMaxLayers         = mAXlAYERS
+                        , _specColumnsPerBlock   = computeSize
+                        , _specColumnDepth       = adjustedLog computeSize
                         , _specBlocksPerSection  = actualBlockBufferSize
                         , _specBlockSectionDepth = adjustedLog actualBlockBufferSize
-                        , _specMergeJobDepth     = adjustedLog maxMergeJobSize
-                          -- | Determined maximum number of tiles per threshold generation kernel call for this device.
-                        , _specGenerateJobSize   = maxGenerateJobSize
-                          -- | Determined maximum number of tiles per split kernel call for this device.
-                        , _specSplitJobSize      = maxSplitJobSize
-                          -- | Determined maximum number of tiles per merge kernel call for this device.
-                        , _specMergeJobSize      = maxMergeJobSize
-                          -- | Determined maximum number of tiles per sort kernel call for this device.
-                        , _specMaxSortJobSize    = maxSortJobSize
-                          -- | Determined maximum number of tiles per render kernel call for this device.
-                        , _specMaxRenderJobSize  = maxRenderJobSize
                         }
 
 -- | Order Devices based on the number of compute units
@@ -204,9 +184,9 @@ setupOpenCL enableProfiling useCLGLInterop src =
               generateThresholdsKernel <- getKernelAndDump device program "generateThresholdsKernel"
               collectMergedBlocksKernel<- getKernelAndDump device program "collectMergedBlocksKernel"
               collectRenderBlocksKernel<- getKernelAndDump device program "collectRenderBlocksKernel"
-              splitTileKernel          <- getKernelAndDump device program "splitTileKernel"
+              splitBlocksKernel          <- getKernelAndDump device program "splitBlocksKernel"
               combineSectionKernel     <- getKernelAndDump device program "combineSectionKernel"
-              mergeTileKernel          <- getKernelAndDump device program "mergeAdjacent"
+              mergeTileKernel          <- getKernelAndDump device program "mergeBlockKernel"
               sortThresholdsKernel     <- getKernelAndDump device program "sortThresholdsKernel"
               renderThresholdsKernel   <- getKernelAndDump device program "renderThresholdsKernel"
               pointQueryKernel         <- getKernelAndDump device program "pointQueryKernel"
@@ -223,7 +203,7 @@ setupOpenCL enableProfiling useCLGLInterop src =
                   , _rasterGenerateThresholdsKernel  = generateThresholdsKernel
                   , _rasterCollectMergedBlocksKernel = collectMergedBlocksKernel
                   , _rasterCollectRenderBlocksKernel = collectRenderBlocksKernel
-                  , _rasterSplitTileKernel           = splitTileKernel
+                  , _rasterSplitTileKernel           = splitBlocksKernel
                   , _rasterCombineSectionKernel      = combineSectionKernel
                   , _rasterMergeTileKernel           = mergeTileKernel
                   , _rasterSortThresholdsKernel      = sortThresholdsKernel
