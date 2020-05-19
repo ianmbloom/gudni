@@ -14,8 +14,6 @@ module Graphics.Gudni.OpenCL.ProcessBuffers
   , withBeforeAndAfterIndex
   , checkBlockSection
   , condenseStack
-  , addPortionToPile
-  , makeItemEntrySlice
   , makeTokenQuery
   , runRaster
   )
@@ -213,27 +211,29 @@ generateLoop :: ( KernelArgs
                 )
              => RasterParams token
              -> BuffersInCommon
-             -> TileTree (Tile, Slice ItemTagId)
+             -> TileTree (Tile, Pile ItemTagId)
              -> target
              -> CL (S.Seq (PointQueryId, SubstanceTag))
-generateLoop params buffersInCommon sliceTree target =
+generateLoop params buffersInCommon tree target =
     do  let  blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
              maxThresholds    = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
              batchSize        = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds `div` 2
-             tileSlices :: S.Seq (Tile, Slice ItemTagId)
-             tileSlices = execState (traverseTileTree (\t -> modify ( |> t)) sliceTree) S.empty
-             processTile :: (Tile, Slice ItemTagId) -> GenerateMonad (S.Seq BlockSection) ()
-             processTile (tile, slice) = announceStack ("tile: " ++ show tile) $
+             tilePiles :: S.Seq (Tile, Pile ItemTagId)
+             tilePiles = execState (traverseTileTree (\t -> modify ( |> t)) tree) S.empty
+             processTile :: (Tile, Pile ItemTagId) -> GenerateMonad (S.Seq BlockSection) ()
+             processTile (tile, itemTagIdPile) = announceStack ("tile: " ++ show tile) $
                  do  genProgress .= 0
-                     sectionLoop tile slice
+                     itemTagIds <- lift $ bufferFromPile "itemTagIds" itemTagIdPile
+                     let numItems =  itemTagIdPile ^. pileSize
+                     sectionLoop tile itemTagIds numItems
                      stack <- use genData
                      --lift $ showSections params "generated" stack
                      mergeAll
                      processStack 0
-             sectionLoop :: Tile -> Slice ItemTagId -> GenerateMonad (S.Seq BlockSection) ()
-             sectionLoop  tile slice = -- announceStack "section" $
+             sectionLoop :: Tile -> CLBuffer ItemTagId -> Int -> GenerateMonad (S.Seq BlockSection) ()
+             sectionLoop tile itemTagIds numItems = -- announceStack "section" $
                do -- attempt to fill a block and see if the task is completed afterward.
-                  moreToGenerate <- withSection (blockLoop tile slice)
+                  moreToGenerate <- withSection (blockLoop tile itemTagIds numItems)
                   if moreToGenerate
                   then do -- if there are more items to generate
                           -- first attempt to merge the existing blocks
@@ -241,37 +241,36 @@ generateLoop params buffersInCommon sliceTree target =
                           len <- topNumActive
                           if len < blocksPerSection
                           then -- if space becomes available in the section loop again
-                               sectionLoop tile slice
+                               sectionLoop tile itemTagIds numItems
                           else -- otherwise allocate a new section and generate into it
-                               holdSection (sectionLoop tile slice)
+                               holdSection (sectionLoop tile itemTagIds numItems)
                   else return ()
-             blockLoop :: Tile -> Slice ItemTagId -> GenerateMonad BlockSection Bool
-             blockLoop tile slice  = --announceSection "block" $
+             blockLoop :: Tile -> CLBuffer ItemTagId -> Int -> GenerateMonad BlockSection Bool
+             blockLoop tile itemTagIds numItems = --announceSection "block" $
                do -- use new blocks as required to generate thresholds for all the items in the tile.
                   -- initialize a block from the available blocks in the section
                   blockPtr <- initBlock tile
                   -- loop through each batch until no new items can be safely added to the block.
-                  moreToGenerate <- batchLoop slice blockPtr
+                  moreToGenerate <- batchLoop itemTagIds numItems blockPtr
                   len <- use (genData . sectNumActive)
                   if moreToGenerate && len < blocksPerSection
-                  then blockLoop tile slice
+                  then blockLoop tile itemTagIds numItems
                   else return moreToGenerate
-             batchLoop :: Slice ItemTagId -> BlockPtr -> GenerateMonad BlockSection Bool
-             batchLoop slice blockPtr = --announceSection "batch" $
-               do let numItems = fromIntegral $ unBreadth $ sliceLength slice
-                  progressBefore <- use genProgress
-                  maxQueue <- generateBatch blockPtr (sliceStart slice) (min (numItems - progressBefore) batchSize)
+             batchLoop :: CLBuffer ItemTagId -> Int -> BlockPtr -> GenerateMonad BlockSection Bool
+             batchLoop itemTagIds numItems blockPtr = --announceSection "batch" $
+               do progressBefore <- use genProgress
+                  maxQueue <- generateBatch itemTagIds blockPtr 0 (min (numItems - progressBefore) batchSize)
                   progress <- use genProgress
                   let spaceAvailableForBatch = maxQueue + batchSize < maxThresholds
-                      moreToGenerate = progress < (fromIntegral . unBreadth) (sliceLength slice)
+                      moreToGenerate = progress < numItems
                   if  spaceAvailableForBatch && moreToGenerate
-                  then batchLoop slice blockPtr
+                  then batchLoop itemTagIds numItems blockPtr
                   else return moreToGenerate
-             generateBatch :: BlockPtr -> Reference ItemTagId -> Int -> GenerateMonad BlockSection Int
-             generateBatch blockPtr itemStart size = --announceSection "generateBatch" $
+             generateBatch :: CLBuffer ItemTagId -> BlockPtr -> Reference ItemTagId -> Int -> GenerateMonad BlockSection Int
+             generateBatch itemTagIds blockPtr itemStart size = --announceSection "generateBatch" $
                do section <- use genData
                   progress <- use genProgress
-                  (maxQueue, section') <- lift $ runGenerateThresholdsKernel params buffersInCommon itemStart section blockPtr progress size
+                  (maxQueue, section') <- lift $ runGenerateThresholdsKernel params buffersInCommon itemTagIds itemStart section blockPtr progress size
                   genData .= section'
                   genProgress += size
                   return maxQueue
@@ -380,7 +379,7 @@ generateLoop params buffersInCommon sliceTree target =
                             section' <- lift $ mergeAndCollect params 0 section
                             genData .= section'
         --liftIO $ putStrLn $ "tileSlices " ++ show tileSlices
-        finishedStack <- withStack (mapM_ processTile tileSlices) S.empty -- loop through each tile slice while reusing the stack
+        finishedStack <- withStack (mapM_ processTile tilePiles) S.empty -- loop through each tile slice while reusing the stack
         releaseStack finishedStack -- deallocate all blockSections
         return S.empty
 
@@ -397,6 +396,7 @@ makeItemEntrySlice (tile, portion) = do slice <- addPortionToPile portion
                                         return (tile, slice)
 -}
 
+{-
 addPortionToPile :: Pile ItemTagId -> StateT (Pile ItemTagId) CL (Slice ItemTagId)
 addPortionToPile portion =
     do pile <- get
@@ -407,6 +407,7 @@ addPortionToPile portion =
 makeItemEntrySlice :: (Tile, Pile ItemTagId) -> StateT (Pile ItemTagId) CL (Tile, Slice ItemTagId)
 makeItemEntrySlice (tile, portion) = do slice <- addPortionToPile portion
                                         return (tile, slice)
+-}
 
 makeTokenQuery :: M.Map SubstanceTag token
                -> (PointQueryId, SubstanceTag)
@@ -429,9 +430,8 @@ runRaster params =
         -- liftIO $ outputGeometryState (params ^. rpGeometryState)
         -- liftIO $ outputSerialState(params ^. rpSerialState)
         runCL state $
-            do (sliceTree, itemTagIdPile) <- runStateT (traverseTileTree makeItemEntrySlice tileTree) =<< (liftIO newPile)
-               liftIO $ putStrLn "tileTreeTraversal complete"
-               queryResults <- withBuffersInCommon params itemTagIdPile $
+            do liftIO $ putStrLn "tileTreeTraversal complete"
+               queryResults <- withBuffersInCommon params $
                      \ buffersInCommon ->
                      -- | Create the buffers in common, which are the read only buffers that the rasterization kernel will use
                      -- to generate thresholds and render images
@@ -439,10 +439,9 @@ runRaster params =
                            HostBitmapTarget outputPtr ->
                                let outputSize   = fromIntegral $ pointArea (params ^. rpBitmapSize)
                                in  -- In this case the resulting bitmap will be stored in memory at outputPtr.
-                                   generateLoop params buffersInCommon sliceTree (OutPtr outputPtr outputSize)
+                                   generateLoop params buffersInCommon tileTree (OutPtr outputPtr outputSize)
                            GLTextureTarget textureName ->
                                -- In this case an identifier for a Texture object that stays on the GPU would be stored∘
                                -- But currently this isn't working, so throw an error.
                                error "GLTextureTarget not implemented"
-               liftIO $ freePile itemTagIdPile
                return $ fmap (makeTokenQuery (params ^. rpSerialState . serTokenMap)) queryResults

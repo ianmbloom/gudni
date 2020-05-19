@@ -26,7 +26,6 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
   , bicPictMemRefHeap
   , bicFacetHeap
   , bicItemTagHeap
-  , bicItemTagIdHeap
   , bicSubTagHeap
   , bicSolidColors
   , bicPictHeap
@@ -122,7 +121,6 @@ data BuffersInCommon = BuffersInCommon
   , _bicPictMemRefHeap :: CLBuffer PictureMemoryReference
   , _bicFacetHeap      :: CLBuffer (HardFacet_ SubSpace TextureSpace)
   , _bicItemTagHeap    :: CLBuffer ItemTag
-  , _bicItemTagIdHeap  :: CLBuffer ItemTagId
   , _bicSubTagHeap     :: CLBuffer SubstanceTag
   , _bicSolidColors    :: CLBuffer Color
   , _bicPictHeap       :: CLBuffer Word8
@@ -156,17 +154,16 @@ bufferFromVector message vector =
       --liftIO $ putStrLn $ "vectorBuffer " ++ message ++ " " ++ (show . bufferObject $ buffer)
       return buffer
 
-withBuffersInCommon :: RasterParams token -> Pile ItemTagId -> (BuffersInCommon -> CL a) -> CL a
-withBuffersInCommon params itemTagIdPile code =
-   do  bic <- createBuffersInCommon params itemTagIdPile
+withBuffersInCommon :: RasterParams token -> (BuffersInCommon -> CL a) -> CL a
+withBuffersInCommon params code =
+   do  bic <- createBuffersInCommon params
        result <- code bic
        releaseBuffersInCommon bic
        return result
 
-createBuffersInCommon :: RasterParams token -> Pile ItemTagId -> CL BuffersInCommon
-createBuffersInCommon params itemTagIdPile =
-    do  itemTagIdBuffer <- bufferFromPile   "itemTagIdPile " itemTagIdPile
-        geoBuffer       <- bufferFromPile   "geoBuffer     " (params ^. rpSerialState . serGeometryPile    )
+createBuffersInCommon :: RasterParams token -> CL BuffersInCommon
+createBuffersInCommon params =
+    do  geoBuffer       <- bufferFromPile   "geoBuffer     " (params ^. rpSerialState . serGeometryPile    )
         pictMemBuffer   <- bufferFromPile   "pictMemBuffer " (params ^. rpSerialState . serPictureMems     )
         facetBuffer     <- bufferFromPile   "facetBuffer   " (params ^. rpSerialState . serFacetPile       )
         itemTagBuffer   <- bufferFromPile   "itemTagBuffer " (params ^. rpSerialState . serItemTagPile     )
@@ -179,7 +176,6 @@ createBuffersInCommon params itemTagIdPile =
                   , _bicPictMemRefHeap = pictMemBuffer
                   , _bicFacetHeap      = facetBuffer
                   , _bicItemTagHeap    = itemTagBuffer
-                  , _bicItemTagIdHeap  = itemTagIdBuffer
                   , _bicSubTagHeap     = subTagBuffer
                   , _bicSolidColors    = colorBuffer
                   , _bicPictHeap       = pictDataBuffer
@@ -193,7 +189,6 @@ releaseBuffersInCommon bic =
         releaseBuffer "bicPictMemRefHeap" $ bic ^. bicPictMemRefHeap
         releaseBuffer "bicFacetHeap     " $ bic ^. bicFacetHeap
         releaseBuffer "bicItemTagHeap   " $ bic ^. bicItemTagHeap
-        releaseBuffer "bicItemTagIdHeap " $ bic ^. bicItemTagIdHeap
         releaseBuffer "bicSubTagHeap    " $ bic ^. bicSubTagHeap
         releaseBuffer "bicSolidColors   " $ bic ^. bicSolidColors
         releaseBuffer "bicPictHeap      " $ bic ^. bicPictHeap
