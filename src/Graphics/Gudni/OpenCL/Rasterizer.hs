@@ -31,7 +31,7 @@ module Graphics.Gudni.OpenCL.Rasterizer
   , rasterCollectRenderBlocksKernel
   , rasterSplitTileKernel
   , rasterCombineSectionKernel
-  , rasterMergeTileKernel
+  , rasterMergeBlockKernel
   , rasterSortThresholdsKernel
   , rasterRenderThresholdsKernel
   , rasterPointQueryKernel
@@ -87,7 +87,7 @@ data Rasterizer = Rasterizer
   , _rasterCollectRenderBlocksKernel :: CLKernel
   , _rasterSplitTileKernel           :: CLKernel
   , _rasterCombineSectionKernel      :: CLKernel
-  , _rasterMergeTileKernel           :: CLKernel
+  , _rasterMergeBlockKernel           :: CLKernel
   , _rasterSortThresholdsKernel      :: CLKernel
   , _rasterRenderThresholdsKernel    :: CLKernel
   , _rasterPointQueryKernel          :: CLKernel

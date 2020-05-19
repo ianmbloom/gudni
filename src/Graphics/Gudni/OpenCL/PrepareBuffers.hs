@@ -46,7 +46,7 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
   , sectThresholdTagBuffer
   , sectQueueSliceBuffer
   , sectBlockIdBuffer
-  , sectRenderLength
+  , sectNumToRender
   , sectNumActive
   , sectActiveFlagBuffer
   , sectFirstTile
@@ -207,16 +207,16 @@ instance Show BlockId where
   show (BlockId id) = show id
 
 data BlockSection = BlockSection
-  { _sectTileBuffer       :: CLBuffer Tile
-  , _sectThresholdBuffer  :: CLBuffer THRESHOLDTYPE
-  , _sectThresholdTagBuffer     :: CLBuffer HEADERTYPE
-  , _sectQueueSliceBuffer :: CLBuffer (Slice Int)
-  , _sectBlockIdBuffer    :: CLBuffer BlockId
-  , _sectRenderLength     :: Int
-  , _sectNumActive        :: Int
-  , _sectFirstTile        :: Tile
-  , _sectLastTile         :: Tile
-  , _sectActiveFlagBuffer :: CLBuffer CBool
+  { _sectTileBuffer         :: CLBuffer Tile
+  , _sectThresholdBuffer    :: CLBuffer THRESHOLDTYPE
+  , _sectThresholdTagBuffer :: CLBuffer HEADERTYPE
+  , _sectQueueSliceBuffer   :: CLBuffer (Slice Int)
+  , _sectBlockIdBuffer      :: CLBuffer BlockId
+  , _sectNumToRender        :: Int
+  , _sectNumActive          :: Int
+  , _sectFirstTile          :: Tile
+  , _sectLastTile           :: Tile
+  , _sectActiveFlagBuffer   :: CLBuffer CBool
   }
 makeLenses ''BlockSection
 
@@ -245,16 +245,16 @@ createBlockSection params =
      let activeFlagVector = VS.replicate blocksToAlloc . toCBool $ False
      activeFlagBuffer <- bufferFromVector "activeFlagVector" $ activeFlagVector :: CL (CLBuffer CBool)
      return $ BlockSection
-              { _sectTileBuffer       = tileBuffer
-              , _sectThresholdBuffer  = thresholdBuffer
-              , _sectThresholdTagBuffer     = headerBuffer
-              , _sectQueueSliceBuffer = queueSliceBuffer
-              , _sectBlockIdBuffer    = blockIdBuffer
-              , _sectRenderLength     = 0
-              , _sectActiveFlagBuffer = activeFlagBuffer
-              , _sectNumActive        = 0
-              , _sectFirstTile        = nullTile
-              , _sectLastTile         = nullTile
+              { _sectTileBuffer         = tileBuffer
+              , _sectThresholdBuffer    = thresholdBuffer
+              , _sectThresholdTagBuffer = headerBuffer
+              , _sectQueueSliceBuffer   = queueSliceBuffer
+              , _sectBlockIdBuffer      = blockIdBuffer
+              , _sectNumToRender        = 0
+              , _sectActiveFlagBuffer   = activeFlagBuffer
+              , _sectNumActive          = 0
+              , _sectFirstTile          = nullTile
+              , _sectLastTile           = nullTile
               }
 
 releaseBlockSection :: BlockSection -> CL ()

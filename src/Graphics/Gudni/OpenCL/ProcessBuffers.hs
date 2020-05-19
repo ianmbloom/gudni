@@ -169,7 +169,7 @@ mergeAndCollect :: RasterParams token -> Int -> BlockSection -> CL BlockSection
 mergeAndCollect params strideExp section =
    do let startLength = section ^. sectNumActive
       section' <- foldM (runMergeBlockKernel params 0) section [0,(-1)]
-      collectedSection <- runCollectMergedKernel params section'
+      collectedSection <- runCollectMergedBlockKernel params section'
       if collectedSection ^. sectNumActive < startLength
       then mergeAndCollect params strideExp collectedSection
       else return collectedSection
@@ -338,7 +338,7 @@ generateLoop params buffersInCommon sliceTree target =
                                    do let prevTile = maybe nullTile (view sectLastTile)  before
                                           nextTile = maybe nullTile (view sectFirstTile) after
                                       section' <- lift $ do toRenderSection <- runCollectRenderKernel params blockSection prevTile nextTile
-                                                            when (toRenderSection ^. sectRenderLength > 0) $
+                                                            when (toRenderSection ^. sectNumToRender > 0) $
                                                                do runSortThresholdsKernel params toRenderSection
                                                                   runRenderThresholdsKernel params buffersInCommon toRenderSection target
                                                             return toRenderSection

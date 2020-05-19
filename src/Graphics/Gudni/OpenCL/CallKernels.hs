@@ -17,7 +17,7 @@ module Graphics.Gudni.OpenCL.CallKernels
   , runInitializeBlockKernel
   , runGenerateThresholdsKernel
   , runMergeBlockKernel
-  , runCollectMergedKernel
+  , runCollectMergedBlockKernel
   , runCollectRenderKernel
   , runSortThresholdsKernel
   , runRenderThresholdsKernel
@@ -249,18 +249,15 @@ runMergeBlockKernel params strideExp  blockSection strideOffset =
       blockDepth         = params ^. rpRasterizer . rasterDeviceSpec . specBlockSectionDepth
   in  --announceKernel ("mergeBlockKernel strideExp: " ++ show strideExp ++ " strideOffset: " ++ show strideOffset) jobStep jobOffset numActive $
       do when (numActive > 0) $
-             runKernel (params ^. rpRasterizer . rasterMergeTileKernel)
+             runKernel (params ^. rpRasterizer . rasterMergeBlockKernel)
                        (blockSection ^. sectTileBuffer         )
                        (blockSection ^. sectThresholdBuffer    )
                        (blockSection ^. sectThresholdTagBuffer )
                        (blockSection ^. sectQueueSliceBuffer   )
                        (blockSection ^. sectBlockIdBuffer      )
                        (blockSection ^. sectActiveFlagBuffer   )
-                       (toCInt blockDepth   )
-                       (toCInt columnDepth)
-                       (toCInt . fromIntegral <$> params ^. rpBitmapSize)
-                       (toCInt  $ params ^. rpFrameCount)
-                       (toCInt numActive      )
+                       (toCInt columnDepth  )
+                       (toCInt numActive    )
                        (toCInt strideExp    )
                        (toCInt strideOffset )
                        (Local columnsPerBlock :: LocalMem CInt)
@@ -289,10 +286,10 @@ runTotalThresholdKernel params blockSection =
                           (WorkGroup [1, columnsPerBlock]) :: CL (VS.Vector CInt)
       return (blockSection, totals)
 
-runCollectMergedKernel :: RasterParams token
-                       -> BlockSection
-                       -> CL BlockSection
-runCollectMergedKernel params blockSection =
+runCollectMergedBlockKernel :: RasterParams token
+                            -> BlockSection
+                            -> CL BlockSection
+runCollectMergedBlockKernel params blockSection =
     let blockDepth       = params ^. rpRasterizer . rasterDeviceSpec . specBlockSectionDepth
         blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
     in
@@ -304,8 +301,6 @@ runCollectMergedKernel params blockSection =
                       (blockSection ^. sectBlockIdBuffer    )
                       (blockSection ^. sectActiveFlagBuffer )
                       (toCInt $ blockDepth                  )
-                      (toCInt $ blocksPerSection            )
-                      (toCInt $ params ^. rpFrameCount      )
                       (Out 1)
                       (Out 8)
                       (Local blocksPerSection :: LocalMem CInt)
@@ -328,7 +323,7 @@ runCollectRenderKernel params blockSection prevTile nextTile =
     let blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
     in
     --announceKernel "collectRenderKernel" 0 0 0 $
-    do  (outputSplitLength, outputRenderLength) <-
+    do  (outputNumActive, outputNumToRender) <-
             runKernel (params ^. rpRasterizer . rasterCollectRenderBlocksKernel)
                       (blockSection ^. sectTileBuffer)
                       (blockSection ^. sectBlockIdBuffer  )
@@ -343,12 +338,12 @@ runCollectRenderKernel params blockSection prevTile nextTile =
                       (Local blocksPerSection :: LocalMem CInt)
                       (Work2D 1 blocksPerSection)
                       (WorkGroup [1, blocksPerSection]) :: CL (VS.Vector CInt, VS.Vector CInt)
-        let splitLength  = fromCInt . VS.head $ outputSplitLength
-            renderLength = fromCInt . VS.head $ outputRenderLength
-        --liftIO $ putStrLn $ "~~~~~~~~~~~ splitLength " ++ show splitLength ++ " renderLength " ++ show renderLength
+        let numActive    = fromCInt . VS.head $ outputNumActive
+            numToRender = fromCInt . VS.head $ outputNumToRender
+        --liftIO $ putStrLn $ "~~~~~~~~~~~ numActive   " ++ show numActive   ++ " numToRender " ++ show numToRender
 
-        return . set sectRenderLength renderLength
-               . set sectNumActive splitLength $ blockSection
+        return . set sectNumToRender numToRender
+               . set sectNumActive numActive   $ blockSection
 
 
 runSortThresholdsKernel :: RasterParams token
@@ -357,10 +352,10 @@ runSortThresholdsKernel :: RasterParams token
 runSortThresholdsKernel params blockSection =
     let columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
         columnDepth     = params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth
-        renderLength    = blockSection ^. sectRenderLength
+        numToRender    = blockSection ^. sectNumToRender
     in
     --announceKernel "sortKernel" jobStep jobOffset jobSize $
-    do  when (renderLength > 0) $
+    do  when (numToRender > 0) $
             runKernel (params ^. rpRasterizer . rasterSortThresholdsKernel)
                       (blockSection ^. sectTileBuffer         )
                       (blockSection ^. sectThresholdBuffer    )
@@ -368,11 +363,11 @@ runSortThresholdsKernel params blockSection =
                       (blockSection ^. sectQueueSliceBuffer   )
                       (blockSection ^. sectBlockIdBuffer      )
                       (toCInt $ blockSection ^. sectNumActive )
-                      (toCInt $ renderLength)
+                      (toCInt $ numToRender)
                       (toCInt columnDepth)
                       (toCInt . fromIntegral <$> params ^. rpBitmapSize)
                       (toCInt $ params ^. rpFrameCount)
-                      (Work2D renderLength columnsPerBlock)
+                      (Work2D numToRender columnsPerBlock)
                       (WorkGroup [1, columnsPerBlock]) :: CL ()
         return ()
 
@@ -390,10 +385,10 @@ runRenderThresholdsKernel :: (  KernelArgs
                           -> CL ()
 runRenderThresholdsKernel params buffersInCommon blockSection target =
     let columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
-        renderLength    = blockSection ^. sectRenderLength
+        numToRender    = blockSection ^. sectNumToRender
     in
     --announceKernel "rasterRenderThresholdsKernel" jobStep jobOffset jobSize $
-    do  when (renderLength > 0) $
+    do  when (numToRender > 0) $
                runKernel (params ^. rpRasterizer . rasterRenderThresholdsKernel)
                          (blockSection ^. sectTileBuffer            )
                          (blockSection ^. sectThresholdBuffer       )
@@ -401,7 +396,7 @@ runRenderThresholdsKernel params buffersInCommon blockSection target =
                          (blockSection ^. sectQueueSliceBuffer      )
                          (blockSection ^. sectBlockIdBuffer         )
                          (toCInt $ blockSection ^. sectNumActive    )
-                         (toCInt $ blockSection ^. sectRenderLength )
+                         (toCInt $ blockSection ^. sectNumToRender  )
                          (buffersInCommon ^. bicItemTagHeap         )
                          (buffersInCommon ^. bicSubTagHeap          )
                          (buffersInCommon ^. bicFacetHeap           )
@@ -414,7 +409,7 @@ runRenderThresholdsKernel params buffersInCommon blockSection target =
                          (toCInt . fromIntegral <$> params ^. rpBitmapSize)
                          (toCInt $ params ^. rpFrameCount)
                          target
-                         (Work2D renderLength columnsPerBlock)
+                         (Work2D numToRender columnsPerBlock)
                          (WorkGroup [1, columnsPerBlock]) :: CL ()
         return ()
 
@@ -447,7 +442,6 @@ runSplitBlocksKernel params blockSectionSrc offsetSrc blockSectionDst offsetDst 
                       (toCInt offsetDst                              )
                       (toCInt  $  params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth)
                       (toCInt . fromIntegral <$> params ^. rpBitmapSize)
-                      (toCInt  $  params ^. rpFrameCount)
                       (toCInt numActive)
                       (Work2D numActive columnsPerBlock)
                       (WorkGroup [1, columnsPerBlock]) :: CL ()
@@ -478,10 +472,8 @@ runCombineSectionKernel params blockSectionDst blockSectionSrc =
                      (blockSectionSrc ^. sectBlockIdBuffer        )
                      (blockSectionSrc ^. sectActiveFlagBuffer     )
                      (toCInt $ blockSectionSrc ^. sectNumActive   )
-                     (toCInt blocksPerSection)
+                     (toCInt blocksPerSection                     )
                      (toCInt $ params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth)
-                     (toCInt . fromIntegral <$> params ^. rpBitmapSize)
-                     (toCInt $ params ^. rpFrameCount)
                      (Out 1)
                      (Out 1)
                      (Work2D blocksPerSection columnsPerBlock)
