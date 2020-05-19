@@ -102,7 +102,7 @@ data SerialState token s = SerialState
       -- | The background color for the scene.
     , _serBackgroundColor  :: Color
       -- | The tree of tiles collecting itemTagIds
-    , _serTileTree         :: TileTree (Tile, S.Seq ItemTagId)
+    , _serTileTree         :: TileTree (Tile, Pile ItemTagId)
       -- | The pile of geometry strands
     , _serGeometryPile     :: GeometryPile
       -- | A Pile of pictureMemoryReferences
@@ -144,7 +144,7 @@ withSerializedScene rasterizer canvasSize pictureMap scene code =
               itemTagPile      <- liftIO $ newPile
               substanceTagPile <- liftIO $ newPile
               colorPile        <- liftIO $ newPile
-              let  tileTree = buildTileTree canvasSize (rasterizer ^. rasterDeviceSpec . specMaxTileSize) S.empty
+              tileTree <- liftIO $ buildTileTreeM canvasSize (rasterizer ^. rasterDeviceSpec . specMaxTileSize) newPile
               state            <- execStateT (buildOverScene rasterizer (fromIntegral <$> canvasSize) sceneWithPictMem) $
                   SerialState
                       { _serTokenMap         = M.empty
@@ -165,6 +165,7 @@ withSerializedScene rasterizer canvasSize pictureMap scene code =
                      freePile $ state ^. serItemTagPile
                      freePile $ state ^. serSubstanceTagPile
                      freePile $ state ^. serSolidColorPile
+                     --traverseTileTree (\(tile, pile) -> freePile pile) tileTree
               return result
 
 addItem :: MonadIO m
@@ -175,7 +176,8 @@ addItem boundingBox itemTags =
   forM_ itemTags $ \itemTag ->
      do itemTagId <- ItemTagId <$> addToPileState serItemTagPile itemTag
         tileTree <- use serTileTree
-        serTileTree .= addItemToTree tileTree boundingBox itemTagId -- the maximum strands a facet can create is 3
+        tileTree' <- addItemTagIdToTreePile tileTree boundingBox itemTagId -- the maximum strands a facet can create is 3
+        serTileTree .= tileTree'
 
 -- | On each shape in the shape tree run add the appropriate data to the appropriate buffers and the TileTree.
 onShape :: MonadIO m
@@ -300,7 +302,7 @@ outputSerialState state =
       putStrList =<< (pileToList . view serSubstanceTagPile $ state)
       putStrLn "---------------- serSolidColorPile -----------------------"
       putStrList =<< (pileToList . view serSolidColorPile   $ state)
-      putStrLn "---------------- serTileTree -----------------------"
-      putStrLn . show . view serTileTree       $ state
+      --putStrLn "---------------- serTileTree -----------------------"
+      --putStrLn . show . view serTileTree       $ state
       --putStrLn "---------------- geoGeometryPile -----------------------"
       --putStr =<< fmap unlines (bytePileToGeometry . view geoGeometryPile $ state)

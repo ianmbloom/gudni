@@ -199,7 +199,7 @@ fuzzySquares :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace
 fuzzySquares state = return $
                let time = view (stateBase . stateLastTime) state
                in  overlap $
-                   evalRand (sequence . replicate 5000 $ fuzzySquare (makePoint 2880 1800) 10 60) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+                   evalRand (sequence . replicate 50000 $ fuzzySquare (makePoint 2880 1800) 10 60) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
 
 -- | Smaller random field of transparent squares.
 fuzzySquares2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)

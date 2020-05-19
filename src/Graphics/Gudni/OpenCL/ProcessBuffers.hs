@@ -384,6 +384,7 @@ generateLoop params buffersInCommon sliceTree target =
         releaseStack finishedStack -- deallocate all blockSections
         return S.empty
 
+{-
 addPortionToPile :: S.Seq ItemTagId -> StateT (Pile ItemTagId) CL (Slice ItemTagId)
 addPortionToPile portion =
     do pile <- get
@@ -392,6 +393,18 @@ addPortionToPile portion =
        return slice
 
 makeItemEntrySlice :: (Tile, S.Seq ItemTagId) -> StateT (Pile ItemTagId) CL (Tile, Slice ItemTagId)
+makeItemEntrySlice (tile, portion) = do slice <- addPortionToPile portion
+                                        return (tile, slice)
+-}
+
+addPortionToPile :: Pile ItemTagId -> StateT (Pile ItemTagId) CL (Slice ItemTagId)
+addPortionToPile portion =
+    do pile <- get
+       (pile', slice) <- liftIO $ addPileToPile pile portion
+       put pile'
+       return slice
+
+makeItemEntrySlice :: (Tile, Pile ItemTagId) -> StateT (Pile ItemTagId) CL (Tile, Slice ItemTagId)
 makeItemEntrySlice (tile, portion) = do slice <- addPortionToPile portion
                                         return (tile, slice)
 

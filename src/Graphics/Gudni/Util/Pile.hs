@@ -182,9 +182,10 @@ extendPile :: forall t . Storable t => String -> Pile t -> IO (Pile t)
 extendPile message pile@(Pile cursor size startPtr) =
   do
     let itemSize = sizeOf (undefined :: t)
+        newSize = size * 2
     --putStrLn $ "extend " ++ message ++ " " ++ show pile
-    newPtr <- reallocBytes startPtr ((size + cHUNKSIZE) * itemSize)
-    return $ Pile cursor (size + cHUNKSIZE) newPtr
+    newPtr <- reallocBytes startPtr (newSize * itemSize)
+    return $ Pile cursor newSize newPtr
 
 addToPile' :: forall t. (Show t, Storable t) => String -> Pile t -> t -> IO (Pile t)
 addToPile' message pile@(Pile cursor size startPtr) item =
@@ -219,7 +220,7 @@ addSequenceToPile pile ss =
      return (pile', Slice (Ref $ fromIntegral cursor) (Breadth $ fromIntegral breadth))
 
 -- | Copy the contents of a pile into another pile.
-addPileToPile :: forall t . (Show t, Storable t) => Pile t -> Pile t -> IO (Pile t)
+addPileToPile :: forall t . (Show t, Storable t) => Pile t -> Pile t -> IO (Pile t, Slice t)
 addPileToPile destination source =
   do let sourceCursor = _pileCursor source
          sourceSize = sourceCursor * sizeOf (undefined :: t)
@@ -233,7 +234,7 @@ addPileToPile destination source =
           addPileToPile e source
      else
        do copyBytes destStart (_pileData source) sourceSize
-          return destination {_pileCursor = destCursor + sourceCursor}
+          return (destination {_pileCursor = destCursor + sourceCursor}, Slice (Ref $ fromIntegral destCursor) (Breadth $ fromIntegral sourceCursor))
 
 -- | Add an item to a pile within a StateT monad transformer with a lens to the pile within the state.
 -- updating the state along the way.

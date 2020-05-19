@@ -229,10 +229,7 @@ drawFrame frameCount scene queries =
         markAppTime "Build TileTree"
         queryResults <- withSerializedScene rasterizer canvasSize pictureMap scene $
              \ pictDataPile serialState ->
-                   do  --liftIO $ evaluate $ rnf (substances, boundedShapedEnclosures, SerialState)
-                       markAppTime "Traverse ShapeTree"
-                       --liftIO $ putStrLn $ "TileTree " ++ show (geometryState ^. geoTileTree)
-
+                   do  markAppTime "Traverse ShapeTree"
                        -- | Create a specification for the current frame.
                        let rasterParams = RasterParams rasterizer
                                                        serialState

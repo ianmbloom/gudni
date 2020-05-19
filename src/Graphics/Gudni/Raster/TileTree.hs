@@ -20,7 +20,9 @@ module Graphics.Gudni.Raster.TileTree
   ( TileTree(..)
   --, tileItems
   , buildTileTree
-  , addItemToTree
+  , buildTileTreeM
+  , addItemTagIdToTree
+  , addItemTagIdToTreePile
   , Tile (..)
   , TileId(..)
   , tileBox
@@ -114,40 +116,116 @@ buildTileTree canvasSize tileSize emptyRep = goV canvasDepth box
                           (goV (depth - 1) (set leftSide  hIntCut box))
           else HLeaf (Tile box, emptyRep)
 
+buildTileTreeM :: Monad m => Point2 PixelSpace -> PixelSpace -> m a -> m (TileTree (Tile, a))
+buildTileTreeM canvasSize tileSize emptyRep = goV canvasDepth box
+    where
+    -- Choose the largest dimension of the canvas as the square side dimension of the area covered by the tileTree.
+    maxCanvasDimension = max (canvasSize ^. pX) (canvasSize ^. pY)
+    -- Canvas depth is the adjusted log2 of the larges side of the canvas.
+    canvasDepth = adjustedLog (fromIntegral maxCanvasDimension)
+    -- Initial tile depth is the adjusted log of the max tileSize
+    tileDepth   = adjustedLog (fromIntegral $ tileSize)
+    -- The dimensions of the area covered by the tree will be a square with dimensions the smallest power of two
+    -- the contains both sides of the canvas. This is not a problem because the incoming shapes will still be excluded
+    -- based on the dimensions of the canvas and empty tiles will just have their threads inactive.
+    box = pointToBox $ makePoint (2 ^ canvasDepth) (2 ^ canvasDepth)
+    -- split the tile by dividing into a vertical stack
+    goV depth box =
+      let vIntCut = box ^. topSide + (2 ^ (depth - 1))
+          vCut = fromIntegral vIntCut
+      in  if depth > tileDepth
+          then VTree vCut <$> (goH depth (set bottomSide vIntCut box))
+                          <*> (goH depth (set topSide    vIntCut box))
+          else do rep <- emptyRep
+                  return $ VLeaf (Tile box, rep)
+    -- split the tile by dividing into a horizontal row.
+    goH depth box =
+      let hIntCut = box ^. leftSide + (2 ^ (depth - 1))
+          hCut = fromIntegral hIntCut
+      in  if depth > tileDepth
+          then HTree hCut <$> (goV (depth - 1) (set rightSide hIntCut box))
+                          <*> (goV (depth - 1) (set leftSide  hIntCut box))
+          else do rep <- emptyRep
+                  return $ HLeaf (Tile box, rep)
+
 -- | Add an itemEntry to a sequence of entries.
-insertItem :: (Tile, S.Seq ItemTagId) -> ItemTagId -> (Tile, S.Seq ItemTagId)
-insertItem (tile, items) itemEntry = (tile, items |> itemEntry)
+insertItemTagId :: ItemTagId -> (Tile, S.Seq ItemTagId) -> (Tile, S.Seq ItemTagId)
+insertItemTagId itemEntry (tile, items) = (tile, items |> itemEntry)
+
+addItemTagIdToTree :: TileTree (Tile, S.Seq ItemTagId) -> BoundingBox -> ItemTagId -> TileTree (Tile, S.Seq ItemTagId)
+addItemTagIdToTree tree box itemTagId = addItemToTree (insertItemTagId itemTagId) tree box
 
 -- | Add an itemEntry to a tile tree.
-addItemToTree :: TileTree (Tile, S.Seq ItemTagId) -> BoundingBox -> ItemTagId -> TileTree (Tile, S.Seq ItemTagId)
-addItemToTree tree = insertItemV tree
+addItemToTree :: (a -> a) -> TileTree a -> BoundingBox -> TileTree a
+addItemToTree f tree = insertItemV f tree
 
 -- | Add a shape to an HTree
-insertItemH :: HTree (Tile, S.Seq ItemTagId) -> BoundingBox -> ItemTagId -> HTree (Tile, S.Seq ItemTagId)
-insertItemH (HTree cut left right) box itemTagId =
+insertItemH :: (a -> a) -> HTree a -> BoundingBox -> HTree a
+insertItemH f (HTree cut left right) box =
     let left'  = -- if the left side of the shape is left of the cut add it to the left branch
                  if box ^. leftSide < cut
-                 then insertItemV left box itemTagId
+                 then insertItemV f left box
                  else left
         right' = -- if the right side of the shape is right of the cut add it to the right branch
                  if box ^. rightSide > cut
-                 then insertItemV right box itemTagId
+                 then insertItemV f right box
                  else right
     in  HTree cut left' right'
-insertItemH (HLeaf leaf) box itemTagId =
-    HLeaf $ insertItem leaf itemTagId
+insertItemH f (HLeaf leaf) box =
+    HLeaf $ f leaf
 
-insertItemV :: VTree (Tile, S.Seq ItemTagId) -> BoundingBox -> ItemTagId -> VTree (Tile, S.Seq ItemTagId)
-insertItemV (VTree cut top bottom) box itemTagId =
+insertItemV :: (a -> a) -> VTree a -> BoundingBox -> VTree a
+insertItemV f (VTree cut top bottom) box =
     let top'    = if box ^. topSide < cut
-                  then insertItemH top box itemTagId
+                  then insertItemH f top box
                   else top
         bottom' = if box ^. bottomSide > cut
-                  then insertItemH bottom box itemTagId
+                  then insertItemH f bottom box
                   else bottom
     in  VTree cut top' bottom'
-insertItemV (VLeaf leaf) box itemTagId =
-    VLeaf $ insertItem leaf itemTagId
+insertItemV f (VLeaf leaf) box =
+    VLeaf $ f leaf
+
+
+-- | Add an itemEntry to a sequence of entries.
+insertItemTagIdPile :: MonadIO m => ItemTagId -> (Tile, Pile ItemTagId) -> m (Tile, Pile ItemTagId)
+insertItemTagIdPile itemEntry (tile, items) =
+  do (items', _) <- liftIO $ addToPile "insertItemTagIdPile" items itemEntry
+     return (tile, items')
+
+addItemTagIdToTreePile :: MonadIO m => TileTree (Tile, Pile ItemTagId) -> BoundingBox -> ItemTagId -> m (TileTree (Tile, Pile ItemTagId))
+addItemTagIdToTreePile tree box itemTagId = addItemToTreeM (insertItemTagIdPile itemTagId) tree box
+
+-- | Add an itemEntry to a tile tree.
+addItemToTreeM :: Monad m => (a -> m a) -> TileTree a -> BoundingBox -> m (TileTree a)
+addItemToTreeM f tree = insertItemVM f tree
+
+-- | Add a shape to an HTree
+insertItemHM :: Monad m => (a -> m a) -> HTree a -> BoundingBox -> m (HTree a)
+insertItemHM f (HTree cut left right) box =
+    let left'  = -- if the left side of the shape is left of the cut add it to the left branch
+                 if box ^. leftSide < cut
+                 then insertItemVM f left box
+                 else return left
+        right' = -- if the right side of the shape is right of the cut add it to the right branch
+                 if box ^. rightSide > cut
+                 then insertItemVM f right box
+                 else return right
+    in  HTree cut <$> left' <*> right'
+insertItemHM f (HLeaf leaf) box =
+    HLeaf <$> f leaf
+
+insertItemVM :: Monad m => (a -> m a) -> VTree a -> BoundingBox -> m (VTree a)
+insertItemVM f (VTree cut top bottom) box =
+    let top'    = if box ^. topSide < cut
+                  then insertItemHM f top box
+                  else return top
+        bottom' = if box ^. bottomSide > cut
+                  then insertItemHM f bottom box
+                  else return bottom
+    in  VTree cut <$> top' <*> bottom'
+insertItemVM f (VLeaf leaf) box =
+    VLeaf <$> f leaf
 
 
 -- | Display the contents of a tile.
