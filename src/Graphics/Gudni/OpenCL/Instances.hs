@@ -23,7 +23,7 @@ import Graphics.Gudni.Figure
 import CLUtil
 import CLUtil.KernelArgs
 import Graphics.Gudni.Util.Pile
-import Graphics.Gudni.Interface.DrawTarget(OutputPtr(..), TextureObject(..))
+import Graphics.Gudni.Interface.DrawTarget(TextureObject(..))
 import Graphics.Gudni.Interface.GLInterop
 import Graphics.Rendering.OpenGL(GLuint)
 import Graphics.Gudni.Raster.TileTree
@@ -41,7 +41,7 @@ pileToBuffer :: forall t . (Storable t) => CLContext -> Pile t -> IO (CLBuffer t
 pileToBuffer context (Pile cursor _ startPtr) =
     let vecSize = cursor * sizeOf (undefined :: t)
         adjustedVecSize = max 1 vecSize -- OpenCL will reject a memory buffer with size 0 so the minimum size is 1.
-    in  CLBuffer vecSize <$> clCreateBuffer context [CL_MEM_READ_ONLY, CL_MEM_USE_HOST_PTR] (adjustedVecSize, castPtr startPtr)
+    in  CLBuffer vecSize <$> clCreateBuffer context [CL_MEM_READ_ONLY, CL_MEM_COPY_HOST_PTR] (adjustedVecSize, castPtr startPtr)
 
 
 instance KernelArgs s g w o r => KernelArgs s g w o (Tile -> r) where
@@ -61,26 +61,6 @@ instance {-# OVERLAPPING #-} (KernelArgs s g w o r, Storable t) => KernelArgs s 
                             do b <- pileToBuffer (clContext s) v
                                clSetKernelArgSto k arg b
                                return (Just . FreeInput $ void (clReleaseMemObject $ bufferObject b), sz)
-
-
--- | Allow an output that copies directly to an area of
--- host memory that is allocated elsewhere such as a display buffer.
-instance {-# OVERLAPPING #-} forall s g w o r a . (Storable a, KernelArgs s g w o r) => KernelArgs s g w o (OutputPtr a -> r) where
-  prepArg k arg prep (OutPtr ptr sz) =  prepArg k (arg+1) (addKernelArgument load prep)
-      where load cont = cont allocateOutput
-            allocateOutput s szs =
-              do let m = sizeOf (undefined :: a)
-                 b <- clCreateBuffer (clContext s)
-                                     [ CL_MEM_WRITE_ONLY
-                                     , CL_MEM_USE_HOST_PTR ]
-                                     (m*sz, castPtr ptr)
-                 clSetKernelArgSto k arg b
-                 let clean = FreeInput . void $
-                               do ev <- clEnqueueReadBuffer (clQueue s) b False 0 (m*sz) (castPtr ptr) []
-                                 --  _ <- clWaitForEvents [ev]
-                                  --void $ clReleaseEvent ev
-                                  return ()
-                 return (Just clean, szs)
 
 -- | Make an OpenGL texture into a kernel argument.
 instance {-# OVERLAPS #-} (KernelArgs s g w o r) => KernelArgs s g w o (TextureObject -> r) where

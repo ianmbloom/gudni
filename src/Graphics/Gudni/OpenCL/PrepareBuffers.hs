@@ -33,6 +33,7 @@ module Graphics.Gudni.OpenCL.PrepareBuffers
 
   , newBuffer
   , releaseBuffer
+  , readBufferToPtr
   , bufferFromPile
   , bufferFromVector
   , withBuffersInCommon
@@ -160,6 +161,15 @@ withBuffersInCommon params code =
        result <- code bic
        releaseBuffersInCommon bic
        return result
+
+readBufferToPtr :: forall a . Storable a => Ptr a -> Int -> CLBuffer a -> CL ()
+readBufferToPtr ptr size buffer =
+  do let m = sizeOf (undefined :: a)
+     queue <- clQueue <$> ask
+     liftIO $ do ev <- clEnqueueReadBuffer queue (bufferObject buffer) False 0 (m*size) (castPtr ptr) []
+                 _  <- clWaitForEvents [ev]
+                 void $ clReleaseEvent ev
+     return ()
 
 createBuffersInCommon :: RasterParams token -> CL BuffersInCommon
 createBuffersInCommon params =

@@ -20,7 +20,6 @@ module Graphics.Gudni.Interface.DrawTarget
   , targetBuffer
   , isHostBitmapTarget
   , TextureObject (..)
-  , OutputPtr(..)
   )
 where
 
@@ -31,9 +30,6 @@ import qualified SDL
 import Control.Lens
 
 import Graphics.Rendering.OpenGL (TextureObject(..))
-
--- | Allocated CPU Memory buffer for the output bitmap.
-data OutputPtr a = OutPtr (Ptr a) Int deriving (Show)
 
 -- | Target buffer type where the output of the rasterizer is stored.
 data TargetBuffer
