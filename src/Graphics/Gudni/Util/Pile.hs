@@ -203,7 +203,7 @@ class (Show a, Show b, Storable a) => CanPile a b where
 
 -- | Add an item to a pile within a StateT monad transformer with a lens to the pile within the state.
 -- updating the state along the way.
-addToPileState :: (Storable a, Show a, Storable b, CanPile a b, MonadState s m, MonadIO m)
+addToPileState :: (Storable a, Show a, CanPile a b, MonadState s m, MonadIO m)
                => Lens' s (Pile a)
                -> b
                -> m (Slice a)

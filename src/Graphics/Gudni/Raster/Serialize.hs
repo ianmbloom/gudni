@@ -24,11 +24,10 @@ module Graphics.Gudni.Raster.Serialize
   , SerialState(..)
   , serTokenMap
   , serBackgroundColor
-  , serPictureMems
   , serFacetPile
   , serItemTagPile
   , serSubstanceTagPile
-  , serSolidColorPile
+  , serDescriptionPile
   , serGeometryPile
   , serTileTree
   , outputSerialState
@@ -105,22 +104,20 @@ data SerialState token s = SerialState
     , _serTileTree         :: TileTree (Tile, Pile ItemTagId)
       -- | The pile of geometry strands
     , _serGeometryPile     :: GeometryPile
-      -- | A Pile of pictureMemoryReferences
-    , _serPictureMems      :: Pile (PictureMemoryReference)
       -- | A list of texture facets collected from the scene.
     , _serFacetPile        :: Pile (HardFacet_ s TextureSpace)
      -- | A pile of every item tag collected from the scene.
     , _serItemTagPile      :: Pile ItemTag
       -- | A pile of every substance collected from the scene.
     , _serSubstanceTagPile :: Pile SubstanceTag
-    -- | A list of mask colors referenced by substanceTags
-    , _serSolidColorPile   :: Pile Color
+      -- | A heap of all substance descriptions
+    , _serDescriptionPile  :: BytePile
     }
 makeLenses ''SerialState
 
 instance (NFData token, NFData s) => NFData (SerialState token s) where
-  rnf (SerialState a b c d e f g h i) =
-      a `deepseq` b {-`deepseq` c-} `deepseq` d `deepseq` e `deepseq` f `deepseq` g `deepseq` h `deepseq` i `deepseq` ()
+  rnf (SerialState a b c d e f g h) =
+      a `deepseq` b {-`deepseq` c -} `deepseq` d `deepseq` e `deepseq` f `deepseq` g `deepseq` h `deepseq` ()
 
 -- | A monad for serializing substance data from a scene.
 type SerialMonad token s m = StateT (SerialState token s) m
@@ -139,11 +136,10 @@ withSerializedScene rasterizer canvasSize pictureMap scene code =
     withScenePictureMemory pictureMap scene $
        \ sceneWithPictMem pictDataPile ->
            do geometryPile     <- liftIO (newPileSize iNITgEOMETRYpILEsIZE :: IO BytePile)
-              pictMemPile      <- liftIO $ newPile
               facetPile        <- liftIO $ newPile
               itemTagPile      <- liftIO $ newPile
               substanceTagPile <- liftIO $ newPile
-              colorPile        <- liftIO $ newPile
+              descriptionPile <- liftIO $ newPile
               tileTree <- liftIO $ buildTileTreeM canvasSize (rasterizer ^. rasterDeviceSpec . specMaxTileSize) newPile
               state            <- execStateT (buildOverScene rasterizer (fromIntegral <$> canvasSize) sceneWithPictMem) $
                   SerialState
@@ -151,20 +147,18 @@ withSerializedScene rasterizer canvasSize pictureMap scene code =
                       , _serBackgroundColor  = clearBlack
                       , _serGeometryPile     = geometryPile
                       , _serTileTree         = tileTree
-                      , _serPictureMems      = pictMemPile
                       , _serFacetPile        = facetPile
                       , _serItemTagPile      = itemTagPile
                       , _serSubstanceTagPile = substanceTagPile
-                      , _serSolidColorPile   = colorPile
+                      , _serDescriptionPile  = descriptionPile
                       }
               result <- code pictDataPile state
               liftIO $
                   do freePile $ state ^. serGeometryPile
-                     freePile $ state ^. serPictureMems
                      freePile $ state ^. serFacetPile
                      freePile $ state ^. serItemTagPile
                      freePile $ state ^. serSubstanceTagPile
-                     freePile $ state ^. serSolidColorPile
+                     freePile $ state ^. serDescriptionPile
                      --traverseTileTree (\(tile, pile) -> freePile pile) tileTree
               return result
 
@@ -244,10 +238,10 @@ onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap transformer
             case baseSubstance of
                 Texture pictMemReference ->
                     do -- Get the current usage id.
-                       pictMemId  <- TextureId . sliceStart <$> addToPileState serPictureMems pictMemReference
+                       pictMemId  <- TextureId . sliceStart <$> addToPileState serDescriptionPile (asBytes pictMemReference)
                        return . TextureInfo $ pictMemId
                 Solid color ->
-                    do colorId <- ColorId . sliceStart <$> addToPileState serSolidColorPile color
+                    do colorId <- ColorId . sliceStart <$> addToPileState serDescriptionPile (asBytes color)
                        return . SolidInfo $ colorId
         let substanceTag = substanceInfoToTag substanceReference
         traverseCompoundTree defaultValue transformer (onShape rasterizer canvasSize substanceTag) subTree
@@ -296,13 +290,11 @@ outputSerialState state =
   do  putStrLn $ "serTokenMap         " ++ (show . view serTokenMap            $ state)
       putStrLn $ "serBackgroundColor  " ++ (show . view serBackgroundColor     $ state)
       putStrLn "---------------- serPictureMems -----------------------"
-      putStrList =<< (pileToList . view serPictureMems      $ state)
+      putStrList =<< (pileToList . view serDescriptionPile      $ state)
       putStrLn "---------------- serFacetPile -----------------------"
       putStrList =<< (pileToList . view serFacetPile        $ state)
       putStrLn "---------------- serSubstanceTagPile -----------------------"
       putStrList =<< (pileToList . view serSubstanceTagPile $ state)
-      putStrLn "---------------- serSolidColorPile -----------------------"
-      putStrList =<< (pileToList . view serSolidColorPile   $ state)
       --putStrLn "---------------- serTileTree -----------------------"
       --putStrLn . show . view serTileTree       $ state
       --putStrLn "---------------- geoGeometryPile -----------------------"

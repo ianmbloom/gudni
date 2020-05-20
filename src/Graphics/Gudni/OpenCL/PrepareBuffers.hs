@@ -23,11 +23,10 @@
 module Graphics.Gudni.OpenCL.PrepareBuffers
   ( BuffersInCommon(..)
   , bicGeometryHeap
-  , bicPictMemRefHeap
   , bicFacetHeap
   , bicItemTagHeap
   , bicSubTagHeap
-  , bicSolidColors
+  , bicDescriptions
   , bicPictHeap
   , bicRandoms
 
@@ -119,11 +118,10 @@ import GHC.Exts
 
 data BuffersInCommon = BuffersInCommon
   { _bicGeometryHeap   :: CLBuffer CChar
-  , _bicPictMemRefHeap :: CLBuffer PictureMemoryReference
   , _bicFacetHeap      :: CLBuffer (HardFacet_ SubSpace TextureSpace)
   , _bicItemTagHeap    :: CLBuffer ItemTag
   , _bicSubTagHeap     :: CLBuffer SubstanceTag
-  , _bicSolidColors    :: CLBuffer Color
+  , _bicDescriptions   :: CLBuffer CChar
   , _bicPictHeap       :: CLBuffer Word8
   , _bicRandoms        :: CLBuffer CFloat
   }
@@ -174,20 +172,18 @@ readBufferToPtr ptr size buffer =
 createBuffersInCommon :: RasterParams token -> CL BuffersInCommon
 createBuffersInCommon params =
     do  geoBuffer       <- bufferFromPile   "geoBuffer     " (params ^. rpSerialState . serGeometryPile    )
-        pictMemBuffer   <- bufferFromPile   "pictMemBuffer " (params ^. rpSerialState . serPictureMems     )
         facetBuffer     <- bufferFromPile   "facetBuffer   " (params ^. rpSerialState . serFacetPile       )
         itemTagBuffer   <- bufferFromPile   "itemTagBuffer " (params ^. rpSerialState . serItemTagPile     )
         subTagBuffer    <- bufferFromPile   "subTagBuffer  " (params ^. rpSerialState . serSubstanceTagPile)
-        colorBuffer     <- bufferFromPile   "colorBuffer   " (params ^. rpSerialState . serSolidColorPile  )
+        descriptionBuffer <- bufferFromPile   "descriptionBuffer" (params ^. rpSerialState . serDescriptionPile  )
         pictDataBuffer  <- bufferFromPile   "pictDataBuffer" (params ^. rpPictDataPile)
         randoms         <- bufferFromVector "randoms       " (params ^. rpRasterizer  . rasterRandomField  )
         return $  BuffersInCommon
                   { _bicGeometryHeap   = geoBuffer
-                  , _bicPictMemRefHeap = pictMemBuffer
                   , _bicFacetHeap      = facetBuffer
                   , _bicItemTagHeap    = itemTagBuffer
                   , _bicSubTagHeap     = subTagBuffer
-                  , _bicSolidColors    = colorBuffer
+                  , _bicDescriptions   = descriptionBuffer
                   , _bicPictHeap       = pictDataBuffer
                   , _bicRandoms        = randoms
                   }
@@ -196,11 +192,10 @@ releaseBuffersInCommon :: BuffersInCommon -> CL ()
 releaseBuffersInCommon bic =
     do
         releaseBuffer "bicGeometryHeap  " $ bic ^. bicGeometryHeap
-        releaseBuffer "bicPictMemRefHeap" $ bic ^. bicPictMemRefHeap
         releaseBuffer "bicFacetHeap     " $ bic ^. bicFacetHeap
         releaseBuffer "bicItemTagHeap   " $ bic ^. bicItemTagHeap
         releaseBuffer "bicSubTagHeap    " $ bic ^. bicSubTagHeap
-        releaseBuffer "bicSolidColors   " $ bic ^. bicSolidColors
+        releaseBuffer "bicDescriptions  " $ bic ^. bicDescriptions
         releaseBuffer "bicPictHeap      " $ bic ^. bicPictHeap
         releaseBuffer "bicRandoms       " $ bic ^. bicRandoms
         return ()

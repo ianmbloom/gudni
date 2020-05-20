@@ -36,7 +36,7 @@ import Graphics.Gudni.Util.Pile
 
 import Data.Bits
 import Control.Lens
-import Foreign.C.Types (CUInt, CULong)
+import Foreign.C.Types (CUInt, CChar, CULong)
 import Control.DeepSeq
 
 import Foreign.Storable
@@ -57,9 +57,9 @@ noSubstanceTag = SubstanceTag nOsUBSTANCEtAG
 instance Show SubstanceTagId where
     show (SubstanceTagId i) = show i ++ "sid"
 
-newtype ColorId = ColorId {unColorId :: Reference Color} deriving (Show, Ord, Eq, Num, Enum)
+newtype ColorId = ColorId {unColorId :: Reference CChar} deriving (Show, Ord, Eq, Num, Enum)
 
-newtype TextureId = TextureId {unTextureId :: Reference PictureMemoryReference} deriving (Show, Ord, Eq, Num, Enum)
+newtype TextureId = TextureId {unTextureId :: Reference CChar} deriving (Show, Ord, Eq, Num, Enum)
 
 data SubstanceInfo
     = SolidInfo

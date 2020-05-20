@@ -115,8 +115,9 @@ inline bool substanceTagType(SUBSTANCETAG tag) {return (tag & SUBSTANCETAG_TYPE_
 inline bool substanceTagIsSolidColor(SUBSTANCETAG tag) {return (tag & SUBSTANCETAG_TYPE_BITMASK) == SUBSTANCETAG_TYPE_SOLID_COLOR;}
 inline bool substanceTagIsTexture(SUBSTANCETAG tag)    {return (tag & SUBSTANCETAG_TYPE_BITMASK) == SUBSTANCETAG_TYPE_TEXTURE;}
 
-inline SUBSTANCETAG substanceTagColorId(SUBSTANCETAG tag)      {return (tag & SUBSTANCETAG_REF_BITMASK);}
-inline SUBSTANCETAG substanceTagTextureMemId(SUBSTANCETAG tag) {return (tag & SUBSTANCETAG_REF_BITMASK);} // this is the same but here for consistency.
+inline SUBSTANCETAG substanceTagDescriptionRef(SUBSTANCETAG tag)      {return (tag & SUBSTANCETAG_REF_BITMASK);}
+
+
 
 // A shape bit is the number of each shape assigned as it is added to a tilethread, each shape number corresponds to a bit in the shape stack
 // so the number of possible shape bits is limited to the size (in bits) of the shape stack.
@@ -260,8 +261,7 @@ typedef struct ColorState {
     GMEM SUBSTANCETAG *csSubstanceTagHeap;        // access to the substanceTagHeap
                COLOR   csBackgroundColor;         // background color
     GMEM       uchar  *csPictureData;             // global image information
-    GMEM     PictUse  *csPictureRefs;             // global list of image references
-    GMEM       COLOR  *csSolidColors;               // global list of solidColors
+    GMEM       uchar  *csDescriptions;            // global heap of substance descriptions
                 int2   absolutePosition;          // the absolute position of the current pixel.
   } ColorState;
 
@@ -745,25 +745,24 @@ void copyBlock
     ,             int  columnDepth
     );
 
-void renderThresholdArray ( PMEM  ThresholdQueue *tQ
-                          , PMEM      ShapeState *shS
-                          , GMEM         ITEMTAG *itemTagHeap
-                          , GMEM    SUBSTANCETAG *substanceTagHeap
-                          , GMEM       HardFacet *facetHeap
-                          , GMEM           uchar *pictureData
-                          , GMEM         PictUse *pictureRefs
-                          , GMEM           COLOR *solidColors
-                          , CMEM           float *randomField
-                          ,                COLOR  backgroundColor
-                          ,                 int2  bitmapSize
-                          ,                  int  frameCount
-                          ,                  int  blockId
-                          ,                  int  columnDepth
-                          ,                  int  columnThread
-                          ,               float4  columnBox
-                          ,                 int2  columnDelta
-                          , GMEM            uint *out
-                          );
+ void renderThresholdArray ( PMEM  ThresholdQueue *tQ
+                           , PMEM      ShapeState *shS
+                           , GMEM         ITEMTAG *itemTagHeap
+                           , GMEM    SUBSTANCETAG *substanceTagHeap
+                           , GMEM       HardFacet *facetHeap
+                           , GMEM           uchar *pictureData
+                           , GMEM           uchar *descriptionHeap
+                           , CMEM           float *randomField
+                           ,                COLOR  backgroundColor
+                           ,                 int2  bitmapSize
+                           ,                  int  frameCount
+                           ,                  int  blockId
+                           ,                  int  columnDepth
+                           ,                  int  columnThread
+                           ,               float4  columnBox
+                           ,                 int2  columnDelta
+                           , GMEM            uint *out
+                           );
 
 SUBSTANCETAG identifyPoint ( PMEM  ThresholdQueue *tQ
                            , PMEM      ShapeState *shS
@@ -779,8 +778,7 @@ void initColorState ( PMEM   ColorState *init
                     , GMEM SUBSTANCETAG *substanceTagHeap
                     ,             COLOR  backgroundColor
                     , GMEM        uchar *pictureData
-                    , GMEM      PictUse *pictureRefs
-                    , GMEM        COLOR *solidColors
+                    , GMEM        uchar *descriptionHeap
                     ,              int2  absolutePosition
                     );
 
@@ -1427,21 +1425,31 @@ bool traverseTree( GMEM    float2 *strandHeap
     return inRange;
 }
 
+inline COLOR getColorDescription(PMEM ColorState *cS
+                                ,SUBSTANCETAG tag
+                                ) {
+    return *((COLOR*)(cS->csDescriptions + substanceTagDescriptionRef(tag)));
+}
+
+inline PictUse getPictUseDescription(PMEM ColorState *cS
+                                    ,SUBSTANCETAG tag
+                                    ) {
+    return *((PictUse*)(cS->csDescriptions + substanceTagDescriptionRef(tag)));
+}
+
 // read a color value depending on the substance and absolute position.
 COLOR readColor ( PMEM ColorState *cS
                 , SUBSTANCETAG tag
                 , FACETID currentFacet
                 ) {
     if (substanceTagIsSolidColor(tag)) {
-        return cS->csSolidColors[substanceTagColorId(tag)];
+        return getColorDescription(cS, tag);
     } else { // its a picture reference
-        uint pictId = substanceTagTextureMemId(tag);
-        PictUse pRef = cS->csPictureRefs[pictId];
+        PictUse pRef = getPictUseDescription(cS, tag);
         float scale = 1.0f;//pRef.pictScale;
         scale = scale < 0.0000001 ? 0.0000001 : scale;
         //DEBUG_IF(printf("scale %f \n", scale);)
         int2 relativePosition = convert_int2((convert_float2(cS->absolutePosition) / scale) /* - (pRef.pictTranslate*/);
-        //DEBUG_IF(printf("pictId %i pRef.pictSize %v2i pRef.memOffset %i relativePosition %v2i \n", pictId, pRef.pictSize, pRef.pictMemOffset, relativePosition);)
         if (relativePosition.x >= 0 &&
             relativePosition.y >= 0 &&
             relativePosition.x < pRef.pictSize.x &&
@@ -1482,8 +1490,6 @@ COLOR compositeLayers( PMEM    ShapeState *shS
    while (layer < shS->itemCount && !(OPAQUE(color))) {
      ITEMTAG currentItemTag = shS->itemTagStack[layer];
      SUBSTANCETAG currentSubstanceTag = cS->csSubstanceTagHeap[itemTagSubstanceTagId(currentItemTag)];
-     //COLOR testColor = cS->csSolidColors[substanceTagColorId(currentSubstanceTag)];
-     //DEBUG_IF(printf("layer %i", layer);showItemTag(currentItemTag);showSubstanceTag(currentSubstanceTag);printf("color %2.2v4f \n", testColor);)
      if (itemTagIsFacet(currentItemTag)) {
        currentFacet = itemTagFacetId(currentItemTag);
      }
@@ -1936,15 +1942,13 @@ void initColorState ( PMEM   ColorState *init
                     , GMEM SUBSTANCETAG *substanceTagHeap
                     ,             COLOR  backgroundColor
                     , GMEM        uchar *pictureData
-                    , GMEM      PictUse *pictureRefs
-                    , GMEM        COLOR *solidColors
+                    , GMEM        uchar *descriptionHeap
                     ,              int2  absolutePosition
                     ) {
   init->csSubstanceTagHeap = substanceTagHeap;
   init->csBackgroundColor = backgroundColor;
-  init->csPictureData = pictureData;
-  init->csPictureRefs = pictureRefs;
-  init->csSolidColors = solidColors;
+  init->csPictureData  = pictureData;
+  init->csDescriptions = descriptionHeap;
   init->absolutePosition = absolutePosition;
 }
 
@@ -2031,8 +2035,7 @@ void prepThresholdArray( PMEM ThresholdQueue *tQ
                            , GMEM    SUBSTANCETAG *substanceTagHeap
                            , GMEM       HardFacet *facetHeap
                            , GMEM           uchar *pictureData
-                           , GMEM         PictUse *pictureRefs
-                           , GMEM           COLOR *solidColors
+                           , GMEM           uchar *descriptionHeap
                            , CMEM           float *randomField
                            ,                COLOR  backgroundColor
                            ,                 int2  bitmapSize
@@ -2058,8 +2061,7 @@ void prepThresholdArray( PMEM ThresholdQueue *tQ
                   ,  substanceTagHeap
                   ,  backgroundColor
                   ,  pictureData
-                  ,  pictureRefs
-                  ,  solidColors
+                  ,  descriptionHeap
                   ,  columnDelta
                   );
     // fix thresholds that start above
@@ -2812,8 +2814,7 @@ __kernel void renderThresholdsKernel
     , GMEM SUBSTANCETAG *substanceTagHeap
     , GMEM    HardFacet *facetHeap
     , GMEM        uchar *pictureData
-    , GMEM      PictUse *pictureRefs
-    , GMEM        COLOR *solidColors
+    , GMEM        uchar *descriptionHeap
     , CMEM        float *randomField
     ,             COLOR  backgroundColor
     ,               int  columnDepth
@@ -2843,8 +2844,7 @@ __kernel void renderThresholdsKernel
                              ,  substanceTagHeap
                              ,  facetHeap
                              ,  pictureData
-                             ,  pictureRefs
-                             ,  solidColors
+                             ,  descriptionHeap
                              ,  randomField
                              ,  backgroundColor
                              ,  bitmapSize
@@ -2943,8 +2943,14 @@ void showShapeState(ShapeState *shS, ColorState *cS) {
    for (int i = 0; i < shS->itemCount; i++) {
      ITEMTAG itemTag = shS->itemTagStack[i];
      SUBSTANCETAG substanceTag = cS->csSubstanceTagHeap[itemTagSubstanceTagId(itemTag)];
-     COLOR color = cS->csSolidColors[substanceTagColorId(substanceTag)];
-     printf("%i ", i);showItemTag(itemTag);showSubstanceTag(substanceTag);printf("color %2.2v4f \n", color);
+     printf("%i ", i);showItemTag(itemTag);showSubstanceTag(substanceTag);
+     if (substanceTagIsSolidColor(substanceTag)) {
+         printf("color %2.2v4f", getColorDescription(cS, substanceTag));
+     } else if (substanceTagIsTexture(substanceTag)) { // its a picture reference
+         PictUse pRef = getPictUseDescription(cS, substanceTag);
+         printf("pictSize %03v2i offset %08x", pRef.pictSize, pRef.pictMemOffset);
+     }
+     printf("\n");
    }
 }
 
@@ -2953,7 +2959,7 @@ void showSubstanceTag(SUBSTANCETAG tag) {
     printf("NOSUBSTANCETAG ");
   }
   else {
-    printf("type %i ref %i ", substanceTagType(tag), substanceTagTextureMemId(tag));
+    printf("type %i ref %i ", substanceTagType(tag), substanceTagDescriptionRef(tag));
   }
 }
 
