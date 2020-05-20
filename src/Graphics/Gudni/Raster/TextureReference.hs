@@ -109,7 +109,7 @@ accumulatePicture picture =
      let size = pictureSize picture
          memory = PictureMemory size (pictPile ^. pileCursor)
          pVector = pictureData picture
-     (pictPile', _) <- liftIO $ addVectorToPile pictPile pVector
+     (pictPile', _) <- liftIO $ addToPile pictPile pVector
      put pictPile'
      return memory
 

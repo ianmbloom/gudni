@@ -190,7 +190,7 @@ insertItemV f (VLeaf leaf) box =
 -- | Add an itemEntry to a sequence of entries.
 insertItemTagIdPile :: MonadIO m => ItemTagId -> (Tile, Pile ItemTagId) -> m (Tile, Pile ItemTagId)
 insertItemTagIdPile itemEntry (tile, items) =
-  do (items', _) <- liftIO $ addToPile "insertItemTagIdPile" items itemEntry
+  do (items', _) <- liftIO $ addToPile items itemEntry
      return (tile, items')
 
 addItemTagIdToTreePile :: MonadIO m => TileTree (Tile, Pile ItemTagId) -> BoundingBox -> ItemTagId -> m (TileTree (Tile, Pile ItemTagId))

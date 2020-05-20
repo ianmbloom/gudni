@@ -75,7 +75,7 @@ appendEnclosure :: Enclosure
 appendEnclosure enclosure =
     do  strandRefs <- forM (enclosureStrands enclosure) ( \strand ->
            do  geometryPile <- get
-               (geometryPile', ref) <- liftIO $ addToBytePile "appendEnclosure" geometryPile strand
+               (geometryPile', Slice ref breadth) <- liftIO $ addToPile geometryPile (asBytes strand)
                put geometryPile'
                return ref
            )
@@ -174,7 +174,7 @@ addItem :: MonadIO m
         -> SerialMonad token s m ()
 addItem boundingBox itemTags =
   forM_ itemTags $ \itemTag ->
-     do itemTagId <- ItemTagId <$> addToPileState serItemTagPile itemTag
+     do itemTagId <- ItemTagId . sliceStart <$> addToPileState serItemTagPile itemTag
         tileTree <- use serTileTree
         tileTree' <- addItemTagIdToTreePile tileTree boundingBox itemTagId -- the maximum strands a facet can create is 3
         serTileTree .= tileTree'
@@ -189,18 +189,19 @@ onShape :: MonadIO m
         -> Shape SubSpace
         -> SerialMonad token s m ()
 onShape rasterizer canvasSize substanceTag combineType transformer shape =
-  do substanceTagId <- SubstanceTagId <$> addToPileState serSubstanceTagPile substanceTag
-     let transformedOutlines = V.fromList . map (applyTransformer transformer) $ view shapeOutlines shape
+  do let transformedOutlines = V.fromList . map (applyTransformer transformer) $ view shapeOutlines shape
          boundingBox = boxOf transformedOutlines
-         -- Table used to convert strands of coordinates to trees.
-         reorderTable = rasterizer ^. rasterReorderTable
-         -- Maximum size of a strand.
-         maxStrandSize = rasterizer ^. rasterDeviceSpec . specMaxStrandSize
      if excludeBox canvasSize boundingBox
      then return ()
-     else do strandRefs <-
+     else do substanceTagId <- SubstanceTagId . sliceStart <$> addToPileState serSubstanceTagPile substanceTag
+             strandRefs <-
                  do -- Build an enclosure from the outlines.
-                    let enclosure = enclose reorderTable maxStrandSize transformedOutlines
+                    let -- Table used to convert strands of coordinates to trees.
+                        reorderTable = rasterizer ^. rasterReorderTable
+                        -- Maximum size of a strand.
+                        maxStrandSize = rasterizer ^. rasterDeviceSpec . specMaxStrandSize
+                        -- Turn the shape into a series of strands.
+                        enclosure = enclose reorderTable maxStrandSize transformedOutlines
                     -- Get the geometry pile.
                     geometryPile <- use serGeometryPile
                     -- Add the shape to the geometry pile.
@@ -216,7 +217,7 @@ addHardFacet :: MonadIO m
              -> HardFacet_ SubSpace TextureSpace
              -> SerialMonad token SubSpace m ()
 addHardFacet substanceTagId hardFacet =
-  do facetId <- FacetId <$> addToPileState serFacetPile hardFacet
+  do facetId <- FacetId . sliceStart <$> addToPileState serFacetPile hardFacet
      let facetTag = facetInfoTag facetId substanceTagId
          boundingBox = boxOf hardFacet
      addItem boundingBox [facetTag]
@@ -243,11 +244,11 @@ onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap transformer
             case baseSubstance of
                 Texture pictMemReference ->
                     do -- Get the current usage id.
-                       pictMemId <- TextureId <$> addToPileState serPictureMems pictMemReference
-                       return $ TextureInfo pictMemId
+                       pictMemId  <- TextureId . sliceStart <$> addToPileState serPictureMems pictMemReference
+                       return . TextureInfo $ pictMemId
                 Solid color ->
-                    do colorId <- ColorId <$> addToPileState serSolidColorPile color
-                       return $ SolidInfo colorId
+                    do colorId <- ColorId . sliceStart <$> addToPileState serSolidColorPile color
+                       return . SolidInfo $ colorId
         let substanceTag = substanceInfoToTag substanceReference
         traverseCompoundTree defaultValue transformer (onShape rasterizer canvasSize substanceTag) subTree
         case mToken of
@@ -271,8 +272,8 @@ onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap transformer
                        hardFacets :: [HardFacet_ (SpaceOf item) TextureSpace]
                        hardFacets = fmap (hardenFacet) . join $ tesselatedFacets
                    -- Add the new usage of the picture to the pile.
-                   substanceTagId <- SubstanceTagId <$> addToPileState serSubstanceTagPile substanceTag
-                   mapM (addHardFacet substanceTagId) hardFacets
+                   Slice substanceTagId _ <- addToPileState serSubstanceTagPile substanceTag
+                   mapM (addHardFacet $ SubstanceTagId substanceTagId) hardFacets
                    return ()
             _ ->   return ()
 

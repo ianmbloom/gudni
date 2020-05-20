@@ -109,7 +109,6 @@ library
                      , Graphics.Gudni.OpenCL.Instances
                      , Graphics.Gudni.OpenCL.Rasterizer
                      , Graphics.Gudni.Raster.ItemInfo
-                     , Graphics.Gudni.Raster.PackTree
                      , Graphics.Gudni.Raster.Params
                      , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.Strand

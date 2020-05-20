@@ -312,7 +312,7 @@ generateLoop params buffersInCommon tree target =
              processTile (tile, itemTagIdPile) = announceStack ("tile: " ++ show tile) $
                  do  genProgress .= 0
                      itemTagIds <- lift $ bufferFromPile "itemTagIds" itemTagIdPile
-                     let numItems = itemTagIdPile ^. pileSize
+                     let numItems = fromIntegral $ itemTagIdPile ^. pileBreadth
                      sectionLoop tile itemTagIds numItems
                      stack <- use genData
                      --lift $ showSections params "generated" stack

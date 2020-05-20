@@ -22,40 +22,25 @@
 
 module Graphics.Gudni.Util.Pile
   ( Reference (..)
-  , nULLREFERENCE
   , Breadth (..)
   , refToBreadth
-  , zEROBREADTH
   , Slice (..)
   , Pile (..)
+  , CanPile (..)
   , pileCursor
   , pileBreadth
-  , pileSize
-  , getPileSlice
-  , getPileSliceVector
-  , getPileItem
-  , pileTop
-  , replacePileTop
   , pileToList
   , listToPile
-  , addToPile
   , extendPile
-  , addListToPile
-  , addSequenceToPile
-  , addPileToPile
   , addToPileState
-  , addToBytePileState
-  , addListToPileState
-  , addVectorToPile
   , newPile
   , newPileSize
   , freePile
   , resetPile
   , isEmptyPile
   , BytePile (..)
-  , addToBytePile
-  , canAddToBytePile
-  , addVectorToBytePile
+  , AsBytes(..)
+  , asBytes
   , bytePileToCharList
   , bytePileToIntList
   , bytePileToShortList
@@ -86,13 +71,13 @@ import Foreign.Marshal.Alloc
 
 import GHC.Ptr
 
+-- Additional amount to reallocate with each step.
+dEFAULTpILEaLLOCATION = 1024 :: Int
 
 type Reference_ = CUInt
 newtype Reference t = Ref {unRef :: Reference_}    deriving (Eq, Ord, Num, Enum, Real, Integral)
 instance Show (Reference t) where
   show (Ref i) = show i
-
-nULLREFERENCE = Ref (maxBound :: Reference_)
 
 instance NFData (Reference t) where
   rnf (Ref i) = i `deepseq` ()
@@ -107,8 +92,6 @@ type Breadth_ = CUInt
 newtype Breadth t = Breadth {unBreadth :: Breadth_}  deriving (Eq, Ord, Num, Enum, Real, Integral)
 instance Show (Breadth t) where
   show (Breadth i) = show i
-
-zEROBREADTH = Breadth 0
 
 instance NFData (Breadth t) where
   rnf (Breadth i) = i `deepseq` ()
@@ -157,179 +140,29 @@ instance Storable (Slice t) where
 data Pile t = Pile
   { -- The current position of the write head.
     _pileCursor :: !Int
-    -- The current total allocated size of the buffer.
-  , _pileSize   :: !Int
+    -- The current total allocated units of t for the buffer.
+  , _pileAllocated   :: !Int
     -- The pointer to the start of the buffer.
   , _pileData   :: !(Ptr t)
   } deriving (Show)
 
 -- | Lens for the current position of the write head.
 pileCursor :: Lens' (Pile t) (Reference t)
-pileCursor plFunc (Pile cursor size ptr) = (\(Ref cursor') -> Pile (fromIntegral cursor') size ptr) <$> plFunc (Ref . fromIntegral $ cursor)
+pileCursor plFunc (Pile cursor allocated ptr) = (\(Ref cursor') -> Pile (fromIntegral cursor') allocated ptr) <$> plFunc (Ref . fromIntegral $ cursor)
 
 -- | Lens for the current size of the pile.
 pileBreadth :: (Functor f, Contravariant f) => Optic' (->) f (Pile t) (Breadth t)
 pileBreadth = pileCursor . to refToBreadth
 
-pileSize :: (Functor f, Contravariant f) => Optic' (->) f (Pile t) Int
-pileSize = pileCursor . to (fromIntegral . unRef)
-
--- Additional amount to reallocate with each step.
-cHUNKSIZE = (1024 :: Int)
-
--- | Reallocate the pile with new space.
-extendPile :: forall t . Storable t => String -> Pile t -> IO (Pile t)
-extendPile message pile@(Pile cursor size startPtr) =
-  do
-    let itemSize = sizeOf (undefined :: t)
-        newSize = size * 2
-    --putStrLn $ "extend " ++ message ++ " " ++ show pile
-    newPtr <- reallocBytes startPtr (newSize * itemSize)
-    return $ Pile cursor newSize newPtr
-
-addToPile' :: forall t. (Show t, Storable t) => String -> Pile t -> t -> IO (Pile t)
-addToPile' message pile@(Pile cursor size startPtr) item =
-  if cursor < size
-  then
-    do poke (startPtr `plusPtr` (cursor * sizeOf (undefined :: t))) item
-       return $ Pile (cursor + 1) size startPtr
-  else
-    do e <- extendPile message pile
-       addToPile' message e item
-
--- | Add an item to a pile.
-addToPile :: forall t. (Show t, Storable t) => String -> Pile t -> t -> IO (Pile t, Reference t)
-addToPile message pile@(Pile cursor size startPtr) item =
-  do pile <- addToPile' message pile item
-     return (pile, Ref $ fromIntegral cursor)
-
--- | Add a list of items to a pile. Return a slice for the newly added items.
-addListToPile :: (Show t, Storable t) => Pile t -> [t] -> IO (Pile t, Slice t)
-addListToPile pile list =
-  do let cursor = pile ^. pileCursor
-     pile' <- foldM (addToPile' "list") pile list
-     let breadth = pile' ^. pileCursor - cursor
-     return (pile', Slice (Ref $ fromIntegral cursor) (Breadth $ fromIntegral breadth))
-
--- | Add a list of items to a pile. Return a slice for the newly added items.
-addSequenceToPile :: (Show t, Storable t) => Pile t -> S.Seq t -> IO (Pile t, Slice t)
-addSequenceToPile pile ss =
-  do let cursor = pile ^. pileCursor
-     pile' <- foldM (addToPile' "sequence") pile ss
-     let breadth = pile' ^. pileCursor - cursor
-     return (pile', Slice (Ref $ fromIntegral cursor) (Breadth $ fromIntegral breadth))
-
--- | Copy the contents of a pile into another pile.
-addPileToPile :: forall t . (Show t, Storable t) => Pile t -> Pile t -> IO (Pile t, Slice t)
-addPileToPile destination source =
-  do let sourceCursor = _pileCursor source
-         sourceSize = sourceCursor * sizeOf (undefined :: t)
-         destCursor = _pileCursor destination
-         destStart  = _pileData destination `plusPtr` (destCursor * sizeOf (undefined :: t))
-         destAlloced = _pileSize destination
-         end         = destCursor + sourceCursor
-     if end > destAlloced
-     then
-       do e <- extendPile "pileToPile" destination
-          addPileToPile e source
-     else
-       do copyBytes destStart (_pileData source) sourceSize
-          return (destination {_pileCursor = destCursor + sourceCursor}, Slice (Ref $ fromIntegral destCursor) (Breadth $ fromIntegral sourceCursor))
-
--- | Add an item to a pile within a StateT monad transformer with a lens to the pile within the state.
--- updating the state along the way.
-addToPileState :: (Storable t, Show t, MonadState s m, Monad m, MonadIO m)
-               => Lens' s (Pile t)
-               -> t
-               -> m (Reference t)
-addToPileState lens object =
-  do pile <- use lens
-     (pile', ref) <- liftIO $ addToPile "addToPileState" pile object
-     lens .= pile'
-     return ref
-
--- | Add to a bytepile within a StateT monad transformer with a lens to the bytepile within the state.
--- updating the state along the way.
-addToBytePileState :: (Storable t, Show t, MonadState s m, Monad m, MonadIO m)
-                   => Lens' s BytePile
-                   -> t
-                   -> m Int
-addToBytePileState lens object =
-  do pile <- use lens
-     (pile', ref) <- liftIO $ addToBytePile "addToPileState" pile object
-     lens .= pile'
-     return ref
-
--- | Add a list of items to a pile within a StateT monad transformer with a lens to the pile within the state.
--- updating the state along the way. Return a slice for the newly added items.
-addListToPileState :: (Storable t, Show t, MonadState s m, Monad m, MonadIO m)
-                   => Lens' s (Pile t)
-                   -> [t]
-                   -> m (Slice t)
-addListToPileState lens list =
-  do pile <- use lens
-     (pile', slice) <- liftIO $ addListToPile pile list
-     lens .= pile'
-     return slice
-
--- | Add a vector of items to a pile. Return a reference to the beggining.
-addVectorToPile :: forall t . Storable t => Pile t -> VS.Vector t -> IO (Pile t, Reference t)
-addVectorToPile pile@(Pile cursor size startPtr) vector =
-  let vlen =  VS.length vector
-      end = cursor + vlen
-      vecSize = vlen * sizeOf (undefined :: t)
-  in
-  if end < size
-  then
-    do
-      let cursorPtr = startPtr `plusPtr` (cursor * sizeOf (undefined :: t))
-      VS.unsafeWith vector $ \ptr -> copyBytes cursorPtr ptr vecSize
-      return $ (Pile end size startPtr, Ref $ fromIntegral cursor)
-  else
-    do e <- extendPile "addVectorToPile" pile
-       addVectorToPile e vector
-
--- | Convert a pile to a list.
-pileToList :: forall t . (Storable t, Show t) => Pile t -> IO [t]
-pileToList (Pile cursor size startPtr) = peekArray cursor startPtr
-
--- | Convert a list to a pile.
-listToPile :: forall t . (Storable t, Show t) => [t] -> IO (Pile t)
-listToPile list = do pile <- newPile
-                     (pile', _) <- addListToPile pile list
-                     return pile'
-
--- | Get an item from a pile at a specific index.
-getPileItem :: forall t . (Storable t) => Pile t -> Int -> IO t
-getPileItem (Pile cursor size startPtr) index =
-  let offset = startPtr `plusPtr` (index * sizeOf (undefined :: t))
-  in peek offset
-
--- | Get the last item added to the pile
-pileTop :: forall t . (Storable t) => Pile t -> IO t
-pileTop pile@(Pile cursor _ startPtr) =
-  getPileItem pile (cursor - 1)
-
--- | Replace the last item added to the pile.
-replacePileTop :: forall t . (Show t, Storable t) => Pile t -> t -> IO (Pile t, Reference t)
-replacePileTop (Pile cursor size startPtr) item = addToPile "replacePileTop" (Pile (cursor - 1) size startPtr) item
-
--- | Extract a slice of a pile as a list.
-getPileSlice :: forall t . (Storable t) => Pile t -> Int -> Int -> IO [t]
-getPileSlice pile start len = peekArray len (_pileData pile `plusPtr` start)
-
--- | Extract a slice of a pile as a vector.
-getPileSliceVector pile start len = VS.fromList <$> getPileSlice pile start len
-
 newPile :: forall t a . (Storable t) => IO (Pile t)
-newPile = newPileSize cHUNKSIZE
+newPile = newPileSize dEFAULTpILEaLLOCATION
 
 -- | Create a new pile.
 newPileSize :: forall t a . (Storable t) => Int -> IO (Pile t)
-newPileSize size =
+newPileSize allocated =
   do
-    ptr <- mallocBytes (size * sizeOf (undefined :: t))
-    return (Pile 0 size ptr)
+    ptr <- mallocBytes (allocated * sizeOf (undefined :: t))
+    return (Pile 0 allocated ptr)
 
 -- | Free the memory allocated by a pile.
 freePile :: Pile a -> IO ()
@@ -337,7 +170,7 @@ freePile (Pile _ _ ptr) = free ptr
 
 -- | Reset the start point of a tile as though it were new.
 resetPile :: Pile t -> Pile t
-resetPile (Pile _ size ptr) = Pile 0 size ptr
+resetPile (Pile _ allocated ptr) = Pile 0 allocated ptr
 
 -- | Return true if a pile has any items.
 isEmptyPile :: Pile t -> Bool
@@ -346,63 +179,135 @@ isEmptyPile (Pile c _ _ ) = c == 0
 instance (NFData t) => NFData (Pile t) where
   rnf (Pile a b _ ) = a `deepseq` b `deepseq` ()
 
+-- | Reallocate the pile with new space.
+extendPile :: forall t . Storable t => Pile t -> IO (Pile t)
+extendPile pile@(Pile cursor allocated startPtr) =
+  do
+    let itemSize = sizeOf (undefined :: t)
+        newSize = allocated * 2
+    newPtr <- reallocBytes startPtr (newSize * itemSize)
+    return $ Pile cursor newSize newPtr
+
+addToPile' :: forall t. (Show t, Storable t) => Pile t -> t -> IO (Pile t)
+addToPile' pile@(Pile cursor allocated startPtr) item =
+  if cursor < allocated
+  then
+    do poke (startPtr `plusPtr` (cursor * sizeOf (undefined :: t))) item
+       return $ Pile (cursor + 1) allocated startPtr
+  else
+    do e <- extendPile pile
+       addToPile' e item
+
+class (Show a, Show b, Storable a) => CanPile a b where
+  addToPile :: Pile a -> b -> IO (Pile a, Slice a)
+
+-- | Add an item to a pile within a StateT monad transformer with a lens to the pile within the state.
+-- updating the state along the way.
+addToPileState :: (Storable a, Show a, Storable b, CanPile a b, MonadState s m, MonadIO m)
+               => Lens' s (Pile a)
+               -> b
+               -> m (Slice a)
+addToPileState lens object =
+  do pile <- use lens
+     (pile', ref) <- liftIO $ addToPile pile object
+     lens .= pile'
+     return ref
+
+addFoldableToPile :: (Show a, Storable a, Foldable f) => Pile a -> f a -> IO (Pile a, Slice a)
+addFoldableToPile pile foldable =
+   do let cursor = pile ^. pileCursor
+      pile' <- foldM addToPile' pile foldable
+      let breadth = pile' ^. pileCursor - cursor
+      return (pile', Slice (Ref $ fromIntegral cursor) (Breadth $ fromIntegral breadth))
+
+instance (Show a, Storable a) => CanPile a a where
+    addToPile pile@(Pile cursor allocated startPtr) item =
+      do pile <- addToPile' pile item
+         return (pile, Slice (Ref $ fromIntegral cursor) (Breadth 1))
+
+instance (Show a, Storable a) => CanPile a [a] where
+    addToPile = addFoldableToPile
+
+instance (Show a, Storable a) => CanPile a (S.Seq a) where
+    addToPile = addFoldableToPile
+
+addToPileFromPtr :: forall t a . (Show t, Storable t) => Pile t -> Ptr a -> Int -> IO (Pile t, Slice t)
+addToPileFromPtr destination@(Pile destCursor destAllocated startPtr) sourcePtr sourceSize =
+    let
+        sourceSizeInBytes = sourceSize * sizeOf (undefined :: t)
+        cursorPtr = startPtr `plusPtr` (destCursor * sizeOf (undefined :: t))
+        end = destCursor + sourceSize
+    in
+    if end < destAllocated
+    then
+      do copyBytes cursorPtr sourcePtr sourceSizeInBytes
+         return (destination {_pileCursor = destCursor + sourceSize}, Slice (Ref $ fromIntegral destCursor) (Breadth $ fromIntegral sourceSize))
+    else
+      do e <- extendPile destination
+         addToPileFromPtr e sourcePtr sourceSize
+
+instance (Show a, Storable a) => CanPile a (Pile a) where
+    -- | Copy the contents of a pile into another pile.
+    addToPile destination source =
+       let sourcePtr = _pileData source
+           sourceSize = _pileCursor source
+       in  addToPileFromPtr destination sourcePtr sourceSize
+
+instance (Show a, Storable a) => CanPile a (VS.Vector a) where
+    -- | Add a vector of items to a pile. Return a reference to the beggining.
+    addToPile destination vector =
+      VS.unsafeWith vector $ \sourcePtr ->
+      let sourceSize =  VS.length vector
+      in  addToPileFromPtr destination sourcePtr sourceSize
+
 type BytePile = Pile CChar
 
--- | Add any type with an instance of Storable to a pile or bytes.
-addToBytePile' :: forall t. (Storable t, Show t) => String -> BytePile -> t -> IO BytePile
-addToBytePile' message pile@(Pile cursor size startPtr) item =
-  let end = cursor + sizeOf item
-  in
-  if end < size
-  then
-    do --putStrLn $ "aboutToPoke" ++ show pile
-       poke (startPtr `plusPtr` cursor) item
-       return $ Pile end size startPtr
-  else
-    do
-       e <- extendPile message pile
-       addToBytePile' message e item
+newtype AsBytes t = AsBytes {unAsBytes :: t}
 
--- | Add any type with an instance of Storable to a pile or bytes. Return the position where it started (in bytes)
-addToBytePile :: forall t. (Storable t, Show t) => String -> BytePile -> t -> IO (BytePile, Int)
-addToBytePile message pile@(Pile cursor size startPtr) item =
-    do --putStrLn $ "addToBytePile " ++ message ++ show item
-       pile' <- addToBytePile' message pile item
-       return (pile', cursor)
+instance Show t => Show (AsBytes t) where
+  show (AsBytes t) = show t
 
--- | Determine if an item can be added to a bytepile without going over size limit.
-canAddToBytePile :: (Storable t) => BytePile -> Int -> t -> Bool
-canAddToBytePile (Pile cursor _ _) limit item = cursor + sizeOf item < limit
+asBytes = AsBytes
 
--- | Add a vector of any storable type to a byte piles. Return the start position in bytes.
-addVectorToBytePile :: forall t . (Storable t, Show t) => BytePile -> VS.Vector t -> IO (BytePile, Reference CChar)
-addVectorToBytePile pile@(Pile cursor size startPtr) vector =
-  let vlen =  VS.length vector
-      end = cursor + vlen
-      vecSize = vlen * sizeOf (undefined :: t)
-  in
-  if end < size
-  then do let cursorPtr = startPtr `plusPtr` (cursor * sizeOf (undefined :: t))
-          VS.unsafeWith vector $ \ptr -> copyBytes cursorPtr ptr vecSize
-          return $ (Pile end size startPtr, Ref $ fromIntegral cursor)
-  else do e <- extendPile "addVectorToBytePile" pile
-          addVectorToBytePile e vector
+instance (Show a, Storable a) => CanPile CChar (AsBytes a) where
+    -- | Add any type with an instance of Storable to a pile or bytes.
+    addToPile pile@(Pile cursor allocated startPtr) (AsBytes item) =
+      let end = cursor + sizeOf item
+      in
+      if end < allocated
+      then
+        do --putStrLn $ "aboutToPoke" ++ show pile
+           poke (startPtr `plusPtr` cursor) item
+           return $ (Pile end allocated startPtr, Slice (Ref . fromIntegral $ cursor) (Breadth . fromIntegral $ sizeOf item))
+      else
+        do
+           e <- extendPile pile
+           addToPile e (AsBytes item)
+
+-- | Convert a pile to a list.
+pileToList :: forall t . (Storable t, Show t) => Pile t -> IO [t]
+pileToList (Pile cursor allocated startPtr) = peekArray cursor startPtr
+
+-- | Convert a list to a pile.
+listToPile :: forall t . (Storable t, Show t) => [t] -> IO (Pile t)
+listToPile list = do pile <- newPile
+                     (pile', _) <- addToPile pile list
+                     return pile'
 
 -- | Make a bytepile into a list of CChars.
 bytePileToCharList :: BytePile -> IO [CChar]
-bytePileToCharList (Pile cursor size startPtr) = peekArray cursor startPtr
+bytePileToCharList (Pile cursor allocated startPtr) = peekArray cursor startPtr
 
 -- | Make a bytepile into a list of CInts.
 bytePileToIntList :: BytePile -> IO [CInt]
-bytePileToIntList (Pile cursor size startPtr) = peekArray (cursor `div` sizeOf (undefined::CInt)) (castPtr startPtr :: Ptr CInt)
+bytePileToIntList (Pile cursor allocated startPtr) = peekArray (cursor `div` sizeOf (undefined::CInt)) (castPtr startPtr :: Ptr CInt)
 
 -- | Make a bytepile into a list of strings to display its contents.
 bytePileToShortList :: BytePile -> IO [String]
-bytePileToShortList (Pile cursor size startPtr) =
+bytePileToShortList (Pile cursor allocated startPtr) =
   do
     ss <- peekArray (cursor `div` sizeOf (undefined::CShort)) (castPtr startPtr :: Ptr CShort)
     return $ zipWith (\x y -> show x ++ ":" ++ show y) (map (*2) [0..]) ss
-
 
 -- | Breakdown a list into fixed sections.
 section :: Int -> [a] -> [[a]]
@@ -410,10 +315,9 @@ section n []   = []
 section n list = let (front, rest) = splitAt n list
                  in front:section n rest
 
-
 -- | Display the contents of a geometry pile in a readable format for debugging
 bytePileToGeometry :: BytePile -> IO [String]
-bytePileToGeometry (Pile cursor size startPtr) =
+bytePileToGeometry (Pile cursor allocated startPtr) =
   do
     ss <- peekArray (cursor `div` sizeOf (undefined::CShort)) (castPtr startPtr :: Ptr CShort)
     let sList = map (concat . intersperse ":") . section 4 . map show $ ss
@@ -423,6 +327,6 @@ bytePileToGeometry (Pile cursor size startPtr) =
 
 -- | Breakdown a bytepile into a list of word alligned floats.
 bytePileToFloatList :: Int -> BytePile -> IO [String]
-bytePileToFloatList offset (Pile cursor size startPtr) =
+bytePileToFloatList offset (Pile cursor allocated startPtr) =
   do ss <- peekArray (cursor `div` sizeOf (undefined::CFloat)) (castPtr (startPtr `plusPtr` offset) :: Ptr CFloat)
      return $ zipWith (\x y -> show x ++ ":" ++ showFl' 6 y) (map (*2) [0..]) ss
