@@ -82,11 +82,12 @@ statusDisplay :: Monad m
               -> [String]
               -> FontMonad m (Glyph (ShapeTree Int SubSpace))
 statusDisplay state testName status =
-    translateByXY 1800 800 .
-    fmap (mapGlyph (rotateBy (45 @@ deg))) .
-    translateBy (state ^. stateDelta) .
-    scaleBy 30 .
-    fmap (withColor (dark red)) .
+    fmap (translateByXY 1800 800 .
+          mapGlyph (rotateBy (45 @@ deg)) .
+          translateBy (state ^. stateDelta) .
+          scaleBy 30 .
+          withColor (dark red)
+          ) .
     paragraph 0 0 AlignMin AlignMin $
     unlines $ testName : status
 

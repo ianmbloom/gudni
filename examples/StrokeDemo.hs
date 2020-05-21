@@ -62,7 +62,7 @@ instance Model StrokeState where
         stroked :: ShapeTree Int SubSpace
         stroked =
             withColor blue .
-            mask .
+            mask . shapeFrom .
             stroke 2 $ path
         projected :: ShapeTree Int SubSpace
         projected =

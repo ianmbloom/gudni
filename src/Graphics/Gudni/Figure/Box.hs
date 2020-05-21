@@ -89,9 +89,9 @@ instance HasBox (Box s) where
 instance HasBox (Point2 s) where
   boxOf p = Box p p
 
-instance (HasSpace t, Foldable (ContainerFunctor t), Functor (ContainerFunctor t), PointContainer t) => HasBox t where
-  boxOf = minMaxBoxes . fmap boxOf . containedPoints
-
+instance (Functor f, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Foldable f, HasBox a) => HasBox (f a) where
+  boxOf = minMaxBoxes . fmap boxOf
+  
 -- | Get the width of a box.
 widthOf :: (Num (SpaceOf a), HasBox a) => a -> SpaceOf a
 widthOf a = let box = boxOf a in box ^. rightSide - box ^. leftSide

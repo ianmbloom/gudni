@@ -106,7 +106,7 @@ instance Model ProjectionState where
            return . Scene gray $
                --(if repMode then represent repDk else id) $
                (transformFromState (state ^. stateBase) $
-               projectCurveDemo False offset bz myline :: ShapeTree Int SubSpace)
+               debugScene :: ShapeTree Int SubSpace)
       where
         bz  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0)
         --bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)

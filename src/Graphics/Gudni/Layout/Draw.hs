@@ -21,6 +21,7 @@
 module Graphics.Gudni.Layout.Draw
   ( CanMask(..)
   , CanFill(..)
+  , shapeFrom
   , withColor
   , withTexture
   , withRadialGradient
@@ -62,6 +63,8 @@ instance CanMask (Glyph (Shape s)) (Glyph (CompoundTree s)) where
 instance (Functor f) => CanMask (f (Shape s)) (f (CompoundTree s)) where
     mask = fmap mask
 
+shapeFrom :: Outline s -> Shape s
+shapeFrom = Shape . pure
 -- | Typeclass of shape representations that can be filled with a color or texture.
 class (HasSpace a, HasToken b) => CanFill a b | b -> a where
     withFill    :: Substance NamedTexture (SpaceOf a) -> a -> b

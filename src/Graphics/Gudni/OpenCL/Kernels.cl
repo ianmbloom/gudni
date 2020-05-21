@@ -1514,7 +1514,7 @@ COLOR readColor ( PMEM ColorState *cS
       float startDist = taxiDistance(grad.gradientStart, relativePosition);
       //float2 endDist   = taxiDistance(grad.gradientEnd  , relativePosition);
       float w = taxiDistance(grad.gradientStart, grad.gradientEnd);
-      float ratio = smoothStep(0,w,startDist);
+      float ratio = smoothstep(0,w,startDist);
       // float dist = distance(grad.gradientStart, grad.gradientEnd);
       return (grad.gradientStartColor * ratio) + (grad.gradientEndColor * (1 - ratio));
       //return (COLOR)(1.0,0,0,1);

@@ -30,7 +30,7 @@ mkLine (V2 a b) = line a b
 openCircle :: forall s . Space s => s -> CompoundTree s
 openCircle r = mask . strokeOffset 0 (r/2) . scaleBy r $ (circle :: Outline s)
 closedCircle :: forall s . Space s => s -> CompoundTree s
-closedCircle r = maskOutline . scaleBy r $ (circle :: Outline s)
+closedCircle r =  scaleBy r . mask . shapeFrom $ (circle :: Outline s)
 
 class (HasSpace t) => HasRepresentation t where
     represent :: Bool -> t -> ShapeTree Int (SpaceOf t)
@@ -41,7 +41,7 @@ instance Space s => HasRepresentation (Bezier s) where
         overlap [ withColor red   $ translateBy v0 $ closedCircle r
                 , withColor blue  $ translateBy  c $ openCircle r
                 , withColor red   $ translateBy v1 $ closedCircle r
-                , withColor black $ mask . stroke 1 $ bz
+                , withColor black $ mask . shapeFrom . stroke 1 $ bz
                 ]
 
 instance (Alternative f, Monad f, Foldable f, Space s, Show (f (Bezier s))) => HasRepresentation (Outline_ f s) where
@@ -58,7 +58,7 @@ instance (Space s, Show token) => HasRepresentation (ShapeTree token s) where
 
 instance (Space s, Space t, s~t) => HasRepresentation (FacetSide s t) where
     represent dk facetSide@(FacetSide sceneSide textureSide) =
-        overlap [represent dk sceneSide, withColor green . mask . stroke 0.25 . mkLine $ textureSide]
+        overlap [represent dk sceneSide, withColor green . mask . shapeFrom . stroke 0.25 . mkLine $ textureSide]
 
 instance (Space s, Space t, s~t) => HasRepresentation (Facet_ s t) where
     represent dk facet@(Facet sides) = overlap . fmap (represent dk) $ sides
