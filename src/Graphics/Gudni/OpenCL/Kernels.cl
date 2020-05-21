@@ -1510,16 +1510,14 @@ COLOR readColor ( PMEM ColorState *cS
     }
     else if (substanceTagIsLinear(tag)) {
       LinearGradient grad = getLinearDescription(cS, tag);
-      /*
       float2 relativePosition = convert_float2(cS->absolutePosition);
-      float2 startDist = taxiDistance(grad.gradientStart, relativePosition);
-      float2 endDist   = taxiDistance(grad.gradientEnd  , relativePosition);
-      float2 w = taxiDistance(grad.gradientStart, grad.gradientEnd);
-      float ratio = (fast_length(startDist - w)) / (fast_length(endDist - w));
+      float startDist = taxiDistance(grad.gradientStart, relativePosition);
+      //float2 endDist   = taxiDistance(grad.gradientEnd  , relativePosition);
+      float w = taxiDistance(grad.gradientStart, grad.gradientEnd);
+      float ratio = smoothStep(0,w,startDist);
       // float dist = distance(grad.gradientStart, grad.gradientEnd);
       return (grad.gradientStartColor * ratio) + (grad.gradientEndColor * (1 - ratio));
-      */
-      return (COLOR)(1.0,0,0,1);
+      //return (COLOR)(1.0,0,0,1);
     }
 }
 

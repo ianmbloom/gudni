@@ -25,6 +25,7 @@ import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.Picture
+import Graphics.Gudni.Util.Debug
 import Control.DeepSeq
 
 -- | Type of filling for overlapping shapes.
@@ -41,15 +42,15 @@ data NamedTexture
   deriving (Show)
 
 
-breakdownSubstance :: forall tex s . Space s => Substance tex s -> (Transformer s, Substance tex s)
+breakdownSubstance :: forall tex s . (Show tex, Space s) => Substance tex s -> (Transformer s, Substance tex s)
 breakdownSubstance substance = go IdentityTransform substance
   where
   go :: Transformer s  -> Substance tex s -> (Transformer s, Substance tex s)
   go trans substance =
      case substance of
         TransformSubstance newTrans sub -> go (CombineTransform newTrans trans) sub
-        Radial gradient -> (IdentityTransform, Radial $ applyTransformer trans gradient)
-        Linear gradient -> (IdentityTransform, Linear $ applyTransformer trans gradient)
+        Radial gradient -> (IdentityTransform, tr "Radial" $ Radial $ applyTransformer (tr "trans" trans) gradient)
+        Linear gradient -> (IdentityTransform, tr "Linear" $ Linear $ applyTransformer (tr "trans" trans) gradient)
         x -> (trans, x)
 
 mapMSubstanceTexture :: Monad m =>  (a -> m b) -> Substance a s -> m (Substance b s)
