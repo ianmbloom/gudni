@@ -47,7 +47,7 @@ instance Space s => CanSubdivide (Shape s) where
 {-
 instance (Space s, Space t, s~t) => CanSubdivide (FacetSide s t) where
     represent dk facetSide@(FacetSide sceneSide textureSide) =
-        overlap [represent dk sceneSide, colorWith green . mask . stroke 0.25 . mkLine $ textureSide]
+        overlap [represent dk sceneSide, withColor green . mask . stroke 0.25 . mkLine $ textureSide]
 
 instance (Space s, Space t, s~t) => HasRepresentation (Facet_ s t) where
     represent dk facet@(Facet sides) = overlap . fmap (represent dk) $ sides
@@ -55,6 +55,6 @@ instance (Space s, Space t, s~t) => HasRepresentation (Facet_ s t) where
 
 instance (Space s, Space t, s~t) => HasRepresentation (HardFacet_ s t) where
   represent hardFacet@(HardFacet face texture) =
-    let faceRep = colorWith (light blue) overlap . fmap (
+    let faceRep = withColor (light blue) overlap . fmap (
     overlap (overlap (fmap
 -}

@@ -56,7 +56,7 @@ instance Model ParagraphState where
         do  para <- paragraph 0.2 0.2 AlignCenter AlignCenter mobyDick
 
             let testScene :: ShapeTree Int SubSpace
-                testScene = (^?! unGlyph) . colorWith black . rack AlignMin $ distributeRack 0 $ [para, scaleBy 10 circle]
+                testScene = (^?! unGlyph) . withColor black . rack AlignMin $ distributeRack 0 $ [para, scaleBy 10 circle]
             --statusTree <- (^?! unGlyph) <$> statusDisplay (state ^. stateBase) "Test Paragraph" (lines status)
             let tree = transformFromState (state ^. stateBase) testScene
                 withStatus = {-if False then overlap [statusTree, tree] else-} tree

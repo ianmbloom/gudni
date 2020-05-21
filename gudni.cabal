@@ -90,6 +90,7 @@ library
                      , Graphics.Gudni.Figure.Transformer
                      , Graphics.Gudni.Figure.Picture
                      , Graphics.Gudni.Figure.Facet
+                     , Graphics.Gudni.Figure.Gradient                     
                      , Graphics.Gudni.Interface.DrawTarget
                      , Graphics.Gudni.Interface.FontLibrary
                      , Graphics.Gudni.Interface.Input

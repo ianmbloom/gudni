@@ -16,18 +16,15 @@
 -- Constructors for attaching metadata to shapes∘
 
 module Graphics.Gudni.Raster.SubstanceInfo
-  ( SubstanceInfo (..)
+  ( DescriptionRef(..)
   , SubstanceTagId (..)
   , noSubstanceTag
   , SubstanceTag (..)
-  , ColorId(..)
-  , TextureId(..)
-  , substanceTagToInfo
-  , substanceInfoToTag
+  , substanceAndRefToTag
   )
 where
 
-import Graphics.Gudni.Figure.Color
+import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.TextureReference
 
@@ -43,7 +40,8 @@ import Foreign.Storable
 import Foreign.C.Types
 import Foreign.Ptr
 
-type SubstanceTag_ = CULong
+type DescriptionRef = Reference CChar
+type SubstanceTag_  = CULong
 
 newtype SubstanceTag
     = SubstanceTag
@@ -57,52 +55,29 @@ noSubstanceTag = SubstanceTag nOsUBSTANCEtAG
 instance Show SubstanceTagId where
     show (SubstanceTagId i) = show i ++ "sid"
 
-newtype ColorId = ColorId {unColorId :: Reference CChar} deriving (Show, Ord, Eq, Num, Enum)
-
-newtype TextureId = TextureId {unTextureId :: Reference CChar} deriving (Show, Ord, Eq, Num, Enum)
-
-data SubstanceInfo
-    = SolidInfo
-    { _itemSolidColorId :: ColorId
-    }
-    | TextureInfo
-    { _itemSubstanceMem :: TextureId
-    }
-    deriving (Show)
-makeLenses ''SubstanceInfo
-
 -- | Make a SubstanceTag from a SubstanceInfo
-substanceInfoToTag :: SubstanceInfo -> SubstanceTag
-substanceInfoToTag info =
-    SubstanceTag $
-    case info of
-      SolidInfo   (ColorId   colorId  ) -> sUBSTANCEtAGtYPEsOLIDcOLOR .|. (fromIntegral colorId   .&. sUBSTANCEtAGrEFbITMASK)
-      TextureInfo (TextureId textureId) -> sUBSTANCEtAGtYPEtEXTURE    .|. (fromIntegral textureId .&. sUBSTANCEtAGrEFbITMASK)
+substanceAndRefToTag :: Substance textureLabel s -> DescriptionRef -> SubstanceTag
+substanceAndRefToTag substance descriptionRef =
+    let tagType = case substance of
+                      Solid   {} -> sUBSTANCEtAGtYPEsOLIDcOLOR
+                      Texture {} -> sUBSTANCEtAGtYPEtEXTURE
+                      Linear  {} -> sUBSTANCEtAGtYPElINEARgRADIENT
+                      Radial  {} -> sUBSTANCEtAGtYPErADIALgRADIENT
+                      TransformSubstance {} -> error "no tag for TransformSubstance"
+    in SubstanceTag $ tagType .|. (fromIntegral descriptionRef .&. sUBSTANCEtAGrEFbITMASK)
 
--- | Extract a SubstanceInfo from a SubstanceTag
-substanceTagToInfo :: SubstanceTag -> SubstanceInfo
-substanceTagToInfo (SubstanceTag tag) =
-  let ref = tag .&. sUBSTANCEtAGrEFbITMASK
-      substanceType = tag .&. sUBSTANCEtAGtYPEbITmASK
-      info
-        | substanceType == sUBSTANCEtAGtYPEsOLIDcOLOR = SolidInfo . ColorId . Ref . fromIntegral $ ref
-        | substanceType == sUBSTANCEtAGtYPEtEXTURE    = TextureInfo . TextureId . Ref . fromIntegral $ ref
-        | otherwise                                   = error "substanceType not supported"
-  in  info
-
+-- | Show SubstanceTag
 instance Show SubstanceTag where
-  show = show . substanceTagToInfo
-
-instance NFData ColorId where
-  rnf (ColorId a) = rnf a
-
-instance NFData TextureId where
-  rnf (TextureId a) = rnf a
-
-instance NFData SubstanceInfo where
-  rnf (SolidInfo   a) = rnf a
-  rnf (TextureInfo a) = rnf a
-
+  show (SubstanceTag tag) =
+    let ref = tag .&. sUBSTANCEtAGrEFbITMASK
+        substanceType = tag .&. sUBSTANCEtAGtYPEbITmASK
+        typeString
+          | substanceType == sUBSTANCEtAGtYPEsOLIDcOLOR     = "Solid  "
+          | substanceType == sUBSTANCEtAGtYPEtEXTURE        = "Texture"
+          | substanceType == sUBSTANCEtAGtYPElINEARgRADIENT = "Linear "
+          | substanceType == sUBSTANCEtAGtYPErADIALgRADIENT = "Radial "
+          | otherwise = error "substanceType " ++ show substanceType ++ " not supported"
+    in  typeString ++ " ref " ++ show ref
   -- * Instances
 instance NFData SubstanceTagId where
   rnf (SubstanceTagId a) = a `deepseq` ()
@@ -132,3 +107,33 @@ instance Storable SubstanceTagId where
   alignment (SubstanceTagId i) = alignment i
   peek i = SubstanceTagId <$> peek (castPtr i)
   poke i (SubstanceTagId a) = poke (castPtr i) a
+
+instance StorableM (Substance PictureMemoryReference SubSpace) where
+  sizeOfM substance =
+    case substance of
+        Solid color            -> sizeOfM color
+        Texture pictUse        -> sizeOfM pictUse
+        Linear linearGradient  -> sizeOfM linearGradient
+        Radial radialGradient  -> sizeOfM radialGradient
+        TransformSubstance a b -> error "cannot store TransformSubstance"
+  alignmentM substance =
+      case substance of
+          Solid color            -> alignmentM color
+          Texture pictUse        -> alignmentM pictUse
+          Linear linearGradient  -> alignmentM linearGradient
+          Radial radialGradient  -> alignmentM radialGradient
+          TransformSubstance a b -> error "cannot store TransformSubstance"
+  peekM = error "cannot peek substance"
+  pokeM substance =
+    case substance of
+        Solid color            -> pokeM color
+        Texture pictUse        -> pokeM pictUse
+        Linear linearGradient  -> pokeM linearGradient
+        Radial radialGradient  -> pokeM radialGradient
+        TransformSubstance a b -> error "cannot store TransformSubstance"
+
+instance Storable (Substance PictureMemoryReference SubSpace) where
+  sizeOf = sizeOfV
+  alignment = alignmentV
+  peek = peekV
+  poke = pokeV

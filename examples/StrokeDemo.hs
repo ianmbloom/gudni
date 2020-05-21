@@ -61,7 +61,7 @@ instance Model StrokeState where
         path = makeOpenCurve $ [bz,bz2,bz3]
         stroked :: ShapeTree Int SubSpace
         stroked =
-            colorWith blue .
+            withColor blue .
             mask .
             stroke 2 $ path
         projected :: ShapeTree Int SubSpace
@@ -69,7 +69,7 @@ instance Model StrokeState where
             projectOnto False path .
             translateByXY 0 (-2.5) .
             translateByXY (state ^. stateOffset) 0 .
-            colorWith (transparent 0.8 red) .
+            withColor (transparent 0.8 red) .
             overlap .
             horizontallySpacedBy 12 .
             replicate 100 .
@@ -90,7 +90,7 @@ instance HandlesInput token StrokeState where
           )
 
 marker :: Color -> Point2 SubSpace -> ShapeTree Int SubSpace
-marker color center = colorWith (transparent 0.5 color) $ translateBy center marker0
+marker color center = withColor (transparent 0.5 color) $ translateBy center marker0
 
 marker0 :: CompoundTree SubSpace
 marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square

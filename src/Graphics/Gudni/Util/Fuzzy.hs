@@ -9,6 +9,7 @@ module Graphics.Gudni.Util.Fuzzy
   , fuzzyRadial
   , fuzzyGray
   , fuzzyCircle
+  , fuzzyCircleGradient
   , fuzzyGlyph
   , fuzzySquare
   )
@@ -131,11 +132,26 @@ fuzzyGray range len = do
 fuzzyCircle :: (Space s, Random s, RandomGen g)
             => Point2 s -> s -> s -> Rand g (ShapeTree Int s)
 fuzzyCircle range minRad maxRad =
-  do  color <- Solid <$> getRandom
-      token <- Just <$> getRandomR(0,32768)
+  do  color <- getRandom
+      token <- getRandomR(0,32768)
       radius<- getRandomR(minRad,maxRad)
       point <- getRandomR(makePoint 0 0, range)
-      return . translateBy point . scaleBy radius . SLeaf . SRep token color $ circle
+      return . translateBy point . scaleBy radius . assignToken token . withColor color $ circle
+
+fuzzyCircleGradient :: (Space s, Random s, RandomGen g)
+                    => Point2 s -> s -> s -> Rand g (ShapeTree Int s)
+fuzzyCircleGradient range minRad maxRad =
+  do  color <- getRandom
+      color2 <- getRandom
+      token <- getRandomR(0,32768)
+      radius<- getRandomR(minRad,maxRad)
+      point <- getRandomR(makePoint 0 0, range)
+      return . translateBy point .
+              scaleBy radius .
+              assignToken token .
+              withRadialGradient zeroPoint 0 color 1 color2 $
+              circle
+
 
 fuzzyGlyph :: (Space s, Random s, RandomGen g)
            => V.Vector (CompoundTree s) -> Point2 s -> s -> s -> Rand g (ShapeTree Int s)

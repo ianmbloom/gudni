@@ -34,10 +34,10 @@ class (HasSpace t) => HasRepresentation t where
 instance Space s => HasRepresentation (Bezier s) where
     represent _ bz@(Bez v0 c v1) =
         let r = 5 in
-        overlap [ colorWith red   $ translateBy v0 $ closedCircle r
-                , colorWith blue  $ translateBy  c $ openCircle r
-                , colorWith red   $ translateBy v1 $ closedCircle r
-                , colorWith black $ mask . stroke 1 $ bz
+        overlap [ withColor red   $ translateBy v0 $ closedCircle r
+                , withColor blue  $ translateBy  c $ openCircle r
+                , withColor red   $ translateBy v1 $ closedCircle r
+                , withColor black $ mask . stroke 1 $ bz
                 ]
 
 instance (Alternative f, Monad f, Foldable f, Space s) => HasRepresentation (Outline_ f s) where
@@ -55,7 +55,7 @@ instance (Space s, Show token) => HasRepresentation (ShapeTree token s) where
 
 instance (Space s, Space t, s~t) => HasRepresentation (FacetSide s t) where
     represent dk facetSide@(FacetSide sceneSide textureSide) =
-        overlap [represent dk sceneSide, colorWith green . mask . stroke 0.25 . mkLine $ textureSide]
+        overlap [represent dk sceneSide, withColor green . mask . stroke 0.25 . mkLine $ textureSide]
 
 instance (Space s, Space t, s~t) => HasRepresentation (Facet_ s t) where
     represent dk facet@(Facet sides) = overlap . fmap (represent dk) $ sides
@@ -65,6 +65,6 @@ instance (Space s, Space t, s~t) => HasRepresentation (Facet_ s t) where
 {-
 instance (Space s, Space t, s~t) => HasRepresentation (HardFacet_ s t) where
   represent hardFacet@(HardFacet face texture) =
-    let faceRep = colorWith (light blue) overlap . fmap (
+    let faceRep = withColor (light blue) overlap . fmap (
     overlap (overlap (fmap
 -}

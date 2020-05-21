@@ -46,6 +46,8 @@ module Graphics.Gudni.Raster.Constants
     , sUBSTANCEtAGtYPEbITmASK
     , sUBSTANCEtAGtYPEsOLIDcOLOR
     , sUBSTANCEtAGtYPEtEXTURE
+    , sUBSTANCEtAGtYPElINEARgRADIENT
+    , sUBSTANCEtAGtYPErADIALgRADIENT
     , sUBSTANCEtAGrEFbITMASK
     , nOsUBSTANCEtAG
     )
@@ -128,9 +130,12 @@ nOiTEMtAG                    = 0xFFFFFFFFFFFFFFFF :: CULong
 --      | false = subtractive  |               | or parent substanceId            |
 
 -- Bit 62 - 56
-sUBSTANCEtAGtYPEbITmASK    = 0x7F00000000000000 :: CULong -- & with this to determine if the shapetag is for mask colorWith shape or a picture.
-sUBSTANCEtAGtYPEsOLIDcOLOR = 0x0000000000000000 :: CULong -- & with this to determine if the shapetag is additive.
-sUBSTANCEtAGtYPEtEXTURE    = 0x0100000000000000 :: CULong
+sUBSTANCEtAGtYPEbITmASK        = 0x7F00000000000000 :: CULong -- & with this to determine if the shapetag is for mask withColor shape or a picture.
+sUBSTANCEtAGtYPEsOLIDcOLOR     = 0x0000000000000000 :: CULong -- & with this to determine if the shapetag is additive.
+sUBSTANCEtAGtYPEtEXTURE        = 0x0100000000000000 :: CULong
+sUBSTANCEtAGtYPElINEARgRADIENT = 0x0200000000000000 :: CULong
+sUBSTANCEtAGtYPErADIALgRADIENT = 0x0300000000000000 :: CULong
+
 
 -- Bits 55 - 0
 sUBSTANCEtAGrEFbITMASK     = 0x00FFFFFFFFFFFFFF :: CULong -- & with this to get the reference for the substance tag

@@ -80,7 +80,7 @@ randomGlyph numGlyphs range minScale maxScale =
 applyGlyph glyphs token (PQGlyph selected color delta scale angle i) =
    let finalColor = if selected then black else color
    in  assignToken token .
-       colorWith finalColor .
+       withColor finalColor .
        translateBy delta .
        scaleBy scale .
        rotateBy angle $
@@ -128,7 +128,7 @@ instance HandlesInput Int PQState where
           )
 
 marker :: Color -> Point2 SubSpace -> ShapeTree Int SubSpace
-marker color center = colorWith (transparent 0.5 color) $ translateBy center marker0
+marker color center = withColor (transparent 0.5 color) $ translateBy center marker0
 
 marker0 :: CompoundTree SubSpace
 marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square

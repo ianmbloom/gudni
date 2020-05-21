@@ -234,16 +234,8 @@ onSubstance :: forall m item token .
 onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap transformer (SRep mToken substance subTree) =
     do  -- Depending on the substance of the shape take appropriate actions.
         let (subTransform, baseSubstance) = breakdownSubstance substance
-        substanceReference <-
-            case baseSubstance of
-                Texture pictMemReference ->
-                    do -- Get the current usage id.
-                       pictMemId  <- TextureId . sliceStart <$> addToPileState serDescriptionPile (asBytes pictMemReference)
-                       return . TextureInfo $ pictMemId
-                Solid color ->
-                    do colorId <- ColorId . sliceStart <$> addToPileState serDescriptionPile (asBytes color)
-                       return . SolidInfo $ colorId
-        let substanceTag = substanceInfoToTag substanceReference
+        descriptionReference <- sliceStart <$> addToPileState serDescriptionPile (asBytes baseSubstance)
+        let substanceTag = substanceAndRefToTag baseSubstance descriptionReference
         traverseCompoundTree defaultValue transformer (onShape rasterizer canvasSize substanceTag) subTree
         case mToken of
              Nothing -> return ()

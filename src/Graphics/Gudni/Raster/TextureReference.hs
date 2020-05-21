@@ -124,6 +124,8 @@ assignPictUsage mapping (SRep token substance rep) =
              case substance of
                  Texture name -> Texture ((M.!) mapping name)
                  Solid color  -> Solid color
+                 Linear linearGradient -> Linear linearGradient
+                 Radial radialGradient -> Radial radialGradient
      in  SRep token substance' rep
 
 withScenePictureMemory :: (MonadIO m)

@@ -82,7 +82,7 @@ statusDisplay state testName status =
     fmap (mapGlyph (rotateBy (45 @@ deg))) .
     translateBy (state ^. stateDelta) .
     scaleBy 30 .
-    fmap (colorWith (dark red)) .
+    fmap (withColor (dark red)) .
     paragraph 0 0 AlignMin AlignMin $
     unlines $ testName : status
 

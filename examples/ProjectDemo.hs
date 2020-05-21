@@ -65,8 +65,8 @@ instance Model ProjectionState where
                ((transformFromState {-(set stateAngle (0 @@ deg)-} (state ^. stateBase){-)-} $
                overlap [
                        --overlap . fmap (represent False) . transformFromState (set stateAngle (0 @@ deg) (state ^. stateBase)) . projectOnto True (makeOpenCurve [bzX]). (pure :: Bezier s -> [Bezier s]) . translateBy (offset `by` 0) . rotateBy angle $ (myline :: Bezier SubSpace)
-                       --colorWith (dark red) . projectOnto path . translateBy (offset `by` 0) . rotateBy angle . rectangle $ 0.125 `by` 0.125 -- {-scaleBy 100 . translateByXY 1 (1) .-} mask . stroke 200 $ smallBz
-                       --, colorWith (dark green) . scaleBy 100 . translateByXY 2 (1) . mask . stroke 0.1 $ smallBz
+                       --withColor (dark red) . projectOnto path . translateBy (offset `by` 0) . rotateBy angle . rectangle $ 0.125 `by` 0.125 -- {-scaleBy 100 . translateByXY 1 (1) .-} mask . stroke 200 $ smallBz
+                       --, withColor (dark green) . scaleBy 100 . translateByXY 2 (1) . mask . stroke 0.1 $ smallBz
                         doubleDotted path
                        ]) :: ShapeTree Int SubSpace)
       where
@@ -85,7 +85,7 @@ instance Model ProjectionState where
                dotLength = 8
                dotGap = 2
                numDots = floor (arcLength path / (dotLength + dotGap))
-           in  colorWith (light . greenish $ blue) .
+           in  withColor (light . greenish $ blue) .
                projectOnto False path .
                translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
                overlap .
@@ -116,7 +116,7 @@ instance HandlesInput token ProjectionState where
           )
 
 marker :: Color -> Point2 SubSpace -> ShapeTree Int SubSpace
-marker color center = colorWith (transparent 0.5 color) $ translateBy center marker0
+marker color center = withColor (transparent 0.5 color) $ translateBy center marker0
 
 marker0 :: CompoundTree SubSpace
 marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square

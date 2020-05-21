@@ -74,6 +74,8 @@ cppDefines spec =
   , Cpp "SUBSTANCETAG_TYPE_BITMASK"      (CppHex64 sUBSTANCEtAGtYPEbITmASK      )
   , Cpp "SUBSTANCETAG_TYPE_SOLID_COLOR"  (CppHex64 sUBSTANCEtAGtYPEsOLIDcOLOR   )
   , Cpp "SUBSTANCETAG_TYPE_TEXTURE"      (CppHex64 sUBSTANCEtAGtYPEtEXTURE      )
+  , Cpp "SUBSTANCETAG_TYPE_LINEAR"       (CppHex64 sUBSTANCEtAGtYPElINEARgRADIENT)
+  , Cpp "SUBSTANCETAG_TYPE_RADIAL"       (CppHex64 sUBSTANCEtAGtYPErADIALgRADIENT)
   , Cpp "SUBSTANCETAG_REF_BITMASK"       (CppHex64 sUBSTANCEtAGrEFbITMASK       )
   , Cpp "NOSUBSTANCETAG"                 (CppHex64 nOsUBSTANCEtAG               )
   , Cpp "DEBUG_OUTPUT"                   (CppNothing) -- uncomment this to turn on simple debugging output

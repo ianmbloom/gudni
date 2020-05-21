@@ -65,27 +65,27 @@ debugScene =
       slope1 = (-0.19026)
       result = Bez (P (V2 0.67844 0.57563)) (P (V2 0.88596 0.56335)) (P (V2 0.77514 0.58443))
   in
-  overlap [ colorWith green  . mask $ oldLine 0.001 start s0
-          , colorWith green  . mask $ oldLine 0.001 end   s1
-          , colorWith orange . mask $ oldLine 0.004 start (start .+^ normal0)
-          , colorWith orange . mask $ oldLine 0.004 end   (end   .+^ normal1)
-          --, colorWith red    . mask $ oldLine 0.003 (start) (curveSlice ^. bzControl)
-          --, colorWith red    . mask $ oldLine 0.003 (control) (curveSlice ^. bzEnd)
-          , colorWith (light purple)   . mask $ oldLine 0.005 (sourceCurve ^. bzStart)   (sourceCurve ^. bzControl)
-          , colorWith (light purple)   . mask $ oldLine 0.005 (sourceCurve ^. bzControl) (sourceCurve ^. bzEnd)
-          , colorWith (light red)     . mask $ oldLine 0.005  (result ^. bzStart)   (result ^. bzControl)
-          , colorWith (light red)     . mask $ oldLine 0.005  (result ^. bzControl) (result ^. bzEnd)
+  overlap [ withColor green  . mask $ oldLine 0.001 start s0
+          , withColor green  . mask $ oldLine 0.001 end   s1
+          , withColor orange . mask $ oldLine 0.004 start (start .+^ normal0)
+          , withColor orange . mask $ oldLine 0.004 end   (end   .+^ normal1)
+          --, withColor red    . mask $ oldLine 0.003 (start) (curveSlice ^. bzControl)
+          --, withColor red    . mask $ oldLine 0.003 (control) (curveSlice ^. bzEnd)
+          , withColor (light purple)   . mask $ oldLine 0.005 (sourceCurve ^. bzStart)   (sourceCurve ^. bzControl)
+          , withColor (light purple)   . mask $ oldLine 0.005 (sourceCurve ^. bzControl) (sourceCurve ^. bzEnd)
+          , withColor (light red)     . mask $ oldLine 0.005  (result ^. bzStart)   (result ^. bzControl)
+          , withColor (light red)     . mask $ oldLine 0.005  (result ^. bzControl) (result ^. bzEnd)
 
-          , colorWith (light green)    . mask $ oldLine 0.01  (bz ^. bzStart)   (bz ^. bzControl)
-          , colorWith (light green)    . mask $ oldLine 0.01  (bz ^. bzControl) (bz ^. bzEnd)
+          , withColor (light green)    . mask $ oldLine 0.01  (bz ^. bzStart)   (bz ^. bzControl)
+          , withColor (light green)    . mask $ oldLine 0.01  (bz ^. bzControl) (bz ^. bzEnd)
 
-          , colorWith (light blue)     . mask $ oldLine 0.01  (bzCorrected ^. bzStart)   (bzCorrected ^. bzControl)
-          , colorWith (light blue)     . mask $ oldLine 0.01  (bzCorrected ^. bzControl) (bzCorrected ^. bzEnd)
+          , withColor (light blue)     . mask $ oldLine 0.01  (bzCorrected ^. bzStart)   (bzCorrected ^. bzControl)
+          , withColor (light blue)     . mask $ oldLine 0.01  (bzCorrected ^. bzControl) (bzCorrected ^. bzEnd)
 
-          , colorWith (light yellow)   . mask $ oldLine 0.005 (bzCorrected ^. bzStart) (bzCorrected ^. bzStart .+^ tangent0)
-          , colorWith (light yellow)   . mask $ oldLine 0.005 (bzCorrected ^. bzEnd  ) (bzCorrected ^. bzEnd   .+^ tangent1)
-          , colorWith (light yellow)   . mask $ oldLine 0.005 s0 (s0 .+^ tangent0Rotated)
-          , colorWith (light yellow)   . mask $ oldLine 0.005 s1 (s1 .+^ tangent1Rotated)
+          , withColor (light yellow)   . mask $ oldLine 0.005 (bzCorrected ^. bzStart) (bzCorrected ^. bzStart .+^ tangent0)
+          , withColor (light yellow)   . mask $ oldLine 0.005 (bzCorrected ^. bzEnd  ) (bzCorrected ^. bzEnd   .+^ tangent1)
+          , withColor (light yellow)   . mask $ oldLine 0.005 s0 (s0 .+^ tangent0Rotated)
+          , withColor (light yellow)   . mask $ oldLine 0.005 s1 (s1 .+^ tangent1Rotated)
           ]
 
 instance HasToken ProjectionState where
@@ -120,7 +120,7 @@ instance Model ProjectionState where
                dotLength = 8
                dotGap = 2
                numDots = floor (arcLength path / (dotLength + dotGap))
-           in  colorWith (light . greenish $ blue) .
+           in  withColor (light . greenish $ blue) .
                projectOnto False path .
                translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
                overlap .
@@ -151,7 +151,7 @@ instance HandlesInput token ProjectionState where
           )
 
 marker :: Color -> Point2 SubSpace -> ShapeTree Int SubSpace
-marker color center = colorWith (transparent 0.5 color) $ translateBy center marker0
+marker color center = withColor (transparent 0.5 color) $ translateBy center marker0
 
 marker0 :: CompoundTree SubSpace
 marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square

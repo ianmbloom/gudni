@@ -4,6 +4,8 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Graphics.Gudni.Figure.Substance
   ( Substance(..)
@@ -18,15 +20,19 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Picture
 import Graphics.Gudni.Figure.Facet
 import Graphics.Gudni.Figure.OpenCurve
+import Graphics.Gudni.Figure.Gradient
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Projection
+import Graphics.Gudni.Figure.Picture
 import Control.DeepSeq
 
 -- | Type of filling for overlapping shapes.
 data Substance textureLabel s
     = Solid Color
     | Texture textureLabel
+    | Linear (LinearGradient s)
+    | Radial (RadialGradient s)
     | TransformSubstance (Transformer s) (Substance textureLabel s)
 
 data NamedTexture
@@ -35,20 +41,25 @@ data NamedTexture
   deriving (Show)
 
 
-breakdownSubstance :: Substance tex s -> (Transformer s, Substance tex s)
+breakdownSubstance :: forall tex s . Space s => Substance tex s -> (Transformer s, Substance tex s)
 breakdownSubstance substance = go IdentityTransform substance
   where
+  go :: Transformer s  -> Substance tex s -> (Transformer s, Substance tex s)
   go trans substance =
      case substance of
         TransformSubstance newTrans sub -> go (CombineTransform newTrans trans) sub
+        Radial gradient -> (IdentityTransform, Radial $ applyTransformer trans gradient)
+        Linear gradient -> (IdentityTransform, Linear $ applyTransformer trans gradient)
         x -> (trans, x)
 
 mapMSubstanceTexture :: Monad m =>  (a -> m b) -> Substance a s -> m (Substance b s)
 mapMSubstanceTexture f substance =
   case substance of
     TransformSubstance newTrans sub -> TransformSubstance newTrans <$> mapMSubstanceTexture f sub
-    Solid color -> return $ Solid color
     Texture a -> Texture <$> f a
+    Solid color -> return $ Solid color
+    Linear linearGradient -> return $ Linear linearGradient
+    Radial radialGradient -> return $ Radial radialGradient
 
 instance Space s => HasSpace (Substance n s) where
   type SpaceOf (Substance n s) = s
@@ -68,11 +79,15 @@ instance Space s => CanProject (BezierSpace s) (Substance n s) where
 instance (Space s, Show n, Show s) => Show (Substance n s) where
   show (Solid color) = "Solid " ++ show color
   show (Texture tex) = "Texture " ++ show tex
+  show (Linear linearGradient)  = show linearGradient
+  show (Radial radialGradient)  = show radialGradient
   show (TransformSubstance trans sub) = "TransfromSubstamce" ++ show trans ++ " " ++ show sub
 
 instance (NFData n, NFData s) => NFData (Substance n s) where
-  rnf (Solid color) = color `deepseq` ()
-  rnf (Texture texture) = texture `deepseq` ()
+  rnf (Solid color)            = color `deepseq` ()
+  rnf (Texture texture)        = texture `deepseq` ()
+  rnf (Linear linearGradient)  = linearGradient `deepseq` ()
+  rnf (Radial radialGradient)  = radialGradient `deepseq` ()
   rnf (TransformSubstance a b) = a `deepseq` b `deepseq` ()
 
 instance NFData NamedTexture where

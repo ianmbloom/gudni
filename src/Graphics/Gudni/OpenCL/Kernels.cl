@@ -114,6 +114,8 @@ inline bool itemTagIsSubtract(ITEMTAG tag) {return (tag & ITEMTAG_COMPOUND_BITMA
 inline bool substanceTagType(SUBSTANCETAG tag) {return (tag & SUBSTANCETAG_TYPE_BITMASK) >> 56;}
 inline bool substanceTagIsSolidColor(SUBSTANCETAG tag) {return (tag & SUBSTANCETAG_TYPE_BITMASK) == SUBSTANCETAG_TYPE_SOLID_COLOR;}
 inline bool substanceTagIsTexture(SUBSTANCETAG tag)    {return (tag & SUBSTANCETAG_TYPE_BITMASK) == SUBSTANCETAG_TYPE_TEXTURE;}
+inline bool substanceTagIsRadial(SUBSTANCETAG tag)    {return (tag & SUBSTANCETAG_TYPE_BITMASK) == SUBSTANCETAG_TYPE_RADIAL;}
+inline bool substanceTagIsLinear(SUBSTANCETAG tag)    {return (tag & SUBSTANCETAG_TYPE_BITMASK) == SUBSTANCETAG_TYPE_LINEAR;}
 
 inline SUBSTANCETAG substanceTagDescriptionRef(SUBSTANCETAG tag)      {return (tag & SUBSTANCETAG_REF_BITMASK);}
 
@@ -238,6 +240,21 @@ typedef struct PictUse
   {   int2 pictSize;      // size of the bitmap
        int pictMemOffset; // starting point of the pixel data in the memory buffer
   } PictUse;
+
+typedef struct RadialGradient
+  { float2 gradientCenter      ;
+    float  gradientInnerRadius ;
+    float  gradientOuterRadius ;
+    COLOR  gradientInnerColor ;
+    COLOR  gradientOuterColor;
+  } RadialGradient;
+
+ typedef struct LinearGradient
+   { float2 gradientStart     ;
+     float2 gradientEnd       ;
+     COLOR  gradientStartColor;
+     COLOR  gradientEndColor  ;
+   } LinearGradient;
 
 // A hard facet pointing to a specific picture.
 typedef struct HardFacet
@@ -1437,6 +1454,25 @@ inline PictUse getPictUseDescription(PMEM ColorState *cS
     return *((PictUse*)(cS->csDescriptions + substanceTagDescriptionRef(tag)));
 }
 
+inline RadialGradient getRadialDescription(PMEM ColorState *cS
+                                          ,SUBSTANCETAG tag
+                                          ) {
+    return *((RadialGradient*)(cS->csDescriptions + substanceTagDescriptionRef(tag)));
+}
+
+inline LinearGradient getLinearDescription(PMEM ColorState *cS
+                                          ,SUBSTANCETAG tag
+                                          ) {
+    return *((LinearGradient*)(cS->csDescriptions + substanceTagDescriptionRef(tag)));
+}
+
+inline float smooth(float edge0, float edge1, float x) {
+  // Scale, bias and saturate x to 0..1 range
+  x = clamp((x - edge0) / (edge1 - edge0), 0.0, 1.0);
+  // Evaluate polynomial
+  return x * x * (3 - 2 * x);
+}
+
 // read a color value depending on the substance and absolute position.
 COLOR readColor ( PMEM ColorState *cS
                 , SUBSTANCETAG tag
@@ -1444,7 +1480,8 @@ COLOR readColor ( PMEM ColorState *cS
                 ) {
     if (substanceTagIsSolidColor(tag)) {
         return getColorDescription(cS, tag);
-    } else { // its a picture reference
+    }
+    else if (substanceTagIsTexture(tag)) { // its a picture reference
         PictUse pRef = getPictUseDescription(cS, tag);
         float scale = 1.0f;//pRef.pictScale;
         scale = scale < 0.0000001 ? 0.0000001 : scale;
@@ -1463,6 +1500,26 @@ COLOR readColor ( PMEM ColorState *cS
         else {
             return TRANSPARENT_COLOR;
         }
+    }
+    else if (substanceTagIsRadial(tag)) {
+      RadialGradient grad = getRadialDescription(cS, tag);
+      float2 relativePosition = convert_float2(cS->absolutePosition);
+      float dist = fast_distance(grad.gradientCenter, relativePosition);
+      float ratio = smoothstep(grad.gradientInnerRadius, grad.gradientOuterRadius, dist);
+      return (grad.gradientInnerColor * ratio) + (grad.gradientOuterColor * (1 - ratio));
+    }
+    else if (substanceTagIsLinear(tag)) {
+      LinearGradient grad = getLinearDescription(cS, tag);
+      /*
+      float2 relativePosition = convert_float2(cS->absolutePosition);
+      float2 startDist = taxiDistance(grad.gradientStart, relativePosition);
+      float2 endDist   = taxiDistance(grad.gradientEnd  , relativePosition);
+      float2 w = taxiDistance(grad.gradientStart, grad.gradientEnd);
+      float ratio = (fast_length(startDist - w)) / (fast_length(endDist - w));
+      // float dist = distance(grad.gradientStart, grad.gradientEnd);
+      return (grad.gradientStartColor * ratio) + (grad.gradientEndColor * (1 - ratio));
+      */
+      return (COLOR)(1.0,0,0,1);
     }
 }
 

@@ -326,8 +326,8 @@ traverseBezierSpace (BezierSpace tree len) bz =
 
 -- | Instance for filling a functor of a glyph-wrapped compound shapetrees such as a list.
 instance {-# Overlappable #-} (Functor f, SpaceOf (f (Glyph (CompoundTree s))) ~ s) => CanFill (f (Glyph (CompoundTree s))) (f (Glyph (ShapeTree Int s))) where
-    colorWith color    = fmap (colorWith color)
-    textureWith pict = fmap (textureWith pict)
+    withColor color    = fmap (withColor color)
+    withTexture pict = fmap (withTexture pict)
 
 -- | Open rectangle (Temporary until stroke implemented)
 openRectangle :: Space s
