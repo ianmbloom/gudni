@@ -75,5 +75,5 @@ plots state = return .
               overlap .
               gridOf 10 16 1 .
               catMaybes .
-              map (fmap (withColor yellow . mask . stroke 0.5) . (curveLibrary :: String -> Maybe (OpenCurve SubSpace))) $
+              map (fmap (withColor yellow . mask . shapeFrom . stroke 0.5) . (curveLibrary :: String -> Maybe (OpenCurve SubSpace))) $
               turtleNames

@@ -183,7 +183,7 @@ onShape :: MonadIO m
         -> Shape SubSpace
         -> SerialMonad token s m ()
 onShape rasterizer canvasSize substanceTag combineType transformer shape =
-  do let transformedOutlines = V.fromList . map (applyTransformer transformer) $ view shapeOutlines shape
+  do let transformedOutlines = map (applyTransformer transformer) $ view shapeOutlines shape
          boundingBox = boxOf transformedOutlines
      if excludeBox canvasSize boundingBox
      then return ()
@@ -195,7 +195,7 @@ onShape rasterizer canvasSize substanceTag combineType transformer shape =
                         -- Maximum size of a strand.
                         maxStrandSize = rasterizer ^. rasterDeviceSpec . specMaxStrandSize
                         -- Turn the shape into a series of strands.
-                        enclosure = enclose reorderTable maxStrandSize transformedOutlines
+                        enclosure = enclose reorderTable maxStrandSize $ V.fromList transformedOutlines
                     -- Get the geometry pile.
                     geometryPile <- use serGeometryPile
                     -- Add the shape to the geometry pile.

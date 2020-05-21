@@ -112,7 +112,7 @@ instance Model ProjectionState where
                dotLength = 8
                dotGap = 2
                numDots = floor (arcLength path / 1)
-           in  colorWith orange .
+           in  withColor orange .
                projectOnto False path .
                translateByXY (state ^. stateOffset) 0 .
                translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
