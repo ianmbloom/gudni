@@ -87,7 +87,7 @@ import System.Info
 -- | The model typeclass is the primary interface to the application functions in Gudni
 class HasToken s => Model s where
   -- | Construct a Scene from the state of type `s`
-  constructScene  :: s -> String -> FontMonad IO (Scene (ShapeTree (TokenOf s) SubSpace))
+  constructScene   :: s -> String -> FontMonad IO (Scene (ShapeTree (TokenOf s) SubSpace))
   -- | Update the state based on the elapsed time and a list of inputs
   updateModelState :: Int -> SimpleTime -> [Input (TokenOf s)] -> s -> s
   -- | Do tasks in the IO monad based and update the current state.

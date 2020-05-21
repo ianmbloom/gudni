@@ -28,7 +28,9 @@ import Graphics.Gudni.Figure.ShapeTree
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Representation
+import Graphics.Gudni.Util.Subdividable
 import Graphics.Gudni.Util.Segment
+import Graphics.Gudni.Util.Debug
 
 import qualified Graphics.Gudni.Figure.Bezier as B
 
@@ -36,6 +38,8 @@ import Control.Lens
 import Control.Monad.State
 import Linear
 import Linear.Affine
+import qualified Data.Vector as V
+import Control.Applicative
 
 
 import Data.Maybe
@@ -44,6 +48,7 @@ import Control.Lens
 data ProjectionState = ProjectionState
    {_stateBase        :: BasicSceneState
    ,_stateOffset      :: SubSpace
+   ,_stateInsideAngle :: Angle SubSpace
    }
    deriving (Show)
 makeLenses ''ProjectionState
@@ -51,6 +56,8 @@ makeLenses ''ProjectionState
 instance HasToken ProjectionState where
   type TokenOf ProjectionState = Int
 
+slantedLine :: Shape SubSpace
+slantedLine = segmentsToShape [[Seg (Point2 0 0) Nothing, Seg (Point2 0.25 0) Nothing, Seg (Point2 1.25 1) Nothing, Seg (Point2 1 1) Nothing]]
 instance Model ProjectionState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
@@ -70,15 +77,16 @@ instance Model ProjectionState where
                         doubleDotted path
                        ]) :: ShapeTree Int SubSpace)
       where
-        bzX  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0)
-
-        bz1 = Bez (Point2 20 0) (Point2 0 0) (Point2 0 40)
+        bzX  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0) :: Bezier SubSpace
+        bz1 = Bez (Point2 20 0) (Point2 0   0) (Point2 0 40)
         bz2 = Bez (Point2 0 40) (Point2 0 80) (Point2 40 80)
         bz3 = Bez (Point2 40 80) (Point2 80 80) (Point2 80 160)
-        myline = line (0 `by` 0) (0.25 `by` 0) :: Bezier SubSpace
-        smallBz = Bez (Point2 0 0) (Point2 100 100) (Point2 10 100)
-        path = makeOpenCurve [bz1,bz2,bz3]
-        doubleDotted :: Space s => OpenCurve s -> ShapeTree Int s
+        bz4 = Bez (Point2 80 160) (Point2 80 300) (Point2 160 300)
+        myline = line (0 `by` 0) (0.5 `by` 0) :: Bezier SubSpace
+        smallBz = Bez (Point2 0 0) (Point2 100 100) (Point2 10 100) :: Bezier SubSpace
+        path :: OpenCurve_ V.Vector SubSpace
+        path = makeOpenCurve [bz1, bz2, bz3{-, bz4-}]
+        doubleDotted :: OpenCurve SubSpace -> ShapeTree Int SubSpace
         doubleDotted path =
            let thickness = 2
                betweenGap = 1
@@ -87,6 +95,7 @@ instance Model ProjectionState where
                numDots = floor (arcLength path / (dotLength + dotGap))
            in  withColor (light . greenish $ blue) .
                projectOnto False path .
+               translateByXY (state ^. stateOffset) 0 .
                translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
                overlap .
                horizontallySpacedBy (dotLength + dotGap) .
@@ -96,7 +105,34 @@ instance Model ProjectionState where
                replicate 2 .
                rectangle $
                dotLength `by` thickness
-
+        doubleSlashDotted :: OpenCurve SubSpace -> ShapeTree Int SubSpace
+        doubleSlashDotted path =
+           let thickness = 2
+               betweenGap = 1
+               dotLength = 8
+               dotGap = 2
+               numDots = floor (arcLength path / 1)
+           in  colorWith orange .
+               projectOnto False path .
+               translateByXY (state ^. stateOffset) 0 .
+               translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
+               overlap .
+               horizontallySpacedBy 1 .
+               replicate numDots .
+               mask .
+               scaleBy 2 $
+               slantedLine
+        testCurve :: Int -> ShapeTree Int SubSpace
+        testCurve steps =
+            represent False $
+            scaleBy 1500 .
+            projectOnto True (makeOpenCurve [bzX]) .
+            translateBy ((state ^. stateOffset) `by` 0) .
+            rotateBy (state ^. stateInsideAngle) .
+            subdivide steps .
+            makeOpenCurve .
+            pure $
+            myline
     providePictureMap _ = noPictures
     handleOutput state target = do
         presentTarget target
@@ -109,9 +145,12 @@ instance HandlesInput token ProjectionState where
           case (input ^. inputType) of
               (InputKey Pressed _ inputKeyboard) ->
                   do  case inputKeyboard of
-                          Key ArrowRight -> stateOffset += 0.01
-                          Key ArrowLeft  -> stateOffset -= 0.01
+                          Key ArrowRight -> stateOffset += 10.01
+                          Key ArrowLeft  -> stateOffset -= 10.01
+                          Key ArrowUp    -> stateInsideAngle %= normalizeAngle . (^+^ (3 @@ deg))
+                          Key ArrowDown  -> stateInsideAngle %= normalizeAngle . (^-^ (3 @@ deg))
                           _ -> return ()
+
               _ -> return ()
           )
 
@@ -142,4 +181,4 @@ main = runApplication $ ProjectionState
            , _stateRepMode     = False
            , _stateRepDk       = False
            }
-       ) 0.75
+       ) 0.75 (0 @@ deg)

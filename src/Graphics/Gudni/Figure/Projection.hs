@@ -11,6 +11,8 @@ module Graphics.Gudni.Figure.Projection
   , BezierSpace(..)
   , makeBezierSpace
   , bezierSpaceLengths
+  , projPoint
+  , bezierPointAndNormal
   )
 where
 
@@ -43,12 +45,12 @@ import Data.Maybe (fromMaybe, fromJust)
 -- @projectionWithStepsAccuracy@, and use default implementations for the
 -- remaining functions.  You may also want to define a default
 -- accuracy by overriding @project@.
-class (SpaceOf u ~ SpaceOf t, Space (SpaceOf t)) => CanProject u t where
+class (Space (SpaceOf t)) => CanProject u t where
     projectOnto :: Bool -> u -> t -> t
     default projectOnto :: Bool -> u -> t -> t
     projectOnto debug = projectionWithAccuracy debug 1e-3
 
-    projectionWithAccuracy :: Bool ->SpaceOf t -> u -> t -> t
+    projectionWithAccuracy :: Bool -> SpaceOf t -> u -> t -> t
     default projectionWithAccuracy :: Bool -> SpaceOf t -> u -> t -> t
     projectionWithAccuracy debug accuracy =
         projectionWithStepsAccuracy debug (maxStepsFromAccuracy accuracy) (Just accuracy)
@@ -63,8 +65,7 @@ instance (s ~ (SpaceOf (f (Bezier s))), Space s, Show (f (Bezier s)), Chain f) =
       let fixed :: f (Bezier s)
           fixed = join . fmap deKnob $ beziers
       in  trWhen debug  "projected" $
-          join . fmap (traverseBezierSpace debug max_steps m_accuracy
-                       bSpace) $ fixed
+          join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ fixed
 
 data BezierSpace s = BezierSpace
   { bsStart  :: Point2 s
@@ -140,6 +141,16 @@ makeBezierSpace lengthFun chain =
                            Nothing -> Just $ leftSpace
                    Nothing -> Nothing
 
+fillGap :: forall f s . (Space s, Chain f) => f (Bezier s) -> f (Bezier s) -> f (Bezier s)
+fillGap leftResult rightResult =
+  let leftEnd  = (lastLink leftResult  ) ^. bzEnd
+      rightStart = (firstLink rightResult) ^. bzStart
+      filler :: f (Bezier s)
+      filler = if leftEnd /= rightStart
+               then pure (line leftEnd rightStart)
+               else empty
+  in leftResult <|> filler <|> rightResult
+
 traverseBezierSpace :: forall s f
                     .  (Space s, Alternative f, Chain f)
                     => Bool
@@ -165,27 +176,25 @@ traverseBezierSpace debug max_steps m_accuracy bSpace@(BezierSpace sPoint sNorma
                then let (leftBz, rightBz) = splitBezierX splitX bz
                         leftResult  = go start  sPoint     sNormal     splitX splitPoint leftNormal leftTree  leftBz
                         rightResult = go splitX splitPoint rightNormal end    ePoint     eNormal    rightTree rightBz
-                    in  leftResult <|> rightResult
+                    in  fillGap leftResult rightResult
                else go start  sPoint     sNormal     splitX splitPoint leftNormal leftTree  bz
-           else      go splitX splitPoint rightNormal end    ePoint     eNormal   rightTree bz
+           else     go splitX splitPoint rightNormal end    ePoint     eNormal   rightTree bz
        BezierLeaf curveLength control ->
-         if box ^. leftSide < start
-         then
-              if box ^. rightSide > start
-              then let (leftBz, rightBz) = splitBezierX start bz
-                       leftResult  = pure (projectTangentBezier start sPoint sNormal leftBz)
-                       rightResult = go start sPoint sNormal end ePoint eNormal tree rightBz
-                   in  leftResult <|> rightResult
-              else pure (projectTangentBezier start sPoint sNormal bz)
-         else if box ^. rightSide > end
-              then
-                  if box ^. leftSide < end
-                  then let (leftBz, rightBz)  = splitBezierX end bz
-                           leftResult  = go start sPoint sNormal end ePoint eNormal tree leftBz
-                           rightResult = pure (projectTangentBezier end ePoint eNormal rightBz)
-                       in  leftResult <|> rightResult
-                  else pure (projectTangentBezier end ePoint eNormal bz)
-              else pure (mkOffsetCurve debug max_steps m_accuracy start sPoint sNormal end ePoint eNormal control curveLength bz)
+           if box ^. leftSide < start
+           then if box ^. rightSide > start
+                then let (leftBz, rightBz) = splitBezierX start bz
+                         leftResult  = pure (projectTangentBezier start sPoint sNormal leftBz)
+                         rightResult = go start sPoint sNormal end ePoint eNormal tree rightBz
+                     in  fillGap leftResult rightResult
+                else pure (projectTangentBezier start sPoint sNormal bz)
+           else if box ^. rightSide > end
+                then if box ^. leftSide < end
+                     then let (leftBz, rightBz)  = splitBezierX end bz
+                              leftResult  = go start sPoint sNormal end ePoint eNormal tree leftBz
+                              rightResult = pure (projectTangentBezier end ePoint eNormal rightBz)
+                          in  fillGap leftResult rightResult
+                     else pure (projectTangentBezier end ePoint eNormal bz)
+                else pure (mkOffsetCurve debug max_steps m_accuracy start sPoint sNormal end ePoint eNormal control curveLength bz)
 
 projectTangentPoint :: Space s => s -> Point2 s -> Diff Point2 s -> Point2 s -> Point2 s
 projectTangentPoint offset v0 normal (Point2 x y) =
@@ -196,15 +205,16 @@ projectTangentPoint offset v0 normal (Point2 x y) =
 projectTangentBezier :: Space s => s -> Point2 s -> Diff Point2 s -> Bezier s -> Bezier s
 projectTangentBezier offset v0 normal bz = overBezier (projectTangentPoint offset v0 normal) bz
 
+bezierPointAndNormal :: Space s => Bezier s -> s -> (Point2 s, Diff V2 s)
 bezierPointAndNormal sourceCurve t =
   if t < 0.5
   then let (Bez s0 sC s1) = dropBezier t sourceCurve
-           tangent0 = bezierStartTangent (Bez s0 sC s1)
-           n0 = perp (tangent0)
+           tangent = bezierStartTangent (Bez s0 sC s1)
+           n0 = perp tangent
        in  (s0, n0)
   else let (Bez s0 sC s1) = takeBezier t sourceCurve
-           tangent0 = bezierEndTangent (Bez s0 sC s1)
-           n0 = perp (tangent0)
+           tangent = bezierEndTangent (Bez s0 sC s1)
+           n0 = perp tangent
        in  (s1, n0)
 
 bezierStartTangent :: Space s => Bezier s -> Diff V2 s
@@ -240,15 +250,20 @@ arbitraryIntersection p0 slope0 p1 slope1 =
 projectCurveFromParams debug max_steps m_accuracy start sPoint sNormal end ePoint eNormal control len bz =
    projectCurve debug max_steps m_accuracy start (Bez sPoint control ePoint) bz
 
+projPoint :: forall s . Space s => Bezier s -> Point2 s -> Point2 s
+projPoint curve toProject =
+    let (point, normal) = bezierPointAndNormal curve (toProject ^. pX)
+    in  point .+^ ((((toProject ^. pY) :: s) *^ normal) :: Diff V2 s)
+
 projectCurve :: forall s
-                   .  Space s
-                   => Bool
-                   -> Int
-                   -> Maybe s
-                   -> s
-                   -> Bezier s
-                   -> Bezier s
-                   -> Bezier s
+             .  Space s
+             => Bool
+             -> Int
+             -> Maybe s
+             -> s
+             -> Bezier s
+             -> Bezier s
+             -> Bezier s
 -- Given a target curve and a source curve, return a new target curve that approximates projecting every point in the target curve
 -- onto the source curve, such that the original x-axis corresponds to arclength along the source curve and the y-axis corresponds
 -- to distance from source curve along a normal.
@@ -264,49 +279,39 @@ projectCurve debugFlag max_steps m_accuracy start sourceCurve targetCurve =
         -- Define variables for all of the components of the transformed target curve.
         (V3 t0 tC t1) = fmap (view pX) . view bzPoints $ targetCurveCorrected
         (V3 y0 yC y1) = fmap (view pY) . view bzPoints $ targetCurveCorrected
+        p0 = projPoint sourceCurve (targetCurveCorrected ^. bzStart)
+        p1 = projPoint sourceCurve (targetCurveCorrected ^. bzEnd)
     in  if t0 == t1 -- the curve is vertical.
-        then let (s0, normal0) = bezierPointAndNormal sourceCurve t0
-                 -- Just project the start and end points
-                 s = s0 .+^ (normal0 ^* y0)
-                 e = s0 .+^ (normal0 ^* y1)
-                 c = mid s e
-             in  Bez s c e
-        else let -- Find the original start tangent in the target curve's untransformed space
-                 targetTangent0 = bezierStartTangent targetCurve
-                 -- Find the original end tangent in the target curve's untransformed space
-                 targetTangent1 = bezierEndTangent   targetCurve
-
-                 -- Find the point along the source curve that corresponds to the start of the target curve
-                 -- and the normal vector from that point.
-                 (start, normal0)  = bezierPointAndNormal sourceCurve t0
-                 -- Find the point along the source curve that corresponds to the end of the target curve
-                 -- and the normal vector from that point.
-                 (end,   normal1)  = bezierPointAndNormal sourceCurve t1
-
-                 -- Find the projected location of the new target curves start point.
-                 s0 = start .+^ (normal0 ^* y0)
-                 -- Find the projected location of the new target curves end point.
-                 s1 = end .+^ (normal1 ^* y1)
-
-                 -- Rotate the original start tangent of target curve using the start normal from the source curve.
-                 tangent0Rotated = relativeToNormalVector normal0 targetTangent0
-                 -- Rotate the original end tangent of target curve using the end normal from the source curve.
-                 tangent1Rotated = relativeToNormalVector normal1 targetTangent1
-                 -- Define the slopes of the tangent lines. (Because haskell is call by need these won't actually be calculated until
-                 -- we know the lines aren't verticle.
-                 slope0 = slopeOf tangent0Rotated
-                 slope1 = slopeOf tangent1Rotated
-                 -- calculate the new control point by finding the intersection between the rotated tangent lines.
-                 c
-                   | tangent0Rotated ^. _x == 0 && tangent1Rotated ^. _x == 0 = mid s0 s1 -- both tangents are vertical so just use the midpoint.
-                   | tangent0Rotated ^. _x == 0 = Point2 (s0^.pX) (yInterceptSlope s1 slope1 (s0 ^. pX)) -- one tangent line is vertical so use yIntercept.
-                   | tangent1Rotated ^. _x == 0 = Point2 (s1^.pX) (yInterceptSlope s0 slope0 (s1 ^. pX))
-                   | abs (slope0 - slope1) < 0.001 = mid s0 s1 -- lines are too close to parallel so use the midpoint.
-                     -- otherwise calculate the intersection of the two tangent lines.
-                     -- (temporarily clamping y below so that misbehaving intersection points don't crash the rest of the rasterizer.)
-                   | otherwise = over pY (clamp (-10000) 10000) $ arbitraryIntersection s0 slope0 s1 slope1
-             in  -- return the resulting curve.
-                 Bez s0 c s1
+        then let -- Just project the start and end points
+                 c = mid p0 p1
+             in  Bez p0 c p1
+        else let split = 0.5 --(tC - t0) / (t1 - t0)
+                 pM = projPoint sourceCurve (eval split targetCurveCorrected)
+                 (oC, normalC) = bezierPointAndNormal sourceCurve tC
+                 testControlPoint t y = let  (oC, normalC) = bezierPointAndNormal sourceCurve t
+                                        in   oC .+^ (y *^ normalC)
+                 projectedMid control = eval split (Bez p0 control p1)
+                 projectAndTest t y = let control = Point2 t y -- testControlPoint t y
+                                          projected = projectedMid control
+                                      in  (control, projected, quadrance (projected .-. pM))
+                 findControl left top right bottom count =
+                    let (ltControl, ltProjected, ltDistance) = projectAndTest left  top
+                        (rtControl, rtProjected, rtDistance) = projectAndTest right top
+                        (lbControl, lbProjected, lbDistance) = projectAndTest left  bottom
+                        (rbControl, rbProjected, rbDistance) = projectAndTest right bottom
+                        midX = (left + right) / 2
+                        midY = (top + bottom) / 2
+                    in  if (abs (right - left) > 0.00001) && (count > 0)
+                        then let (left', right') = if (ltDistance <= rtDistance)
+                                                    then (left, midX)
+                                                    else (midX, right)
+                                 (top', bottom') = if (ltDistance <= lbDistance)
+                                                   then (top, midY)
+                                                   else (midY, bottom)
+                               in findControl left' top' right' bottom' (count-1)
+                        else ltControl
+                 finalControl = findControl (-1000) 2000 1000 (-2000) 16
+             in  Bez p0 finalControl p1
 
 bezierIsForward (Bez v0 _ v1) = v0 ^. pX <= v1 ^. pX
 

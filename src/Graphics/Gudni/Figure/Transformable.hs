@@ -52,29 +52,26 @@ class (HasSpace t) => SimpleTransformable t where
 class (SimpleTransformable t) => Transformable t where
   rotateBy    :: Angle (SpaceOf t) -> t -> t
 
-translateByXY :: (HasSpace t, SimpleTransformable t) =>SpaceOf t -> SpaceOf t -> t -> t
+translateByXY :: (HasSpace t, SimpleTransformable t) => SpaceOf t -> SpaceOf t -> t -> t
 translateByXY x y = translateBy $ makePoint x y
 
-instance (SimpleSpace s) => SimpleTransformable (Point2 s) where
+instance (Space s) => SimpleTransformable (Point2 s) where
     translateBy = (^+^)
     scaleBy     = flip (^*)
     stretchBy   = liftA2 (*)
-
 instance (Space s) => Transformable (Point2 s) where
     rotateBy    = rotate
 
 instance (SimpleTransformable a) => SimpleTransformable [a] where
     translateBy v = map (translateBy v)
-    scaleBy s = map (scaleBy s)
-    stretchBy s = map (stretchBy s)
-
+    scaleBy     s = map (scaleBy s)
+    stretchBy   p = map (stretchBy p)
 instance (Transformable a) => Transformable [a] where
-    rotateBy a = map (rotateBy a)
+    rotateBy    a = map (rotateBy a)
 
-instance {-# Overlappable #-} (HasSpace a, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Functor f, SimpleTransformable a) => SimpleTransformable (f a) where
-    translateBy v = fmap (translateBy v)
-    scaleBy s = fmap (scaleBy s)
-    stretchBy p = fmap (stretchBy p)
-
-instance {-# Overlappable #-} (HasSpace a, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Functor f, Transformable a) => Transformable (f a) where
-    rotateBy a = fmap (rotateBy a)
+instance {-# OVERLAPPABLE #-} (HasSpace t, Space (SpaceOf t), PointContainer t) => SimpleTransformable t where
+    translateBy p = mapOverPoints (translateBy p)
+    scaleBy     s = mapOverPoints (scaleBy s)
+    stretchBy   p = mapOverPoints (stretchBy p)
+instance {-# OVERLAPPABLE #-} (HasSpace t, Space (SpaceOf t), PointContainer t) => Transformable t where
+    rotateBy    a = mapOverPoints (rotateBy a)

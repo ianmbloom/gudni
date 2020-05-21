@@ -25,16 +25,16 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout.Glyph
 import Graphics.Gudni.Util.Util
 
-horizontallySpacedBy :: SimpleTransformable a => SpaceOf a -> [a] -> [a]
+horizontallySpacedBy :: (HasSpace a, SimpleTransformable a) => SpaceOf a -> [a] -> [a]
 horizontallySpacedBy s = zipWith ($) (map translateBy $ iterate (^+^ Point2 s 0) zeroPoint)
 
-verticallySpacedBy :: SimpleTransformable a => SpaceOf a -> [a] -> [a]
+verticallySpacedBy :: (HasSpace a, SimpleTransformable a) => SpaceOf a -> [a] -> [a]
 verticallySpacedBy s = zipWith ($) (map translateBy $ iterate (^+^ Point2 0 s) zeroPoint)
 
-gridOf :: (SimpleTransformable a)
-         => SpaceOf a
-         -> Int
-         -> Int
-         -> [a]
-         -> [a]
+gridOf :: (HasSpace a, SimpleTransformable a)
+       => SpaceOf a
+       -> Int
+       -> Int
+       -> [a]
+       -> [a]
 gridOf s width height = concat . take height . verticallySpacedBy s . map (take width . horizontallySpacedBy s) . breakList width

@@ -11,6 +11,7 @@ module Graphics.Gudni.Figure.Bezier
   , bzControl
   , bzEnd
   , bzPoints
+  , unfoldBezier
   , pattern Bez
   , overBezier
   , reverseBezier
@@ -32,7 +33,6 @@ import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Util.Chain
-
 
 import Numeric.Interval
 import Linear
@@ -65,6 +65,12 @@ bzEnd elt_fn (Bez v0 c v1) = (\v1' -> Bez v0 c v1') <$> (elt_fn v1)
 bzPoints :: Lens' (Bezier s) (V3 (Point2 s))
 bzPoints elt_fn (Bezier v3) = (\v3' -> Bezier v3') <$> (elt_fn v3)
 
+unfoldV3 :: Alternative f => V3 a -> f a
+unfoldV3 (V3 a b c) = pure a <|> pure b <|> pure c
+
+unfoldBezier :: Alternative f => Bezier s -> f (Point2 s)
+unfoldBezier = unfoldV3 . view bzPoints
+
 instance Space s => SimpleTransformable (Bezier s) where
     translateBy delta = over bzPoints (fmap (translateBy delta))
     scaleBy     scale = over bzPoints (fmap (scaleBy scale))
@@ -89,8 +95,8 @@ curved v0 c v1 = Bez v0 c v1
 instance Space s => HasSpace (Bezier s) where
   type SpaceOf (Bezier s) = s
 
-eval :: Num s => Bezier s -> s -> Point2 s
-eval (Bez p0 p1 p2) t = let mt = 1 - t in
+eval :: Num s => s -> Bezier s -> Point2 s
+eval t (Bez p0 p1 p2) = let mt = 1 - t in
     p0 ^* (mt * mt) + (p1 ^* (mt * 2) + p2 ^* t) ^* t
 
 -- | Arc length of a single quadratic Bézier segment.

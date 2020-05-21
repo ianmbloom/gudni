@@ -68,10 +68,10 @@ bezierToCurvePair (Bez v0 c _) = CurvePair v0 c
 beziersToPairs :: Functor t => t (Bezier s) -> t (CurvePair s)
 beziersToPairs = fmap bezierToCurvePair
 
-instance (SimpleSpace s) => HasSpace (CurvePair s) where
+instance Space s => HasSpace (CurvePair s) where
   type SpaceOf (CurvePair s) = s
 
-instance (SimpleSpace s) => HasBox (CurvePair s) where
+instance (Space s) => HasBox (CurvePair s) where
   boxOf (CurvePair c o) = minMaxBox (boxOf c) (boxOf o)
 
 instance NFData s => NFData (CurvePair s) where

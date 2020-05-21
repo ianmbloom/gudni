@@ -22,14 +22,13 @@
 
 module Graphics.Gudni.Figure.OpenCurve
   ( OpenCurve_(..)
-  , OpenCurve(..)
-  , makeOpenCurve
   , curveSegments
   , terminator
   , outset
+  , OpenCurve(..)
+  , makeOpenCurve
   , (>*<)
   , reverseCurve
-  , overCurvePoints
   )
 where
 
@@ -68,17 +67,23 @@ data OpenCurve_ t s = OpenCurve
     }
 makeLenses ''OpenCurve_
 
-makeOpenCurve :: Foldable t => t (Bezier s) -> OpenCurve s
-makeOpenCurve = OpenCurve . V.fromList . toList
-
 deriving instance (Show (t (Bezier s))) => Show (OpenCurve_ t s)
 deriving instance (Eq   (t (Bezier s))) => Eq (OpenCurve_ t s)
 deriving instance (Ord  (t (Bezier s))) => Ord (OpenCurve_ t s)
 
+instance Space s => HasSpace (OpenCurve_ t s) where
+    type SpaceOf (OpenCurve_ t s) = s
+
+instance ( Chain f, Show (f (Bezier s))
+         , Space s) => PointContainer (OpenCurve_ f s) where
+   type ContainerFunctor (OpenCurve_ f s) = f
+   containedPoints = join . fmap unfoldBezier . view curveSegments
+   mapOverPoints f = over curveSegments (fmap (over bzPoints (fmap f)))
+
 type OpenCurve s = OpenCurve_ V.Vector s
 
-instance (Space s) => HasSpace (OpenCurve_ t s) where
-    type SpaceOf (OpenCurve_ t s) = s
+makeOpenCurve :: [Bezier s] -> OpenCurve s
+makeOpenCurve = OpenCurve . V.fromList
 
 -- {-# SPECIALIZE arcLength :: OpenCurve Float  -> Float  #-}
 -- {-# SPECIALIZE arcLength :: OpenCurve Double -> Double #-}
@@ -97,31 +102,27 @@ terminator elt_fn (OpenCurve segments) =
     let (Bez v0 control v1) = lastLink segments
     in  (\v1' -> OpenCurve $ notLast segments <|> pure (Bez v0 control v1')) <$> elt_fn v1
 
--- | Map over every point in an OpenCurve
-overCurvePoints :: Functor t => (Point2 s -> Point2 s) -> OpenCurve_ t s -> OpenCurve_ t s
-overCurvePoints f = over curveSegments (fmap (over bzPoints $ fmap f))
-
 -- | Return the same curve in the opposite order.
 reverseCurve :: (Chain t) => OpenCurve_ t s -> OpenCurve_ t s
 reverseCurve = over curveSegments (reverseChain . fmap reverseBezier)
 
 -- | Connect two curves end to end by translating c1 so that the starting point of 'c1' is equal to the terminator of 'c0'
-(>*<) :: (Chain t, Space s) => OpenCurve_ t s -> OpenCurve_ t s -> OpenCurve_ t s
+(>*<) :: (Chain f, Space s, Show (f (Bezier s))) => OpenCurve_ f s -> OpenCurve_ f s -> OpenCurve_ f s
 (>*<) c0 c1 = let delta = c0 ^. terminator ^-^ c1 ^. outset
-                  transC1 = overCurvePoints (translateBy delta) c1
+                  transC1 = mapOverPoints (translateBy delta) c1
               in  over curveSegments (c0 ^. curveSegments <|>) transC1
+
+instance (s ~ (SpaceOf (f (Bezier s))), Space s, Show (f (Bezier s)), Chain f) => CanProject (BezierSpace s) (OpenCurve_ f s) where
+    projectionWithStepsAccuracy debug max_steps m_accuracy bSpace  =
+         over curveSegments (projectionWithStepsAccuracy debug max_steps m_accuracy bSpace)
+
+instance (Chain f, Space s, CanProject (BezierSpace s) t, Show (f (Bezier s)), Chain f) => CanProject (OpenCurve_ f s) t where
+    projectionWithStepsAccuracy debug max_steps m_accuracy path =
+      let bSpace = makeBezierSpace arcLength (view curveSegments path)
+      in  projectionWithStepsAccuracy debug max_steps m_accuracy bSpace
 
 instance (Hashable s, Hashable (t (Bezier s))) => Hashable (OpenCurve_ t s) where
     hashWithSalt s (OpenCurve segs) = s `hashWithSalt` segs
 
 instance (NFData s, NFData (t (Bezier s))) => NFData (OpenCurve_ t s) where
     rnf (OpenCurve a ) = a `deepseq` ()
-
-instance (s ~ (SpaceOf (f (Bezier s))), Space s, Monad f, Alternative f, Show (f (Bezier s)), Chain f) => CanProject (BezierSpace s) (OpenCurve_ f s) where
-    projectionWithStepsAccuracy debug max_steps m_accuracy bSpace curve =
-         OpenCurve . overChainNeighbors fixBezierNeighbor . projectionWithStepsAccuracy debug max_steps m_accuracy bSpace . view curveSegments $ curve
-
-instance (Chain f, Space s, CanProject (BezierSpace s) t, Show (f (Bezier s)), Chain f) => CanProject (OpenCurve_ f s) t where
-    projectionWithStepsAccuracy debug max_steps m_accuracy path t =
-      let bSpace = makeBezierSpace arcLength (view curveSegments path)
-      in  projectionWithStepsAccuracy debug max_steps m_accuracy bSpace t

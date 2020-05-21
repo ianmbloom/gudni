@@ -186,7 +186,6 @@ insertItemV f (VTree cut top bottom) box =
 insertItemV f (VLeaf leaf) box =
     VLeaf $ f leaf
 
-
 -- | Add an itemEntry to a sequence of entries.
 insertItemTagIdPile :: MonadIO m => ItemTagId -> (Tile, Pile ItemTagId) -> m (Tile, Pile ItemTagId)
 insertItemTagIdPile itemEntry (tile, items) =

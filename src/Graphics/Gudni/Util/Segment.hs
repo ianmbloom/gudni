@@ -29,6 +29,8 @@ module Graphics.Gudni.Util.Segment
   , randomSegmentFromPoints
   , fromSegments
   , oldLine
+  , segmentsToShape
+  , segmentsToOutline
   )
 where
 
@@ -111,6 +113,10 @@ segmentsToCurvePairs' first segs = case segs of
 -- | Convert a list of lists of segments to a list of outlines.
 segmentsToShape :: (Fractional s) => [[Segment s]] -> Shape s
 segmentsToShape = Shape . map (Outline . pairsToBeziers . V.fromList . segmentsToCurvePairs)
+
+-- | Convert a list of
+segmentsToOutline :: (Space s) => [Segment s] -> Outline s
+segmentsToOutline = Outline . pairsToBeziers . V.fromList . segmentsToCurvePairs
 
 -- | Basic curve definition for a simple line (Temporary until stroke implemented.)
 lineCurve :: (Space s) => s -> Point2 s -> Point2 s -> [Segment s]

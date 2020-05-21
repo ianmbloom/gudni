@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -29,6 +30,8 @@ import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Representation
 import Graphics.Gudni.Util.Segment
+import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Util.Util
 
 import qualified Graphics.Gudni.Figure.Bezier as B
 
@@ -93,10 +96,7 @@ instance HasToken ProjectionState where
 
 instance Model ProjectionState where
     screenSize state = Window (Point2 500 250)
-    shouldLoop _ = True
-    fontFile _ = findDefaultFont
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
-    ioTask = return
     constructScene state _status =
         do text <- (^?! unGlyph) <$> blurb 0.1 AlignMin "e" -- "Georg Guðni Hauksson"
            let angle   = state ^. stateBase . stateAngle
@@ -105,8 +105,8 @@ instance Model ProjectionState where
                offset  = state ^. stateOffset
            return . Scene gray $
                --(if repMode then represent repDk else id) $
-               ((transformFromState (state ^. stateBase) $
-               debugScene) :: ShapeTree Int SubSpace)
+               (transformFromState (state ^. stateBase) $
+               projectCurveDemo False offset bz myline :: ShapeTree Int SubSpace)
       where
         bz  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0)
         --bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)
@@ -163,7 +163,7 @@ marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square
 main :: IO ()
 main = runApplication $ ProjectionState
        (BasicSceneState
-           { _stateScale       = 500
+           { _stateScale       = 1500
            , _stateDelta       = Point2 100 100
            , _stateAngle       = 0 @@ deg
            , _statePaused      = True
@@ -177,4 +177,4 @@ main = runApplication $ ProjectionState
            , _stateRepMode     = False
            , _stateRepDk       = False
            }
-       ) 0.75
+       ) 0
