@@ -20,7 +20,6 @@
 
 module Graphics.Gudni.Layout.Draw
   ( CanMask(..)
-  , maskOutline
   , CanFill(..)
   , withColor
   , withTexture
