@@ -1514,9 +1514,7 @@ COLOR readColor ( PMEM ColorState *cS
       float2 n = grad.gradientEnd - grad.gradientStart; // Get the direction vector of the line segment
       float2 v = p - grad.gradientStart; // Vector from line start to point being shaded
       float  t = smoothstep(0,1,dot(n, v) / dot(n, n)); // Project the vector to the point being shaded onto the line segment. Divide by ||n||^2 : once to get into the parameter space of the line segment, and again to map to 0..1 for the lerp
-      // float dist = distance(grad.gradientStart, grad.gradientEnd);
       return (grad.gradientStartColor * t) + (grad.gradientEndColor * (1 - t));
-      //return (COLOR)(1.0,0,0,1);
     }
 }
 
