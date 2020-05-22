@@ -82,7 +82,7 @@ instance Space s => HasSpace (BezierSpace s) where
 data BezierTree s
   = BezierSplit
          { bzTreeSplitX :: s
-         , bzTreeSplitPoint :: Point2 s
+         , bzTreeSplitPoint  :: Point2 s
          , bzTreeLeftNormal  :: Diff Point2 s
          , bzTreeRightNormal :: Diff Point2 s
          , bzTreeLeft  :: BezierTree s

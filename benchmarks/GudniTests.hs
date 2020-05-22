@@ -350,7 +350,7 @@ testLinearGradient state =
         f (Point2 x y) = hslColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
         size = Point2 w h
     in  return $ -- rotateBy (45 @@ deg) $
-        overlap [ withLinearGradient zeroPoint clearBlack (Point2 0 100) red $ rectangle (Point2 300 300) ]
+        overlap [ withLinearGradient zeroPoint clearBlack (Point2 100 500) red $ rectangle (Point2 500 500) ]
 
 -- | Simple stack of squares.
 stackOfSquares :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)

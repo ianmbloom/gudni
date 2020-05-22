@@ -1510,13 +1510,12 @@ COLOR readColor ( PMEM ColorState *cS
     }
     else if (substanceTagIsLinear(tag)) {
       LinearGradient grad = getLinearDescription(cS, tag);
-      float2 relativePosition = convert_float2(cS->absolutePosition);
-      float startDist = taxiDistance(grad.gradientStart, relativePosition);
-      //float2 endDist   = taxiDistance(grad.gradientEnd  , relativePosition);
-      float w = taxiDistance(grad.gradientStart, grad.gradientEnd);
-      float ratio = smoothstep(0,w,startDist);
+      float2 p = convert_float2(cS->absolutePosition);
+      float2 n = grad.gradientEnd - grad.gradientStart; // Get the direction vector of the line segment
+      float2 v = p - grad.gradientStart; // Vector from line start to point being shaded
+      float  t = smoothstep(0,1,dot(n, v) / dot(n, n)); // Project the vector to the point being shaded onto the line segment. Divide by ||n||^2 : once to get into the parameter space of the line segment, and again to map to 0..1 for the lerp
       // float dist = distance(grad.gradientStart, grad.gradientEnd);
-      return (grad.gradientStartColor * ratio) + (grad.gradientEndColor * (1 - ratio));
+      return (grad.gradientStartColor * t) + (grad.gradientEndColor * (1 - t));
       //return (COLOR)(1.0,0,0,1);
     }
 }

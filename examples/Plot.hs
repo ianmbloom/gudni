@@ -1,6 +1,8 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -20,6 +22,7 @@ module Plot
 where
 
 import Graphics.Gudni.Interface
+import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
@@ -30,10 +33,13 @@ import Control.Monad.State
 
 import Data.Maybe
 
+
+
 data PlotState = PlotState
-  { _stateAngle :: Angle SubSpace
-  , _stateScale :: SubSpace
-  } deriving (Show)
+   {_stateBase        :: BasicSceneState
+   ,_stateOffset      :: SubSpace
+   }
+   deriving (Show)
 makeLenses ''PlotState
 
 instance HasToken PlotState where
@@ -43,29 +49,45 @@ instance Model PlotState where
     screenSize state = Window (Point2 1024 768)
     shouldLoop _ = True
     fontFile _ = findDefaultFont
-    updateModelState frame elapsedTime inputs state =
-        execState (
-            do  stateAngle .= (realToFrac elapsedTime / 2) @@ turn
-            ) $ foldl (flip undefined {-processInput-}) state inputs
-    ioTask = return
+    updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     constructScene state status =
         Scene (light . greenish $ blue) <$> plots state
     providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target
                                     return state
 
-processSimpleInput input =
-    case input of
-        (InputKey Pressed _ inputKeyboard) ->
-             case inputKeyboard of
-                Key ArrowUp    -> stateScale *=  1.25
-                Key ArrowDown  -> stateScale //= 1.25
-                _              -> return ()
-        _ -> return ()
+instance HandlesInput token PlotState where
+   processInput input =
+          over stateBase (processInput input) . (
+          execState $
+          case (input ^. inputType) of
+              (InputKey Pressed _ inputKeyboard) ->
+                  do  case inputKeyboard of
+                          Key ArrowRight -> stateOffset += 10.01
+                          Key ArrowLeft  -> stateOffset -= 10.01
+                          _ -> return ()
+
+              _ -> return ()
+          )
 
 main :: IO ()
-main = runApplication (PlotState (0 @@ turn) 50)
-
+main = runApplication $ PlotState
+       (BasicSceneState
+           { _stateScale       = 1
+           , _stateDelta       = Point2 0 0
+           , _stateAngle       = 0 @@ deg
+           , _statePaused      = True
+           , _stateSpeed       = 1
+           , _statePace        = 10
+           , _stateLastTime    = 0
+           , _stateDirection   = True
+           , _statePlayhead    = 0
+           , _stateFrameNumber = 0
+           , _stateStep        = 69
+           , _stateRepMode     = False
+           , _stateRepDk       = False
+           }
+       ) 0.75
 
 -- | All the turtle plots from the plot module.
 plots :: Monad m => PlotState -> FontMonad m (ShapeTree Int SubSpace)
