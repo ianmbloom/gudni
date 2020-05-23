@@ -15,6 +15,7 @@ import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Util.Chain
 import qualified Data.Vector as V
 import Data.Maybe
 
@@ -36,9 +37,9 @@ maybeCutPointBezier axis split bz =
 
 class (HasSpace t, Show (SpaceOf t)) => CanCut t where
    -- | Split item across horizontal or vertical line
-   splitAtCut    :: Lens' (Point2 (SpaceOf t)) (SpaceOf t) -> SpaceOf t -> t -> (t, t)
+   splitAtCut :: Lens' (Point2 (SpaceOf t)) (SpaceOf t) -> SpaceOf t -> t -> (t, t)
    -- | Determine if horizontal or vertical line cuts item
-   canCut        :: Lens' (Point2 (SpaceOf t)) (SpaceOf t) -> SpaceOf t -> t -> Bool
+   canCut     :: Lens' (Point2 (SpaceOf t)) (SpaceOf t) -> SpaceOf t -> t -> Bool
 
 instance Space s => CanCut (Bezier s) where
    splitAtCut axis cut bezier =

@@ -49,8 +49,9 @@ import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Util.Chain
 
-import Linear.V3
 import Linear.V2
+import Linear.V3
+import Linear.V4
 import Control.Lens
 import Control.Applicative
 import Control.Monad
@@ -130,7 +131,7 @@ sideTriangle leftSplit rightSplit left right bottom splitPoints facet =
   in  set (facetSides . left) left' . set (facetSides . right) right' . set (facetSides . bottom) bottom' $ facet
 
 
-subdivideFacetT :: (Space s, Alternative f) => V3 s -> Facet_ s -> f (Facet_ s)
+subdivideFacetT :: (Space s) => V3 s -> Facet_ s -> V4 (Facet_ s)
 subdivideFacetT splitPoints facet =
   let triZ  = sideTriangle _x _y   _x _y _z splitPoints facet
       triX  = sideTriangle _y _z   _y _z _x splitPoints facet
@@ -139,30 +140,44 @@ subdivideFacetT splitPoints facet =
                                       (triX ^. facetSides . _x)
                                       (triY ^. facetSides . _y)
                     }
-  in  pure triZ <|> pure triX <|> pure triY <|> pure triIn
+  in  V4 triX triY triZ triIn
 
 subdivideFacet :: (Space s, Alternative f) => Facet_ s -> f (Facet_ s)
-subdivideFacet = subdivideFacetT (pure hALF)
+subdivideFacet = foldl1 (<|>) . fmap pure . subdivideFacetT (pure hALF)
 
-maybeSplitFacet :: (Space s, Alternative f) => (Bezier s -> Maybe s) -> Facet_ s -> Maybe (f (Facet_ s))
-maybeSplitFacet f facet =
+maybeSubdivideFacet :: (Space s, Alternative f) => (Bezier s -> Maybe s) -> Facet_ s -> Maybe (f (Facet_ s))
+maybeSubdivideFacet f facet =
     let mSplitPoints = fmap (f . view sceneSide) $ facet ^. facetSides
     in  if or (fmap isJust mSplitPoints)
         then let splitPoints = fmap (fromMaybe hALF) mSplitPoints
-             in  Just $ subdivideFacetT splitPoints facet
+                 (V4 triZ triX triY triIn) = subdivideFacetT splitPoints facet
+             in  Just $ pure triX <|> pure triY <|> pure triZ <|> pure triIn
+        else Nothing
+
+maybeCutFacet :: (Space s, Alternative f) => (Bezier s -> Maybe s) -> Facet_ s -> Maybe (f (Facet_ s), f (Facet_ s))
+maybeCutFacet f facet =
+    let mSplitPoints = fmap (f . view sceneSide) $ facet ^. facetSides
+    in  if or (fmap isJust mSplitPoints)
+        then let splitPoints = fmap (fromMaybe hALF) mSplitPoints
+                 (V4 triX triY triZ triIn) = subdivideFacetT splitPoints facet
+             in  case mSplitPoints of
+                    V3 Nothing  (Just _) (Just _) -> Just (pure triX, pure triY <|> pure triZ <|> pure triIn)
+                    V3 (Just _) Nothing  (Just _) -> Just (pure triY, pure triX <|> pure triZ <|> pure triIn)
+                    V3 (Just _) (Just _) Nothing  -> Just (pure triZ, pure triX <|> pure triY <|> pure triIn)
+                    _ -> error "split not quite working"
         else Nothing
 
 instance Space s => CanDeKnob (Facet_ s) where
-    deKnob = maybeSplitFacet (maybeKnobSplitPoint pX)
+    deKnob = maybeSubdivideFacet (maybeKnobSplitPoint pX)
 
 instance Space s => CanCut (Facet_ s) where
     -- | Split item across horizontal or vertical line
-    splitAtCut axis splitPoint facet = undefined
+    splitAtCut axis splitPoint = undefined -- join . fmap (maybeCutFacet (maybeCutPointBezier axis splitPoint))
     -- | Determine if horizontal or vertical line cuts item
-    canCut axis splitPoint facet = undefined
+    canCut axis splitPoint = undefined -- or . fmap (canCut axis splitPoint . view sceneSide) . view facetSides
 
-splitFacetAt :: forall s f . (Space s, Alternative f) => Lens' (Point2 s) s -> s -> Facet_ s -> Maybe (f (Facet_ s))
-splitFacetAt axis split = maybeSplitFacet (maybeCutPointBezier axis split)
+
+
 
 tesselateFacet :: (Space s, Chain f)
                => SpaceOf (Facet_ s) -> Facet_ s -> f (Facet_ s)

@@ -45,28 +45,16 @@ mapOverSceneBez :: Space s => (Bezier s -> Bezier s) -> Facet_ s -> Facet_ s
 mapOverSceneBez f = over facetSides (fmap (over sceneSide f))
 
 instance Space s => CanFit (Facet_ s) where
-    isForward facet = undefined -- (Bez v0 _ v1) = v0 ^. pX <= v1 ^. pX
-    reverseItem = mapOverSceneBez reverseBezier
-    projectTangent = undefined -- projectTangentBezier
-    fillGap leftResult rightResult =
-        undefined
-        {-
-        let leftEnd  = (lastLink leftResult  ) ^. bzEnd
-            rightStart = (firstLink rightResult) ^. bzStart
-            filler = if leftEnd /= rightStart
-                     then pure (line leftEnd rightStart)
-                     else empty
-        in leftResult <|> filler <|> rightResult
-        -}
+    isForward facet = True -- the order of facets doesn't matter.
+    reverseItem = id
+    projectTangent offset v0 normal = mapOverSceneBez (projectTangent offset v0 normal)
+    fillGap leftResult rightResult = leftResult <|> rightResult
     projectOntoCurve debugFlag max_steps m_accuracy start sourceCurve =
          mapOverSceneBez (projectOntoCurve debugFlag max_steps m_accuracy start sourceCurve)
 
 instance (s ~ (SpaceOf (f (Facet_ s)))
          , Space s
-         --, Show (f (Bezier s))
-         --, Show (f (Facet_ s))
          , Chain f
-         --, CanCut (Facet_ s)
          ) => CanProject (BezierSpace s) (f (Facet_ s)) where
     projectionWithStepsAccuracy debug max_steps m_accuracy bSpace facets =
         let fixed :: f (Facet_ s)
