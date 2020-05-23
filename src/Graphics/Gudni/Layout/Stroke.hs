@@ -14,6 +14,7 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.Projection
+import Graphics.Gudni.Figure.BezierSpace
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Loop
 import Graphics.Gudni.Util.Debug

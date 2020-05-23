@@ -37,6 +37,8 @@ import Prelude hiding (reverse)
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Bezier
+import Graphics.Gudni.Figure.BezierSpace
+import Graphics.Gudni.Figure.ProjectBezier
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Transformable

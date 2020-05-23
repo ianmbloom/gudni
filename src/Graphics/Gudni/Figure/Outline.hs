@@ -33,6 +33,7 @@ where
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Bezier
+import Graphics.Gudni.Figure.BezierSpace
 import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Transformable

@@ -33,6 +33,7 @@ import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.Transformable
+import Graphics.Gudni.Figure.BezierSpace
 
 import Graphics.Gudni.Util.Debug
 

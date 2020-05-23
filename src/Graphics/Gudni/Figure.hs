@@ -16,6 +16,7 @@ module Graphics.Gudni.Figure
   , module Graphics.Gudni.Figure.Transformable
   , module Graphics.Gudni.Figure.Substance
   , module Graphics.Gudni.Figure.Gradient
+  , module Graphics.Gudni.Figure.Facet
   )
 where
 
@@ -36,3 +37,4 @@ import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Substance
 import Graphics.Gudni.Figure.Gradient
+import Graphics.Gudni.Figure.Facet

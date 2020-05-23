@@ -25,6 +25,7 @@ module Graphics.Gudni.Raster.TextureReference
   , makePictureMap
   , namePicturesInShapeTree
   , pictureTextureSize
+  , substanceBoundaries
   --, makePictData
   , collectPictureMemory
   , withScenePictureMemory
@@ -35,6 +36,7 @@ import Foreign.C.Types
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Color
+import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Picture
 import Graphics.Gudni.Figure.Substance
@@ -80,6 +82,10 @@ data PictureMemoryReference = PictureMemory
 
 pictureTextureSize :: PictureMemoryReference -> Point2 TextureSpace
 pictureTextureSize = fmap pixelSpaceToTextureSpace . pictSize
+
+substanceBoundaries :: Substance PictureMemoryReference s -> Maybe BoundingBox
+substanceBoundaries (Texture pictMemReference) = Just (pointToBox . fmap textureSpaceToSubspace . pictureTextureSize $ pictMemReference)
+substanceBoundaries _ = Nothing
 
 instance NFData PictureMemoryReference where
   rnf (PictureMemory a b) = a `deepseq` b `deepseq` ()

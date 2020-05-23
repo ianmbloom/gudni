@@ -1,10 +1,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes          #-}
 
 module Graphics.Gudni.Figure.Split
-  ( findSplit
-  , splitBezierX
-  , splitBezierY
+  ( hALF
+  , findSplit
   , splitClosestControl
+  , maybeKnobSplitPoint
   )
 where
 
@@ -13,8 +14,10 @@ import Linear
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Bezier
+import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Util.Debug
 import qualified Data.Vector as V
+import Data.Maybe
 
 import Control.Lens
 import Control.Applicative
@@ -26,12 +29,12 @@ import Control.Applicative
 -- to the verticle tangent point.
 
 -- | Constant for bifercating exactly in half.
-sPLIT :: (Fractional s, Num s) => s
-sPLIT = 1 / 2
+hALF :: (Fractional s, Num s) => s
+hALF = 1 / 2
 
 -- | Find a new onCurve point and two new control points that divide the curve based on the convex function.
 findSplit :: forall s . (Show s, Fractional s, Ord s, Num s, Iota s) => (s -> s) -> s
-findSplit f = search 0.0 1.0 sPLIT
+findSplit f = search 0.0 1.0 hALF
   where
   -- | Given a range of parameters along the curve determine if the are close enough to split the curve.
   search :: s -> s -> s -> s
@@ -49,29 +52,6 @@ findSplit f = search 0.0 1.0 sPLIT
     where upperSplit = (t + ((upper - t) / 2))
           lowerSplit = (lower + ((t - lower) / 2))
 
-
-
--- | Split a curve across a vertical axis
-splitBezierX :: (Show s, Space s) => s -> Bezier s -> (Bezier s, Bezier s)
-splitBezierX cut bezier =
-  let splitT =
-          if (bezier ^. bzStart . pX <= bezier ^. bzEnd . pX)
-          then findSplit (\t -> cut - (view (bzControl . pX) . insideBezier t $ bezier))
-          else findSplit (\t -> negate (cut - (view (bzControl . pX) . insideBezier t $ bezier)))
-      (left,right) = splitBezier splitT bezier
-      -- correct the split to be exactly the x of the cutpoint
- in   (set (bzEnd . pX) cut left, set (bzStart . pX) cut right)
-
-splitBezierY :: (Space s) => s -> Bezier s -> (Bezier s, Bezier s)
-splitBezierY cut bezier =
-  let splitT =
-          if (bezier ^. bzStart . pY <= bezier ^. bzEnd . pY)
-          then findSplit (\t -> cut - (view (bzControl . pY) . insideBezier t $ bezier))
-          else findSplit (\t -> negate (cut - (view (bzControl . pY) . insideBezier t $ bezier)))
-      (left,right) = splitBezier splitT bezier
-      -- correct the split to be exactly the y of the cutpoint
- in   (set (bzEnd . pY) cut left, set (bzStart . pY) cut right)
-
 -- | Split a bezier at the point on the curve that is closest to the control point using taxicab distance
 splitClosestControl :: (Space s) => Bezier s -> (Bezier s, Bezier s)
 splitClosestControl bezier =
@@ -79,3 +59,41 @@ splitClosestControl bezier =
        compareDistance (Bez mid0 _ mid1) = taxiDistance mid0 c - taxiDistance mid1 c
        splitT = findSplit (\t -> compareDistance . insideBezier t $ bezier)
    in  splitBezier splitT bezier
+
+-- | Given two onCurve points and a controlPoint. Find two control points and an on-curve point between them
+-- by bifercating according to the parameter t.
+curvePoint :: Num s => s -> Bezier s -> Bezier s
+curvePoint t (Bez v0 control v1) =
+  let mid0     = lerp (1-t) v0      control
+      mid1     = lerp (1-t) control v1
+      onCurve  = lerp (1-t) mid0    mid1
+  in  (Bez mid0 onCurve mid1)
+
+isKnob :: Space s => Lens' (Point2 s ) s -> Bezier s -> Bool
+isKnob axis bz@(Bez v0 control v1) = ((abs (v0 ^. axis - control ^. axis) + abs (control ^. axis  - v1 ^. axis )) - abs (v0 ^. axis - v1 ^. axis)) /= 0
+
+splitDirection :: Space s => Lens' (Point2 s) s -> Bezier s -> s -> s
+splitDirection axis bz@(Bez v0 control v1) t =
+    let (Bez mid0 onCurve mid1) = curvePoint t bz
+    in  (abs (onCurve ^. axis - v0 ^. axis) - (abs (onCurve ^. axis - mid0 ^. axis) + abs (mid0 ^. axis - v0 ^. axis))) -
+        (abs (onCurve ^. axis - v1 ^. axis) - (abs (onCurve ^. axis - mid1 ^. axis) + abs (mid1 ^. axis - v1 ^. axis)))
+
+findKnobSplit :: Space s => Lens' (Point2 s) s -> Bezier s -> s
+findKnobSplit axis bz = findSplit (splitDirection axis bz)
+
+maybeKnobSplitPoint :: Space s => Lens' (Point2 s) s -> Bezier s -> Maybe s
+maybeKnobSplitPoint axis bz =
+   if isKnob axis bz
+   then Just $ findKnobSplit axis bz
+   else Nothing
+
+splitChain :: (Space s, Alternative f) => Lens' (Point2 s) s -> Bezier s -> s -> f (Bezier s)
+splitChain axis bz t =
+    let (left, right) = splitBezier t bz
+    -- And return the two resulting curves.
+    in  pure left <|> pure right
+
+instance (Space s) => CanDeKnob (Bezier s) where
+    -- | If a curve is a knob, split it.
+    deKnob bz@(Bez v0 control v1) =
+      fmap (splitChain pX bz) (maybeKnobSplitPoint pX bz)

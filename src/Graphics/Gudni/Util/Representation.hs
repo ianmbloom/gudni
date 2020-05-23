@@ -45,7 +45,7 @@ instance Space s => HasRepresentation (Bezier s) where
                 ]
 
 instance (Alternative f, Monad f, Foldable f, Space s, Show (f (Bezier s))) => HasRepresentation (Outline_ f s) where
-    represent dk = overlap . fmap (represent dk) . (if dk then join . fmap deKnob else id) . view outlineSegments
+    represent dk = overlap . fmap (represent dk) . (if dk then join . fmap replaceKnob else id) . view outlineSegments
 
 instance (Functor f, Foldable f, Space s, Show (f (Bezier s)), Show (f (ShapeTree Int s))) => HasRepresentation (OpenCurve_ f s) where
     represent dk = overlap . fmap (represent dk) .  view curveSegments
@@ -56,12 +56,12 @@ instance Space s => HasRepresentation (Shape s) where
 instance (Space s, Show token) => HasRepresentation (ShapeTree token s) where
     represent dk tree = overlap . fmap (represent dk) . flattenShapeTree $ tree
 
-instance (Space s, Space t, s~t) => HasRepresentation (FacetSide s t) where
-    represent dk facetSide@(FacetSide sceneSide textureSide) =
-        overlap [represent dk sceneSide, withColor green . mask . shapeFrom . stroke 0.25 . mkLine $ textureSide]
+instance (Space s) => HasRepresentation (FacetSide s) where
+    represent dk = represent dk . view sceneSide
 
-instance (Space s, Space t, s~t) => HasRepresentation (Facet_ s t) where
-    represent dk facet@(Facet sides) = overlap . fmap (represent dk) $ sides
+instance (Space s, Space t, s~t) => HasRepresentation (Facet_ s) where
+    represent dk = overlap . fmap (represent dk) . view facetSides
+
 
 {-
 instance (Space s, Space t, s~t) => HasRepresentation (HardFacet_ s t) where

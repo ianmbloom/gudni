@@ -30,6 +30,7 @@ where
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Box
+import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Util.Chain

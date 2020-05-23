@@ -59,34 +59,41 @@ traverseTree :: (Monad m, HasDefault o, Show o, Show rep, Space (SpaceOf rep))
                 )
              -> o
              -> Transformer (SpaceOf rep)
-             -> (o -> Transformer (SpaceOf rep) -> rep -> m ())
+             -> (o -> Transformer (SpaceOf rep) -> rep -> m a)
+             -> (a -> a -> a)
+             -> a
              -> STree o rep
-             -> m ()
-traverseTree combineOp transformOp c t f tree = go c t tree
+             -> m a
+traverseTree combineOp transformOp c t f comb deflt tree = go c t tree
     where go c t tree =
               case tree of
                   SLeaf rep -> f c t rep
                   SMeld overlap above below ->
                      do let (a, b) = combineOp overlap c
-                        go a t above
-                        go b t below
+                        aR <- go a t above
+                        bR <- go b t below
+                        return $ comb aR bR
                   STransform tOp child -> go c (transformOp tOp t) child
-                  SEmpty -> return ()
+                  SEmpty -> return deflt
 
 -- | Traverse a compound shape tree
 traverseCompoundTree :: (Space (SpaceOf rep), Show rep, Monad m)
                      => Compound
                      -> Transformer (SpaceOf rep)
-                     -> (Compound -> Transformer (SpaceOf rep) -> rep -> m ())
+                     -> (Compound -> Transformer (SpaceOf rep) -> rep -> m a)
+                     -> (a -> a -> a)
+                     -> a
                      -> STree Compound rep
-                     -> m ()
-traverseCompoundTree o t = traverseTree traverseCompound CombineTransform o t
+                     -> m a
+traverseCompoundTree o comb deflt t = traverseTree traverseCompound CombineTransform o comb deflt t
 
 -- | Traverse an overlap shape tree
 traverseShapeTree :: (Space (SpaceOf rep), Show rep, Monad m)
-                  => (Overlap -> Transformer (SpaceOf rep) -> rep -> m ())
+                  => (Overlap -> Transformer (SpaceOf rep) -> rep -> m a)
+                  -> (a -> a -> a)
+                  -> a
                   -> STree Overlap rep
-                  -> m ()
+                  -> m a
 traverseShapeTree = traverseTree traverseOverlap CombineTransform Overlap IdentityTransform
 
 mapSTree :: (SpaceOf a ~ SpaceOf b)
@@ -124,14 +131,14 @@ mapMSTree f tree = go  tree
 flattenShapeTree :: (Space s, Show token) => ShapeTree token s
                  -> S.Seq (Shape s)
 flattenShapeTree tree =
-    execState (traverseShapeTree flattenSubstance tree) S.empty
+    execState (traverseShapeTree flattenSubstance (\ _ _ -> ()) () tree) S.empty
 
 flattenCompoundTree :: Space s
                     => Transformer s
                     -> STree Compound (Shape s)
                     -> State (S.Seq (Shape s)) ()
 flattenCompoundTree transformer =
-    traverseCompoundTree defaultValue transformer flattenShape
+    traverseCompoundTree defaultValue transformer flattenShape (\ _ _ -> ()) ()
 
 flattenSubstance :: Space s => Overlap -> Transformer s -> SRep token sub (STree Compound (Shape s)) -> State (S.Seq (Shape s))  ()
 flattenSubstance Overlap transformer (SRep token substance subTree) =

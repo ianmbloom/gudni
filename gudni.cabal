@@ -85,14 +85,17 @@ library
                      , Graphics.Gudni.Figure.Point
                      , Graphics.Gudni.Figure.Space
                      , Graphics.Gudni.Figure.Split
+                     , Graphics.Gudni.Figure.Cut
                      , Graphics.Gudni.Figure.Substance
                      , Graphics.Gudni.Figure.Projection
+                     , Graphics.Gudni.Figure.ProjectBezier
+                     , Graphics.Gudni.Figure.BezierSpace
                      , Graphics.Gudni.Figure.Deknob
                      , Graphics.Gudni.Figure.Transformable
                      , Graphics.Gudni.Figure.Transformer
                      , Graphics.Gudni.Figure.Picture
                      , Graphics.Gudni.Figure.Facet
-                     , Graphics.Gudni.Figure.Gradient                     
+                     , Graphics.Gudni.Figure.Gradient
                      , Graphics.Gudni.Interface.DrawTarget
                      , Graphics.Gudni.Interface.FontLibrary
                      , Graphics.Gudni.Interface.Input
@@ -295,6 +298,25 @@ executable projection-example
                -O3
                -threaded
                -fprint-potential-instances
+
+executable facet-tesselation
+  if flag(benchmarks)
+    build-depends:   gudni
+                   , base
+                   , lens
+                   , linear
+                   , mtl
+                   , vector
+  else
+    buildable: False
+  hs-source-dirs: ./examples
+  main-is: FacetTesselation.hs
+  default-language: Haskell2010
+  ghc-options: -main-is FacetTesselation
+               -O3
+               -threaded
+               -fprint-potential-instances
+
 
 executable debug-projection
   if flag(benchmarks)

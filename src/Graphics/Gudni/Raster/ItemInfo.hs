@@ -54,7 +54,7 @@ newtype StrandId = StrandId {unStrandId :: Reference StrandReference} deriving (
 instance Show StrandId where
     show (StrandId i) = show i ++ "gid"
 
-newtype FacetId = FacetId {unFacetId :: Reference (HardFacet_ SubSpace TextureSpace)} deriving (Ord, Eq, Num, Enum)
+newtype FacetId = FacetId {unFacetId :: Reference (HardFacet_ SubSpace)} deriving (Ord, Eq, Num, Enum)
 
 instance Show FacetId where
     show (FacetId i) = show i ++ "fid"

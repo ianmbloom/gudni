@@ -91,7 +91,7 @@ instance HasBox (Point2 s) where
 
 instance (Functor f, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Foldable f, HasBox a) => HasBox (f a) where
   boxOf = minMaxBoxes . fmap boxOf
-  
+
 -- | Get the width of a box.
 widthOf :: (Num (SpaceOf a), HasBox a) => a -> SpaceOf a
 widthOf a = let box = boxOf a in box ^. rightSide - box ^. leftSide
@@ -151,7 +151,7 @@ pointToBox p = Box zeroPoint p
 emptyBox       :: Num s => Box s
 emptyBox = Box zeroPoint zeroPoint
 -- | Map over the top left and bottom right points of the box.
-mapBox :: (Point2 s -> Point2 s) -> Box s -> Box s
+mapBox :: (Point2 t -> Point2 s) -> Box t -> Box s
 mapBox f (Box tl br) = Box (f tl) (f br)
 
 -- | True if the box has zero height and zero width.

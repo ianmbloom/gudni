@@ -59,6 +59,7 @@ import Graphics.Gudni.Figure.Color
 import Graphics.Gudni.Figure.Picture
 import Graphics.Gudni.Figure.Outline
 import Graphics.Gudni.Figure.Bezier
+import Graphics.Gudni.Figure.BezierSpace
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util

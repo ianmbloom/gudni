@@ -2563,7 +2563,7 @@ __kernel void generateThresholdsKernel
     int4 tileBox = tileHeap[blockId];
     // Now initial the tile info for every block.
     float4 columnBox = initColumnBox(tileBox, bitmapSize, columnThread);
-    DEBUG_IF(printf("=========================== generate tile %v4i itemStart %i itemProgress %i batchSize %i blockPtr %i blockId %i \n", tileBox, itemStart, itemProgress, batchSize, blockPtr, blockId);/*showThresholds(&tQ);*/)
+    //DEBUG_IF(printf("=========================== generate tile %v4i itemStart %i itemProgress %i batchSize %i blockPtr %i blockId %i \n", tileBox, itemStart, itemProgress, batchSize, blockPtr, blockId);/*showThresholds(&tQ);*/)
     ThresholdQueue tQ;
     initThresholdQueue(&tQ, initQueueSlice()); // needed for parallel max queue size
     if (isActiveThread(columnBox, bitmapSize)) {
@@ -2597,7 +2597,7 @@ __kernel void generateThresholdsKernel
 
         //printf("B---> mxQ %i queueSize %i\n", mxQ, queueSize(&tQ));
     }
-    DEBUG_IF(printf("=========================== done generate tile %v4i\n", tileBox);/*showThresholds(&tQ);*/)
+    //DEBUG_IF(printf("=========================== done generate tile %v4i\n", tileBox);/*showThresholds(&tQ);*/)
 }
 
 void splitThresholdQueue( ThresholdQueue *tQSource
@@ -2889,7 +2889,7 @@ __kernel void renderThresholdsKernel
         ShapeState shS;
         initShapeState(&shS);
         //DEBUG_IF(printf("blockId %i columnBox %2.6v4f\n",blockId, columnBox);)
-        DEBUG_IF(printf("=========================== render tile %v4i queueSize %i blockThread %i blockId %i \n", tileBox, queueSize(&tQ), blockThread, blockId);/*showThresholds(&tQ);*/)
+        //DEBUG_IF(printf("=========================== render tile %v4i queueSize %i blockThread %i blockId %i \n", tileBox, queueSize(&tQ), blockThread, blockId);/*showThresholds(&tQ);*/)
         renderThresholdArray ( &tQ
                              , &shS
                              ,  itemTagHeap
@@ -2908,7 +2908,7 @@ __kernel void renderThresholdsKernel
                              ,  columnDelta
                              ,  out
                              );
-        DEBUG_IF(printf("=========================== done render tile %v4i\n", tileBox);/*showThresholds(&tQ);*/)
+        //DEBUG_IF(printf("=========================== done render tile %v4i\n", tileBox);/*showThresholds(&tQ);*/)
     }
 }
 

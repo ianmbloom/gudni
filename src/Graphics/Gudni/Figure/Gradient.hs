@@ -28,17 +28,6 @@ data RadialGradient s = RadialGradient
 instance Space s => HasSpace (RadialGradient s) where
     type SpaceOf (RadialGradient s) = s
 
-instance Space s => SimpleTransformable (RadialGradient s) where
-    translateBy v (RadialGradient center ri ro ci co) = RadialGradient (translateBy v center) ri ro ci co
-    scaleBy s (RadialGradient center ri ro ci co) = RadialGradient (scaleBy s center) (ri * s) (ro * s) ci co
-    stretchBy s (RadialGradient center ri ro ci co) = RadialGradient (stretchBy s center) (ri * s ^. pX) (ro * s ^. pX) ci co
-
-instance Space s => Transformable (RadialGradient s) where
-    rotateBy a (RadialGradient center ri ro ci co) = RadialGradient (rotateBy a center) ri ro ci co
-
-instance Space s => CanProject (BezierSpace s) (RadialGradient s) where
-   projectionWithStepsAccuracy = undefined
-
 data LinearGradient s = LinearGradient
     { gradientStart      :: Point2 s
     , gradientEnd        :: Point2 s
@@ -48,17 +37,6 @@ data LinearGradient s = LinearGradient
 
 instance Space s => HasSpace (LinearGradient s) where
     type SpaceOf (LinearGradient s) = s
-
-instance Space s => SimpleTransformable (LinearGradient s) where
-    translateBy v (LinearGradient start end sc ec) = LinearGradient (translateBy v start) (translateBy v end) sc ec
-    scaleBy s (LinearGradient start end sc ec) = LinearGradient (scaleBy s start) (scaleBy s end) sc ec
-    stretchBy s (LinearGradient start end sc ec) = LinearGradient (stretchBy s start) (stretchBy s end) sc ec
-
-instance Space s => Transformable (LinearGradient s) where
-    rotateBy a (LinearGradient start end sc ec) = LinearGradient (rotateBy a start) (rotateBy a end) sc ec
-
-instance Space s => CanProject (BezierSpace s) (LinearGradient s) where
-   projectionWithStepsAccuracy = undefined
 
 instance StorableM (RadialGradient SubSpace) where
   sizeOfM _ =

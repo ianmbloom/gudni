@@ -118,7 +118,7 @@ import GHC.Exts
 
 data BuffersInCommon = BuffersInCommon
   { _bicGeometryHeap   :: CLBuffer CChar
-  , _bicFacetHeap      :: CLBuffer (HardFacet_ SubSpace TextureSpace)
+  , _bicFacetHeap      :: CLBuffer HardFacet
   , _bicItemTagHeap    :: CLBuffer ItemTag
   , _bicSubTagHeap     :: CLBuffer SubstanceTag
   , _bicDescriptions   :: CLBuffer CChar
@@ -171,13 +171,13 @@ readBufferToPtr ptr size buffer =
 
 createBuffersInCommon :: RasterParams token -> CL BuffersInCommon
 createBuffersInCommon params =
-    do  geoBuffer       <- bufferFromPile   "geoBuffer     " (params ^. rpSerialState . serGeometryPile    )
-        facetBuffer     <- bufferFromPile   "facetBuffer   " (params ^. rpSerialState . serFacetPile       )
-        itemTagBuffer   <- bufferFromPile   "itemTagBuffer " (params ^. rpSerialState . serItemTagPile     )
-        subTagBuffer    <- bufferFromPile   "subTagBuffer  " (params ^. rpSerialState . serSubstanceTagPile)
-        descriptionBuffer <- bufferFromPile   "descriptionBuffer" (params ^. rpSerialState . serDescriptionPile  )
-        pictDataBuffer  <- bufferFromPile   "pictDataBuffer" (params ^. rpPictDataPile)
-        randoms         <- bufferFromVector "randoms       " (params ^. rpRasterizer  . rasterRandomField  )
+    do  geoBuffer       <- bufferFromPile   "geoBuffer        " (params ^. rpSerialState . serGeometryPile    )
+        facetBuffer     <- bufferFromPile   "facetBuffer      " (params ^. rpSerialState . serFacetPile       )
+        itemTagBuffer   <- bufferFromPile   "itemTagBuffer    " (params ^. rpSerialState . serItemTagPile     )
+        subTagBuffer    <- bufferFromPile   "subTagBuffer     " (params ^. rpSerialState . serSubstanceTagPile)
+        descriptionBuffer <- bufferFromPile "descriptionBuffer" (params ^. rpSerialState . serDescriptionPile  )
+        pictDataBuffer  <- bufferFromPile   "pictDataBuffer   " (params ^. rpPictDataPile)
+        randoms         <- bufferFromVector "randoms          " (params ^. rpRasterizer  . rasterRandomField  )
         return $  BuffersInCommon
                   { _bicGeometryHeap   = geoBuffer
                   , _bicFacetHeap      = facetBuffer

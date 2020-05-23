@@ -15,6 +15,7 @@ module Graphics.Gudni.Util.Debug
   , trLength
   , trFWhen
   , trWhen
+  , trWhenWith
   , tcWhen
   , trIfTrue
   , trIfFalse
@@ -102,6 +103,8 @@ trLength = trWith (\x -> show (length x) ++ ":" ++ show x)
 trFWhen cond m x = if cond then trF m x else x
 trWhen cond m x = if cond then tr m x else x
 tcWhen cond m x = if cond then tc m x else x
+
+trWhenWith f m x = if f x then tr m x else x
 
 trIfTrue m x = if x then tr m x else x
 trIfFalse m x = if not x then tr m x else x

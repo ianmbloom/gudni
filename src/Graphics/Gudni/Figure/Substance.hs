@@ -10,6 +10,7 @@
 module Graphics.Gudni.Figure.Substance
   ( Substance(..)
   , NamedTexture(..)
+  , substanceIsConstant
   , breakdownSubstance
   , mapMSubstanceTexture
   )
@@ -18,15 +19,19 @@ where
 import Graphics.Gudni.Figure.Color
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Picture
+import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Facet
 import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Gradient
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Projection
+import Graphics.Gudni.Figure.BezierSpace
 import Graphics.Gudni.Figure.Picture
 import Graphics.Gudni.Util.Debug
 import Control.DeepSeq
+
+
 
 -- | Type of filling for overlapping shapes.
 data Substance textureLabel s
@@ -49,9 +54,11 @@ breakdownSubstance substance = go IdentityTransform substance
   go trans substance =
      case substance of
         TransformSubstance newTrans sub -> go (CombineTransform newTrans trans) sub
-        Radial gradient -> (IdentityTransform, tr "Radial" $ Radial $ applyTransformer (tr "trans" trans) gradient)
-        Linear gradient -> (IdentityTransform, tr "Linear" $ Linear $ applyTransformer (tr "trans" trans) gradient)
         x -> (trans, x)
+
+substanceIsConstant :: Substance textureLabel s -> Bool
+substanceIsConstant (Solid {}) = True
+substanceIsConstant _ = False
 
 mapMSubstanceTexture :: Monad m =>  (a -> m b) -> Substance a s -> m (Substance b s)
 mapMSubstanceTexture f substance =
