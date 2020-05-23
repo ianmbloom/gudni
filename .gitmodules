@@ -1,0 +1,9 @@
+[submodule "submodules/CLUtil"]
+	path = submodules/CLUtil
+	url = https://github.com/acowley/CLUtil.git
+[submodule "submodules/FontyFruity"]
+	path = submodules/FontyFruity
+	url = git@github.com:ianmbloom/FontyFruity.git
+[submodule "submodules/opencl"]
+	path = submodules/opencl
+	url = git@github.com:ianmbloom/opencl.git
