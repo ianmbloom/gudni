@@ -8,7 +8,7 @@
 
 module Graphics.Gudni.Figure.Projection
   ( CanProject(..)
-  , Projectable(..)
+  , CanFit(..)
   )
 where
 
@@ -57,7 +57,8 @@ class (Space (SpaceOf t)) => CanProject u t where
 
     projectionWithStepsAccuracy :: Bool -> Int -> Maybe (SpaceOf t) -> u -> t -> t
 
-class (Space (SpaceOf t)) => Projectable t where
+
+class (Space (SpaceOf t)) => CanFit t where
     isForward :: t -> Bool
     reverseItem :: t -> t
     projectTangent :: SpaceOf t -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> t -> t

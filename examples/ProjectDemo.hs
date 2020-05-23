@@ -62,7 +62,7 @@ instance Model ProjectionState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     constructScene state _status =
-        do text <- (^?! unGlyph) <$> blurb 0.1 AlignMin "e" -- "Georg Guðni Hauksson"
+        do text <- (^?! unGlyph) <$> blurb 0.1 AlignMin "Georg Guðni Hauksson"
            let angle   = state ^. stateBase . stateAngle
                repMode = state ^. stateBase . stateRepMode
                repDk   = state ^. stateBase . stateRepDk
@@ -71,10 +71,10 @@ instance Model ProjectionState where
                --(if repMode then represent repDk else id) $
                ((transformFromState {-(set stateAngle (0 @@ deg)-} (state ^. stateBase){-)-} $
                overlap [
-                       --overlap . fmap (represent False) . transformFromState (set stateAngle (0 @@ deg) (state ^. stateBase)) . projectOnto True (makeOpenCurve [bzX]). (pure :: Bezier s -> [Bezier s]) . translateBy (offset `by` 0) . rotateBy angle $ (myline :: Bezier SubSpace)
-                       --withColor (dark red) . projectOnto path . translateBy (offset `by` 0) . rotateBy angle . rectangle $ 0.125 `by` 0.125 -- {-scaleBy 100 . translateByXY 1 (1) .-} mask . stroke 200 $ smallBz
-                       --, withColor (dark green) . scaleBy 100 . translateByXY 2 (1) . mask . stroke 0.1 $ smallBz
-                        doubleDotted path
+                         follow text path
+                         --overlap . fmap (represent False) . transformFromState (set stateAngle (0 @@ deg) (state ^. stateBase)) . projectOnto True (makeOpenCurve [bzX]). (pure :: Bezier s -> [Bezier s]) . translateBy (offset `by` 0) . rotateBy angle $ (myline :: Bezier SubSpace)
+                         --, withColor (dark green) . scaleBy 100 . translateByXY 2 (1) . mask . stroke 0.1 $ smallBz
+                       , doubleDotted path
                        ]) :: ShapeTree Int SubSpace)
       where
         bzX  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0) :: Bezier SubSpace
@@ -86,6 +86,20 @@ instance Model ProjectionState where
         smallBz = Bez (Point2 0 0) (Point2 100 100) (Point2 10 100) :: Bezier SubSpace
         path :: OpenCurve_ V.Vector SubSpace
         path = makeOpenCurve [bz1, bz2, bz3{-, bz4-}]
+        follow :: CompoundTree SubSpace -> OpenCurve SubSpace -> ShapeTree Int SubSpace
+        follow text path =
+           let thickness = 2
+               betweenGap = 1
+               dotLength = 8
+               dotGap = 2
+               numDots = floor (arcLength path / (dotLength + dotGap))
+           in  withColor (dark . greenish $ red) .
+               projectOnto False path .
+               translateByXY (state ^. stateOffset) 0 .
+               translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
+               --translateByXY 0 10 .
+               scaleBy 20 $
+               text
         doubleDotted :: OpenCurve SubSpace -> ShapeTree Int SubSpace
         doubleDotted path =
            let thickness = 2

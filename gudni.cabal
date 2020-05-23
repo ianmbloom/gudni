@@ -88,7 +88,8 @@ library
                      , Graphics.Gudni.Figure.Cut
                      , Graphics.Gudni.Figure.Substance
                      , Graphics.Gudni.Figure.Projection
-                     , Graphics.Gudni.Figure.ProjectBezier
+                     , Graphics.Gudni.Figure.FitBezier
+                     , Graphics.Gudni.Figure.FitFacet
                      , Graphics.Gudni.Figure.BezierSpace
                      , Graphics.Gudni.Figure.Deknob
                      , Graphics.Gudni.Figure.Transformable

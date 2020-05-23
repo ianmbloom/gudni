@@ -54,6 +54,7 @@ import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Substance
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.Transformable
+import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Color
 import Graphics.Gudni.Figure.Picture
@@ -63,6 +64,7 @@ import Graphics.Gudni.Figure.BezierSpace
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
+import Graphics.Gudni.Util.Loop
 
 import Control.Monad.State
 import Control.Monad.Random
@@ -153,12 +155,18 @@ instance (HasSpace leaf) => Transformable (STree o leaf) where
 instance forall o s leaf .(Space s, s ~ (SpaceOf leaf), CanProject (BezierSpace s) leaf) => CanProject (BezierSpace s) (STree o leaf) where
   projectionWithStepsAccuracy debug max_steps m_accuracy path tree = STransform (Project debug path) $ tree
 
-instance (Space s) => CanProject (BezierSpace s) (Shape s) where
-  projectionWithStepsAccuracy debug max_steps m_accuracy path shapes = over shapeOutlines (fmap (projectionWithStepsAccuracy debug max_steps m_accuracy path)) shapes
+instance ( s ~ SpaceOf (f (Bezier s))
+         , s ~ SpaceOf (Shape_ f s)
+         , Space s
+         , Loop f
+         ) => CanProject (BezierSpace s) (Shape_ f s) where
+  projectionWithStepsAccuracy debug max_steps m_accuracy path shape =
+      over shapeOutlines (fmap (projectionWithStepsAccuracy debug max_steps m_accuracy path)) shape
 
-instance (Space s) => CanProject (BezierSpace s) (SRep token NamedTexture (CompoundTree s)) where
-  projectionWithStepsAccuracy debug max_steps m_accuracy path (SRep token substance rep) =
-      SRep token substance $ projectionWithStepsAccuracy debug max_steps m_accuracy path rep
+instance ( Space s
+         ) => CanProject (BezierSpace s) (SRep token NamedTexture (CompoundTree s)) where
+  projectionWithStepsAccuracy debug max_steps m_accuracy path =
+      over sRep (projectionWithStepsAccuracy debug max_steps m_accuracy path)
 
 -- instance Functor (SRep token) where
 --   fmap f (SRep token substance rep) = SRep token substance (f rep)

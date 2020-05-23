@@ -6,10 +6,8 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Graphics.Gudni.Figure.ProjectBezier
-  ( CanProject(..)
-  , Projectable(..)
-  , projPoint
+module Graphics.Gudni.Figure.FitBezier
+  ( projPoint
   , bezierPointAndNormal
   )
 where
@@ -42,14 +40,15 @@ import Control.Monad
 import Data.Functor.Classes
 import Data.Maybe (fromMaybe, fromJust)
 
-instance (s ~ (SpaceOf (f (Bezier s))), Space s, Show (f (Bezier s)), Chain f) => CanProject (BezierSpace s) (f (Bezier s)) where
+instance ( s ~ (SpaceOf (f (Bezier s)))
+         , Space s
+         , Chain f
+         ) => CanProject (BezierSpace s) (f (Bezier s)) where
     projectionWithStepsAccuracy debug max_steps m_accuracy bSpace beziers =
-        let fixed :: f (Bezier s)
-            fixed = join . fmap replaceKnob $ beziers
-        in  trWhen debug  "projected" $
-            join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ fixed
+        let fixed = join . fmap replaceKnob $ beziers
+        in  join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ fixed
 
-instance Space s => Projectable (Bezier s) where
+instance Space s => CanFit (Bezier s) where
     isForward (Bez v0 _ v1) = v0 ^. pX <= v1 ^. pX
     reverseItem = reverseBezier
     projectTangent = projectTangentBezier

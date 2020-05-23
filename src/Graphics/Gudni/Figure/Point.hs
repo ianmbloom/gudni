@@ -98,13 +98,13 @@ by = makePoint
 -- | Calculate the area of a box defined by the origin and this point.
 pointArea :: Num s => Point2 s -> s
 pointArea (Point2 x y) = x * y
-
+{-
 instance Random s => Random (Point2 s) where
   random = runRand $ do x <- getRandom; y <- getRandom; return (Point2 x y)
   randomR (Point2 x0 y0, Point2 x1 y1) = runRand $ do x <- getRandomR (x0, x1)
                                                       y <- getRandomR (y0, y1)
                                                       return (Point2 x y)
-
+-}
 -- Convenience functions for reasoning about points
 
 taxiDistance :: (Space s) => Point2 s -> Point2 s -> s

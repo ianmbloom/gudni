@@ -1,13 +1,25 @@
+{-# LANGUAGE TypeFamilies #-}
 
 module Graphics.Gudni.Util.Chain
-  ( Chain(..)
+  ( HasElements(..)
+  , Chain(..)
   )
 where
 
+import Data.Kind
 import Data.Functor.Classes
 import Control.Monad
 import Control.Applicative
 import qualified Data.Vector as V
+
+class HasElements t where
+  type ElemOf t :: Type
+
+instance HasElements (V.Vector a) where
+  type ElemOf (V.Vector a) = a
+
+instance HasElements [a] where
+  type ElemOf [a] = a
 
 class (Alternative t, Monad t, Functor t, Foldable t, Eq1 t) => Chain t where
   firstLink:: t a -> a

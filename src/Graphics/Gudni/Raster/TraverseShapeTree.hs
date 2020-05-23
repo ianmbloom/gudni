@@ -32,7 +32,9 @@ module Graphics.Gudni.Raster.TraverseShapeTree
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Util.Loop
 
 import Control.Lens
 import qualified Data.Sequence as S
@@ -144,7 +146,11 @@ flattenSubstance :: Space s => Overlap -> Transformer s -> SRep token sub (STree
 flattenSubstance Overlap transformer (SRep token substance subTree) =
     flattenCompoundTree transformer subTree
 
-flattenShape :: (Space s, Show s) => Compound -> Transformer s -> Shape s -> State (S.Seq (Shape s)) ()
+flattenShape :: ( Space s
+                , Show s
+                , Loop f
+                , s ~ SpaceOf (f (Bezier s))
+                ) => Compound -> Transformer s -> Shape_ f s -> State (S.Seq (Shape_ f s)) ()
 flattenShape combineType transformer shape =
     let shape' = Shape . map (applyTransformer transformer) $ view shapeOutlines shape
     in  modify (flip (S.|>) shape')

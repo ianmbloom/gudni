@@ -38,10 +38,11 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.BezierSpace
-import Graphics.Gudni.Figure.ProjectBezier
+import Graphics.Gudni.Figure.FitBezier
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Transformable
+import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Figure.Projection
 import qualified Graphics.Gudni.Figure.Bezier as BZ
 --import Graphics.Gudni.Util.Util
@@ -76,7 +77,7 @@ deriving instance (Ord  (t (Bezier s))) => Ord (OpenCurve_ t s)
 instance Space s => HasSpace (OpenCurve_ t s) where
     type SpaceOf (OpenCurve_ t s) = s
 
-instance ( Chain f, Show (f (Bezier s))
+instance ( Chain f
          , Space s) => PointContainer (OpenCurve_ f s) where
    type ContainerFunctor (OpenCurve_ f s) = f
    containedPoints = join . fmap unfoldBezier . view curveSegments
@@ -114,11 +115,14 @@ reverseCurve = over curveSegments (reverseChain . fmap reverseBezier)
                   transC1 = mapOverPoints (translateBy delta) c1
               in  over curveSegments (c0 ^. curveSegments <|>) transC1
 
-instance (s ~ (SpaceOf (f (Bezier s))), Space s, Show (f (Bezier s)), Chain f) => CanProject (BezierSpace s) (OpenCurve_ f s) where
+instance ( Space s
+         , s ~ SpaceOf (f (Bezier s))
+         , Chain f
+         ) => CanProject (BezierSpace s) (OpenCurve_ f s) where
     projectionWithStepsAccuracy debug max_steps m_accuracy bSpace  =
          over curveSegments (projectionWithStepsAccuracy debug max_steps m_accuracy bSpace)
 
-instance (Chain f, Space s, CanProject (BezierSpace s) t, Show (f (Bezier s)), Chain f) => CanProject (OpenCurve_ f s) t where
+instance (Chain f, Space s, CanProject (BezierSpace s) t, Chain f) => CanProject (OpenCurve_ f s) t where
     projectionWithStepsAccuracy debug max_steps m_accuracy path =
       let bSpace = makeBezierSpace arcLength (view curveSegments path)
       in  projectionWithStepsAccuracy debug max_steps m_accuracy bSpace

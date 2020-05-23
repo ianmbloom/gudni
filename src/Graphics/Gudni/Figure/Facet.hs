@@ -155,11 +155,11 @@ maybeSplitFacet f facet =
 instance Space s => CanDeKnob (Facet_ s) where
     deKnob = maybeSplitFacet (maybeKnobSplitPoint pX)
 
---instance Space s => CanCut (Facet_ s) where
---    -- | Split item across horizontal or vertical line
---    splitAtCut    :: Lens' (Point2 (SpaceOf t)) (SpaceOf t) -> SpaceOf t -> t -> (t, t)
---    -- | Determine if horizontal or vertical line cuts item
---    canCut        :: Lens' (Point2 (SpaceOf t)) (SpaceOf t) -> SpaceOf t -> t -> Bool
+instance Space s => CanCut (Facet_ s) where
+    -- | Split item across horizontal or vertical line
+    splitAtCut axis splitPoint facet = undefined
+    -- | Determine if horizontal or vertical line cuts item
+    canCut axis splitPoint facet = undefined
 
 splitFacetAt :: forall s f . (Space s, Alternative f) => Lens' (Point2 s) s -> s -> Facet_ s -> Maybe (f (Facet_ s))
 splitFacetAt axis split = maybeSplitFacet (maybeCutPointBezier axis split)

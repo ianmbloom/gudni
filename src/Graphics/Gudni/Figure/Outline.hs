@@ -38,6 +38,7 @@ import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Projection
+import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Loop
 import Graphics.Gudni.Util.Util
@@ -66,7 +67,6 @@ instance (Show (f (Bezier s))) => Show (Outline_ f s) where
 type Outline s = Outline_ V.Vector s
 
 instance ( Chain f
-         , Show (f (Bezier s))
          , Space s) => PointContainer (Outline_ f s) where
    type ContainerFunctor (Outline_ f s) = f
    containedPoints = join . fmap unfoldBezier . view outlineSegments
@@ -87,7 +87,6 @@ instance ( s ~ SpaceOf (f (Bezier s))
          , Monad f
          , Alternative f
          , Space s
-         , Show (f (Bezier s))
          , Loop f)
          => CanProject (BezierSpace s) (Outline_ f s) where
     projectionWithStepsAccuracy debug max_steps m_accuracy bSpace curve =
@@ -97,7 +96,7 @@ instance ( s ~ SpaceOf (f (Bezier s))
 instance (Space s) => HasSpace (Outline_ f s) where
   type SpaceOf (Outline_ f s) = s
 
-instance (Chain f, Space s, Show (f (Bezier s))) => HasBox (Outline_ f s) where
+instance (Chain f, Space s) => HasBox (Outline_ f s) where
   boxOf = minMaxBoxes . fmap boxOf . containedPoints
 
 instance (NFData s, NFData (t (Bezier s))) => NFData (Outline_ t s) where

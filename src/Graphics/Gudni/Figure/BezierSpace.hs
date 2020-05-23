@@ -77,7 +77,7 @@ subdivideAcuteBezier bz@(Bez v0 vC v1) =
            in  subdivideAcuteBezier left <|> subdivideAcuteBezier right
       else pure bz
 
-makeBezierSpace :: forall f s . (Eq1 f, Chain f, Space s, Show (f (Bezier s))) => (Bezier s -> s) -> f (Bezier s) -> BezierSpace s
+makeBezierSpace :: forall f s . (Eq1 f, Chain f, Space s) => (Bezier s -> s) -> f (Bezier s) -> BezierSpace s
 makeBezierSpace lengthFun chain =
   fromJust . go 0 $ fixedChain
   where
@@ -115,12 +115,13 @@ makeBezierSpace lengthFun chain =
                            Nothing -> Just $ leftSpace
                    Nothing -> Nothing
 
+
 traverseBezierSpace :: forall t f
                     .  ( Alternative f
                        , Chain f
                        , Space (SpaceOf t)
                        , CanCut t
-                       , Projectable t
+                       , CanFit t
                        , HasBox t
                        )
                     => Bool
@@ -164,20 +165,7 @@ traverseBezierSpace debug max_steps m_accuracy bSpace@(BezierSpace sPoint sNorma
                               rightResult = pure (projectTangent end ePoint eNormal rightItem)
                           in  fillGap leftResult rightResult
                      else pure (projectTangent end ePoint eNormal bz)
-                else pure (mkOffsetCurve debug max_steps m_accuracy start sPoint sNormal end ePoint eNormal control curveLength bz)
-
-projectCurveFromAllParams debug max_steps m_accuracy start sPoint sNormal end ePoint eNormal control len bz =
-   projectOntoCurve debug max_steps m_accuracy start (Bez sPoint control ePoint) bz
-
-mkOffsetCurve debug max_steps m_accuracy start sPoint sNormal end ePoint eNormal control len bz =
-  let prj = projectCurveFromAllParams debug max_steps m_accuracy start sPoint sNormal end ePoint eNormal control len
-  in
-  if isForward bz
-  then prj bz
-  else reverseItem .
-       prj .
-       reverseItem $
-       bz
+                else pure . projectOntoCurve debug max_steps m_accuracy start (Bez sPoint control ePoint) $ bz
 
 bezierSpaceLengths :: Alternative t => BezierSpace s -> t s
 bezierSpaceLengths = go . bsTree
