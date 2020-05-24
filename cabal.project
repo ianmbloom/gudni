@@ -1,6 +1,6 @@
-packages: ../CLUtil
-          ../FontyFruity
-          ../opencl
+packages: submodules/CLUtil
+          submodules/FontyFruity
+          submodules/opencl
           ./
 package sdl2
   extra-include-dirs: /usr/local/include/SDL2
