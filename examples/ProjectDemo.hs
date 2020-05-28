@@ -71,11 +71,12 @@ instance Model ProjectionState where
                --(if repMode then represent repDk else id) $
                ((transformFromState {-(set stateAngle (0 @@ deg)-} (state ^. stateBase){-)-} $
                overlap [
-                         follow text path
-                         --overlap . fmap (represent False) . transformFromState (set stateAngle (0 @@ deg) (state ^. stateBase)) . projectOnto True (makeOpenCurve [bzX]). (pure :: Bezier s -> [Bezier s]) . translateBy (offset `by` 0) . rotateBy angle $ (myline :: Bezier SubSpace)
-                       , doubleSlashDotted path
-                       , doubleDotted path
-                       , withColor (light green) . mask . shapeFrom . stroke 12 $ path
+                        -- follow text path
+                         slashDotted (transparent 0.5 red) path 5 3
+                       , slashDotted (transparent 0.5 purple) path 5 (-13)
+                       , doubleDotted (dark blue) path
+                       , withColor (light green) . mask . shapeFrom . stroke 6 $ path
+
                        ]) :: ShapeTree Int SubSpace)
       where
         bzX  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0) :: Bezier SubSpace
@@ -87,6 +88,7 @@ instance Model ProjectionState where
         smallBz = Bez (Point2 0 0) (Point2 100 100) (Point2 10 100) :: Bezier SubSpace
         path :: OpenCurve_ V.Vector SubSpace
         path = makeOpenCurve [bz1, bz2, bz3{-, bz4-}]
+
         follow :: CompoundTree SubSpace -> OpenCurve SubSpace -> ShapeTree Int SubSpace
         follow text path =
            let thickness = 2
@@ -100,14 +102,14 @@ instance Model ProjectionState where
                translateByXY 10 3 .
                scaleBy 5 $
                text
-        doubleDotted :: OpenCurve SubSpace -> ShapeTree Int SubSpace
-        doubleDotted path =
+        doubleDotted :: Color -> OpenCurve SubSpace -> ShapeTree Int SubSpace
+        doubleDotted color path =
            let thickness = 2
                betweenGap = 1
                dotLength = 8
                dotGap = 2
                numDots = floor (arcLength path / (dotLength + dotGap))
-           in  withColor (light . greenish $ blue) .
+           in  withColor color .
                projectOnto False path .
                translateByXY (state ^. stateOffset) 0 .
                translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
@@ -119,17 +121,18 @@ instance Model ProjectionState where
                replicate 2 .
                rectangle $
                dotLength `by` thickness
-        doubleSlashDotted :: OpenCurve SubSpace -> ShapeTree Int SubSpace
-        doubleSlashDotted path =
-           let thickness = 2
+        slashDotted :: Color -> OpenCurve SubSpace -> SubSpace -> SubSpace -> ShapeTree Int SubSpace
+        slashDotted color path scale yOffset =
+           let thickness = 1
                betweenGap = 1
                dotLength = 8
                dotGap = 2
-               numDots = floor (arcLength path / 1)
-           in  withColor orange .
+               numDots = floor (arcLength path / scale)
+           in  withColor color .
                projectOnto False path .
-               translateByXY (state ^. stateOffset) (-2) .
-               translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
+               translateByXY (state ^. stateOffset) yOffset .
+               -- translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
+               scaleBy scale .
                overlap .
                horizontallySpacedBy 1 .
                replicate numDots .
