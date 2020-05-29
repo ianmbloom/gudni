@@ -42,6 +42,7 @@ import Graphics.Gudni.Figure.FitBezier
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Transformable
+import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Figure.Projection
 import qualified Graphics.Gudni.Figure.Bezier as BZ
@@ -118,6 +119,7 @@ reverseCurve = over curveSegments (reverseChain . fmap reverseBezier)
 instance ( Space s
          , s ~ SpaceOf (f (Bezier s))
          , Chain f
+
          ) => CanProject (BezierSpace s) (OpenCurve_ f s) where
     projectionWithStepsAccuracy debug max_steps m_accuracy bSpace  =
          over curveSegments (projectionWithStepsAccuracy debug max_steps m_accuracy bSpace)

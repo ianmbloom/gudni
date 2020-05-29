@@ -111,8 +111,8 @@ segmentsToCurvePairs' first segs = case segs of
       []                              -> []
 
 -- | Convert a list of lists of segments to a list of outlines.
-segmentsToShape :: (Fractional s) => [[Segment s]] -> Shape s
-segmentsToShape = Shape . map (Outline . pairsToBeziers . V.fromList . segmentsToCurvePairs)
+segmentsToShape :: (Space s) => [[Segment s]] -> Shape s
+segmentsToShape = Shape . map segmentsToOutline
 
 -- | Convert a list of
 segmentsToOutline :: (Space s) => [Segment s] -> Outline s
@@ -136,6 +136,9 @@ oldLine thickness p0 p1 = segmentsToShape . pure $ lineCurve thickness p0 p1
 -- | Typeclass for shape representations that can be created from a list of segments.
 class HasFromSegments a where
   fromSegments :: [Segment (SpaceOf a)] -> a
+
+instance Space s => HasFromSegments (Outline s) where
+  fromSegments = segmentsToOutline
 
 -- | Instance for creating a simple shape from a list of segments.
 instance Space s => HasFromSegments (CompoundTree s) where

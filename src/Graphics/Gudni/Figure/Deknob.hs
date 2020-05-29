@@ -1,5 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DefaultSignatures   #-}
+{-# LANGUAGE RankNTypes          #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -15,7 +16,9 @@
 -- rasterized.
 
 module Graphics.Gudni.Figure.Deknob
-  ( CanDeKnob(..)
+  ( CanDeknob(..)
+  , horizontalAxis
+  , verticalAxis
   )
 where
 
@@ -44,8 +47,13 @@ import Control.Applicative
 --       onCurve  = between t mid0    mid1
 --   in  (Bez mid0 onCurve mid1)
 
-class HasSpace t => CanDeKnob t where
-    deKnob :: (Alternative f) => t -> Maybe (f t)
-    replaceKnob :: (Alternative f) => t -> f t
-    default replaceKnob :: (Alternative f) => t -> f t
-    replaceKnob b = fromMaybe (pure b) (deKnob b)
+horizontalAxis :: Lens' (Point2 s) s
+horizontalAxis = pY
+verticalAxis :: Lens' (Point2 s) s
+verticalAxis   = pX
+
+class HasSpace t => CanDeknob t where
+    deKnob :: (Alternative f) => Lens' (Point2 (SpaceOf t)) (SpaceOf t) -> t -> Maybe (f t)
+    replaceKnob :: (Alternative f) => Lens' (Point2 (SpaceOf t)) (SpaceOf t) -> t -> f t
+    default replaceKnob :: (Alternative f) => Lens' (Point2 (SpaceOf t)) (SpaceOf t) -> t -> f t
+    replaceKnob axis b = fromMaybe (pure b) (deKnob axis b)

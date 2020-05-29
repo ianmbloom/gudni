@@ -13,6 +13,7 @@ module Graphics.Gudni.Layout.Stroke
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.BezierSpace
 import Graphics.Gudni.Util.Chain
@@ -32,25 +33,25 @@ class (Space (SpaceOf t), HasSpace t) => CanStroke t where
   stroke :: SpaceOf t -> t -> Stroked t
   stroke thickness = strokeOffset (negate thickness/2) thickness
 
-instance Space s => CanStroke (BezierSpace s) where
+instance (Space s) => CanStroke (BezierSpace s) where
   type Stroked (BezierSpace s) = Outline s
   strokeOffset offset thickness bSpace =
     let lengths = bezierSpaceLengths bSpace
         rect = segmentedRectangle thickness lengths
     in  projectOnto False bSpace . translateByXY 0 offset $ rect
 
-instance Space s => CanStroke (OpenCurve s) where
+instance (Space s) => CanStroke (OpenCurve s) where
   type Stroked (OpenCurve s) = Outline s
   strokeOffset offset thickness path =
     let bSpace = makeBezierSpace arcLength (view curveSegments path)
     in  strokeOffset offset thickness bSpace
 
-instance Space s => CanStroke (Bezier s) where
+instance (Space s) => CanStroke (Bezier s) where
   type Stroked (Bezier s) = Outline s
   strokeOffset offset thickness bz =
     strokeOffset offset thickness (makeOpenCurve [bz])
 
-instance Space s => CanStroke (Outline s) where
+instance (Space s) => CanStroke (Outline s) where
   type Stroked (Outline s) = Shape s
   strokeOffset offset thickness outline =
     let bSpace  = makeBezierSpace arcLength . view outlineSegments $ outline
@@ -59,7 +60,7 @@ instance Space s => CanStroke (Outline s) where
         outer   = segmentedLine (offset + thickness) lengths
     in  Shape [projectOnto False bSpace (Outline outer), projectOnto False bSpace (Outline inner)]
 
-instance Space s => CanStroke (Shape s) where
+instance  (Space s) => CanStroke (Shape s) where
   type Stroked (Shape s) = Shape s
   strokeOffset offset thickness = Shape . join . fmap (view shapeOutlines .strokeOffset offset thickness) . view shapeOutlines
 

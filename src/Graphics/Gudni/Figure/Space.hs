@@ -62,6 +62,7 @@ import Control.DeepSeq
 import System.Random
 
 import Linear.Epsilon
+import Numeric.Limits
 
 showBin i = printf "The value of %d in hex is: 0x%08x and binary is: %b\n" i i i
 
@@ -71,7 +72,7 @@ type Space s = (SimpleSpace s, Floating s, Real s, Fractional s, Epsilon s, Iota
 type SubSpace_ = Float
 -- | SubSpace is short for subpixel space. A floating point value where one square unit refers to one pixel.
 newtype SubSpace = SubSpace {unSubSpace :: SubSpace_} deriving (Enum, Epsilon, RealFrac, Fractional, Real, Num, Ord, Eq, RealFloat, Floating)
-instance Bounded SubSpace where { minBound = SubSpace (-1/0); maxBound = SubSpace(1/0) }
+instance Bounded SubSpace where { minBound = SubSpace (-maxValue); maxBound = SubSpace maxValue }
 
 type PixelSpace_ = Int32
 -- | Pixel space is pixel boundary space. An integer value where one square unit refers to one pixel.
@@ -80,7 +81,7 @@ newtype PixelSpace     = PSpace {unPSpace :: PixelSpace_ } deriving (Bounded, In
 type TextureSpace_ = Float
 
 newtype TextureSpace = TSpace {unTSpace :: TextureSpace_ } deriving (Enum, Epsilon, RealFrac, Fractional, Real, Num, Ord, Eq, RealFloat, Floating)
-instance Bounded TextureSpace where { minBound = TSpace (-1/0); maxBound = TSpace(1/0) }
+instance Bounded TextureSpace where { minBound = (-maxValue); maxBound = maxValue }
 
 class (Space (SpaceOf a)) => HasSpace a where
   type SpaceOf a :: Type

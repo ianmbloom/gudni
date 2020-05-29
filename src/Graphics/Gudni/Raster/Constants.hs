@@ -53,7 +53,7 @@ module Graphics.Gudni.Raster.Constants
     )
 where
 
-import Graphics.Gudni.Figure
+--import Graphics.Gudni.Figure
 import Control.Lens
 import Foreign.C.Types (CInt, CUInt, CULong, CFloat, CDouble)
 import Data.Word

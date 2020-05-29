@@ -43,9 +43,10 @@ import Data.Maybe (fromMaybe, fromJust)
 instance ( s ~ (SpaceOf (f (Bezier s)))
          , Space s
          , Chain f
+
          ) => CanProject (BezierSpace s) (f (Bezier s)) where
     projectionWithStepsAccuracy debug max_steps m_accuracy bSpace beziers =
-        let fixed = join . fmap replaceKnob $ beziers
+        let fixed = join . fmap (replaceKnob verticalAxis) $ beziers
         in  join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ fixed
 
 instance Space s => CanFit (Bezier s) where

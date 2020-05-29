@@ -3,8 +3,10 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -167,8 +169,8 @@ maybeCutFacet f facet =
                     _ -> error "split not quite working"
         else Nothing
 
-instance Space s => CanDeKnob (Facet_ s) where
-    deKnob = maybeSubdivideFacet (maybeKnobSplitPoint pX)
+instance (Space s) => CanDeknob (Facet_ s) where
+    deKnob axis = maybeSubdivideFacet (maybeKnobSplitPoint axis)
 
 instance Space s => CanCut (Facet_ s) where
     -- | Split item across horizontal or vertical line

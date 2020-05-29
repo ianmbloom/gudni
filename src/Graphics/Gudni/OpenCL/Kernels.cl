@@ -1508,7 +1508,7 @@ COLOR readColor ( PMEM ColorState *cS
       float ratio = smoothstep(grad.gradientInnerRadius, grad.gradientOuterRadius, dist);
       return (grad.gradientInnerColor * ratio) + (grad.gradientOuterColor * (1 - ratio));
     }
-    else if (substanceTagIsLinear(tag)) {
+    else { // (substanceTagIsLinear(tag)) {
       LinearGradient grad = getLinearDescription(cS, tag);
       float2 p = convert_float2(cS->absolutePosition);
       float2 n = grad.gradientEnd - grad.gradientStart; // Get the direction vector of the line segment
@@ -1590,6 +1590,7 @@ inline void passThresholdPersistent( PMEM ShapeState *shS
     }
 }
 
+#define CUTOFF 383
 // Parse all of the current shapes adding as many thresholds as possible.
 // Return the bottom of the rendering area which is the bottom of the tile if everything fits and the last
 // complete section if it doesn't.
@@ -1606,14 +1607,16 @@ void buildThresholdArray ( PMEM  ThresholdQueue *tQ
     //DEBUG_IF(printf("~~~~~~~~~~~~~~~~~ batchSize %i ~~~~~~~~~~~~~~", batchSize );)
     for (int n = 0; n < batchSize; n++) { // iterate over every item in the current tile.
         int itemIndex = itemStart + progress + n;
+        //DEBUG_IF(printf("n %i itemIndex %i \n",n, itemIndex);)
+        //if (itemIndex < CUTOFF) {
         ITEMTAGID itemTagId = itemTagIdHeap[itemIndex]; // get the current itemTagId
         ITEMTAG   itemTag   = itemTagHeap[itemTagId]; // get the current itemTag itself
         //DEBUG_IF(printf("n %i id %i ",n, itemTagId);showItemTag(itemTag);printf("\n");)
         if (itemTagIsShape(itemTag)) {
              // if you don't shift the shape to the tile size there will be accuracy errors with height floating point geometric values
             int strandRef = itemTagShapeId(itemTag);
-            //DEBUG_IF(printf("strandRef %i itemTagShapeId(itemTag) %i itemTagSubstanceTagId(itemTag) %i\n", strandRef, itemTagShapeId(itemTag), itemTagSubstanceTagId(itemTag));)
-            if (queueSize(tQ) + 3 < MAXTHRESHOLDS) { // TODO: don't need this if generating in batches.
+            //if(itemIndex >= CUTOFF) {DEBUG_IF(printf("itemIndex %i strandRef %i itemTagShapeId(itemTag) %i itemTagSubstanceTagId(itemTag) %i\n", itemIndex, strandRef, itemTagShapeId(itemTag), itemTagSubstanceTagId(itemTag));)}
+            if (queueSize(tQ) < MAXTHRESHOLDS) {
                 GMEM float2 *strandHeap = (GMEM float2 *)&geometryHeap[strandRef];
                 uint2 strandHeader = *((GMEM uint2 *)strandHeap);
                 uint  currentSize = strandHeader.x; // size of current strand being parsed.
@@ -1626,7 +1629,7 @@ void buildThresholdArray ( PMEM  ThresholdQueue *tQ
                                            , &left
                                            , &right
                                            );
-                //DEBUG_IF(printf("currentSize %i inRange %i\n", currentSize, inRange);)
+                //if(itemIndex >= CUTOFF) {DEBUG_IF(printf("itemIndex %i currentSize %i inRange %i\n", itemIndex, currentSize, inRange);)}
                 if (inRange) {
                     spawnThresholds (  tQ
                                     ,  columnBox
@@ -1642,6 +1645,7 @@ void buildThresholdArray ( PMEM  ThresholdQueue *tQ
              // only add a facet if it has the same substance as the most recently added shape.
            //}
         }
+      //} if (itemIndex < CUTOFF)
     } // for n
 }
 
@@ -2568,6 +2572,7 @@ __kernel void generateThresholdsKernel
     initThresholdQueue(&tQ, initQueueSlice()); // needed for parallel max queue size
     if (isActiveThread(columnBox, bitmapSize)) {
         Slice qSlice = loadQueueSlice(qSliceHeap, blockId, columnDepth, columnThread);
+
         initThresholdQueue(&tQ, qSlice);
         loadThresholdQueue(&tQ, thresholdHeap, thresholdTagHeap, blockId, columnDepth, columnThread);
         // There is one slice from the itemHeap for every block.

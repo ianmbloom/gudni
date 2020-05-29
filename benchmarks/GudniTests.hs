@@ -47,8 +47,8 @@ makeLenses ''BenchmarkState
 initialModel pictureMap =
     BenchmarkState
     { _stateBase = BasicSceneState
-        { _stateScale       = 1
-        , _stateDelta       = Point2 0 0
+        { _stateScale       = 10
+        , _stateDelta       = Point2 20 20
         , _stateAngle       = 0 @@ rad
         , _statePaused      = True
         , _stateSpeed       = 0.1
@@ -64,7 +64,7 @@ initialModel pictureMap =
     , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 0
+    , _stateCurrentTest = 19
     }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
@@ -87,26 +87,27 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("concentricSquares2", concentricSquares2  ) -- 17 -
            , ("concentricSquares3", concentricSquares3  ) -- 18 -
            , ("subtractDiamond "  , subtractDiamond     ) -- 19 -
-           , ("simpleKnob"        , simpleKnob          ) -- 20 -
-           , ("hourGlass"         , hourGlass           ) -- 21 -
-           , ("simpleGlyph"       , simpleGlyph         ) -- 22 -
-           , ("triangle"          , triangle            ) -- 23 -
-           , ("sixPointRectangle" , sixPointRectangle   ) -- 24 -
-           , ("tinySquare"        , tinySquare          ) -- 25 -
-           , ("mediumSequare"     , mediumSquare        ) -- 26 -
-           , ("simpleRectangle"   , simpleRectangle     ) -- 27 -
-           , ("tallRectangle"     , tallRectangle       ) -- 28 -
-           , ("twoBrackets"       , twoBrackets         ) -- 29 -
-           , ("fuzzySquares2"     , fuzzySquares2       ) -- 30 -
-           , ("maxThresholdTest"  , maxThresholdTest    ) -- 31 -
-           , ("maxShapeTest"      , maxShapeTest        ) -- 32 -
-           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 33 -
-           , ("fuzzyCirclesGrad"  , fuzzyCirclesGrad    ) -- 34 -
-           , ("fullRectangle"     , fullRectangle       ) -- 35 -
-           , ("overlappingSquares", overlappingSquares  ) -- 36 -
-           , ("overlappingCircles", overlappingCircles  ) -- 37 -
-           , ("1 Million Circles" , millionFuzzyCircles ) -- 38 -
-           , ("bigGrid"           , bigGrid             ) -- 39 -
+           , ("subtractDiamond2"  , subtractDiamond2    ) -- 20 -
+           , ("simpleKnob"        , simpleKnob          ) -- 21 -
+           , ("hourGlass"         , hourGlass           ) -- 22 -
+           , ("simpleGlyph"       , simpleGlyph         ) -- 23 -
+           , ("triangle"          , triangle            ) -- 24 -
+           , ("sixPointRectangle" , sixPointRectangle   ) -- 25 -
+           , ("tinySquare"        , tinySquare          ) -- 26 -
+           , ("mediumSequare"     , mediumSquare        ) -- 27 -
+           , ("simpleRectangle"   , simpleRectangle     ) -- 28 -
+           , ("tallRectangle"     , tallRectangle       ) -- 29 -
+           , ("twoBrackets"       , twoBrackets         ) -- 30 -
+           , ("fuzzySquares2"     , fuzzySquares2       ) -- 31 -
+           , ("maxThresholdTest"  , maxThresholdTest    ) -- 32 -
+           , ("maxShapeTest"      , maxShapeTest        ) -- 33 -
+           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 34 -
+           , ("fuzzyCirclesGrad"  , fuzzyCirclesGrad    ) -- 35 -
+           , ("fullRectangle"     , fullRectangle       ) -- 36 -
+           , ("overlappingSquares", overlappingSquares  ) -- 37 -
+           , ("overlappingCircles", overlappingCircles  ) -- 38 -
+           , ("1 Million Circles" , millionFuzzyCircles ) -- 39 -
+           , ("bigGrid"           , bigGrid             )
            ]
 
 maxThresholdTest :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
@@ -484,9 +485,15 @@ unitSquare = rectangle $ Point2 1 1
 -- | Very simple subtraction test.
 subtractDiamond :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
 subtractDiamond state = return .
-    rotateBy (45 @@ deg) .
+    --rotateBy (45 @@ deg) .
     withColor white $
-    subtractFrom (translateByXY 1 1 $ unitSquare) unitSquare
+    (scaleBy 2 unitSquare) `subtractFrom` (translateByXY 1 1 . scaleBy 2 $ unitSquare)
+
+subtractDiamond2 :: Monad m => BenchmarkState -> FontMonad m (ShapeTree Int SubSpace)
+subtractDiamond2 state = return .
+    --rotateBy (45 @@ deg) .
+    withColor white $
+    (scaleBy 2 . overlap . replicate 200 $ unitSquare) `subtractFrom` (translateByXY 1 1 . scaleBy 2 . overlap . replicate 200 $ unitSquare) 
 
 instance Show BenchmarkState where
   show state =

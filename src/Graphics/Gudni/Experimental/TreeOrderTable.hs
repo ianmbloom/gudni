@@ -12,10 +12,10 @@
 -- Functions for building a lookup table for reordering sequenced strands into
 -- binary trees based on their length.
 
-module Graphics.Gudni.Raster.ReorderTable
-  ( ReorderTable(..)
-  , buildReorderTable
-  , fromReorderTable
+module Graphics.Gudni.Experimental.TreeOrderTable
+  ( TreeOrderTable(..)
+  , buildTreeOrderTable
+  , treeOrderFold
   )
 where
 
@@ -27,6 +27,8 @@ import Data.Vector ((!))
 import Linear.V3
 
 import Control.Lens
+
+type TreeOrderTable = V.Vector (V.Vector Int)
 
 data ITree =
   IBranch
@@ -83,31 +85,16 @@ breadth nd = concatMap getIndex $ nd : breadth' [nd]
 
 makeTreeRow :: Int -> [Int]
 makeTreeRow size =
-  let internal = [0..(size `div` 2) - 1]
-      halfTree = breadth $ buildITree internal
-      doubleTree = map (*2) halfTree
-      tree = concatMap (\x -> [x, x+1]) doubleTree
-  in  tree
+  let internal = [0..size - 1]
+  in  breadth $ buildITree internal
 
--- | Reorder the range so that the first three indices are to the
--- first point, first control point, and last point followed by the appropriate tree order for the rest which
--- is precomputed and provided by the ReorderTable
-reorderForExtents :: Int -> Int -> [Int]
-reorderForExtents maxSize size =
-  if size < 3
-  then []
-  else [size - 1, 0, 1] ++
-       if (size > 3)
-       then map (+2) (makeTreeRow (size - 3))
-       else []
+fromTreeTable :: TreeOrderTable -> Int -> Int -> Int
+fromTreeTable table size i = (table ! size) ! i
 
-type ReorderTable = V.Vector (V.Vector Int)
+buildTreeOrderTable :: Int -> TreeOrderTable
+buildTreeOrderTable maxSize = V.fromList . map (V.fromList . makeTreeRow) $ [0..maxSize]
 
-buildReorderTable :: Int -> ReorderTable
-buildReorderTable maxSize = V.fromList $ map (V.fromList . reorderForExtents maxSize . (+1) . (*2)) [0..maxSize `div` 2]
-
-tableRow :: ReorderTable -> Int -> V.Vector Int
-tableRow table size = table ! (size `div` 2)
-
-fromReorderTable :: ReorderTable -> Int -> Int -> Int
-fromReorderTable table size i = (table ! (size `div` 2)) ! i
+treeOrderFold :: TreeOrderTable -> (a -> b -> a) -> a -> V.Vector b -> a
+treeOrderFold table f start vector =
+    let len = V.length vector
+    in  foldl f start . map ((vector !) . fromTreeTable table len) $ [0..len - 1]

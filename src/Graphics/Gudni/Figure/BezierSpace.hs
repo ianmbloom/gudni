@@ -68,20 +68,20 @@ data BezierTree s
          }
   deriving (Show)
 
-subdivideAcuteBezier :: (Space s, Alternative f) => Bezier s -> f (Bezier s)
-subdivideAcuteBezier bz@(Bez v0 vC v1) =
+subdivideAcuteBezier :: (Space s, Alternative f) => Int -> Bezier s -> f (Bezier s)
+subdivideAcuteBezier iterations bz@(Bez v0 vC v1) =
   let tan0 = v0 .-. vC
       tan1 = v1 .-. vC
-  in  if angleBetween tan0 tan1 <= 135 @@ deg -- this can probably be optimized with something simpler.
+  in  if iterations > 0 && angleBetween tan0 tan1 <= 135 @@ deg -- this can probably be optimized with something simpler.
       then let (left, right) = splitClosestControl bz
-           in  subdivideAcuteBezier left <|> subdivideAcuteBezier right
+           in  subdivideAcuteBezier (iterations - 1) left <|> subdivideAcuteBezier (iterations - 1) right
       else pure bz
 
 makeBezierSpace :: forall f s . (Eq1 f, Chain f, Space s) => (Bezier s -> s) -> f (Bezier s) -> BezierSpace s
 makeBezierSpace lengthFun chain =
   fromJust . go 0 $ fixedChain
   where
-  fixedChain = join . fmap (subdivideAcuteBezier) $ chain
+  fixedChain = join . fmap (subdivideAcuteBezier 3) $ chain
   go :: s -> f (Bezier s) -> Maybe (BezierSpace s)
   go start vector =
     let (left, right) = halfSplit vector

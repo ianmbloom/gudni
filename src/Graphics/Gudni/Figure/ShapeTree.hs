@@ -54,6 +54,7 @@ import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Substance
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.Transformable
+import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Color
@@ -159,11 +160,13 @@ instance ( s ~ SpaceOf (f (Bezier s))
          , s ~ SpaceOf (Shape_ f s)
          , Space s
          , Loop f
+
          ) => CanProject (BezierSpace s) (Shape_ f s) where
   projectionWithStepsAccuracy debug max_steps m_accuracy path shape =
       over shapeOutlines (fmap (projectionWithStepsAccuracy debug max_steps m_accuracy path)) shape
 
 instance ( Space s
+
          ) => CanProject (BezierSpace s) (SRep token NamedTexture (CompoundTree s)) where
   projectionWithStepsAccuracy debug max_steps m_accuracy path =
       over sRep (projectionWithStepsAccuracy debug max_steps m_accuracy path)

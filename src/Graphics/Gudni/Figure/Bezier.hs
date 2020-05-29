@@ -94,7 +94,7 @@ curved :: Space s => Point2 s -> Point2 s -> Point2 s -> Bezier s
 curved v0 c v1 = Bez v0 c v1
 
 instance Space s => HasSpace (Bezier s) where
-  type SpaceOf (Bezier s) = s
+    type SpaceOf (Bezier s) = s
 
 eval :: Num s => s -> Bezier s -> Point2 s
 eval t (Bez p0 p1 p2) = let mt = 1 - t in
@@ -110,10 +110,11 @@ eval t (Bez p0 p1 p2) = let mt = 1 - t in
 instance Space s => HasArcLength (Bezier s) where
     arcLength (Bez p0 p1 p2) = let
         d2 = p0 - 2.0 * p1 + p2
-        a = quadrance d2
+        a  = quadrance d2
         d1 = p1 - p0
-        c = quadrance d1
-        in if a < 5e-4 * c
+        c  = quadrance d1
+        in
+        if a < 5e-4 * c
         then
             -- This case happens for nearly line Béziers.
             --

@@ -103,13 +103,6 @@ splitIntoStrands vector =
   let (acc, strands) = V.foldl accumulateStrands (V.empty, V.empty) vector
   in acc `V.cons` strands
 
--- | Split a vector into a list over vectors with a maximum size.
-splitTooLarge :: Int -> V.Vector a -> V.Vector (V.Vector a)
-splitTooLarge maxSize vector = if V.length vector > maxSize
-                               then let (first, rest) = V.splitAt maxSize vector
-                                    in first `V.cons` splitTooLarge maxSize rest
-                               else V.singleton vector
-
 -- | Turn a sequence of beziers into a sequence of points
 beziersToPoints :: V.Vector (Bezier s) -> V.Vector (Point2 s)
 beziersToPoints vector =
@@ -146,10 +139,10 @@ splitShape table maxSectionSize beziers =
           . beziersToPoints    -- remove additional points making each strand into a list of points.
           . reverseIfBackwards -- make each strands go in order from left to right.
           ) .
-    V.concatMap (splitTooLarge maxSectionSize) . -- Divide any long strands into smaller sections.
+    V.concatMap (breakVector maxSectionSize) . -- Divide any long strands into smaller sections.
     splitIntoStrands . -- Divide curves into horizontal strands.
     join .
-    fmap replaceKnob $   -- Split curve sections that bulge in the x direction to two curve sections that do not bulge.
+    fmap (replaceKnob verticalAxis) $   -- Split curve sections that bulge in the x direction to two curve sections that do not bulge.
     beziers
 
 -- | Build a list of strands from an outline.

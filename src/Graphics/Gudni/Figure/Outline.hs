@@ -38,6 +38,7 @@ import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Projection
+import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Loop
@@ -87,7 +88,8 @@ instance ( s ~ SpaceOf (f (Bezier s))
          , Monad f
          , Alternative f
          , Space s
-         , Loop f)
+         , Loop f
+         )
          => CanProject (BezierSpace s) (Outline_ f s) where
     projectionWithStepsAccuracy debug max_steps m_accuracy bSpace curve =
          Outline . projectionWithStepsAccuracy debug max_steps m_accuracy bSpace . view outlineSegments $ curve

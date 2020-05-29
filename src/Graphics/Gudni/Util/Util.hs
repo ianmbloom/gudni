@@ -16,6 +16,7 @@ module Graphics.Gudni.Util.Util
   ( takeItem
   , removeItem
   , breakList
+  , breakVector
   , adjustedLog
   , mapFst
   , mapSnd
@@ -55,6 +56,7 @@ import Control.DeepSeq
 import Control.Monad.State
 import Control.Lens
 
+import qualified Data.Vector as V
 import Data.Time.Clock
 
 data TimeKeeper = TimeKeeper
@@ -105,8 +107,15 @@ mapPair f (a,b) = (f a, f b)
 breakList :: Int -> [a] -> [[a]]
 breakList i xs = let (front, rest) = splitAt i xs in
                      case rest of
-                       [] -> [front]
+                       [] -> pure front
                        xxs -> front:breakList i rest
+
+-- | Split a vector into a list over vectors with a maximum size.
+breakVector :: Int -> V.Vector a -> V.Vector (V.Vector a)
+breakVector maxSize vector = if V.length vector > maxSize
+                               then let (first, rest) = V.splitAt maxSize vector
+                                    in first `V.cons` breakVector maxSize rest
+                               else pure vector
 
 takeItem :: Int -> [a] -> (a, [a])
 takeItem i list =

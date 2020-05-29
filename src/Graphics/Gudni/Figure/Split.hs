@@ -1,5 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE FlexibleContexts    #-}
 
 module Graphics.Gudni.Figure.Split
   ( hALF
@@ -69,8 +71,13 @@ curvePoint t (Bez v0 control v1) =
       onCurve  = lerp (1-t) mid0    mid1
   in  (Bez mid0 onCurve mid1)
 
-isKnob :: Space s => Lens' (Point2 s ) s -> Bezier s -> Bool
-isKnob axis bz@(Bez v0 control v1) = ((abs (v0 ^. axis - control ^. axis) + abs (control ^. axis  - v1 ^. axis )) - abs (v0 ^. axis - v1 ^. axis)) /= 0
+isKnob :: (Space s) => Lens' (Point2 s ) s -> Bezier s -> Bool
+isKnob axis bz@(Bez v0 control v1) =
+  let a = abs (v0 ^. axis - control ^. axis)
+      b = abs (control ^. axis  - v1 ^. axis)
+      c = abs (v0 ^. axis - v1 ^. axis)
+  in
+    abs ((a + b) - c) > iota
 
 splitDirection :: Space s => Lens' (Point2 s) s -> Bezier s -> s -> s
 splitDirection axis bz@(Bez v0 control v1) t =
@@ -81,7 +88,7 @@ splitDirection axis bz@(Bez v0 control v1) t =
 findKnobSplit :: Space s => Lens' (Point2 s) s -> Bezier s -> s
 findKnobSplit axis bz = findSplit (splitDirection axis bz)
 
-maybeKnobSplitPoint :: Space s => Lens' (Point2 s) s -> Bezier s -> Maybe s
+maybeKnobSplitPoint :: (Space s) => Lens' (Point2 s) s -> Bezier s -> Maybe s
 maybeKnobSplitPoint axis bz =
    if isKnob axis bz
    then Just $ findKnobSplit axis bz
@@ -93,7 +100,7 @@ splitChain axis bz t =
     -- And return the two resulting curves.
     in  pure left <|> pure right
 
-instance (Space s) => CanDeKnob (Bezier s) where
+instance Space s => CanDeknob (Bezier s) where
     -- | If a curve is a knob, split it.
-    deKnob bz@(Bez v0 control v1) =
-      fmap (splitChain pX bz) (maybeKnobSplitPoint pX bz)
+    deKnob axis bz@(Bez v0 control v1) =
+      fmap (splitChain axis bz) ({-tr ("maybeDeKnob " ++ show bz) $-} maybeKnobSplitPoint axis bz)

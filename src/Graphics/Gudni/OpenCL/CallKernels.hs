@@ -156,12 +156,13 @@ iterateJobs total chunk f = go 0 0
                                      go (step + 1) (offset + chunk)
                              else return ()
 
-announceKernel name jobStep jobOffset jobSize f =
+announceKernel name jobStep jobOffset jobSize f = f
+  {-
   do liftIO $ putStrLn ("start " ++ name ++ " step:" ++ show jobStep ++ " offset:" ++ show jobOffset ++ " size:" ++ show jobSize ++ "    XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
      result <- f
      liftIO $ putStrLn ("stop  " ++ name ++ " step:" ++ show jobStep ++ " offset:" ++ show jobOffset ++ " size:" ++ show jobSize ++ "    XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXX");
      return result
-
+-}
 runInitializeSectionKernel :: RasterParams token
                            -> BlockSection
                            -> CL BlockSection
@@ -207,7 +208,7 @@ runGenerateThresholdsKernel :: RasterParams token
                             -> Int
                             -> CL (Int, BlockSection)
 runGenerateThresholdsKernel params buffersInCommon itemTagIdBuffer itemStart blockSection blockPtr progress batchSize =
-  --announceKernel ("rasterGenerateThresholdsKernel blockId " ++ show blockId ++ " progress " ++ show progress) 0 0 0 $
+  announceKernel ("rasterGenerateThresholdsKernel blockPtr " ++ show blockPtr ++ " progress " ++ show progress) 0 0 0 $
   do let context         = clContext (params ^. rpRasterizer . rasterClState)
          columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
      outputMaxQueue <-
@@ -248,7 +249,7 @@ runMergeBlockKernel params strideExp  blockSection strideOffset =
       blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
       numActive        = blockSection ^. sectNumActive
       blockDepth         = params ^. rpRasterizer . rasterDeviceSpec . specBlockSectionDepth
-  in  --announceKernel ("mergeBlockKernel strideExp: " ++ show strideExp ++ " strideOffset: " ++ show strideOffset) jobStep jobOffset numActive $
+  in  announceKernel ("mergeBlockKernel strideExp: " ++ show strideExp ++ " strideOffset: " ++ show strideOffset) 0 0 0 $
       do when (numActive > 0) $
              runKernel (params ^. rpRasterizer . rasterMergeBlockKernel)
                        (blockSection ^. sectTileBuffer         )
@@ -275,7 +276,7 @@ runTotalThresholdKernel params blockSection =
       columnDepth      = params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth
       blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
   in
-  --announceKernel "totalThresholdsKernel" 0 0 0 $
+  announceKernel "totalThresholdsKernel" 0 0 0 $
   do  totals <- runKernel (params ^. rpRasterizer . rasterTotalThresholdKernel)
                           (blockSection ^. sectQueueSliceBuffer)
                           (blockSection ^. sectBlockIdBuffer   )
@@ -294,7 +295,7 @@ runCollectMergedBlockKernel params blockSection =
     let blockDepth       = params ^. rpRasterizer . rasterDeviceSpec . specBlockSectionDepth
         blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
     in
-    --announceKernel "collectMergedKernel" 0 0 0 $
+    announceKernel "collectMergedKernel" 0 0 0 $
     do
         (outputInUseLength, sideTiles) <-
             runKernel (params ^. rpRasterizer . rasterCollectMergedBlocksKernel)
@@ -323,7 +324,7 @@ runCollectRenderKernel :: RasterParams token
 runCollectRenderKernel params blockSection prevTile nextTile =
     let blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
     in
-    --announceKernel "collectRenderKernel" 0 0 0 $
+    announceKernel "collectRenderKernel" 0 0 0 $
     do  (outputNumActive, outputNumToRender) <-
             runKernel (params ^. rpRasterizer . rasterCollectRenderBlocksKernel)
                       (blockSection ^. sectTileBuffer)
@@ -355,7 +356,7 @@ runSortThresholdsKernel params blockSection =
         columnDepth     = params ^. rpRasterizer . rasterDeviceSpec . specColumnDepth
         numToRender    = blockSection ^. sectNumToRender
     in
-    --announceKernel "sortKernel" jobStep jobOffset jobSize $
+    announceKernel "sortKernel" 0 0 0 $
     do  when (numToRender > 0) $
             runKernel (params ^. rpRasterizer . rasterSortThresholdsKernel)
                       (blockSection ^. sectTileBuffer         )
@@ -388,7 +389,7 @@ runRenderThresholdsKernel params buffersInCommon blockSection target =
     let columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
         numToRender    = blockSection ^. sectNumToRender
     in
-    --announceKernel "rasterRenderThresholdsKernel" jobStep jobOffset jobSize $
+    announceKernel "rasterRenderThresholdsKernel" 0 0 0 $
     do  when (numToRender > 0) $
                runKernel (params ^. rpRasterizer . rasterRenderThresholdsKernel)
                          (blockSection ^. sectTileBuffer            )

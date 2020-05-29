@@ -113,7 +113,7 @@ taxiDistance v0 v1 =
 
 -- | Make a mid point from two points.
 mid :: (Fractional s, Num s) => Point2 s -> Point2 s -> Point2 s
-mid = lerp 0.5
+mid a b = (a + b) / 2 
 
 -- | Return true if a is left of b in screen axis space.
 isLeftOf :: (Space s) => Point2 s -> Point2 s -> Bool

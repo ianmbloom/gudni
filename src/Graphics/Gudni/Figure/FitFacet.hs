@@ -55,8 +55,9 @@ instance Space s => CanFit (Facet_ s) where
 instance (s ~ (SpaceOf (f (Facet_ s)))
          , Space s
          , Chain f
+
          ) => CanProject (BezierSpace s) (f (Facet_ s)) where
     projectionWithStepsAccuracy debug max_steps m_accuracy bSpace facets =
         let fixed :: f (Facet_ s)
-            fixed = join . fmap replaceKnob $ facets
+            fixed = join . fmap (replaceKnob verticalAxis) $ facets
         in  join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ fixed

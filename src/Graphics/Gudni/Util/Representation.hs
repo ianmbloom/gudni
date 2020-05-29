@@ -27,7 +27,7 @@ import Control.Lens
 mkLine :: Space s => V2 (Point2 s) -> Bezier s
 mkLine (V2 a b) = line a b
 
-openCircle :: forall s . Space s => s -> CompoundTree s
+openCircle :: forall s .  (Space s) => s -> CompoundTree s
 openCircle r = mask . strokeOffset 0 (r/2) . scaleBy r $ (circle :: Outline s)
 closedCircle :: forall s . Space s => s -> CompoundTree s
 closedCircle r =  scaleBy r . mask . shapeFrom $ (circle :: Outline s)
@@ -35,7 +35,7 @@ closedCircle r =  scaleBy r . mask . shapeFrom $ (circle :: Outline s)
 class (HasSpace t) => HasRepresentation t where
     represent :: Bool -> t -> ShapeTree Int (SpaceOf t)
 
-instance Space s => HasRepresentation (Bezier s) where
+instance  (Space s) => HasRepresentation (Bezier s) where
     represent _ bz@(Bez v0 c v1) =
         let r = 5 in
         overlap [ withColor red   $ translateBy v0 $ closedCircle r
@@ -45,12 +45,12 @@ instance Space s => HasRepresentation (Bezier s) where
                 ]
 
 instance (Alternative f, Monad f, Foldable f, Space s, Show (f (Bezier s))) => HasRepresentation (Outline_ f s) where
-    represent dk = overlap . fmap (represent dk) . (if dk then join . fmap replaceKnob else id) . view outlineSegments
+    represent dk = overlap . fmap (represent dk) . (if dk then join . fmap (replaceKnob verticalAxis) else id) . view outlineSegments
 
 instance (Functor f, Foldable f, Space s, Show (f (Bezier s)), Show (f (ShapeTree Int s))) => HasRepresentation (OpenCurve_ f s) where
     represent dk = overlap . fmap (represent dk) .  view curveSegments
 
-instance Space s => HasRepresentation (Shape s) where
+instance (Space s) => HasRepresentation (Shape s) where
     represent dk = overlap . fmap (overlap . fmap (represent dk) . view outlineSegments) . view shapeOutlines
 
 instance (Space s, Show token) => HasRepresentation (ShapeTree token s) where
@@ -59,7 +59,7 @@ instance (Space s, Show token) => HasRepresentation (ShapeTree token s) where
 instance (Space s) => HasRepresentation (FacetSide s) where
     represent dk = represent dk . view sceneSide
 
-instance (Space s, Space t, s~t) => HasRepresentation (Facet_ s) where
+instance (Space s) => HasRepresentation (Facet_ s) where
     represent dk = overlap . fmap (represent dk) . view facetSides
 
 

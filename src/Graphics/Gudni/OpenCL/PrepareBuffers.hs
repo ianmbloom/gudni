@@ -206,6 +206,9 @@ newtype BlockPtr = BlockPtr {unBlockPtr :: Int} deriving (Eq, Ord, Num)
 instance Show BlockId where
   show (BlockId id) = show id
 
+instance Show BlockPtr where
+  show (BlockPtr id) = show id
+
 data BlockSection = BlockSection
   { _sectTileBuffer         :: CLBuffer Tile
   , _sectThresholdBuffer    :: CLBuffer THRESHOLDTYPE
