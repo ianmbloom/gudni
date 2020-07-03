@@ -1,10 +1,11 @@
-{-# LANGUAGE DefaultSignatures    #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances    #-}
-{-# LANGUAGE FlexibleContexts     #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Graphics.Gudni.Figure.FitBezier
   ( projPoint
@@ -24,6 +25,7 @@ import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Projection
+import Graphics.Gudni.Figure.Reversible
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Loop
 import Graphics.Gudni.Util.Debug
@@ -40,6 +42,9 @@ import Control.Monad
 import Data.Functor.Classes
 import Data.Maybe (fromMaybe, fromJust)
 
+instance Reversible (Bezier s) where
+    reverseItem = reverseBezier
+    
 instance ( s ~ (SpaceOf (f (Bezier s)))
          , Space s
          , Chain f
@@ -49,9 +54,9 @@ instance ( s ~ (SpaceOf (f (Bezier s)))
         let fixed = join . fmap (replaceKnob verticalAxis) $ beziers
         in  join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ fixed
 
-instance Space s => CanFit (Bezier s) where
+
+instance (Space s, Reversible (Bezier s))=> CanFit (Bezier s) where
     isForward (Bez v0 _ v1) = v0 ^. pX <= v1 ^. pX
-    reverseItem = reverseBezier
     projectTangent = projectTangentBezier
     fillGap leftResult rightResult =
         let leftEnd  = (lastLink leftResult  ) ^. bzEnd

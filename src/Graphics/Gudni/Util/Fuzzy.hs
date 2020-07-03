@@ -17,6 +17,7 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Util.Segment
+import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Layout
 import Control.Monad.Random
 import Graphics.Gudni.Layout.Draw

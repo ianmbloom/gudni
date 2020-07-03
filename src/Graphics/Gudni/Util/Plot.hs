@@ -26,12 +26,7 @@ module Graphics.Gudni.Util.Plot
   )
 where
 
-import Graphics.Gudni.Figure.Space
-import Graphics.Gudni.Figure.Point
-import Graphics.Gudni.Figure.Bezier
-import Graphics.Gudni.Figure.OpenCurve
-import Graphics.Gudni.Figure.Angle
-import Graphics.Gudni.Figure.Transformable
+import Graphics.Gudni.Figure
 
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Debug
@@ -118,11 +113,11 @@ plotTurtle'' (TTurn t lr) =
                               in  mapOverPoints (^-^ start) arc
 plotTurtle'' (TReverse pl) =
   do state <- get
-     return $ Just $ reverseCurve $ plotTurtle state pl
+     return $ Just $ reverseItem $ plotTurtle state pl
 plotTurtle'' (TMirror pl) =
   do state <- get
      let pl' = plotTurtle state pl
-     return $ Just $ pl' >*< (reverseCurve $ mapOverPoints flipH pl')
+     return $ Just $ pl' >*< (reverseItem $ mapOverPoints flipH pl')
 
 -- | Convert an LR  (left right direction to an angle.
 lrToAngle :: (Floating s, Num s) => LR s -> Angle s

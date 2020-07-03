@@ -1,6 +1,7 @@
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE PatternSynonyms   #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE PatternSynonyms     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DeriveGeneric       #-}
 
 -- | Functions on quadratic Bézier curves
 module Graphics.Gudni.Figure.Bezier
@@ -44,8 +45,12 @@ import Data.Hashable
 import Control.DeepSeq
 import Control.Lens hiding ((...))
 import Control.Applicative
+import Text.PrettyPrint.GenericPretty
 
-data Bezier s = Bezier {unBezier :: V3 (Point2 s)} deriving (Eq, Ord)
+data Bezier s = Bezier {unBezier :: V3 (Point2 s)} deriving (Eq, Ord, Generic)
+instance (Out s) => Out (V3 s)
+instance (Out s) => Out (Bezier s)
+
 pattern Bez x y z = Bezier (V3 x y z)
 
 instance Show s => Show (Bezier s) where

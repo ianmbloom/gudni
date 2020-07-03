@@ -110,8 +110,10 @@ instance HandlesInput token BasicSceneState where
                          Key LetterY      -> stateDirection %= not
                          Key LetterR      -> stateAngle %= normalizeAngle . (^+^ ((speed/30) @@ turn))
                          Key LetterT      -> stateAngle %= normalizeAngle . (^-^ ((speed/30) @@ turn))
-                         Key SymbolComma  -> whenM (uses stateStep (> 0 {-arbitrary-})) $ stateStep -= 1
+                         Key SymbolComma  -> whenM (uses stateStep (> 0     )) $ stateStep -= 1
                          Key SymbolPeriod -> whenM (uses stateStep (< 100000)) $ stateStep += 1
+                         Key LetterV      -> whenM (uses statePlayhead (> 0)) $ statePlayhead -= 1
+                         Key LetterB      -> statePlayhead += 1
                          Key SymbolRightBracket -> stateScale *=  1.1
                          Key SymbolLeftBracket  -> stateScale //= 1.1
                          Key Number1 -> stateScale .= 1

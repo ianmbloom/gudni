@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Graphics.Gudni.Util.Chain
   ( HasElements(..)
@@ -6,6 +7,7 @@ module Graphics.Gudni.Util.Chain
   )
 where
 
+import Graphics.Gudni.Figure.Reversible
 import Data.Kind
 import Data.Functor.Classes
 import Control.Monad
@@ -49,6 +51,9 @@ instance Chain V.Vector where
   zipWithChain = V.zipWith
   scanlChain = V.scanl
 
+instance (Reversible t) => Reversible (V.Vector t) where
+  reverseItem = reverseChain . fmap reverseItem
+
 
 instance Chain [] where
   firstLink = head
@@ -63,3 +68,6 @@ instance Chain [] where
   segregate = span
   zipWithChain = zipWith
   scanlChain = scanl
+
+instance (Reversible t) => Reversible [t] where
+  reverseItem = reverseChain . fmap reverseItem

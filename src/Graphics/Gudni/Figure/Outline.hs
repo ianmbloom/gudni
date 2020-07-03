@@ -26,7 +26,10 @@ module Graphics.Gudni.Figure.Outline
   ( Outline(..)
   , Outline_(..)
   , outlineSegments
+  , makeOutline
   , closeOpenCurve
+  , windingIsClockwise
+  , windClockwise
   )
 where
 
@@ -40,6 +43,7 @@ import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Cut
+import Graphics.Gudni.Figure.Reversible
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Loop
 import Graphics.Gudni.Util.Util
@@ -59,6 +63,9 @@ newtype Outline_ f s = Outline
   { _outlineSegments :: f (Bezier s)
   }
 makeLenses ''Outline_
+
+makeOutline :: [Bezier s] -> Outline s
+makeOutline list = Outline . V.fromList $ list
 
 deriving instance (Eq   (f (Bezier s))) => Eq (Outline_ f s)
 deriving instance (Ord  (f (Bezier s))) => Ord (Outline_ f s)
@@ -83,6 +90,48 @@ closeOpenCurve curve =
                  else (pure (line (curve ^. terminator) (curve ^. outset)) <|>)
                      -- else insert a line segment from the end to the beggining.
   in  Outline . connect . view curveSegments $ curve
+
+windBezierComponent :: Num s => Bezier s -> s
+windBezierComponent b = (b ^. bzEnd . pX - b ^. bzStart . pX) * ((b ^. bzEnd . pY) + (b ^. bzStart . pY))
+
+windingIsClockwise :: (Loop f, Space s) => Outline_ f s -> Bool
+windingIsClockwise = (<0) .
+                     sum .
+                     fmap windBezierComponent .
+                     view outlineSegments
+
+windClockwise :: (Loop f, Reversible (f (Bezier s)), Space s, Show (f (Bezier s))) => Outline_ f s -> Outline_ f s
+windClockwise outline = if (tr "windingIsClockWise" $ windingIsClockwise $ tr "outline" outline) then outline else reverseItem outline
+
+
+
+pointInsideOutline :: (Loop f) => Space s => Outline_ f s -> Point2 s -> Bool
+pointInsideOutline poly point =
+    foldl (/=) False .
+    fmap (
+        \ bez ->
+            let i = bez ^. bzStart
+                j = bez ^. bzEnd
+            in  (
+                   (
+                      (
+                        (i ^. pY <= point ^. pY) &&
+                        (point ^. pY < j ^. pY )
+                      ) ||
+                      ( (j ^. pY <= point ^. pY) &&
+                        (point ^. pY < i ^. pY)
+                      )
+                   ) &&
+                   (point ^. pX < (j ^. pX - i ^. pX) * (point ^. pY - i ^. pY) / (j ^. pY - i ^. pY) + i ^. pX)
+                )
+        ) .
+    view outlineSegments $
+    poly
+
+
+
+instance Reversible (f (Bezier s)) => Reversible (Outline_ f s) where
+  reverseItem = over outlineSegments reverseItem
 
 instance ( s ~ SpaceOf (f (Bezier s))
          , Monad f

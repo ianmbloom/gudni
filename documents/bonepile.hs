@@ -518,3 +518,18 @@ projectOffsetCurve debug max_steps m_accuracy start sPoint sNormal end ePoint eN
                    | abs (slope0 - slope1) < 0.01 = mid s0 s1
                    | otherwise = over pY (clamp (-1000) 1000) $ arbitraryIntersection s0 slope0 s1 slope1
              in  trWhen debug "result =" $ Bez s0 {-c-} sC s1
+
+overLeft   = overbounds leftSide   (<=)
+overRight  = overBounds rightSide  (>=)
+overTop    = overBounds topSide    (<=)
+overBottom = overBounds bottomSide (>=)
+
+overBounds :: Lens' (Box s) s -> (s -> s -> Bool) -> Bezier s -> Box s -> Bool
+overBounds lens comp bez bound = comp (boxOf bez ^. lens) (bound ^. lens)
+{-
+cutBezier bez boundary =
+  let leftIsCut   = overLeft bz
+      rightIsCut  = canCut pX (boundary ^. rightSide ) bz
+      topIsCut    = canCut pY (boundary ^. topSide   ) bz
+      botIsCut    = canCut pY (boundary ^. bottomSide) bz
+-}

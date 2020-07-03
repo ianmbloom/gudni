@@ -6,6 +6,7 @@
 {-# LANGUAGE AllowAmbiguousTypes   #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE DeriveGeneric         #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -64,9 +65,16 @@ import Control.Monad.Random
 import Control.DeepSeq
 import Control.Lens
 import Data.Kind
+import Text.PrettyPrint
+import Text.PrettyPrint.GenericPretty
 
 type Point2 = Point V2
 pattern Point2 x y = P (V2 x y)
+instance (Out s) => Out (V2 s)
+instance (Out s) => Out (Point2 s)
+   where
+    doc (Point2 x y) = parens $ doc x <+> comma <+> doc y
+    docPrec _ = doc
 
 instance Space s => HasSpace (Point2 s) where
   type SpaceOf (Point2 s) = s
@@ -113,7 +121,7 @@ taxiDistance v0 v1 =
 
 -- | Make a mid point from two points.
 mid :: (Fractional s, Num s) => Point2 s -> Point2 s -> Point2 s
-mid a b = (a + b) / 2 
+mid a b = (a + b) / 2
 
 -- | Return true if a is left of b in screen axis space.
 isLeftOf :: (Space s) => Point2 s -> Point2 s -> Bool

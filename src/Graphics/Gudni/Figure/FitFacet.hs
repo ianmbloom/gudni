@@ -25,6 +25,7 @@ import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Projection
+import Graphics.Gudni.Figure.Reversible
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Loop
 import Graphics.Gudni.Util.Debug
@@ -44,9 +45,11 @@ import Data.Maybe (fromMaybe, fromJust)
 mapOverSceneBez :: Space s => (Bezier s -> Bezier s) -> Facet_ s -> Facet_ s
 mapOverSceneBez f = over facetSides (fmap (over sceneSide f))
 
+instance Reversible (Facet_ s) where
+    reverseItem = id
+
 instance Space s => CanFit (Facet_ s) where
     isForward facet = True -- the order of facets doesn't matter.
-    reverseItem = id
     projectTangent offset v0 normal = mapOverSceneBez (projectTangent offset v0 normal)
     fillGap leftResult rightResult = leftResult <|> rightResult
     projectOntoCurve debugFlag max_steps m_accuracy start sourceCurve =

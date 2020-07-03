@@ -19,6 +19,7 @@ module Graphics.Gudni.Util.Debug
   , tcWhen
   , trIfTrue
   , trIfFalse
+  , trP
   , showFl
   , showFl'
   , showFlFixed
@@ -38,6 +39,7 @@ import Debug.Trace
 import qualified Data.ByteString as B
 import Numeric
 import Control.Applicative
+import Text.PrettyPrint.GenericPretty
 
 newtype DebugIdentity a = DebugIdentity { runDebugIdentity :: a }
 
@@ -80,12 +82,15 @@ trF = trWith (showFl' 8)
 trFl :: (Show a, RealFloat a) => Int -> String -> a -> a
 trFl digits = trWith (showFl' digits)
 
+trP :: Out a => String -> a -> a
+trP = trWith pretty
+
 trHex :: (Integral a) => String -> a -> a
 trHex = trWith (\t -> showHex (fromIntegral t) "")
 
 tcWith :: (a -> String) -> String -> a -> a
-tcWith f m x = trace ("START"++m) $
-                  trace ("END"++m++"   "++(f x)++"DONE") x
+tcWith f m x = trace ("START "++m) $
+               trace ("END "++m++"--->"++(f x)) x
 
 traceWhen :: Bool -> String -> a -> a
 traceWhen cond message = if cond then trace message else id

@@ -9,9 +9,11 @@ module Graphics.Gudni.Figure
   , module Graphics.Gudni.Figure.Picture
   , module Graphics.Gudni.Figure.Point
   , module Graphics.Gudni.Figure.Projection
+  , module Graphics.Gudni.Figure.Reversible
   , module Graphics.Gudni.Figure.ShapeTree
   , module Graphics.Gudni.Figure.Space
   , module Graphics.Gudni.Figure.Split
+  , module Graphics.Gudni.Figure.Cut
   , module Graphics.Gudni.Figure.Transformer
   , module Graphics.Gudni.Figure.Transformable
   , module Graphics.Gudni.Figure.Substance
@@ -30,9 +32,11 @@ import Graphics.Gudni.Figure.Outline
 import Graphics.Gudni.Figure.Picture
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Projection
+import Graphics.Gudni.Figure.Reversible
 import Graphics.Gudni.Figure.ShapeTree
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Split
+import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Substance

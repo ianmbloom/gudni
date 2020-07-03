@@ -25,6 +25,7 @@ import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Deknob
+import Graphics.Gudni.Figure.Reversible
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Loop
 import Graphics.Gudni.Util.Debug
@@ -115,13 +116,13 @@ makeBezierSpace lengthFun chain =
                            Nothing -> Just $ leftSpace
                    Nothing -> Nothing
 
-
 traverseBezierSpace :: forall t f
                     .  ( Alternative f
                        , Chain f
                        , Space (SpaceOf t)
                        , CanCut t
                        , CanFit t
+                       , Reversible t
                        , HasBox t
                        )
                     => Bool
@@ -144,7 +145,7 @@ traverseBezierSpace debug max_steps m_accuracy bSpace@(BezierSpace sPoint sNorma
            if box ^. leftSide < splitX
            then
                if box ^. rightSide > splitX
-               then let (leftItem, rightItem) = splitAtCut pX splitX bz
+               then let (leftItem, rightItem) = splitAtCut Vertical splitX bz
                         leftResult  = go start  sPoint     sNormal     splitX splitPoint leftNormal leftTree  leftItem
                         rightResult = go splitX splitPoint rightNormal end    ePoint     eNormal    rightTree rightItem
                     in  fillGap leftResult rightResult
@@ -153,14 +154,14 @@ traverseBezierSpace debug max_steps m_accuracy bSpace@(BezierSpace sPoint sNorma
        BezierLeaf curveLength control ->
            if box ^. leftSide < start
            then if box ^. rightSide > start
-                then let (leftItem, rightItem) = splitAtCut pX start bz
+                then let (leftItem, rightItem) = splitAtCut Vertical start bz
                          leftResult  = pure (projectTangent start sPoint sNormal leftItem)
                          rightResult = go start sPoint sNormal end ePoint eNormal tree rightItem
                      in  fillGap leftResult rightResult
                 else pure (projectTangent start sPoint sNormal bz)
            else if box ^. rightSide > end
                 then if box ^. leftSide < end
-                     then let (leftItem, rightItem)  = splitAtCut pX end bz
+                     then let (leftItem, rightItem)  = splitAtCut Vertical end bz
                               leftResult  = go start sPoint sNormal end ePoint eNormal tree leftItem
                               rightResult = pure (projectTangent end ePoint eNormal rightItem)
                           in  fillGap leftResult rightResult

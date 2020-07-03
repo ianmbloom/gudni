@@ -184,7 +184,7 @@ onShape :: MonadIO m
         -> Shape SubSpace
         -> SerialMonad token s m (Maybe BoundingBox)
 onShape rasterizer canvasSize substanceTag combineType transformer shape =
-  do let transformedOutlines = map (applyTransformer transformer) $ view shapeOutlines shape
+  do let transformedOutlines = map (mapOverPoints (fmap clampReasonable) . applyTransformer transformer) $ view shapeOutlines shape
          boundingBox = boxOf transformedOutlines
      if excludeBox canvasSize boundingBox
      then return ()

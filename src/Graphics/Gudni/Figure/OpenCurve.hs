@@ -28,7 +28,6 @@ module Graphics.Gudni.Figure.OpenCurve
   , OpenCurve(..)
   , makeOpenCurve
   , (>*<)
-  , reverseCurve
   )
 where
 
@@ -40,6 +39,7 @@ import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.BezierSpace
 import Graphics.Gudni.Figure.FitBezier
 import Graphics.Gudni.Figure.ArcLength
+import Graphics.Gudni.Figure.Reversible
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Deknob
@@ -107,8 +107,8 @@ terminator elt_fn (OpenCurve segments) =
     in  (\v1' -> OpenCurve $ notLast segments <|> pure (Bez v0 control v1')) <$> elt_fn v1
 
 -- | Return the same curve in the opposite order.
-reverseCurve :: (Chain t) => OpenCurve_ t s -> OpenCurve_ t s
-reverseCurve = over curveSegments (reverseChain . fmap reverseBezier)
+instance (Chain t) => Reversible (OpenCurve_ t s) where
+  reverseItem = over curveSegments (reverseChain . fmap reverseBezier)
 
 -- | Connect two curves end to end by translating c1 so that the starting point of 'c1' is equal to the terminator of 'c0'
 (>*<) :: (Chain f, Space s, Show (f (Bezier s))) => OpenCurve_ f s -> OpenCurve_ f s -> OpenCurve_ f s

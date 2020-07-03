@@ -6,8 +6,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE IncoherentInstances   #-}
--- {-# LANGUAGE TemplateHaskell       #-}
--- {-# LANGUAGE DatatypeContexts      #-}
+{-# LANGUAGE DeriveGeneric         #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -68,11 +67,13 @@ import Data.Hashable
 import Control.DeepSeq
 import qualified Data.Vector.Storable as VS
 import Linear.V2
+import Text.PrettyPrint.GenericPretty
 
 -- | Newtype wrapper for box types.
-newtype Box s = Bx {unBx :: V2 (Point2 s)} deriving (Eq, Ord)
+newtype Box s = Bx {unBx :: V2 (Point2 s)} deriving (Eq, Ord, Generic)
 -- | Pattern for taking apart boxes
 pattern Box topLeft bottomRight = Bx (V2 topLeft bottomRight)
+instance (Out s) => Out (Box s)
 
 instance (Space s) => HasSpace (Box s) where
   type SpaceOf (Box s) = s
@@ -207,7 +208,7 @@ instance (Storable s) => Storable (Box s) where
 sd = showFl . realToFrac
 
 instance Show s => Show (Box s) where
-  show (Box (Point2 left top) (Point2 right bottom)) = "Bx " ++ show left ++ ", " ++ show top ++ ", " ++ show right ++ ", " ++ show bottom
+  show (Box (Point2 left top) (Point2 right bottom)) = "Bx l" ++ show left ++ ", t" ++ show top ++ ", r" ++ show right ++ ", b" ++ show bottom
 
 instance {-# OVERLAPS #-} Show BoundingBox where
-  show (Box (Point2 left top) (Point2 right bottom)) = "Bx " ++ sd left ++ ", " ++ sd top ++ ", " ++ sd right ++ ", " ++ sd bottom
+  show (Box (Point2 left top) (Point2 right bottom)) = "Bx l" ++ sd left ++ ", t" ++ sd top ++ ", r" ++ sd right ++ ", b" ++ sd bottom

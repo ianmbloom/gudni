@@ -57,10 +57,11 @@ class (Space (SpaceOf t)) => CanProject u t where
 
     projectionWithStepsAccuracy :: Bool -> Int -> Maybe (SpaceOf t) -> u -> t -> t
 
+class Reversible t where
+    reverseItem :: t -> t
 
 class (Space (SpaceOf t)) => CanFit t where
     isForward :: t -> Bool
-    reverseItem :: t -> t
     projectTangent :: SpaceOf t -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> t -> t
     fillGap :: (Chain f) => f t -> f t -> f t
     projectOntoCurve :: Bool -> Int -> Maybe (SpaceOf t) -> SpaceOf t -> Bezier (SpaceOf t) -> t -> t

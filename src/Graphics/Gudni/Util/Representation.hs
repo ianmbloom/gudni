@@ -33,14 +33,18 @@ closedCircle :: forall s . Space s => s -> CompoundTree s
 closedCircle r =  scaleBy r . mask . shapeFrom $ (circle :: Outline s)
 
 class (HasSpace t) => HasRepresentation t where
-    represent :: Bool -> t -> ShapeTree Int (SpaceOf t)
+    represent :: Bool -> t -> ShapeTree token (SpaceOf t)
 
 instance  (Space s) => HasRepresentation (Bezier s) where
     represent _ bz@(Bez v0 c v1) =
-        let r = 5 in
-        overlap [ withColor red   $ translateBy v0 $ closedCircle r
-                , withColor blue  $ translateBy  c $ openCircle r
-                , withColor red   $ translateBy v1 $ closedCircle r
+        let r = 5
+            w = 10
+            h = 7.5
+        in
+        overlap [ withColor black $ mask . shapeFrom . withArrowHead (Point2 w h) PointingForward $ bz
+                --, withColor red   $ translateBy v0 $ closedCircle r
+                , withColor (light blue)  $ translateBy  c $ openCircle r
+                --, withColor red   $ translateBy v1 $ closedCircle r
                 , withColor black $ mask . shapeFrom . stroke 1 $ bz
                 ]
 

@@ -83,6 +83,7 @@ library
                      , Graphics.Gudni.Figure.Box
                      , Graphics.Gudni.Figure.Color
                      , Graphics.Gudni.Figure.ArcLength
+                     , Graphics.Gudni.Figure.Reversible
                      , Graphics.Gudni.Figure.OpenCurve
                      , Graphics.Gudni.Figure.Outline
                      , Graphics.Gudni.Figure.Point
@@ -137,6 +138,7 @@ library
                      , Graphics.Gudni.Layout.Adjacent
                      , Graphics.Gudni.Layout.Font
                      , Graphics.Gudni.Layout.Stroke
+                     , Graphics.Gudni.Layout.ArrowHead
                      , Graphics.Gudni.Layout.Text
                      , Graphics.Gudni.Util.CTypeConversion
                      , Graphics.Gudni.Util.StorableM
@@ -218,6 +220,8 @@ library
                      , IfElse
                      , filtrable
                      , numeric-limits
+                     , GenericPretty
+                     , pretty
 
 
   -- Directories containing source files.
@@ -419,6 +423,9 @@ executable confinetree
                    , lens
                    , vector
                    , mtl
+                   , GenericPretty
+                   , MonadRandom >=0.5 && <0.6
+                   , random >=1.1 && <1.2
   else
     buildable: False
   hs-source-dirs: ./src/Graphics/Gudni/Experimental
