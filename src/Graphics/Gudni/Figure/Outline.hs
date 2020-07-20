@@ -37,6 +37,7 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.BezierSpace
+import Graphics.Gudni.Figure.FitBezier
 import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Transformable
@@ -80,6 +81,13 @@ instance ( Chain f
    containedPoints = join . fmap unfoldBezier . view outlineSegments
    mapOverPoints f = over outlineSegments (fmap (over bzPoints (fmap f)))
 
+instance (Chain f, Space s) => SimpleTransformable (Outline_ f s) where
+    translateBy p = mapOverPoints (translateBy p)
+    scaleBy     s = mapOverPoints (scaleBy s)
+    stretchBy   p = mapOverPoints (stretchBy p)
+instance (Chain f, Space s) => Transformable (Outline_ f s) where
+    rotateBy    a = mapOverPoints (rotateBy a)
+
 -- | Close an open curve and convert it to an shape. An additional line segment is added if the outset and the terminator of
 -- the curve are not the same.
 closeOpenCurve :: forall f s . (Chain f, Space s) => OpenCurve_ f s -> Outline_ f s
@@ -102,8 +110,6 @@ windingIsClockwise = (<0) .
 
 windClockwise :: (Loop f, Reversible (f (Bezier s)), Space s, Show (f (Bezier s))) => Outline_ f s -> Outline_ f s
 windClockwise outline = if (tr "windingIsClockWise" $ windingIsClockwise $ tr "outline" outline) then outline else reverseItem outline
-
-
 
 pointInsideOutline :: (Loop f) => Space s => Outline_ f s -> Point2 s -> Bool
 pointInsideOutline poly point =
@@ -128,20 +134,15 @@ pointInsideOutline poly point =
     view outlineSegments $
     poly
 
-
-
 instance Reversible (f (Bezier s)) => Reversible (Outline_ f s) where
   reverseItem = over outlineSegments reverseItem
 
-instance ( s ~ SpaceOf (f (Bezier s))
-         , Monad f
-         , Alternative f
-         , Space s
-         , Loop f
+instance ( Space s
+         , Chain f
          )
          => CanProject (BezierSpace s) (Outline_ f s) where
     projectionWithStepsAccuracy debug max_steps m_accuracy bSpace curve =
-         Outline . projectionWithStepsAccuracy debug max_steps m_accuracy bSpace . view outlineSegments $ curve
+         Outline . join . fmap (projectBezierWithStepsAccuracy debug max_steps m_accuracy bSpace) . view outlineSegments $ curve
 
 -- * Instances
 instance (Space s) => HasSpace (Outline_ f s) where

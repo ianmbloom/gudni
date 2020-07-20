@@ -8,30 +8,52 @@ module Graphics.Gudni.Layout.Text
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Layout.Layout
+import Graphics.Gudni.Layout.Style
 import Graphics.Gudni.Layout.Font
-import Graphics.Gudni.Layout.Glyph
 import Graphics.Gudni.Layout.Adjacent
+import Data.Char (ord)
 
 import Control.Monad.State
 
-paragraph :: forall m . (MonadState FontCache m, Monad m)
-          => SubSpace
-          -> SubSpace
-          -> Alignment
-          -> Alignment
-          -> String
-          -> m (Glyph (CompoundTree SubSpace))
-paragraph gapX gapY alignX alignY string =
-  do  let stringLines = lines string
-      glyphLines <- mapM glyphString stringLines
-      let glyphRacks = map (rack alignY . distributeRack gapX) glyphLines
-      return . stack alignX . distributeStack gapY $ glyphRacks
+paragraphOf :: forall token s style
+            .  ( Space s
+               , IsStyle style)
+            => style
+            -> String
+            -> LayoutCompound s style
+paragraphOf style string =
+    let alignY = styleTextAlignY style
+        stringLines = lines string
+    in  stackOf style alignY defaultValue $ map (blurbOf style) stringLines
 
-blurb :: forall m . (MonadState FontCache m, Monad m)
-      => SubSpace
-      -> Alignment
-      -> String
-      -> m (Glyph (CompoundTree SubSpace))
-blurb gapX alignX string =
-  do  glyphs <- glyphString string
-      return $ rack alignX . distributeRack gapX $ glyphs
+paragraph :: forall token s style
+          .  ( Space s
+             , IsStyle style
+             )
+          => String
+          -> LayoutCompound s style
+paragraph = paragraphOf defaultValue
+
+blurbOf :: forall token s style
+           .  ( Space s
+              , IsStyle style
+              )
+           => style
+           -> String
+           -> LayoutCompound s style
+blurbOf style string =
+    let alignX = styleTextAlignX style
+        glyphs = map (glyphOf style) string
+    in  rackOf style alignX defaultValue $ glyphs
+
+blurb :: forall token s style
+      .  ( Space s
+         , IsStyle style
+         )
+      => String
+      -> LayoutCompound s style
+blurb = blurbOf defaultValue
+
+glyphOf :: style -> Char -> LayoutCompound s style
+glyphOf style = SLeaf . Glyph style . CodePoint . ord

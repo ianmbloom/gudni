@@ -23,6 +23,10 @@ module Graphics.Gudni.Util.Plot
   , roundedPolygon
   , makeArc
   , star
+  , Turtle(..)
+  , Turn(..)
+  , LR(..)
+  , initialTurtleState
   )
 where
 

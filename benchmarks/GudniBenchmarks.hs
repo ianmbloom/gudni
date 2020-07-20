@@ -55,7 +55,7 @@ instance Model BenchmarkState where
             let testName = (fst $ getTest state)
             let repMode = state ^. stateBase . stateRepMode
                 repDk   = state ^. stateBase . stateRepDk
-            statusTree <- (^?! unGlyph) <$> statusDisplay (state ^. stateBase) testName (lines status)
+            statusTree <- fromGlyph <$> statusDisplay (state ^. stateBase) testName (lines status)
             let tree = (if repMode then represent repDk else id) . transformFromState (state ^. stateBase) $ testScene
                 withStatus = if False then overlap [statusTree, tree] else tree
             return . Scene (light gray) $ withStatus

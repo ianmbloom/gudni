@@ -2,12 +2,10 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Graphics.Gudni.Figure.Cut
-  ( Axis(..)
-  , isVertical
-  , isHorizontal
-  , findCutBezier
+  ( findCutBezier
   , maybeCutPointBezier
   , CanCut(..)
   )
@@ -15,6 +13,7 @@ where
 
 import Linear
 
+import Graphics.Gudni.Figure.Axis
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Bezier
@@ -28,22 +27,14 @@ import Control.Lens
 import Control.Applicative
 import Text.PrettyPrint.GenericPretty
 
-data Axis = Vertical | Horizontal deriving (Eq, Show, Generic)
-instance Out Axis
-
-isVertical   axis = axis == Vertical
-isHorizontal axis = axis == Horizontal
-
-
 -- | Find the t parameter that cuts a bezier at verticle line x
-findCutBezier :: Space s => Axis -> s -> Bezier s -> s
+findCutBezier :: (Space s, Axis axis) => axis -> s -> Bezier s -> s
 findCutBezier axis cut bezier =
-    let axisLens = if axis == Vertical then pX else pY in
-    if (bezier ^. bzStart . axisLens <= bezier ^. bzEnd . axisLens)
-    then findSplit (\t ->         cut - (view (bzControl . axisLens) . insideBezier t $ bezier ))
-    else findSplit (\t -> negate (cut - (view (bzControl . axisLens) . insideBezier t $ bezier)))
+    if (bezier ^. bzStart . pick axis <= bezier ^. bzEnd . pick axis)
+    then findSplit (\t ->         cut - (view (bzControl . pick axis) . insideBezier t $ bezier ))
+    else findSplit (\t -> negate (cut - (view (bzControl . pick axis) . insideBezier t $ bezier)))
 
-maybeCutPointBezier :: Space s => Axis -> s -> Bezier s -> Maybe s
+maybeCutPointBezier :: (Space s, Axis axis) => axis -> s -> Bezier s -> Maybe s
 maybeCutPointBezier axis split bz =
   if canCut axis split bz
   then Just $ findCutBezier axis split bz
@@ -51,19 +42,17 @@ maybeCutPointBezier axis split bz =
 
 class (HasSpace t, Show (SpaceOf t)) => CanCut t where
    -- | Split item across horizontal or vertical line
-   splitAtCut :: Axis -> SpaceOf t -> t -> (t, t)
+   splitAtCut :: Axis axis => axis -> SpaceOf t -> t -> (t, t)
    -- | Determine if horizontal or vertical line cuts item
-   canCut     :: Axis -> SpaceOf t -> t -> Bool
+   canCut     :: Axis axis => axis -> SpaceOf t -> t -> Bool
 
 instance Space s => CanCut (Bezier s) where
    splitAtCut axis cut bezier =
-     let lens  = if axis == Vertical then pX else pY
-         splitT = findCutBezier axis cut bezier
+     let splitT = findCutBezier axis cut bezier
          (left,right) = splitBezier splitT bezier
          -- correct the split to be exactly the same as the cutpoint
-     in  (set (bzEnd . lens) cut left, set (bzStart . lens) cut right)
+     in  (set (bzEnd . pick axis) cut left, set (bzStart . pick axis) cut right)
    canCut axis splitPoint bz =
-       let lens  = if axis == Vertical then pX else pY
-           start = bz ^. bzStart . lens
-           end   = bz ^. bzEnd   . lens
+       let start = bz ^. bzStart . pick axis
+           end   = bz ^. bzEnd   . pick axis
        in  splitPoint > min start end && splitPoint < max start end

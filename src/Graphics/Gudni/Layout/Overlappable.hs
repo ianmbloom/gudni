@@ -1,4 +1,5 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Graphics.Gudni.Layout.Overlappable
   ( Overlappable(..)
@@ -7,17 +8,14 @@ module Graphics.Gudni.Layout.Overlappable
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Layout.Glyph
+import Graphics.Gudni.Layout.Empty
 
 import Control.Applicative
 
 class Overlappable a where
   combine :: a -> a -> a
 
-instance (HasSpace rep, HasDefault o) => Overlappable (Glyph (STree o rep)) where
-  combine = combineGlyph (SMeld defaultValue)
-
-instance (HasDefault o) => Overlappable (STree o rep) where
+instance (HasDefault (Meld i)) => Overlappable (STree i) where
   combine = SMeld defaultValue
 
 instance {-# Overlappable #-} (Applicative f, Overlappable a) => Overlappable (f a) where

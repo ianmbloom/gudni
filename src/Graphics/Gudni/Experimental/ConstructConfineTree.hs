@@ -3,10 +3,14 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE UndecidableSuperClasses    #-}
+{-# LANGUAGE TypeFamilies #-}
+
 
 module Graphics.Gudni.Experimental.ConstructConfineTree
   ( constructConfineTree
-  , constructConfineTreeFromBoxes
+  , constructConfine
+  , reasonableBoundaries
   )
 where
 
@@ -20,10 +24,8 @@ import GHC.Exts
 import Control.Lens
 import Control.Monad
 import Data.Maybe
+import Data.List
 import Text.PrettyPrint.GenericPretty
-
-boxToRectangle :: Space s => Box s -> CompoundTree s
-boxToRectangle box = mask . shapeFrom . translateBy (box ^. topLeftBox) . rectangle . sizeBox $ box
 
 reasonableBoundaries :: Space s => Box s
 reasonableBoundaries =
@@ -31,60 +33,8 @@ reasonableBoundaries =
       highPoint  = pure highValue
   in  Box (negate highPoint) highPoint
 
-squareAround :: Space s => s -> s -> CompoundTree s
-squareAround thickness size = translateBy (pure ((-size)/2)) . mask . strokeOffset 0 thickness . shapeFrom $ rectangle (pure size)
-
-splitBox axis cutPoint box =
-  if isVertical axis
-  then (set rightSide  cutPoint box, set leftSide cutPoint box)
-  else (set bottomSide cutPoint box, set topSide cutPoint box)
-
-
-boxSectionsVertical cutBox box =
-  let (top, rest)      = splitBox Horizontal (cutBox ^. topSide) box
-      (middle, bottom) = splitBox Horizontal (cutBox ^. bottomSide) rest
-  in  (top, middle, bottom)
-
-boxSectionsHorizontal cutBox box =
-  let (left, rest)    = splitBox Vertical (cutBox ^. leftSide ) box
-      (middle, right) = splitBox Vertical (cutBox ^. rightSide) rest
-  in  (left, middle, right)
-
-
-trimCurve :: forall s . (Space s) => Box s -> Bezier s -> Maybe (Bezier s)
-trimCurve box sourceBez = (trimVertical box >=> trimHorizontal box) sourceBez
-    where
-    bezBox = boxOf sourceBez
-    trim :: (Space s)
-         => Lens' (Box s) s
-         -> Axis
-         -> (s -> s -> Bool)
-         -> ((Bezier s, Bezier s) -> Bezier s)
-         -> Box s
-         -> Bezier s
-         -> Bezier s
-    trim side axis comp f box bez =
-        if (boxOf bez ^. side) `comp` (box ^. side)
-        then f $ splitAtCut axis (box ^. side) bez
-        else bez
-
-    trimVertical :: Box s
-                 -> Bezier s
-                 -> Maybe (Bezier s)
-    trimVertical box bez =
-        if (bezBox ^. rightSide > box ^. leftSide) && (bezBox ^. leftSide < box ^. rightSide)
-        then Just $ trim leftSide   Vertical   (<) snd box .
-                    trim rightSide  Vertical   (>) fst box $ bez
-        else Nothing
-
-    trimHorizontal :: Box s
-                   -> Bezier s
-                   -> Maybe (Bezier s)
-    trimHorizontal box bez =
-        if (bezBox ^. bottomSide > box ^. topSide) && (bezBox ^. topSide < box ^. bottomSide)
-        then Just $ trim topSide    Horizontal (<) snd box .
-                    trim bottomSide Horizontal (>) fst box $ bez
-        else Nothing
+squareAround :: forall s . Space s => s -> s -> CompoundTree s
+squareAround thickness size = translateBy (pure ((-size)/2)) . mask . strokeOffset 0 thickness $ (rectangle (pure size) :: Shape s)
 
 dec :: Maybe Int -> Maybe Int
 dec x = subtract 1 <$> x
@@ -94,142 +44,82 @@ testDepth depth = isNothing depth || fromJust depth > 0
 
 boxCenter box = ((box ^. topLeftBox) + (box ^. bottomRightBox)) / 2
 
-data CurveState s = Complete Bool | Curve (Bezier s) deriving (Show)
+class (Axis axis, AxisConstruction (NextAxis axis)) => AxisConstruction axis where
+  axisColor    :: axis -> Color
+  overlapBlock :: Space s => axis -> s -> s -> Box s -> Box s
+  axisLine     :: Space s => axis -> s -> Box s -> Bezier s
 
-data ShapeState s = ShS ConfineSubstanceId (CurveState s) deriving (Show)
+instance AxisConstruction Vertical where
+  axisColor Vertical     = red
+  axisLine  Vertical    cut boundary = line (Point2 cut (boundary ^. topSide + 4)) (Point2 cut (boundary ^. bottomSide - 4))
+  overlapBlock Vertical cut overlap boundary = makeBox cut (boundary ^. topSide) overlap (boundary ^. bottomSide)
 
-constructConfineTree :: forall m token . (Monad m) => ConfineTree SubSpace -> FontMonad m (ShapeTree token SubSpace)
-constructConfineTree tree = goV tree 0 reasonableBoundaries
+instance AxisConstruction Horizontal where
+  axisColor Horizontal   = blue
+  axisLine Horizontal     cut boundary = line (Point2 (boundary ^. leftSide + 4) cut) (Point2 (boundary ^. rightSide - 4) cut)
+  overlapBlock Horizontal cut overlap boundary = makeBox (boundary ^. leftSide) cut (boundary ^. rightSide) overlap
+
+bezierArrow :: (HasDefault token, Space s) => Bezier s -> ShapeTree token s
+bezierArrow bz@(Bez v0 c v1) =
+     let r = 5
+         w = 10
+         h = 7.5
+     in
+     overlap [ withColor black $ mask . withArrowHead (Point2 w h) PointingForward $ bz
+             --, withColor red   $ translateBy v0 $ closedCircle r
+             --, withColor (light blue)  $ translateBy  c $ openCircle r
+             --, withColor red   $ translateBy v1 $ closedCircle r
+             , withColor black $ mask . stroke 1 $ bz
+             ]
+
+
+constructConfine :: forall axis token s style . (HasDefault token, Space s, IsStyle style, AxisConstruction axis) => axis -> Confine axis s -> Box s -> Layout token s style
+constructConfine axis tree boundary =
+    let thickness :: s
+        thickness = 1
+        cut       = tree ^.  confineCut
+        overhang  = tree ^.  confineOverhang
+        anchorPoint = confineAnchorPoint tree
+        aColor = axisColor axis
+        aLine :: Bezier s
+        aLine = axisLine axis cut boundary
+        overhangBox :: Box s
+        overhangBox = overlapBlock axis cut overhang boundary
+        axisShape   = place . withColor (transparent 0.2 aColor) . mask . stroke thickness . makeOpenCurve $ [aLine]
+        overhangShape :: Layout token s style
+        overhangShape = place . withColor (transparent 0.1 aColor) . mask . boxToRectangle $ overhangBox
+        curve       = place . bezierArrow $ (tree ^. confineCurve)
+        --cornerColor = if even (tree ^. confineCornerWinding) then white else black
+    in
+    do let text = blurb (show $ tree ^. confineCurveTag)
+           label :: Layout token s style
+           label = translateBy (eval 0.5 (tree ^. confineCurve)) .
+                   scaleBy 40 .
+                   withColor (transparent 0.5 purple) $
+                   text
+       -- let cornerString = show (tree ^. confineCurveTag) ++ " " ++ show (confineAnchorPoint tree) ++ ":\n" ++
+       --                    show (tree ^. confineCornerWinding)
+       --                    ++ "\n" ++ intercalate "\n" (map show (tree ^. confineCornerHistory))
+       -- cornerText <- fromGlyph <$> paragraph 0.1 0.1 AlignMin AlignMin cornerString :: FontMonad m (CompoundTree s)
+       -- let corner = overlap [ withColor (transparent 0.5 cornerColor) . translateBy anchorPoint . closedCircle $ 4
+       --                      , withColor (transparent 0.5 aColor) . translateBy anchorPoint . closedCircle $ 6
+       --                      --, withColor cornerColor . translateBy anchorPoint . translateByXY 6 (-7.5) . scaleBy 15 $ cornerText
+       --                      ]
+       overlap $ [label, {-corner,-} curve, axisShape{-, overhangShape-}]
+
+constructConfineTree :: forall token s style . (HasDefault token, Space s, IsStyle style) => ConfineTree s -> Layout token s style
+constructConfineTree tree = go Vertical tree 0 reasonableBoundaries
   where
-  thickness = 1
-  goV :: BranchV SubSpace -> Int -> Box SubSpace -> FontMonad m (ShapeTree token SubSpace)
-  goV mVTree depth boundary =
-       if widthOf boundary > 0 && heightOf boundary > 0
-       then case mVTree of
-                Nothing -> return emptyItem
-                Just vTree ->
-                    let xCut        = vTree ^. confineBranch . confineXCut
-                        xOverlap  = vTree ^. confineBranch . confineXOverlap
-                        curveBox  = boxOf (vTree ^. confineCurve) :: Box SubSpace
-                        (leftBound, rightBound) = splitBox Vertical xCut boundary
-                        orientColor = red
-                        vertLine    = withColor (transparent 0.2 orientColor) . mask . shapeFrom . stroke thickness . makeOpenCurve . pure $
-                                      line (Point2 xCut (boundary ^. topSide + 4)) (Point2 xCut (boundary ^. bottomSide - 4))
-                        -- vertical    = withColor (transparent 0.05 orientColor) . boxToRectangle $
-                        --               makeBox xCut (boundary ^. topSide) xOverlap (boundary ^. bottomSide)
-                        curve       = represent False (vTree ^. confineCurve)
-                        cornerColor = transparent 0.5 $ if even (vTree ^. confineCornerWinding) then white else black
-                    in
-                    do leftBranch  <- goH (vTree ^. confineBranch . confineLeft ) (depth + 1) leftBound
-                       rightBranch <- goH (vTree ^. confineBranch . confineRight) (depth + 1) rightBound
-                       text <- (^?! unGlyph) <$> blurb 0.1 AlignMin (show $ vTree ^. confineCurveTag) :: FontMonad m (CompoundTree SubSpace)
-                       let label = translateBy (boxCenter curveBox) .
-                                   scaleBy 20 .
-                                   withColor (transparent 0.5 (dark red)) $
-                                   text
-                       cornerText <- (^?! unGlyph) <$> blurb 0.1 AlignMin (show (vTree ^. confineCornerWinding)) :: FontMonad m (CompoundTree SubSpace)
-                       let corner      = overlap [ withColor cornerColor . translateBy (curveBox ^. topLeftBox) . closedCircle $ 4
-                                                 , withColor (transparent 0.5 orientColor) . translateBy (curveBox ^. topLeftBox) . closedCircle $ 6
-                                                 , withColor cornerColor . translateBy (curveBox ^. topLeftBox) . translateByXY 3 (-7.5) . scaleBy 15 $ cornerText
-                                                 ]
-                       return $ overlap [label, corner, curve, vertLine, {-vertical,-} leftBranch, rightBranch]
-       else return emptyItem
-  goH :: BranchH SubSpace -> Int -> Box SubSpace -> FontMonad m (ShapeTree token SubSpace)
-  goH mHTree depth boundary =
-       if widthOf boundary > 0 && heightOf boundary > 0
-       then case mHTree of
-                Nothing -> return emptyItem
-                Just hTree ->
-                    let yCut      = hTree ^. confineBranch . confineYCut
-                        yOverlap  = hTree ^. confineBranch . confineYOverlap
-                        curveBox  = boxOf (hTree ^. confineCurve)
-                        (topBound, bottomBound) = splitBox Horizontal yCut boundary
-                        orientColor  = blue
-                        horiLine     = withColor (transparent 0.5 orientColor) . mask . shapeFrom . stroke thickness . makeOpenCurve . pure $
-                                       line (Point2 (boundary ^. leftSide + 4) yCut) (Point2 (boundary ^. rightSide - 4) yCut)
-                        --horizontal   = withColor (transparent 0.05 orientColor) . boxToRectangle $
-                        --               makeBox (boundary ^. leftSide) yCut (boundary ^. rightSide) yOverlap
-                        curve        = represent False (hTree ^. confineCurve)
-                        cornerColor = if even (hTree ^. confineCornerWinding) then white else black
-                    in
-                    do  topBranch    <- goV (hTree ^. confineBranch . confineTop   ) (depth + 1) topBound
-                        bottomBranch <- goV (hTree ^. confineBranch . confineBottom) (depth + 1) bottomBound
-                        text <- (^?! unGlyph) <$> blurb 0.1 AlignMin (show $ hTree ^. confineCurveTag) :: FontMonad m (CompoundTree SubSpace)
-                        let label = translateBy (boxCenter curveBox) .
-                                    scaleBy 20 .
-                                    withColor (transparent 0.5 (dark blue)) $
-                                    text
-                        cornerText <- (^?! unGlyph) <$> blurb 0.1 AlignMin (show (hTree ^. confineCornerWinding)) :: FontMonad m (CompoundTree SubSpace)
-                        let corner      = overlap [ withColor cornerColor . translateBy (curveBox ^. topLeftBox) . closedCircle $ 4
-                                                  , withColor (transparent 0.5 orientColor) . translateBy (curveBox ^. topLeftBox) . closedCircle $ 6
-                                                  , withColor cornerColor . translateBy (curveBox ^. topLeftBox) . translateByXY 3 (-7.5) . scaleBy 15 $ cornerText
-                                                  ]
-                        return $ overlap [label, corner, curve, horiLine, {-horizontal,-} topBranch, bottomBranch]
-       else return emptyItem
-
-confineTreeBoxes :: forall s . Space s => ConfineTree s -> [Box s]
-confineTreeBoxes tree = goV tree reasonableBoundaries
-  where
-  goV :: BranchV s -> Box s -> [Box s]
-  goV mVTree boundary =
-       if widthOf boundary > 0 && heightOf boundary > 0
-       then case mVTree of
-                Nothing -> [boundary]
-                Just vTree ->
-                    let xCut        = vTree ^. confineBranch . confineXCut
-                        (leftBound, rightBound) = splitBox Vertical xCut boundary
-                        leftBranch  = goH (vTree ^. confineBranch . confineLeft ) leftBound
-                        rightBranch = goH (vTree ^. confineBranch . confineRight) rightBound
-                    in  leftBranch ++ rightBranch
-       else [boundary]
-  goH :: BranchH s -> Box s -> [Box s]
-  goH mHTree boundary =
-       if widthOf boundary > 0 && heightOf boundary > 0
-       then case mHTree of
-                Nothing -> [boundary]
-                Just hTree ->
-                    let yCut         = hTree ^. confineBranch . confineYCut
-                        (topBound, bottomBound) = splitBox Horizontal yCut boundary
-                        topBranch    = goV (hTree ^. confineBranch . confineTop   ) topBound
-                        bottomBranch = goV (hTree ^. confineBranch . confineBottom) bottomBound
-                    in  topBranch ++ bottomBranch
-       else [boundary]
-
-curvesInBox :: forall s . Space s => ConfineTree s -> Box s -> [Bezier s]
-curvesInBox tree box = catMaybes . map (trimCurve box) . goV $ tree
-    where
-    goV :: BranchV s -> [Bezier s]
-    goV mVTree =
-        case mVTree of
-            Nothing -> []
-            Just vTree ->
-                let xCut        = vTree ^. confineBranch . confineXCut
-                    xOverlap    = vTree ^. confineBranch . confineXOverlap
-                    curve       = vTree ^. confineCurve
-                    leftBranch  = if xOverlap > box ^. leftSide  then         goH (vTree ^. confineBranch . confineLeft ) else []
-                    rightBranch = if xCut     < box ^. rightSide then curve : goH (vTree ^. confineBranch . confineRight) else []
-                in  leftBranch ++ rightBranch
-    goH :: BranchH s -> [Bezier s]
-    goH mHTree =
-        case mHTree of
-            Nothing -> []
-            Just hTree ->
-                let yCut         = hTree ^. confineBranch . confineYCut
-                    yOverlap     = hTree ^. confineBranch . confineYOverlap
-                    curve        = hTree ^. confineCurve
-                    topBranch    = if yOverlap > box ^. topSide    then         goV (hTree ^. confineBranch . confineTop   ) else []
-                    bottomBranch = if yCut     < box ^. bottomSide then curve : goV (hTree ^. confineBranch . confineBottom) else []
-                in  topBranch ++ bottomBranch
-
-drawCurve :: Space s => Bezier s -> ShapeTree token s
-drawCurve bez =
-  let s = bez ^. bzStart
-      e = bez ^. bzEnd
-      i = insideBoundaryPoint bez
-  in  withColor (light green) . mask . shapeFrom $ makeOutline [line e i, line i s, bez]
-
-
-
-constructConfineTreeFromBoxes :: forall s token . (Out s, Space s) => ConfineTree s -> ShapeTree token s
-constructConfineTreeFromBoxes tree =
-    overlap . map (drawCurve) . concatMap (curvesInBox tree) . confineTreeBoxes $ tree
+  go :: (Axis axis, AxisConstruction axis) => axis -> Branch axis s -> Int -> Box s -> Layout token s style
+  go axis mTree depth boundary =
+        if widthOf boundary > 0 && heightOf boundary > 0
+        then case mTree of
+                 Nothing -> emptyItem
+                 Just tree ->
+                        let confine = constructConfine axis tree boundary
+                            cut     = tree ^.  confineCut
+                            (lessBound, moreBound) = splitBox axis cut boundary
+                            lessBranch = go (nextAxis axis) (tree ^.  confineLessCut) (depth + 1) lessBound
+                            moreBranch = go (nextAxis axis) (tree ^.  confineMoreCut) (depth + 1) moreBound
+                        in  overlap [confine, lessBranch, moreBranch]
+        else emptyItem

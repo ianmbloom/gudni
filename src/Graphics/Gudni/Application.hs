@@ -57,7 +57,6 @@ import Graphics.Gudni.Interface.ScreenMode
 import Graphics.Gudni.Interface.Time
 import Graphics.Gudni.Interface.FontLibrary
 import Graphics.Gudni.Interface.Query
-import Graphics.Gudni.Interface.Token
 
 import Graphics.Gudni.OpenCL.Setup
 import Graphics.Gudni.OpenCL.Rasterizer

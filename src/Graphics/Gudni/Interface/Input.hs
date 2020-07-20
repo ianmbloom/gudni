@@ -35,7 +35,6 @@ module Graphics.Gudni.Interface.Input
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Interface.Token
 import Control.Lens
 import Control.Monad.State
 

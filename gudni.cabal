@@ -57,7 +57,6 @@ library
   -- Modules exported by the library.
   exposed-modules:     Graphics.Gudni.Application
                      , Graphics.Gudni.Interface.BasicSceneState
-                     , Graphics.Gudni.Figure.ShapeTree
                      , Graphics.Gudni.Figure
                      , Graphics.Gudni.Figure.Bezier
                      , Graphics.Gudni.Figure.CurvePair
@@ -76,10 +75,13 @@ library
                      , Graphics.Gudni.Experimental.Scaffolding
                      , Graphics.Gudni.Experimental.ConfineTree
                      , Graphics.Gudni.Experimental.ConstructConfineTree
+                     , Graphics.Gudni.Experimental.ConstructConfineQuery
+                     , Graphics.Gudni.Experimental.SerializeConfineTree
                      , Graphics.Gudni.Experimental.TreeOrderTable
 
   -- Modules included in this library but not exported.
   other-modules:       Graphics.Gudni.Figure.HasDefault
+                     , Graphics.Gudni.Figure.Axis
                      , Graphics.Gudni.Figure.Box
                      , Graphics.Gudni.Figure.Color
                      , Graphics.Gudni.Figure.ArcLength
@@ -92,6 +94,8 @@ library
                      , Graphics.Gudni.Figure.Cut
                      , Graphics.Gudni.Figure.Substance
                      , Graphics.Gudni.Figure.Projection
+                     , Graphics.Gudni.Figure.Shape
+                     , Graphics.Gudni.Figure.ShapeTree
                      , Graphics.Gudni.Figure.FitBezier
                      , Graphics.Gudni.Figure.FitFacet
                      , Graphics.Gudni.Figure.BezierSpace
@@ -101,6 +105,7 @@ library
                      , Graphics.Gudni.Figure.Picture
                      , Graphics.Gudni.Figure.Facet
                      , Graphics.Gudni.Figure.Gradient
+                     , Graphics.Gudni.Figure.Token
                      , Graphics.Gudni.Interface.DrawTarget
                      , Graphics.Gudni.Interface.FontLibrary
                      , Graphics.Gudni.Interface.Input
@@ -108,7 +113,6 @@ library
                      , Graphics.Gudni.Interface.GLInterop
                      , Graphics.Gudni.Interface.ScreenMode
                      , Graphics.Gudni.Interface.Time
-                     , Graphics.Gudni.Interface.Token
                      , Graphics.Gudni.Interface.Query
                      , Graphics.Gudni.Raster.Constants
                      , Graphics.Gudni.OpenCL.Setup
@@ -131,7 +135,12 @@ library
                      , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.SubstanceInfo
                      , Graphics.Gudni.Raster.TextureReference
-                     , Graphics.Gudni.Layout.Glyph
+                     , Graphics.Gudni.Layout.Fill
+                     , Graphics.Gudni.Layout.Empty
+                     , Graphics.Gudni.Layout.Style
+                     , Graphics.Gudni.Layout.Alignment
+                     , Graphics.Gudni.Layout.Compound
+                     , Graphics.Gudni.Layout.Layout
                      , Graphics.Gudni.Layout.Draw
                      , Graphics.Gudni.Layout.Grid
                      , Graphics.Gudni.Layout.Overlappable
@@ -140,11 +149,14 @@ library
                      , Graphics.Gudni.Layout.Stroke
                      , Graphics.Gudni.Layout.ArrowHead
                      , Graphics.Gudni.Layout.Text
+                     , Graphics.Gudni.Layout.MaybeBox
                      , Graphics.Gudni.Util.CTypeConversion
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Pile
+                     , Graphics.Gudni.Util.FlattenShapeTree
                      , Graphics.Gudni.Util.Chain
                      , Graphics.Gudni.Util.Loop
+
                      , Graphics.Gudni.Util.RandomField
 
   -- LANGUAGE extensions used by modules in this package.
@@ -422,7 +434,9 @@ executable confinetree
                    , base
                    , lens
                    , vector
+                   , containers
                    , mtl
+                   , IfElse
                    , GenericPretty
                    , MonadRandom >=0.5 && <0.6
                    , random >=1.1 && <1.2

@@ -10,6 +10,7 @@
 module Graphics.Gudni.Figure.FitBezier
   ( projPoint
   , bezierPointAndNormal
+  , projectBezierWithStepsAccuracy
   )
 where
 
@@ -44,15 +45,11 @@ import Data.Maybe (fromMaybe, fromJust)
 
 instance Reversible (Bezier s) where
     reverseItem = reverseBezier
-    
-instance ( s ~ (SpaceOf (f (Bezier s)))
-         , Space s
-         , Chain f
 
-         ) => CanProject (BezierSpace s) (f (Bezier s)) where
-    projectionWithStepsAccuracy debug max_steps m_accuracy bSpace beziers =
-        let fixed = join . fmap (replaceKnob verticalAxis) $ beziers
-        in  join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ fixed
+projectBezierWithStepsAccuracy :: (Space s, Chain f) => Bool -> Int -> Maybe s -> BezierSpace s -> Bezier s -> f (Bezier s)
+projectBezierWithStepsAccuracy debug max_steps m_accuracy bSpace bezier =
+    let fixed = replaceKnob verticalAxis bezier
+    in  join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ fixed
 
 
 instance (Space s, Reversible (Bezier s))=> CanFit (Bezier s) where
@@ -111,7 +108,7 @@ instance (Space s, Reversible (Bezier s))=> CanFit (Bezier s) where
                                                        else (midY, bottom)
                                    in findControl left' top' right' bottom' (count-1)
                             else ltControl
-                     finalControl = findControl (-1000) 2000 1000 (-2000) 16
+                     finalControl = findControl (-10000) 20000 10000 (-20000) 16
                  in  Bez p0 finalControl p1
 
 projectTangentPoint :: Space s => s -> Point2 s -> Diff Point2 s -> Point2 s -> Point2 s

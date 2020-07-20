@@ -28,6 +28,7 @@ module Graphics.Gudni.Layout.Glyph
   , combineGlyph
   , HasEmpty(..)
   , glyphWrapShape
+  , fromGlyph
   )
 where
 
@@ -88,7 +89,8 @@ minPoint :: Ord s => Point2 s -> Point2 s -> Point2 s
 maxPoint (Point2 x0 y0) (Point2 x1 y1) = Point2 (max x0 x1) (max y0 y1)
 minPoint (Point2 x0 y0) (Point2 x1 y1) = Point2 (min x0 x1) (min y0 y1)
 
-combineGlyph :: (HasSpace rep)
+combineGlyph :: (HasSpace rep
+                ,HasEmpty rep)
              => (rep -> rep -> rep)
              -> Glyph rep
              -> Glyph rep
@@ -102,9 +104,13 @@ combineGlyph op a b =
   else
   let tl = minPoint (a ^?! glyphBox . topLeftBox    ) (b ^?! glyphBox . topLeftBox    )
       br = maxPoint (a ^?! glyphBox . bottomRightBox) (b ^?! glyphBox . bottomRightBox)
-  in  Glyph (Box tl br) (op (a ^?! unGlyph) (b ^?! unGlyph))
+  in  Glyph (Box tl br) (op (fromGlyph a) (fromGlyph b))
 
 glyphWrapShape :: Space s => Shape s -> Glyph (CompoundTree s)
 glyphWrapShape shape =
    let box = foldl1 minMaxBox $ map boxOf $ view shapeOutlines shape
    in  Glyph box (SLeaf shape)
+
+fromGlyph :: (HasEmpty a) => Glyph a -> a
+fromGlyph (Glyph box a) = a
+fromGlyph EmptyGlyph    = emptyItem

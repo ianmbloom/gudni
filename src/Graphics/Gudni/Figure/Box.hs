@@ -7,6 +7,7 @@
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE IncoherentInstances   #-}
 {-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE Rank2Types            #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -30,14 +31,18 @@ module Graphics.Gudni.Figure.Box
   , topRightBox
   , bottomLeftBox
   , topLeftBox
+  , minBox
   , bottomRightBox
+  , maxBox
   , leftSide
   , topSide
   , rightSide
   , bottomSide
+  , acrossBox
   , widthBox
   , heightBox
   , mapBox
+  , splitBox
   , sizeBox
   , areaBox
   , minMaxBox
@@ -48,6 +53,7 @@ module Graphics.Gudni.Figure.Box
   ) where
 
 import Graphics.Gudni.Figure.Space
+import Graphics.Gudni.Figure.Axis
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Transformable
 
@@ -90,9 +96,6 @@ instance HasBox (Box s) where
 instance HasBox (Point2 s) where
   boxOf p = Box p p
 
-instance (Functor f, HasSpace (f a), SpaceOf a ~ SpaceOf (f a), Foldable f, HasBox a) => HasBox (f a) where
-  boxOf = minMaxBoxes . fmap boxOf
-
 -- | Get the width of a box.
 widthOf :: (Num (SpaceOf a), HasBox a) => a -> SpaceOf a
 widthOf a = let box = boxOf a in box ^. rightSide - box ^. leftSide
@@ -110,6 +113,12 @@ topLeftBox elt_fn (Box topLeft bottomRight) = (\topLeft' -> Box topLeft' bottomR
 -- | 'Lens' for the bottom right point of a box.
 bottomRightBox :: Lens' (Box s) (Point2 s)
 bottomRightBox elt_fn (Box topLeft bottomRight) = (\bottomRight' -> Box topLeft bottomRight') <$> elt_fn bottomRight
+
+minBox :: Lens' (Box s) (Point2 s)
+minBox = topLeftBox
+maxBox :: Lens' (Box s) (Point2 s)
+maxBox = bottomRightBox
+
 -- | 'Lens' for the top right corner of a box.
 topRightBox :: Lens' (Box s) (Point2 s)
 topRightBox   elt_fn (Box (Point2 left top) (Point2 right bottom)) =
@@ -119,13 +128,16 @@ bottomLeftBox :: Lens' (Box s) (Point2 s)
 bottomLeftBox elt_fn (Box (Point2 left top) (Point2 right bottom)) =
   (\(Point2 left' bottom') -> Box (Point2 left' top) (Point2 right bottom')) <$> elt_fn (Point2 left bottom)
 
+acrossBox :: (Num s, Axis axis) => axis -> Lens' (Box s) s
+acrossBox axis elt_fn box = (\across -> set (maxBox . along axis) (box ^. minBox . along axis + across) box)
+                     <$> elt_fn (box ^. maxBox . along axis - box ^. minBox . along axis)
+
 widthBox :: Num s => Lens' (Box s) s
-widthBox elt_fn (Box (Point2 left top) (Point2 right bottom)) =
-  (\width -> Box (Point2 left top) (Point2 (left + width) bottom)) <$> elt_fn (right - left)
+widthBox = acrossBox Horizontal
 
 heightBox :: Num s => Lens' (Box s) s
-heightBox elt_fn (Box (Point2 left top) (Point2 right bottom)) =
-  (\height -> Box (Point2 left top) (Point2 right (top + height))) <$> elt_fn (bottom - top)
+heightBox = acrossBox Vertical
+
 -- | 'Lens' for the left side of a box.
 leftSide       :: Lens' (Box s) s
 leftSide = topLeftBox . pX
@@ -154,6 +166,12 @@ emptyBox = Box zeroPoint zeroPoint
 -- | Map over the top left and bottom right points of the box.
 mapBox :: (Point2 t -> Point2 s) -> Box t -> Box s
 mapBox f (Box tl br) = Box (f tl) (f br)
+
+splitBox :: (Space s, Axis a) => a -> s -> Box s -> (Box s, Box s)
+splitBox axis cutPoint box =
+    ( set (maxBox . pick axis) cutPoint box
+    , set (minBox . pick axis) cutPoint box
+    )
 
 -- | True if the box has zero height and zero width.
 isZeroBox :: (HasBox (Box s), Num s, Eq s) => Box s -> Bool

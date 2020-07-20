@@ -4,6 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE FlexibleContexts           #-}
 
@@ -22,6 +23,7 @@
 
 module Graphics.Gudni.Util.Pile
   ( Reference (..)
+  , nullReference
   , Breadth (..)
   , refToBreadth
   , Slice (..)
@@ -51,6 +53,7 @@ where
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.StorableM
+import Graphics.Gudni.Raster.Constants
 
 import Data.List
 import Data.Vector.Storable ((!))
@@ -69,15 +72,25 @@ import Foreign.Marshal.Array(peekArray)
 import Foreign.Storable
 import Foreign.Marshal.Alloc
 
+import Text.PrettyPrint.GenericPretty
+import Text.PrettyPrint
+
 import GHC.Ptr
 
 -- Additional amount to reallocate with each step.
 dEFAULTpILEaLLOCATION = 1024 :: Int
 
 type Reference_ = CUInt
-newtype Reference t = Ref {unRef :: Reference_}    deriving (Eq, Ord, Num, Enum, Real, Integral)
+instance Out Reference_ where
+    doc x = text . show $ x
+    docPrec _ = doc
+
+nullReference = Ref nULLrEFERENCE
+
+newtype Reference t = Ref {unRef :: Reference_}    deriving (Eq, Ord, Num, Enum, Real, Integral, Generic)
 instance Show (Reference t) where
   show (Ref i) = show i
+instance Out (Reference t)
 
 instance NFData (Reference t) where
   rnf (Ref i) = i `deepseq` ()

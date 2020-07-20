@@ -27,21 +27,12 @@ module Graphics.Gudni.Layout.Font
   , emptyFontCache
   , FontMonad (..)
   , runFontMonad
-  , HasGlyph(..)
-  , glyphString
   , addFont
+  , getGlyph
   )
 where
 
-import Graphics.Gudni.Figure.Space
-import Graphics.Gudni.Figure.Box
-import Graphics.Gudni.Figure.Point
-import Graphics.Gudni.Figure.Outline
-import Graphics.Gudni.Figure.CurvePair
-import Graphics.Gudni.Figure.Transformer
-import Graphics.Gudni.Figure.ShapeTree
-
-import Graphics.Gudni.Layout.Glyph
+import Graphics.Gudni.Figure
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
@@ -80,7 +71,7 @@ instance Show CodePoint where
 data FontCache =
   FontCache
   { -- | Map from CodePoints to cached glyphs.
-    _gCMap  :: M.Map CodePoint (Glyph (CompoundTree SubSpace))
+    _gCMap  :: M.Map CodePoint (Shape SubSpace, Maybe (Box SubSpace))
     -- | Original font data structure. Contains an error message depending on how the font is loaded.
   , _gCFont :: Either String F.Font
   } deriving (Show)
@@ -122,7 +113,7 @@ rightOrError (Right t) = t
 rightOrError (Left err) = error err
 
 -- | Retrieve a glyph from the glyphCache, read it from the font file if necessary.
-getGlyph :: (MonadState FontCache m, Monad m) => CodePoint -> m (Glyph (CompoundTree SubSpace))
+getGlyph :: (MonadState FontCache m, Monad m) => CodePoint -> m (Shape SubSpace, Maybe (Box SubSpace))
 getGlyph codepoint =
   do  -- the current map from codepoints to previously decoded glyphs.
       dict <- use gCMap
@@ -155,32 +146,14 @@ getGlyph codepoint =
                 vertices = map (map (flipY (fromIntegral $ height)) . VU.toList) contours
                 -- create outlines from the lists of vertices by converting them to Point2 SubSpace and scaling them
                 -- by the fontfactor, this means a normal glyph will have a height of 1 in SubSpace.
-                outlines :: Shape SubSpace
-                outlines =  Shape . map (Outline . pairsToBeziers . V.fromList . pairPoints . map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) $ vertices
+                shape :: Shape SubSpace
+                shape =  Shape . map (Outline . pairsToBeziers . V.fromList . pairPoints . map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) $ vertices
                 -- build the Glyph constructor including the metadata and the outlines.
-                glyph :: Glyph (CompoundTree SubSpace)
-                glyph = Glyph { _glyphBox = Box zeroPoint (Point2 (realToFrac advance * fontScaleFactor) (realToFrac (ascent + descent) * fontScaleFactor))
-                              , _unGlyph  = SLeaf outlines
-                              }
+                glyphBox :: Box SubSpace
+                glyphBox = Box zeroPoint (Point2 (realToFrac advance * fontScaleFactor) (realToFrac (ascent + descent) * fontScaleFactor))
+                glyph :: (Shape SubSpace, Maybe (Box SubSpace))
+                glyph = (shape, Just glyphBox)
             in  do  -- insert the new glyph into the cache.
                     gCMap .= M.insert codepoint glyph dict
                     -- return it as well.
                     return glyph
-
-class HasGlyph a where
-  glyph :: (MonadState FontCache m, Monad m) => CodePoint -> m a
-
-instance HasGlyph (CompoundTree SubSpace) where
-  glyph codePoint = do g <- getGlyph codePoint
-                       case g of
-                           Glyph _ a  -> return a
-                           EmptyGlyph -> return SEmpty
-
-instance HasGlyph (Glyph (CompoundTree SubSpace)) where
-  glyph = getGlyph
-
--- | Convert a string of characters to a list of glyphs in the FontMonad.
-glyphString :: (MonadState FontCache m, Monad m, HasGlyph a)
-            => String
-            -> m [a]
-glyphString = mapM (glyph . CodePoint . ord)

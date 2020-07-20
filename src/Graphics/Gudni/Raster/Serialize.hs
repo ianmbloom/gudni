@@ -185,7 +185,7 @@ onShape :: MonadIO m
         -> SerialMonad token s m (Maybe BoundingBox)
 onShape rasterizer canvasSize substanceTag combineType transformer shape =
   do let transformedOutlines = map (mapOverPoints (fmap clampReasonable) . applyTransformer transformer) $ view shapeOutlines shape
-         boundingBox = boxOf transformedOutlines
+         boundingBox = minMaxBoxes . fmap boxOf $ transformedOutlines
      if excludeBox canvasSize boundingBox
      then return ()
      else do substanceTagId <- SubstanceTagId . sliceStart <$> addToPileState serSubstanceTagPile substanceTag
@@ -219,9 +219,7 @@ addHardFacet substanceTagId hardFacet =
      addItem boundingBox [facetTag]
 
 
-eitherMaybe f a b = f <$> a <*> b <|> a <|> b
-firstMaybe  f a b = f <$> a <*> b <|> a
-secondMaybe f a b = f <$> a <*> b       <|> b
+combineBoxes compound = liftA2 minMaxBox
 
 -- | For each shape in the shapeTree serialize the substance metadata and serialize the compound subtree.
 onSubstance :: forall m item token .
@@ -243,7 +241,7 @@ onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap transformer
         let (subTransform, baseSubstance) = breakdownSubstance substance
         descriptionReference <- sliceStart <$> addToPileState serDescriptionPile (asBytes baseSubstance)
         let substanceTag = substanceAndRefToTag baseSubstance descriptionReference
-        mShapeBox <- traverseCompoundTree defaultValue transformer (onShape rasterizer canvasSize substanceTag) (liftA2 minMaxBox) Nothing subTree
+        mShapeBox <- traverseCompoundTree defaultValue transformer (onShape rasterizer canvasSize substanceTag) combineBoxes Nothing subTree
         case mToken of
              Nothing -> return ()
              Just token ->
@@ -290,7 +288,7 @@ buildOverScene rasterizer canvasSize scene =
        liftIO $ putStrLn "===================== Serialize scene start ====================="
        serBackgroundColor .= scene ^. sceneBackgroundColor
        -- Serialize the shape tree.
-       traverseShapeTree (onSubstance rasterizer canvasSize textureSpaceToSubspace (SubSpace tAXICABfLATNESS)) (\ _ _ -> ()) () (scene ^. sceneShapeTree)
+       traverseShapeTree (onSubstance rasterizer canvasSize textureSpaceToSubspace (SubSpace $ realToFrac tAXICABfLATNESS)) (\ _ _ _ -> ()) () (scene ^. sceneShapeTree)
        liftIO $ putStrLn "===================== Serialize scene end   ====================="
 
 outputSerialState :: (Show s, Show token, Storable (HardFacet_ s))

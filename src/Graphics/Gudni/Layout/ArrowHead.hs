@@ -30,23 +30,23 @@ import Control.Monad
 
 data ArrowDirection = PointingForward | PointingBackward deriving (Eq, Show)
 
-defaultArrowHead :: Space s => Point2 s -> ArrowDirection -> Outline s
-defaultArrowHead size direction = stretchBy size $ fromSegments [straightXY (-1) (-0.5), straightXY 0 0, straightXY (-1) 0.5]
+defaultArrowHead :: (Loop f, Space s) => Point2 s -> ArrowDirection -> Shape_ f s
+defaultArrowHead size direction = Shape . pure . stretchBy size $ fromSegments [straightXY (-1) (-0.5), straightXY 0 0, straightXY (-1) 0.5]
 
 class (Space (SpaceOf t), HasSpace t, HasArcLength t, Reversible t) => CanArrow t where
-  withArrowHeadOffsetShape :: Outline (SpaceOf t) -> Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> Outline (SpaceOf t)
+  withArrowHeadOffsetShape :: (Loop f) => Shape_ f (SpaceOf t) -> Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> Shape_ f (SpaceOf t)
 
-  withArrowHeadOffset :: Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> Outline (SpaceOf t)
+  withArrowHeadOffset :: (Loop f) => Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> Shape_ f (SpaceOf t)
   withArrowHeadOffset offset size direction = withArrowHeadOffsetShape (defaultArrowHead size direction) offset size direction
 
-  withArrowHead :: Point2 (SpaceOf t) -> ArrowDirection -> t -> Outline (SpaceOf t)
+  withArrowHead :: (Loop f) => Point2 (SpaceOf t) -> ArrowDirection -> t -> Shape_ f (SpaceOf t)
   withArrowHead size direction t =
     let len = arcLength t
         t' = if direction == PointingForward then t else reverseItem t
         offset = Point2 len 0
     in  withArrowHeadOffset offset size direction t'
 
-instance (Space s) => CanArrow (OpenCurve s) where
+instance (Loop f, Space s) => CanArrow (OpenCurve_ f s) where
   withArrowHeadOffsetShape shape offset size direction path =
     projectOnto False path . translateBy offset $ shape
 

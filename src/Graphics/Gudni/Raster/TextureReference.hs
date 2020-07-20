@@ -136,7 +136,7 @@ assignPictUsage mapping (SRep token substance rep) =
 
 withScenePictureMemory :: (MonadIO m)
                        => PictureMap
-                       -> Scene (ShapeTree token s)
+                       -> Scene (FullShapeTree token s)
                        -> (Scene (ShapeTreePictureMemory token s) -> Pile Word8 -> m a)
                        -> m a
 withScenePictureMemory pictureMap scene code =

@@ -14,6 +14,7 @@ module Graphics.Gudni.Figure.BezierSpace
   )
 where
 
+import Graphics.Gudni.Figure.Axis
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Point

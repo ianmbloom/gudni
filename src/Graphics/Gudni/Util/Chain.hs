@@ -23,6 +23,7 @@ instance HasElements (V.Vector a) where
 instance HasElements [a] where
   type ElemOf [a] = a
 
+
 class (Alternative t, Monad t, Functor t, Foldable t, Eq1 t) => Chain t where
   firstLink:: t a -> a
   rest     :: t a -> t a
@@ -35,6 +36,8 @@ class (Alternative t, Monad t, Functor t, Foldable t, Eq1 t) => Chain t where
   scanlChain :: (b -> a -> b) -> b -> t a -> t b
   overChainNeighbors :: (a -> a -> a) -> t a -> t a
   overChainNeighbors f chain = zipWithChain f chain (rest chain) <|> pure (lastLink chain)
+  chainFromList :: [a] -> t a
+  concatChains :: [t a] -> t a
 
 instance Chain V.Vector where
   firstLink = V.head
@@ -50,6 +53,9 @@ instance Chain V.Vector where
   segregate = V.span
   zipWithChain = V.zipWith
   scanlChain = V.scanl
+  chainFromList = V.fromList
+  concatChains = V.concat
+
 
 instance (Reversible t) => Reversible (V.Vector t) where
   reverseItem = reverseChain . fmap reverseItem
@@ -68,6 +74,8 @@ instance Chain [] where
   segregate = span
   zipWithChain = zipWith
   scanlChain = scanl
+  chainFromList = id
+  concatChains = concat
 
 instance (Reversible t) => Reversible [t] where
   reverseItem = reverseChain . fmap reverseItem

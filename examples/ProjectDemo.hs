@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -30,6 +31,7 @@ import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Representation
 import Graphics.Gudni.Util.Subdividable
 import Graphics.Gudni.Util.Segment
+import Graphics.Gudni.Util.Plot
 import Graphics.Gudni.Util.Debug
 
 import qualified Graphics.Gudni.Figure.Bezier as B
@@ -56,38 +58,65 @@ makeLenses ''ProjectionState
 instance HasToken ProjectionState where
   type TokenOf ProjectionState = Int
 
-slantedLine :: Shape SubSpace
-slantedLine = segmentsToShape [[Seg (Point2 0 0) Nothing, Seg (Point2 0.25 0) Nothing, Seg (Point2 1.25 1) Nothing, Seg (Point2 1 1) Nothing]]
+slantedLine :: SubSpace -> SubSpace -> Shape SubSpace
+slantedLine dotLength thickness =
+  let slantOffset = Point2 thickness thickness
+      horiOffset = Point2 dotLength 0
+  in  segmentsToShape [[Straight (Point2 0 0), Straight horiOffset, Straight (horiOffset + slantOffset), Straight (slantOffset)]]
+
 instance Model ProjectionState where
     screenSize state = Window (Point2 512 512)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     constructScene state _status =
-        do text <- (^?! unGlyph) <$> blurb 0.1 AlignMin "Georg Guðni Hauksson    Georg Guðni Hauksson    Georg Guðni Hauksson"
+        do text :: CompoundTree SubSpace <- fromGlyph <$> blurb 0.1 AlignMin "Georg Guðni Hauksson    Georg Guðni Hauksson    Georg Guðni Hauksson"
            let angle   = state ^. stateBase . stateAngle
                repMode = state ^. stateBase . stateRepMode
                repDk   = state ^. stateBase . stateRepDk
                offset  = state ^. stateOffset
-           return . Scene gray $
+           return . Scene gray .
                --(if repMode then represent repDk else id) $
-               ((transformFromState {-(set stateAngle (0 @@ deg)-} (state ^. stateBase){-)-} $
-               overlap [
-                        -- follow text path
-                         slashDotted (transparent 0.5 red) path 5 3
-                       , slashDotted (transparent 0.5 purple) path 5 (-13)
-                       , doubleDotted (dark blue) path
-                       , withColor (light green) . mask . shapeFrom . stroke 6 $ path
+               transformFromState (state ^. stateBase) .
+               overlap $
+                  [ unprojected
+                  , translateByXY 0  100 . overlap $
+                      [ translateByXY 0    0 . represent False $ path
+                      , translateByXY 0  500 . projectOnto False path $ unprojected
+                      , translateByXY 0 1000 . projectOnto False path $ subdivide 6 unprojected
+                      ]
+                  ]
 
-                       ]) :: ShapeTree Int SubSpace)
-      where
-        bzX  = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0) :: Bezier SubSpace
-        bz1 = Bez (Point2 20 0) (Point2 0   0) (Point2 0 40)
-        bz2 = Bez (Point2 0 40) (Point2 0 80) (Point2 40 80)
-        bz3 = Bez (Point2 40 80) (Point2 80 80) (Point2 80 160)
-        bz4 = Bez (Point2 80 160) (Point2 80 300) (Point2 160 300)
-        myline = line (0 `by` 0) (0.5 `by` 0) :: Bezier SubSpace
-        smallBz = Bez (Point2 0 0) (Point2 100 100) (Point2 10 100) :: Bezier SubSpace
-        path :: OpenCurve_ V.Vector SubSpace
-        path = makeOpenCurve [bz1, bz2, bz3{-, bz4-}]
+        where
+        path :: OpenCurve SubSpace
+        path = tr "path" $
+               scaleBy 500 $
+               segmentsToOpenCurve [ Curved (Point2 0 0  ) (Point2 2 0)
+                                   , Curved (Point2 2 0.5) (Point2 2 1)
+                                   ] (Point2 4 1)
+
+               -- plotTurtle initialTurtleState $ [ TTurn Smooth R
+               --                                 , TTurn Smooth L
+               --                                 , TTurn Smooth R
+               --                                 , TTurn Smooth L
+               --                                 , TTurn Smooth L
+               --                                 , TTurn Smooth R
+               --                                 , TTurn Smooth L
+               --                                 , TTurn Smooth R
+               --                              ]
+        pathLength = arcLength path
+        layerThickness = 50
+        unprojected :: ShapeTree Int SubSpace
+        unprojected = overlap [
+                       -- follow text path
+                       translateByXY 0 (-1) . withColor white . mask . shapeFrom . rectangle $ Point2 pathLength 2
+                       -- translateByXY (state ^. stateOffset) 0 .
+                       ,  translateByXY 0 (-(layerThickness * 3 / 2)) .
+                          overlap $
+                          [ slashDotted (transparent 0.5 red) layerThickness
+                          , translateByXY 0 layerThickness $ doubleDotted (transparent 0.5 $ light blue) layerThickness
+                          , translateByXY 0 layerThickness $ withColor (light green) . mask . shapeFrom . rectangle $ Point2 pathLength layerThickness
+                          , translateByXY 0 (2*layerThickness) $ slashDotted (transparent 0.5 purple) layerThickness
+                          ]
+                       ]
 
         follow :: CompoundTree SubSpace -> OpenCurve SubSpace -> ShapeTree Int SubSpace
         follow text path =
@@ -95,61 +124,42 @@ instance Model ProjectionState where
                betweenGap = 1
                dotLength = 8
                dotGap = 2
-               numDots = floor (arcLength path / (dotLength + dotGap))
+               numDots = floor (pathLength / (dotLength + dotGap))
            in  withColor (dark . greenish $ red) .
                projectOnto False path .
                translateByXY (state ^. stateOffset) 0 .
                translateByXY 10 3 .
                scaleBy 5 $
                text
-        doubleDotted :: Color -> OpenCurve SubSpace -> ShapeTree Int SubSpace
-        doubleDotted color path =
-           let thickness = 2
-               betweenGap = 1
-               dotLength = 8
-               dotGap = 2
-               numDots = floor (arcLength path / (dotLength + dotGap))
+
+        doubleDotted :: Color -> SubSpace -> ShapeTree Int SubSpace
+        doubleDotted color thickness =
+           let dotThickness = thickness / 3
+               dotLength = 80
+               dotGap = 20
+               numDots = floor (pathLength / (dotLength + dotGap))
            in  withColor color .
-               projectOnto False path .
-               translateByXY (state ^. stateOffset) 0 .
-               translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
                overlap .
                horizontallySpacedBy (dotLength + dotGap) .
                replicate numDots .
                overlap .
-               verticallySpacedBy (thickness + betweenGap) .
+               verticallySpacedBy (dotThickness * 2) .
                replicate 2 .
                rectangle $
-               dotLength `by` thickness
-        slashDotted :: Color -> OpenCurve SubSpace -> SubSpace -> SubSpace -> ShapeTree Int SubSpace
-        slashDotted color path scale yOffset =
-           let thickness = 1
-               betweenGap = 1
-               dotLength = 8
-               dotGap = 2
-               numDots = floor (arcLength path / scale)
+               dotLength `by` dotThickness
+
+        slashDotted :: Color -> SubSpace -> ShapeTree Int SubSpace
+        slashDotted color thickness =
+           let dotLength = 20
+               dotGap = 20
+               numDots = floor (arcLength path / (dotLength + dotGap))
            in  withColor color .
-               projectOnto False path .
-               translateByXY (state ^. stateOffset) yOffset .
-               -- translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
-               scaleBy scale .
                overlap .
-               horizontallySpacedBy 1 .
+               horizontallySpacedBy (dotLength + dotGap) .
                replicate numDots .
-               mask .
-               scaleBy 2 $
-               slantedLine
-        testCurve :: Int -> ShapeTree Int SubSpace
-        testCurve steps =
-            represent False $
-            scaleBy 1500 .
-            projectOnto True (makeOpenCurve [bzX]) .
-            translateBy ((state ^. stateOffset) `by` 0) .
-            rotateBy (state ^. stateInsideAngle) .
-            subdivide steps .
-            makeOpenCurve .
-            pure $
-            myline
+               mask $
+               slantedLine dotLength thickness
+
     providePictureMap _ = noPictures
     handleOutput state target = do
         presentTarget target
@@ -184,7 +194,7 @@ marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square
 main :: IO ()
 main = runApplication $ ProjectionState
        (BasicSceneState
-           { _stateScale       = 10
+           { _stateScale       = 1
            , _stateDelta       = Point2 100 50
            , _stateAngle       = 0 @@ deg
            , _statePaused      = True
@@ -198,4 +208,4 @@ main = runApplication $ ProjectionState
            , _stateRepMode     = False
            , _stateRepDk       = False
            }
-       ) 0.75 (0 @@ deg)
+       ) 0 (0 @@ deg)

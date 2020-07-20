@@ -27,7 +27,6 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.ShapeTree
-import Graphics.Gudni.Layout.Glyph
 
 
 import qualified Data.Map as M
@@ -72,11 +71,13 @@ overScafPoint f (ScafPoint p) = ScafPoint (f p)
 overScafPoint f Ambiguous     = Ambiguous
 
 instance Space s => SimpleTransformable (ScafPoint s) where
+  type Simple (ScafPoint s) = ScafPoint s
   translateBy delta = overScafPoint (translateBy delta)
   scaleBy scale     = overScafPoint (scaleBy scale)
   stretchBy point   = overScafPoint (stretchBy point)
 
 instance Space s => Transformable (ScafPoint s) where
+  type Transformed (ScafPoint s) = ScafPoint s
   rotateBy rotate = overScafPoint (rotateBy rotate)
 
 type NameMap s = M.Map [ScafName] (ScafPoint s)

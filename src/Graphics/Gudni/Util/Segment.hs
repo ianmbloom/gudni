@@ -31,17 +31,15 @@ module Graphics.Gudni.Util.Segment
   , oldLine
   , segmentsToShape
   , segmentsToOutline
+  , segmentsToOpenCurve
   )
 where
 
-import Graphics.Gudni.Figure.Space
-import Graphics.Gudni.Figure.Point
-import Graphics.Gudni.Figure.Angle
-import Graphics.Gudni.Figure.ShapeTree
-import Graphics.Gudni.Layout.Glyph
+import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout.Draw
-import Graphics.Gudni.Figure.Outline
 import Graphics.Gudni.Figure.CurvePair
+import Graphics.Gudni.Util.Chain
+import Graphics.Gudni.Util.Loop
 
 import Control.Lens
 
@@ -50,6 +48,7 @@ import Control.Monad.Random
 import Control.DeepSeq
 import Data.Hashable
 import qualified Data.Vector as V
+import qualified Data.Foldable as F
 
 -- | A segment is a typesafe way to describe on link in a quadradic bezier curve.
 -- multiple on curves points can occur in sequence but multiple control points cannot.
@@ -110,13 +109,29 @@ segmentsToCurvePairs' first segs = case segs of
       (Seg v0 (Just c):rest)          -> CurvePair v0 c:segmentsToCurvePairs' first rest
       []                              -> []
 
+segmentsToOpenCurve :: (Chain f, Fractional s) => [Segment s] -> Point2 s -> OpenCurve_ f s
+segmentsToOpenCurve segments endPoint = makeOpenCurve . chainFromList $ go segments
+   where
+   go segments =
+       if null segments
+       then []
+       else let (start, mControl, end) =
+                    case segments of
+                      (Seg v0 c:[]) -> (v0, c, endPoint)
+                      (Seg v0 c:Seg v1 _:rest) -> (v0, c, v1)
+                control =
+                    case mControl of
+                       Just c -> c
+                       Nothing -> mid start end
+            in Bez start control end : go (tail segments)
+
 -- | Convert a list of lists of segments to a list of outlines.
 segmentsToShape :: (Space s) => [[Segment s]] -> Shape s
 segmentsToShape = Shape . map segmentsToOutline
 
 -- | Convert a list of
-segmentsToOutline :: (Space s) => [Segment s] -> Outline s
-segmentsToOutline = Outline . pairsToBeziers . V.fromList . segmentsToCurvePairs
+segmentsToOutline :: (Loop f, Space s) => [Segment s] -> Outline_ f s
+segmentsToOutline = Outline . pairsToBeziers . chainFromList . segmentsToCurvePairs
 
 -- | Basic curve definition for a simple line (Temporary until stroke implemented.)
 lineCurve :: (Space s) => s -> Point2 s -> Point2 s -> [Segment s]
@@ -137,16 +152,12 @@ oldLine thickness p0 p1 = segmentsToShape . pure $ lineCurve thickness p0 p1
 class HasFromSegments a where
   fromSegments :: [Segment (SpaceOf a)] -> a
 
-instance Space s => HasFromSegments (Outline s) where
+instance (Loop f, Space s) => HasFromSegments (Outline_ f s) where
   fromSegments = segmentsToOutline
 
 -- | Instance for creating a simple shape from a list of segments.
 instance Space s => HasFromSegments (CompoundTree s) where
   fromSegments = SLeaf . segmentsToShape . pure
-
--- | Instance for creating a glyph wrapped shape from a list of segments.
-instance Space s => HasFromSegments (Glyph (CompoundTree s)) where
-  fromSegments = glyphWrapShape . segmentsToShape . pure
 
 instance NFData s => NFData (Segment s) where
   rnf (Seg o c) = o `deepseq` c `deepseq` ()

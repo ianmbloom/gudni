@@ -86,8 +86,8 @@ instance ( Chain f
 
 type OpenCurve s = OpenCurve_ V.Vector s
 
-makeOpenCurve :: [Bezier s] -> OpenCurve s
-makeOpenCurve = OpenCurve . V.fromList
+makeOpenCurve :: f (Bezier s) -> OpenCurve_ f s
+makeOpenCurve = OpenCurve
 
 -- {-# SPECIALIZE arcLength :: OpenCurve Float  -> Float  #-}
 -- {-# SPECIALIZE arcLength :: OpenCurve Double -> Double #-}
@@ -111,18 +111,16 @@ instance (Chain t) => Reversible (OpenCurve_ t s) where
   reverseItem = over curveSegments (reverseChain . fmap reverseBezier)
 
 -- | Connect two curves end to end by translating c1 so that the starting point of 'c1' is equal to the terminator of 'c0'
-(>*<) :: (Chain f, Space s, Show (f (Bezier s))) => OpenCurve_ f s -> OpenCurve_ f s -> OpenCurve_ f s
+(>*<) :: (Chain f, Space s) => OpenCurve_ f s -> OpenCurve_ f s -> OpenCurve_ f s
 (>*<) c0 c1 = let delta = c0 ^. terminator ^-^ c1 ^. outset
                   transC1 = mapOverPoints (translateBy delta) c1
               in  over curveSegments (c0 ^. curveSegments <|>) transC1
 
 instance ( Space s
-         , s ~ SpaceOf (f (Bezier s))
          , Chain f
-
          ) => CanProject (BezierSpace s) (OpenCurve_ f s) where
     projectionWithStepsAccuracy debug max_steps m_accuracy bSpace  =
-         over curveSegments (projectionWithStepsAccuracy debug max_steps m_accuracy bSpace)
+         over curveSegments (join . fmap (projectBezierWithStepsAccuracy debug max_steps m_accuracy bSpace))
 
 instance (Chain f, Space s, CanProject (BezierSpace s) t, Chain f) => CanProject (OpenCurve_ f s) t where
     projectionWithStepsAccuracy debug max_steps m_accuracy path =

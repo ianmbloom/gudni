@@ -50,6 +50,7 @@ module Graphics.Gudni.Raster.Constants
     , sUBSTANCEtAGtYPErADIALgRADIENT
     , sUBSTANCEtAGrEFbITMASK
     , nOsUBSTANCEtAG
+    , nULLrEFERENCE
     )
 where
 
@@ -141,3 +142,5 @@ sUBSTANCEtAGtYPErADIALgRADIENT = 0x0300000000000000 :: CULong
 sUBSTANCEtAGrEFbITMASK     = 0x00FFFFFFFFFFFFFF :: CULong -- & with this to get the reference for the substance tag
 
 nOsUBSTANCEtAG             = 0xFFFFFFFFFFFFFFFF :: CULong
+
+nULLrEFERENCE              = 0xFFFFFFFF :: CUInt

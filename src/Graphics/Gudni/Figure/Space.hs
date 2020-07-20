@@ -98,6 +98,9 @@ instance Bounded TextureSpace where { minBound = (-maxValue); maxBound = maxValu
 class (Space (SpaceOf a)) => HasSpace a where
   type SpaceOf a :: Type
 
+instance HasSpace a => HasSpace (Maybe a) where
+  type SpaceOf (Maybe a) = SpaceOf a
+  
 class Reasonable s where
   veryLarge :: s
   clampReasonable :: s -> s
@@ -107,13 +110,7 @@ instance Reasonable SubSpace where
   clampReasonable =
       clamp (-veryLarge) veryLarge
 
-instance (HasSpace a) => HasSpace [a] where
-  type SpaceOf [a] = SpaceOf a
-
-instance (HasSpace a) => HasSpace (V.Vector a) where
-  type SpaceOf (V.Vector a) = SpaceOf a
-
-textureSpaceToSubspace (TSpace x) = SubSpace x
+textureSpaceToSubspace (TSpace x) = SubSpace (realToFrac x)
 pixelSpaceToTextureSpace (PSpace x) = TSpace (fromIntegral x)
 -- ---- Iota -----------------
 -- Iota is an extremely small value used for "close enough" comparison.
@@ -155,8 +152,8 @@ instance Show PixelSpace where
 instance Storable SubSpace where
     sizeOf    _         = sizeOf    (undefined :: SubSpace_)
     alignment _         = alignment (undefined :: SubSpace_)
-    peek ptr            = SubSpace . (realToFrac :: CFloat -> Float) <$> peek (castPtr ptr)
-    poke ptr (SubSpace x) = poke (castPtr ptr) $ (realToFrac :: Float -> CFloat) x
+    peek ptr            = SubSpace . (realToFrac :: CFloat -> SubSpace_) <$> peek (castPtr ptr)
+    poke ptr (SubSpace x) = poke (castPtr ptr) $ (realToFrac :: SubSpace_ -> CFloat) x
 
 instance Storable TextureSpace where
     sizeOf    _         = sizeOf    (undefined :: TextureSpace_)

@@ -47,6 +47,9 @@ module Graphics.Gudni.Util.Util
   , opMaybe
   , titleLine
   , infoLine
+  , eitherMaybe
+  , firstMaybe
+  , secondMaybe
   )
 where
 
@@ -55,6 +58,7 @@ import Graphics.Gudni.Util.Debug
 import Control.DeepSeq
 import Control.Monad.State
 import Control.Lens
+import Control.Applicative
 
 import qualified Data.Vector as V
 import Data.Time.Clock
@@ -223,3 +227,8 @@ titleLine title = "======================== " ++ title ++ " ====================
 -- | Pad a line of info for aligned display.
 infoLine :: (String, String) -> String
 infoLine (title, info) = (lpad 40 title) ++ ": " ++ info ++ "\n"
+
+eitherMaybe :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
+eitherMaybe f a b = f <$> a <*> b <|> a <|> b
+firstMaybe  f a b = f <$> a <*> b <|> a
+secondMaybe f a b = f <$> a <*> b       <|> b

@@ -21,20 +21,20 @@
 -- Top level functions for creating bounding box based layouts.
 
 module Graphics.Gudni.Layout.Adjacent
-  ( Alignment (..)
-  , Overlappable (..)
-  , glyphString
-  , distributeRack
-  , distributeStack
+  ( Overlappable (..)
+  , rackOf
   , rack
+  , stackOf
   , stack
-  , overlap
+  , nextTo
   )
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Layout.Layout
+import Graphics.Gudni.Layout.Style
+import Graphics.Gudni.Layout.Empty
 import Graphics.Gudni.Layout.Overlappable
-import Graphics.Gudni.Layout.Glyph
 import Graphics.Gudni.Layout.Font
 import Graphics.Gudni.Util.Debug
 import Linear
@@ -46,156 +46,64 @@ import Control.Lens
 import Control.Applicative
 import Control.Monad.State
 
-data Alignment = AlignMin | AlignMax | AlignCenter
+nextTo :: ( HasSpace leaf
+          , Axis axis
+          , SwitchAxis axis
+          , IsStyle style
+          )
+       => axis
+       -> style
+       -> Maybe Alignment
+       -> meld
+       -> STree (AdjacentMeld style meld) leaf
+       -> STree (AdjacentMeld style meld) leaf
+       -> STree (AdjacentMeld style meld) leaf
+nextTo axis style alignment meld = SMeld (AdjacentMeld style (NextTo (eitherAxis axis) alignment) meld)
 
-class MaybeBoxed a where
-   maybeBox :: Applicative f
-            => (Box (SpaceOf a) -> f (Box (SpaceOf a)))
-            -> a -> f a
-   blank :: (Box (SpaceOf a)) -> a
+loaf :: ( HasSpace leaf
+        , Axis axis
+        , SwitchAxis axis
+        , IsStyle style)
+        => axis
+        -> style
+        -> Maybe Alignment
+        -> meld
+        -> [STree (AdjacentMeld style meld) leaf]
+        -> STree (AdjacentMeld style meld) leaf
+loaf axis style alignment meld =
+  foldl (nextTo axis style alignment meld) emptyItem
 
-instance HasEmpty rep => MaybeBoxed (Glyph rep) where
-   maybeBox = glyphBox
-   blank box = Glyph box emptyItem
+rackOf :: ( HasSpace leaf
+          , IsStyle style
+          )
+          => style
+          -> Maybe Alignment
+          -> meld
+          -> [STree (AdjacentMeld style meld) leaf]
+          -> STree (AdjacentMeld style meld) leaf
+rackOf = loaf Horizontal
 
-isBoxed :: MaybeBoxed a => a -> Bool
-isBoxed = isJust . (^? maybeBox)
+rack :: ( HasSpace leaf
+        , IsStyle style
+        , HasDefault meld
+        )
+        => [STree (AdjacentMeld style meld) leaf]
+        -> STree (AdjacentMeld style meld) leaf
+rack = rackOf defaultValue Nothing defaultValue
 
-notBoxed :: MaybeBoxed a => a -> Bool
-notBoxed = not . isBoxed
+stackOf ::( HasSpace leaf
+          , IsStyle style)
+          => style
+          -> Maybe Alignment
+          -> meld
+          -> [STree (AdjacentMeld style meld) leaf]
+          -> STree (AdjacentMeld style meld) leaf
+stackOf = loaf Vertical
 
-instance HasEmpty (STree o rep) where
-  emptyItem = SEmpty
-  isEmpty SEmpty = True
-  isEmpty _ = False
-
-whenBothNotEmpty :: HasEmpty a => a -> a -> (a, a) -> (a, a)
-whenBothNotEmpty a b f =
-  if isEmpty a || isEmpty b
-  then (a, b)
-  else f
-
-alignHorizontal :: (Show (SpaceOf rep)
-                , HasSpace rep
-                , Fractional (SpaceOf rep)
-                , SimpleTransformable rep
-                , MaybeBoxed rep
-                , HasEmpty rep)
-                => Alignment
-                -> rep
-                -> rep
-                -> (rep, rep)
-alignHorizontal alignment a b =
-  whenBothNotEmpty a b $
-  let aWidth = a ^?! maybeBox . widthBox
-      bWidth = b ^?! maybeBox . widthBox
-      width  = max aWidth bWidth
-      offsetA = case alignment of
-                  AlignMin    -> 0
-                  AlignMax    -> width - aWidth
-                  AlignCenter -> (width - aWidth) / 2
-      newA = translateByXY offsetA 0 $ a
-      offsetB = case alignment of
-                  AlignMin    -> 0
-                  AlignMax    -> width - bWidth
-                  AlignCenter -> (width - bWidth) / 2
-      newB = translateByXY offsetB 0 $ b
-  in  (newA, newB)
-
-alignVertical :: (Show (SpaceOf rep)
-              , HasSpace rep
-              , Fractional (SpaceOf rep)
-              , SimpleTransformable rep
-              , MaybeBoxed rep
-              , HasEmpty rep)
-              => Alignment
-              -> rep
-              -> rep
-              -> (rep, rep)
-alignVertical alignment a b =
-  whenBothNotEmpty a b $
-  let aHeight = a ^?! maybeBox . heightBox
-      bHeight = b ^?! maybeBox . heightBox
-      height  = max aHeight bHeight
-      offsetA = case alignment of
-                  AlignMin    -> 0
-                  AlignMax    -> height - aHeight
-                  AlignCenter -> (height - aHeight) / 2
-      newA = translateByXY 0 offsetA $ a
-      offsetB = case alignment of
-                  AlignMin    -> 0
-                  AlignMax    -> height - bHeight
-                  AlignCenter -> (height - bHeight) / 2
-      newB = translateByXY 0 offsetB $ b
-  in  (newA, newB)
-
-nextToHorizontal :: ( Show (SpaceOf rep)
-                    , HasSpace rep
-                    , SimpleTransformable rep
-                    , MaybeBoxed rep
-                    , HasEmpty rep)
-                 => rep -> rep -> (rep, rep)
-nextToHorizontal a b =
-  whenBothNotEmpty a b $
-  let newB = set (maybeBox . widthBox) (b ^?! maybeBox . widthBox ) .
-             set (maybeBox . leftSide) (a ^?! maybeBox . rightSide) .
-             translateByXY (a ^?! maybeBox . rightSide - b ^?! maybeBox . leftSide) 0 $
-             b
-  in (a, newB)
-
-nextToVertical :: ( Show (SpaceOf rep)
-                  , HasSpace rep
-                  , SimpleTransformable rep
-                  , MaybeBoxed rep
-                  , HasEmpty rep)
-               => rep -> rep -> (rep, rep)
-nextToVertical a b =
-  whenBothNotEmpty a b $
-    let newB = set (maybeBox . heightBox) (b ^?! maybeBox . heightBox ) .
-               set (maybeBox . topSide  ) (a ^?! maybeBox . bottomSide) .
-               translateByXY 0 (a ^?! maybeBox . bottomSide - b ^?! maybeBox . topSide) $
-               b
-    in (a, newB)
-
-distributeRack :: ( Show (SpaceOf rep)
-                  , HasSpace rep
-                  , SimpleTransformable rep
-                  , MaybeBoxed rep
-                  , HasEmpty rep)
-               => SpaceOf rep
-               -> [rep]
-               -> [rep]
-distributeRack gap = intersperse (blank (Box zeroPoint (makePoint gap 0)))
-
-distributeStack :: ( HasSpace rep
-                   , HasEmpty rep)
-                => SpaceOf rep
-                -> [Glyph rep]
-                -> [Glyph rep]
-distributeStack gap = intersperse (blank (Box zeroPoint (makePoint 0 gap)))
-
-rack :: forall rep
-     .  ( Show rep, Show (SpaceOf rep)
-        , HasSpace rep, Fractional (SpaceOf rep)
-        , HasSpace rep
-        , Overlappable rep
-        , SimpleTransformable rep
-        , MaybeBoxed rep
-        , HasEmpty rep)
-     => Alignment
-     -> [rep]
-     -> rep
-rack alignment = foldl (\ a b -> uncurry combine . uncurry nextToHorizontal . uncurry (alignVertical alignment) $ (a, b)) emptyItem
-
-stack :: forall rep
-      .  ( Show rep, Show (SpaceOf rep)
-         , HasSpace rep, Fractional (SpaceOf rep)
-         , HasSpace rep
-         , Overlappable rep
-         , SimpleTransformable rep
-         , MaybeBoxed rep
-         , HasEmpty rep)
-      => Alignment
-      -> [rep]
-      -> rep
-stack alignment = foldl (\ a b -> uncurry combine . uncurry nextToVertical . uncurry (alignHorizontal alignment) $ (a, b)) emptyItem
+stack :: ( HasSpace leaf
+         , IsStyle style
+         , HasDefault meld
+         )
+         => [STree (AdjacentMeld style meld) leaf]
+         -> STree (AdjacentMeld style meld) leaf
+stack = stackOf defaultValue Nothing defaultValue

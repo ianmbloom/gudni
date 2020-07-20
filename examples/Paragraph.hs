@@ -43,6 +43,9 @@ initialModel =
           }
     }
 
+instance HasStyle ParagraphState where
+  type StyleOf ParagraphState = DefaultStyle
+
 instance HasToken ParagraphState where
   type TokenOf ParagraphState = Int
 
@@ -53,14 +56,14 @@ instance Model ParagraphState where
         let state' = foldl (flip processInput) state inputs
         in  over stateBase (updateSceneState frame elapsedTime) state'
     constructScene state status =
-        do  para <- paragraph 0.2 0.2 AlignCenter AlignCenter mobyDick
-
-            let testScene :: ShapeTree Int SubSpace
-                testScene = (^?! unGlyph) . withColor black . rack AlignMin $ distributeRack 0 $ [para, scaleBy 10 circle]
-            --statusTree <- (^?! unGlyph) <$> statusDisplay (state ^. stateBase) "Test Paragraph" (lines status)
-            let tree = transformFromState (state ^. stateBase) testScene
+        do  let layout :: Layout Int SubSpace (StyleOf ParagraphState)
+                layout = withColor black . rack $ [paragraph mobyDick, placeMask . scaleBy 10 . mask $ circle]
+                --statusTree = statusDisplay (state ^. stateBase) "Test Paragraph" (lines status)
+                tree :: Layout Int SubSpace (StyleOf ParagraphState)
+                tree = transformFromState (state ^. stateBase) layout
                 withStatus = {-if False then overlap [statusTree, tree] else-} tree
-            return $ (Scene (light gray) $ withStatus)
+
+            Scene (light gray) <$> fromLayout withStatus
 
 instance HandlesInput token ParagraphState where
     processInput input = over stateBase (processInput input)

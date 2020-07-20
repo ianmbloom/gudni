@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
@@ -21,6 +22,7 @@ module Graphics.Gudni.Raster.ItemInfo
   , FacetId(..)
   , ItemTag(..)
   , ItemTagId(..)
+  , nullItemTagId
   , ItemInfo (..)
   , strandInfoTag
   , facetInfoTag
@@ -49,6 +51,9 @@ import Control.DeepSeq
 import Foreign.C.Types (CUInt, CULong, CChar)
 import Foreign.Ptr
 
+import Text.PrettyPrint.GenericPretty
+import Text.PrettyPrint
+
 newtype StrandId = StrandId {unStrandId :: Reference StrandReference} deriving (Ord, Eq, Num, Enum)
 
 instance Show StrandId where
@@ -71,7 +76,13 @@ newtype ItemTag
     } deriving (Ord, Eq, Num, Enum)
 
 type ItemTagId_ = Reference ItemTag
-newtype ItemTagId = ItemTagId {unItemTagId :: ItemTagId_} deriving (Show, Eq, Ord)
+newtype ItemTagId = ItemTagId {unItemTagId :: ItemTagId_} deriving (Eq, Ord, Generic)
+instance Show ItemTagId where
+  show = show . unRef . unItemTagId
+nullItemTagId = ItemTagId nullReference
+instance Out ItemTagId where
+    doc x = text . show $ x
+    docPrec _ = doc
 
 itemSubstanceTagIdBits :: SubstanceTagId -> ItemTag_
 itemSubstanceTagIdBits (SubstanceTagId substanceId) =
@@ -126,7 +137,7 @@ tagToStrandId :: ItemTag -> StrandId
 tagToStrandId (ItemTag tag) = StrandId $ Ref $ fromIntegral (tag .&. iTEMtAGrEFERENCEbITMASK)
 
 -- | ItemInfo includes substance flags and the combination method for a particular shape or facet.
-data ItemInfo
+data ItemInfo token
     = ShapeInfo
     { _itemCombine        :: Compound
     , _itemGeometry       :: StrandId
@@ -138,12 +149,12 @@ data ItemInfo
     }
 makeLenses ''ItemInfo
 
-instance Show ItemInfo where
+instance Show (ItemInfo token) where
   show (ShapeInfo compound strandId substanceId) = "ShapeInfo "++show compound ++ " " ++ show strandId ++ " " ++ show substanceId
   show (FacetInfo facetId substanceId) = "FacetInfo " ++ show facetId ++ " " ++ show substanceId
 
 -- | Extract the 'ItemInfo' from the 'ItemTag'.
-extractItemInfo :: ItemTag -> ItemInfo
+extractItemInfo :: ItemTag -> (ItemInfo token)
 extractItemInfo tag =
   let substanceId = tagToSubstanceTagId tag
   in
@@ -161,7 +172,7 @@ instance Show ItemTag where
 instance NFData StrandId where
   rnf (StrandId a) = a `deepseq` ()
 
-instance NFData ItemInfo where
+instance NFData (ItemInfo token) where
   rnf (ShapeInfo a b c) = a `deepseq` b `deepseq` c `deepseq` ()
   rnf (FacetInfo a b )  = a `deepseq` b `deepseq` ()
 

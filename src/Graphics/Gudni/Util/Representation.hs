@@ -15,7 +15,7 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Facet
-import Graphics.Gudni.Raster.TraverseShapeTree
+import Graphics.Gudni.Util.FlattenShapeTree
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Debug
 import Linear.V2
@@ -27,26 +27,26 @@ import Control.Lens
 mkLine :: Space s => V2 (Point2 s) -> Bezier s
 mkLine (V2 a b) = line a b
 
-openCircle :: forall s .  (Space s) => s -> CompoundTree s
-openCircle r = mask . strokeOffset 0 (r/2) . scaleBy r $ (circle :: Outline s)
-closedCircle :: forall s . Space s => s -> CompoundTree s
-closedCircle r =  scaleBy r . mask . shapeFrom $ (circle :: Outline s)
+openCircle :: forall token s .  (Space s) => s -> CompoundTree s
+openCircle r = (scaleBy (r/2) . mask $ circle) `subtractFrom` (scaleBy r . mask $ circle)
+
+closedCircle :: forall token s . Space s => s -> CompoundTree s
+closedCircle r =  scaleBy r . mask $ circle
 
 class (HasSpace t) => HasRepresentation t where
-    represent :: Bool -> t -> ShapeTree token (SpaceOf t)
+    represent :: (HasDefault token) => Bool -> t -> ShapeTree token (SpaceOf t)
 
-instance  (Space s) => HasRepresentation (Bezier s) where
+instance forall s . (Space s) => HasRepresentation (Bezier s) where
     represent _ bz@(Bez v0 c v1) =
         let r = 5
             w = 10
             h = 7.5
-        in
-        overlap [ withColor black $ mask . shapeFrom . withArrowHead (Point2 w h) PointingForward $ bz
-                --, withColor red   $ translateBy v0 $ closedCircle r
-                , withColor (light blue)  $ translateBy  c $ openCircle r
-                --, withColor red   $ translateBy v1 $ closedCircle r
-                , withColor black $ mask . shapeFrom . stroke 1 $ bz
-                ]
+        in  overlap [ -- (withColor black . mask . withArrowHead (Point2 w h) PointingForward $ bz) :: ShapeTree token s
+                    --, withColor red   $ translateBy v0 $ closedCircle r
+                    withColor (light blue) . translateBy  c . openCircle $ r
+                    --, withColor red   $ translateBy v1 $ closedCircle r
+                    , withColor black . mask . stroke 1 $ bz
+                    ]
 
 instance (Alternative f, Monad f, Foldable f, Space s, Show (f (Bezier s))) => HasRepresentation (Outline_ f s) where
     represent dk = overlap . fmap (represent dk) . (if dk then join . fmap (replaceKnob verticalAxis) else id) . view outlineSegments
