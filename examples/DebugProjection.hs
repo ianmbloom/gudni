@@ -25,7 +25,6 @@ where
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Figure.ShapeTree
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Representation
@@ -91,19 +90,18 @@ debugScene =
           , withColor (light yellow)   . mask $ oldLine 0.005 s1 (s1 .+^ tangent1Rotated)
           ]
 
-instance HasToken ProjectionState where
-  type TokenOf ProjectionState = Int
+instance HasStyle ProjectionState where
+  type StyleOf ProjectionState = DefaultStyle
 
 instance Model ProjectionState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     constructScene state _status =
-        do text <- fromGlyph <$> blurb 0.1 AlignMin "e" -- "Georg Guðni Hauksson"
-           let angle   = state ^. stateBase . stateAngle
+        do let angle   = state ^. stateBase . stateAngle
                repMode = state ^. stateBase . stateRepMode
                repDk   = state ^. stateBase . stateRepDk
                offset  = state ^. stateOffset
-           return . Scene gray $
+           sceneFromLayout gray . place $
                --(if repMode then represent repDk else id) $
                (transformFromState (state ^. stateBase) $
                debugScene :: ShapeTree Int SubSpace)
@@ -121,7 +119,7 @@ instance Model ProjectionState where
                dotGap = 2
                numDots = floor (arcLength path / (dotLength + dotGap))
            in  withColor (light . greenish $ blue) .
-               projectOnto False path .
+               projectOnto path .
                translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
                overlap .
                horizontallySpacedBy (dotLength + dotGap) .
@@ -129,6 +127,7 @@ instance Model ProjectionState where
                overlap .
                verticallySpacedBy (thickness + betweenGap) .
                replicate 2 .
+               mask .
                rectangle $
                dotLength `by` thickness
 
@@ -149,16 +148,6 @@ instance HandlesInput token ProjectionState where
                           _ -> return ()
               _ -> return ()
           )
-
-marker :: Color -> Point2 SubSpace -> ShapeTree Int SubSpace
-marker color center = withColor (transparent 0.5 color) $ translateBy center marker0
-
-marker0 :: CompoundTree SubSpace
-marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square
-    where
-        s = 8
-        square :: CompoundTree SubSpace
-        square = rectangle (Point2 s s)
 
 main :: IO ()
 main = runApplication $ ProjectionState

@@ -60,6 +60,7 @@ import Unsafe.Coerce
 import Text.Printf
 
 import Control.Monad.Random
+import Control.Monad.Identity
 import Control.DeepSeq
 
 import System.Random
@@ -100,7 +101,10 @@ class (Space (SpaceOf a)) => HasSpace a where
 
 instance HasSpace a => HasSpace (Maybe a) where
   type SpaceOf (Maybe a) = SpaceOf a
-  
+
+instance HasSpace a => HasSpace (Identity a) where
+  type SpaceOf (Identity a) = SpaceOf a
+
 class Reasonable s where
   veryLarge :: s
   clampReasonable :: s -> s

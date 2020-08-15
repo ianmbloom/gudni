@@ -24,7 +24,7 @@
 module Graphics.Gudni.Figure.Box
   ( Box (..)
   , BoundingBox(..)
-  , HasBox(..)
+  , CanBox(..)
   , widthOf
   , heightOf
   , pattern Box
@@ -55,7 +55,6 @@ module Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Axis
 import Graphics.Gudni.Figure.Point
-import Graphics.Gudni.Figure.Transformable
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
@@ -87,21 +86,21 @@ instance (Space s) => HasSpace (Box s) where
 -- | Type synonym for bounding boxes
 type BoundingBox = Box SubSpace
 
-class HasBox t where
+class CanBox t where
   boxOf :: t -> Box (SpaceOf t)
 
-instance HasBox (Box s) where
+instance CanBox (Box s) where
   boxOf box = box
 
-instance HasBox (Point2 s) where
+instance CanBox (Point2 s) where
   boxOf p = Box p p
 
 -- | Get the width of a box.
-widthOf :: (Num (SpaceOf a), HasBox a) => a -> SpaceOf a
+widthOf :: (Num (SpaceOf a), CanBox a) => a -> SpaceOf a
 widthOf a = let box = boxOf a in box ^. rightSide - box ^. leftSide
 
 -- | Get the height of a box.
-heightOf :: (Num (SpaceOf a), HasBox a) => a -> SpaceOf a
+heightOf :: (Num (SpaceOf a), CanBox a) => a -> SpaceOf a
 heightOf a = let box = boxOf a in box ^. bottomSide - box ^. topSide
 
 -----------------------------------------------------------------------------
@@ -169,18 +168,18 @@ mapBox f (Box tl br) = Box (f tl) (f br)
 
 splitBox :: (Space s, Axis a) => a -> s -> Box s -> (Box s, Box s)
 splitBox axis cutPoint box =
-    ( set (maxBox . pick axis) cutPoint box
-    , set (minBox . pick axis) cutPoint box
+    ( set (maxBox . with axis) cutPoint box
+    , set (minBox . with axis) cutPoint box
     )
 
 -- | True if the box has zero height and zero width.
-isZeroBox :: (HasBox (Box s), Num s, Eq s) => Box s -> Bool
+isZeroBox :: (CanBox (Box s), Num s, Eq s) => Box s -> Bool
 isZeroBox b = (widthOf b == 0) && (heightOf b == 0)
 -- | Get a point that represents the height and width of the box.
-sizeBox :: (HasBox (Box s), Num s) => Box s -> Point2 s
+sizeBox :: (CanBox (Box s), Num s) => Box s -> Point2 s
 sizeBox   box = makePoint (widthOf box ) (heightOf box)
 -- | Calculate the area of a box.
-areaBox :: (HasBox (Box s), Num s) => Box s -> s
+areaBox :: (CanBox (Box s), Num s) => Box s -> s
 areaBox   box = widthOf box * heightOf box
 -- | Calculate the smallest box that contains two boxes.
 minMaxBox :: (SimpleSpace s) => Box s -> Box s -> Box s
@@ -191,12 +190,6 @@ minMaxBoxes :: (Space s, Foldable t) => t (Box s) -> Box s
 minMaxBoxes = foldl minMaxBox (Box maxPoint minPoint)
   where  minPoint = Point2 minBound minBound
          maxPoint = Point2 maxBound maxBound
-
--- Boxes have an instance for SimpleTransformable but no instance for Transformable.
-instance Space s => SimpleTransformable (Box s) where
-  translateBy p = mapBox (^+^ p)
-  stretchBy   p = mapBox (liftA2 (*) p)
-  scaleBy     s = mapBox (^* s)
 
 instance (Hashable s) => Hashable (Box s) where
     hashWithSalt s (Box tl br) = s `hashWithSalt` tl `hashWithSalt` br

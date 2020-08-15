@@ -33,8 +33,6 @@ import Control.Monad.State
 
 import Data.Maybe
 
-
-
 data PlotState = PlotState
    {_stateBase        :: BasicSceneState
    ,_stateOffset      :: SubSpace
@@ -42,8 +40,8 @@ data PlotState = PlotState
    deriving (Show)
 makeLenses ''PlotState
 
-instance HasToken PlotState where
-    type TokenOf PlotState = Int
+instance HasStyle PlotState where
+    type StyleOf PlotState = DefaultStyle
 
 instance Model PlotState where
     screenSize state = Window (Point2 1024 768)
@@ -51,7 +49,7 @@ instance Model PlotState where
     fontFile _ = findDefaultFont
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     constructScene state status =
-        Scene (light . greenish $ blue) <$> plots state
+        sceneFromLayout (light . greenish $ blue) (plots state)
     providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target
                                     return state
@@ -90,12 +88,11 @@ main = runApplication $ PlotState
        ) 0.75
 
 -- | All the turtle plots from the plot module.
-plots :: Monad m => PlotState -> FontMonad m (ShapeTree Int SubSpace)
-plots state = return .
-              translateByXY 100 300 .
+plots :: PlotState -> Layout (StyleOf PlotState)
+plots state = translateByXY 100 300 .
               scaleBy 30 .
               overlap .
               gridOf 10 16 1 .
               catMaybes .
-              map (fmap (withColor yellow . mask . shapeFrom . stroke 0.5) . (curveLibrary :: String -> Maybe (OpenCurve SubSpace))) $
+              map (fmap (withColor yellow . mask . stroke 0.5) . (curveLibrary :: String -> Maybe (OpenCurve SubSpace))) $
               turtleNames

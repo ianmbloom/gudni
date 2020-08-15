@@ -20,7 +20,6 @@ import Graphics.Gudni.Figure.BezierSpace
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Loop
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.Subdividable
 import qualified Data.Vector as V
 
 import Control.Lens
@@ -33,32 +32,34 @@ class (Space (SpaceOf t), HasSpace t) => CanStroke t where
   stroke :: (Chain f) => SpaceOf t -> t -> Shape_ f (SpaceOf t)
   stroke thickness = strokeOffset (negate thickness/2) thickness
 
-instance (Space s) => CanStroke (BezierSpace s) where
-  strokeOffset offset thickness bSpace =
-    let lengths = bezierSpaceLengths bSpace
-        rect = segmentedRectangle thickness lengths
-    in  projectOnto False bSpace . translateByXY 0 offset $ rect
+strokeBezierSpace :: forall s f . (Space s, Chain f) => s -> s -> BezierSpace s -> Shape_ f s
+strokeBezierSpace offset thickness bSpace =
+  let lengths :: f s
+      lengths = bezierSpaceLengths bSpace
+      rect :: Shape_ f s
+      rect = segmentedRectangle thickness lengths
+  in  projectDefault False bSpace . applyTranslation (Point2 0 offset) $ rect
 
-instance (Space s, Chain f) => CanStroke (OpenCurve_ f s) where
+instance (Space s, Chain f, Show (f(Bezier s))) => CanStroke (OpenCurve_ f s) where
   strokeOffset offset thickness path =
-    let bSpace = makeBezierSpace arcLength (view curveSegments path)
-    in  strokeOffset offset thickness bSpace
+    let bSpace = makeBezierSpace arcLength path
+    in  strokeBezierSpace offset thickness bSpace
 
-instance (Space s) => CanStroke (Bezier s) where
+instance (Space s, s~SpaceOf [Bezier s]) => CanStroke (Bezier s) where
   strokeOffset offset thickness bz =
     strokeOffset offset thickness (makeOpenCurve [bz])
 
-instance (Chain f, Space s) => CanStroke (Outline_ f s) where
+instance (Chain f, Space s, Show (f(Bezier s))) => CanStroke (Outline_ f s) where
   strokeOffset offset thickness outline =
-    let bSpace  = makeBezierSpace arcLength . view outlineSegments $ outline
+    let bSpace  = makeBezierSpace arcLength $ OpenCurve $ view outlineSegments outline
         lengths = bezierSpaceLengths bSpace
         inner   = segmentedLine offset lengths
         outer   = segmentedLine (offset + thickness) lengths
-        innerProjected = closeOpenCurve $ projectOnto False bSpace (makeOpenCurve outer)
-        outerProjected = closeOpenCurve $ projectOnto False bSpace (makeOpenCurve inner)
+        innerProjected = closeOpenCurve $ projectDefault False bSpace (makeOpenCurve outer)
+        outerProjected = closeOpenCurve $ projectDefault False bSpace (makeOpenCurve inner)
     in  Shape [outerProjected, innerProjected]
 
-instance  (Chain f, Space s) => CanStroke (Shape_ f s) where
+instance  (Chain f, Space s, Show (f(Bezier s))) => CanStroke (Shape_ f s) where
   strokeOffset offset thickness = Shape . join . fmap (view shapeOutlines . strokeOffset offset thickness) . view shapeOutlines
 
 -- | Build a line that doesn't require any breaks when projected.

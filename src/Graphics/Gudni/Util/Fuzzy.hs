@@ -1,6 +1,7 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TypeSynonymInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE FlexibleContexts     #-}
 
 module Graphics.Gudni.Util.Fuzzy
   ( Fuzzy (..)
@@ -54,6 +55,13 @@ removeDoubleFalse (False:False:bs) = removeDoubleFalse (False:bs)
 removeDoubleFalse (a:bs)           = a:removeDoubleFalse bs
 removeDoubleFalse []               = []
 
+{-
+instance Random s => Random (Point2 s) where
+  random = runRand $ do x <- getRandom; y <- getRandom; return (Point2 x y)
+  randomR (Point2 x0 y0, Point2 x1 y1) = runRand $ do x <- getRandomR (x0, x1)
+                                                      y <- getRandomR (y0, y1)
+                                                      return (Point2 x y)
+-}
 {-
 instance (Num token, Random token, Fuzzy rep) => Fuzzy (SRep token textureRep rep) where
   fuzz size = do color <- getRandom
@@ -155,8 +163,8 @@ fuzzyCircleGradient range minRad maxRad =
                mask $
                circle
 
-fuzzyGlyph :: (Space s, Random s, RandomGen g)
-           => V.Vector (CompoundTree s) -> Point2 s -> s -> s -> Rand g (ShapeTree Int s)
+fuzzyGlyph :: (IsStyle style, HasSpace style, Random (SpaceOf style), Num (TokenOf style), Random (TokenOf style), RandomGen g)
+           => V.Vector (CompoundLayout style) -> Point2 (SpaceOf style) -> SpaceOf style -> SpaceOf style -> Rand g (Layout style)
 fuzzyGlyph glyphs range minRad maxRad =
   do  i <- getRandomR(0, V.length glyphs - 1)
       let g = (V.!) glyphs i

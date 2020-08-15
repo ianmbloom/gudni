@@ -25,16 +25,22 @@
 -- transform and meld nodes along the way.
 
 module Graphics.Gudni.Raster.TraverseShapeTree
-  ( traverseSTree
+  ( traverseTree
+  , traverseSTree
   , traverseSBranch
+  , noPostTrans
+  , keepMeld
   , traverseCompoundTree
   , traverseCompound
   , traverseShapeTree
-  , traverseOverlap
-  , mapSTree
-  , mapMSTree
+  , mapSLeaf
+  , mapMSLeaf
+  , mapSItem
+  , mapMSItem
+  , mapBranchMeld
+  , mapMeld
   , fullSTree
-  , collapseTrans
+  , joinLeaves
   )
 where
 
@@ -51,6 +57,7 @@ import qualified Data.Sequence as S
 import Control.Monad.State
 import Data.Foldable
 import Control.Lens
+import Control.Monad.Identity
 import Data.Maybe
 
 
@@ -59,9 +66,28 @@ traverseCompound :: Compound -> Compound -> (Compound, Compound)
 traverseCompound CompoundAdd      current = (current, current)
 traverseCompound CompoundSubtract current = (invertCompound current, current)
 
--- | Operate on an overlay junction.
-traverseOverlap :: Overlap -> Overlap -> (Overlap, Overlap)
-traverseOverlap Overlap Overlap = (Overlap,Overlap)
+traverseTree :: forall i m value
+             .  (Monad m)
+             => (Meld i -> Meld i -> (Meld i, Meld i))
+             -> (Meld i -> value -> value -> value)
+             -> (Meld i -> Leaf i -> m value)
+             -> Meld i
+             -> STree i
+             -> m value
+traverseTree traverseMeld
+             meldValues
+             onLeaf =
+    go
+    where
+    go parentMeld tree =
+      case tree of
+           SMeld meld above below ->
+              do let (aMeld, bMeld) = traverseMeld meld parentMeld
+                 aR <- go aMeld above
+                 bR <- go bMeld below
+                 return $ meldValues meld aR bR
+           SLeaf rep -> onLeaf parentMeld rep
+
 
 -- | Traverse across an STree monadically collecting metadata from
 traverseSTree :: forall i m value
@@ -103,7 +129,7 @@ traverseSBranch :: forall i m value .
                       , Monad m
                       )
                       -- postTagOp
-                   => ( Tag i -> m value -> m value )
+                   => ( Tag i -> value -> value )
                       -- preTagOp
                    -> ( Tag i -> Tag i -> Tag i )
                       -- onItem
@@ -131,50 +157,55 @@ traverseSBranch postTagOp
        case rep of
             SBranch currentTag child ->
                 let tag = preTagOp currentTag parentTag
-                in  postTagOp currentTag $ onTree parentMeld tag child
+                in  postTagOp currentTag <$> onTree parentMeld tag child
             SItem item ->
                 onItem parentMeld parentTag item
 
 noPostTrans = const id
+keepMeld _ b = (b, b)
+
 
 -- | Traverse a compound shape tree
                         -- meldValues
-traverseCompoundTree :: ( Monad m
-                        , Space s
-                        , i~CompoundTree_ s)
+traverseCompoundTree :: forall  m i value
+                     .  ( Monad m
+                        , Meld i ~ Compound
+                        , Tag  i ~ Transformer (SpaceOf (Item i))
+                        , Leaf i ~ SBranch i
+                        )
                      => ( Meld i -> value -> value -> value)
                         -- onItem
                      -> ( Meld i -> Tag i -> Item i -> m value )
-                     -> Meld i
+                     -> Tag i
                      -> STree i
                      -> m value
 traverseCompoundTree meldValues onItem parentTrans tree =
   let trTree   = traverseSTree traverseCompound meldValues
       trBranch = traverseSBranch noPostTrans CombineTransform onItem
-  in  trTree trBranch parentTrans defaultValue tree
+  in  trTree trBranch defaultValue parentTrans tree
 
 -- | Traverse an overlap shape tree
-traverseShapeTree :: forall m s i token textureLabel value .
-                     ( Monad m
-                     , Space s
-                     , i~ShapeTree_ token textureLabel s)
+traverseShapeTree :: forall  m i value
+                  .  ( Monad m
+                     , Meld i ~ Overlap
+                     , Tag  i ~ Transformer (SpaceOf (Item i))
+                     , Leaf i ~ SBranch i
+                     )
                   => (Meld i -> value -> value -> value)
                   -> (Meld i -> Tag i -> Item i -> m value)
                   -> STree i
                   -> m value
 traverseShapeTree meldValues onItem tree =
-  let trTree   = traverseSTree traverseOverlap meldValues
+  let trTree   = traverseSTree keepMeld meldValues
       trBranch = traverseSBranch noPostTrans CombineTransform onItem
-  in  trTree trBranch (defaultValue :: Meld i) IdentityTransform tree
+  in  trTree trBranch (defaultValue :: Meld i) (Simple IdentityTransform) tree
 
-keepMeld a b = (b, b)
-
-mapSTree :: (Meld a ~ Meld b
+mapSLeaf :: (Meld a ~ Meld b
             )
          => (Leaf a -> Leaf b)
          -> STree a
          -> STree b
-mapSTree f tree = go  tree
+mapSLeaf f tree = go  tree
     where
     go tree =
        case tree of
@@ -204,14 +235,36 @@ mapSItem f =
                   b = go below
               in  SMeld overlap a b
 
-mapMSTree :: ( HasDefault (Meld a)
+mapMSItem :: ( Monad m
+             , Meld a ~ Meld b
+             , Tag a ~ Tag b
+             , Leaf a ~ SBranch a
+             , Leaf b ~ SBranch b
+             )
+         => (Item a -> m (Item b))
+         -> STree a
+         -> m (STree b)
+mapMSItem f =
+  go
+  where
+    go tree =
+       case tree of
+           SLeaf (SItem rep) -> SLeaf . SItem <$> f rep
+           SLeaf (SBranch tag child) -> SLeaf . SBranch tag <$> go child
+           SMeld overlap above below ->
+              do a <- go above
+                 b <- go below
+                 return $ SMeld overlap a b
+
+
+mapMSLeaf :: ( HasDefault (Meld a)
              , Meld a ~ Meld b
              , Monad m
              )
           => (Leaf a -> m (Leaf b))
           -> STree a
           -> m (STree b)
-mapMSTree f =
+mapMSLeaf f =
     go
     where
     go tree =
@@ -222,121 +275,45 @@ mapMSTree f =
                  b <- go below
                  return $ SMeld overlap a b
 
-data IdItem a
+mapBranchMeld :: (a -> b) -> BranchTree a tag item -> BranchTree b tag item
+mapBranchMeld f =
+  go
+  where
+  go tree =
+    case tree of
+        SLeaf (SBranch tag child) -> SLeaf . SBranch tag $ go child
+        SLeaf (SItem item) -> SLeaf . SItem $ item
+        SMeld meld a b -> SMeld (f meld) (go a) (go b)
 
-instance TreeType a  => TreeType (IdItem a) where
-  type Meld (IdItem a) = Meld a
-  type Leaf (IdItem a) = Leaf a
-
-instance TagTreeType a => TagTreeType (IdItem a) where
-  type Tag  (IdItem a) = Tag a
-  type Item (IdItem a) = Item a
-
-data MaybeItem a
-
-instance (TreeType a)  => TreeType (MaybeItem a) where
-  type Meld (MaybeItem a) = Meld a
-  type Leaf (MaybeItem a) = Leaf a
-
-instance TagTreeType a => TagTreeType (MaybeItem a) where
-  type Tag  (MaybeItem a) = Tag a
-  type Item (MaybeItem a) = Maybe (Item a)
+mapMeld :: (a -> b) -> Tree a item -> Tree b item
+mapMeld f =
+  go
+  where
+  go tree =
+    case tree of
+        SLeaf leaf -> SLeaf leaf
+        SMeld meld a b -> SMeld (f meld) (go a) (go b)
 
 
-fullSTree :: forall a .
-            (TreeType a
-            ,TagTreeType a
-            ,Leaf (MaybeItem a)~Maybe (SBranch (MaybeItem a))
-            ,Leaf (IdItem a)~SBranch (IdItem a)
-            ) =>
-             STree (MaybeItem a)
-          -> Maybe (STree (IdItem a))
+fullSTree :: forall meld item .
+             TransTree meld (Maybe item)
+          -> Maybe (TransTree meld item)
 fullSTree =
     go
     where
-    go :: STree (MaybeItem a)
-       -> Maybe (STree (IdItem a))
     go tree =
        case tree of
-           --SLeaf (SItem Nothing) -> Nothing
+           SLeaf (SItem Nothing) -> Nothing
            SLeaf (SItem (Just rep)) -> Just . SLeaf . SItem $ rep
-           --SLeaf (SBranch tag tree) ->
-           --   case go tree of
-           --       Just tree' -> Just . SLeaf . SBranch tag $ tree'
-           --       Nothing -> Nothing
-           --SMeld overlap above below ->
-           --   let a = go above
-           --       b = go below
-           --   in  eitherMaybe (SMeld overlap) a b
+           SLeaf (SBranch tag tree) ->
+              case go tree of
+                  Just tree' -> Just . SLeaf . SBranch tag $ tree'
+                  Nothing -> Nothing
+           SMeld overlap above below ->
+              let a = go above
+                  b = go below
+              in  eitherMaybe (SMeld overlap) a b
 
-{-
-data FullCompoundTree_ s
-
-instance (Space s) => TreeType (FullCompoundTree_ s) where
-  type Meld (FullCompoundTree_ s) = Compound
-  type Leaf (FullCompoundTree_ s) = SBranch (FullCompoundTree_ s)
-
-instance (Space s) => TagTreeType (FullCompoundTree_ s) where
-  type Tag  (FullCompoundTree_ s) = Transformer s
-  type Item (FullCompoundTree_ s) = Shape s
-
-type FullCompoundTree s = STree (FullCompoundTree_ s)
-
-data FullShapeTree_ token textureLabel s
-
-instance (Space s) => TreeType (FullShapeTree_ token textureLabel s) where
-    type Meld (FullShapeTree_ token textureLabel s) = Overlap
-    type Leaf (FullShapeTree_ token textureLabel s) = SBranch (FullShapeTree_ token textureLabel s)
-
-instance (Space s) => TagTreeType (FullShapeTree_ token textureLabel s) where
-    type Tag  (FullShapeTree_ token textureLabel s) = Transformer s
-    type Item (FullShapeTree_ token textureLabel s) = SRep token textureLabel (FullCompoundTree s)
-
-type FullShapeTree token textureLabel s = STree (FullShapeTree_ token textureLabel s)
-
-fromSRep :: SRep a b (Maybe c) -> Maybe (SRep a b c)
-fromSRep (SRep a b mC) = fmap (SRep a b) mC
-
-fullCompoundTree :: CompoundTree s -> Maybe (FullCompoundTree s)
-fullCompoundTree = fullSTree
-
-fullSRep :: SRep a b (CompoundTree s) -> SRep a b (Maybe (FullCompoundTree s))
-fullSRep (SRep a b tree) = SRep a b (fullCompoundTree tree)
-
-mergeSRep :: Maybe (SRep a b (CompoundTree s)) -> Maybe (SRep a b (FullCompoundTree s))
-mergeSRep = join . fmap (fromSRep . fullSRep)
-
-fullMerge :: ( Leaf a~SBranch a
-             ) => STree (MaybeItem a) -> STree a
-fullMerge = mapSItem mergeSRep
-
-fullShapeTree :: forall a b token tex s g
-              .  ( Leaf a~SBranch a
-                 , Leaf b~SBranch b
-                 , Item a~Maybe (SRep token tex (CompoundTree s))
-                 , Tag a~Tag b
-                 , Meld a~Meld b
-                 )
-              => STree a
-              -> Maybe (STree b)
-fullShapeTree tree = fullSTree . fullMerge $ tree
-
--}
-collapseTrans :: forall a b
-              . ( CanProject (BezierSpace (SpaceOf (Item a))) (Item a)
-                , Transformable (Item a)
-                , Leaf a~SBranch b
-                , Item a~Leaf b
-                , Meld a~Meld b
-                )
-              => STree a
-              -> STree b
-collapseTrans tree =
-  go IdentityTransform tree
-  where
-  -- go :: Transformer (SpaceOf (Item a)) -> STree a -> STree b
-  go parentTrans tree =
-    case tree of
-      SMeld meld a b -> SMeld meld (go parentTrans a) (go parentTrans b)
-      --SLeaf (SBranch trans tree) -> go (CombineTransform parentTrans trans) tree
-      --SLeaf (SItem item) -> SLeaf $ (applyTransformer parentTrans item :: Leaf b)
+joinLeaves :: (Tree meld (Tree meld a)) -> Tree meld a
+joinLeaves (SMeld meld a b) = SMeld meld (joinLeaves a) (joinLeaves b)
+joinLeaves (SLeaf a) = a

@@ -24,7 +24,6 @@ where
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Figure.ShapeTree
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Representation
@@ -53,50 +52,50 @@ data FacetState = FacetState
    deriving (Show)
 makeLenses ''FacetState
 
-instance HasToken FacetState where
-  type TokenOf FacetState = Int
+instance HasStyle FacetState where
+  type StyleOf FacetState = DefaultStyle
 
 slantedLine :: Shape SubSpace
 slantedLine = segmentsToShape [[Seg (Point2 0 0) Nothing, Seg (Point2 0.25 0) Nothing, Seg (Point2 1.25 1) Nothing, Seg (Point2 1 1) Nothing]]
+
 instance Model FacetState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     constructScene state _status =
-        do text <- fromGlyph <$> blurb 0.1 AlignMin "e" -- "Georg Guðni Hauksson"
-           let angle   = state ^. stateBase . stateAngle
+        do let angle   = state ^. stateBase . stateAngle
                repMode = state ^. stateBase . stateRepMode
                repDk   = state ^. stateBase . stateRepDk
                offset  = state ^. stateOffset
-           return . Scene gray $
-               --(if repMode then represent repDk else id) $
-               ((transformFromState {-(set stateAngle (0 @@ deg)-} (state ^. stateBase){-)-} $
-               overlap [ translateByXY 0   0 $ overlap [represent repDk projectedFacet
-                                                       , withColor (dark gray) . mask . shapeFrom . stroke 3 $ path
-                                                       ]
-                       , translateByXY 100 0 $ overlap [ overlap . fmap (represent repDk) $ tesselatedFacets
-                                                       , withColor (dark gray) . mask . shapeFrom . stroke 3 $ path
-                                                       ]
-                       , translateByXY 100 0 $ overlap [ overlap . fmap (represent repDk) $ tesselatedFacets
-                                                       , withColor (dark gray) . mask . shapeFrom . stroke 3 $ path
-                                                       ]
-                       ]) :: ShapeTree Int SubSpace)
+           sceneFromLayout gray .
+               transformFromState (state ^. stateBase) .
+               stack $
+               [ overlap [  overlap . fmap (place . represent repDk) $ unFacetGroup projectedFacet
+                         , withColor (dark gray) . mask . stroke 3 $ path
+                         ]
+               , overlap [ overlap . fmap (place . represent repDk) $ unFacetGroup tesselatedFacets
+                         , withColor (dark gray) . mask . stroke 3 $ path
+                         ]
+               , overlap [ overlap . fmap (place . represent repDk) $ unFacetGroup tesselatedFacets
+                         , withColor (dark gray) . mask . stroke 3 $ path
+                         ]
+               ]
       where
         bzX = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0) :: Bezier SubSpace
         bz1 = Bez (Point2 20 0) (Point2 0   0) (Point2 0 40)
         bz2 = Bez (Point2 0 40) (Point2 0 80) (Point2 40 80)
         bz3 = Bez (Point2 40 80) (Point2 80 80) (Point2 80 160)
         bz4 = Bez (Point2 80 160) (Point2 80 300) (Point2 160 300)
-        path :: OpenCurve_ V.Vector SubSpace
-        path = makeOpenCurve [bz1, bz2, bz3, bz4]
+        path :: OpenCurve SubSpace
+        path = makeOpenCurve (pure bz1 <|> pure bz2 <|> pure bz3 <|> pure bz4)
         triangle :: V3 (Point2 SubSpace)
         triangle = V3 (Point2 0 0) (Point2 100 0) (Point2 0 100)
-        facet :: Facet
-        facet = triangleToFacet triangle triangle
-        projectedFacet :: Facet
-        projectedFacet = projectOnto False path facet
-        tesselatedFacets :: [Facet]
+        facets :: FacetGroup SubSpace
+        facets = FacetGroup $ pure $ triangleToFacet triangle triangle
+        projectedFacet :: FacetGroup SubSpace
+        projectedFacet = projectDefault False (makeBezierSpace arcLength $ path) facets
+        tesselatedFacets :: FacetGroup SubSpace
         tesselatedFacets = tesselateFacetSteps 1 $ projectedFacet
-        fullyTesselated :: [Facet]
+        fullyTesselated :: FacetGroup SubSpace
         fullyTesselated  = tesselateFacet 0.5 $ projectedFacet
 
     providePictureMap _ = noPictures
@@ -119,16 +118,6 @@ instance HandlesInput token FacetState where
 
               _ -> return ()
           )
-
-marker :: Color -> Point2 SubSpace -> ShapeTree Int SubSpace
-marker color center = withColor (transparent 0.5 color) $ translateBy center marker0
-
-marker0 :: CompoundTree SubSpace
-marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square
-    where
-        s = 8
-        square :: CompoundTree SubSpace
-        square = rectangle (Point2 s s)
 
 main :: IO ()
 main = runApplication $ FacetState

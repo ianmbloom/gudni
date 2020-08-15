@@ -25,7 +25,7 @@ module Graphics.Gudni.Figure.Token
   )
 where
 
-class HasToken a where
+class Show (TokenOf a) => HasToken a where
   type TokenOf a
 
 class HasToken a => Tokenized a where

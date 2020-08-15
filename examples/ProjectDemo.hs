@@ -25,7 +25,6 @@ where
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Figure.ShapeTree
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Representation
@@ -64,31 +63,36 @@ slantedLine dotLength thickness =
       horiOffset = Point2 dotLength 0
   in  segmentsToShape [[Straight (Point2 0 0), Straight horiOffset, Straight (horiOffset + slantOffset), Straight (slantOffset)]]
 
+instance HasStyle ProjectionState where
+    type StyleOf ProjectionState = DefaultStyle
+
 instance Model ProjectionState where
     screenSize state = Window (Point2 512 512)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     constructScene state _status =
-        do text :: CompoundTree SubSpace <- fromGlyph <$> blurb 0.1 AlignMin "Georg Guðni Hauksson    Georg Guðni Hauksson    Georg Guðni Hauksson"
-           let angle   = state ^. stateBase . stateAngle
+        do let text = blurb "Georg Guðni Hauksson    Georg Guðni Hauksson    Georg Guðni Hauksson"
+               angle   = state ^. stateBase . stateAngle
                repMode = state ^. stateBase . stateRepMode
                repDk   = state ^. stateBase . stateRepDk
                offset  = state ^. stateOffset
-           return . Scene gray .
+               stacked :: Layout (StyleOf ProjectionState)
+               stacked = stack $
+                            [ unprojected
+                            , place . represent False $ path
+                            , projectOnto path $ unprojected
+                            , projectOnto path $ subdivide 6 unprojected
+                            , scaleBy 30 . withColor blue $ text
+                            ]
+           sceneFromLayout gray $
                --(if repMode then represent repDk else id) $
-               transformFromState (state ^. stateBase) .
-               overlap $
-                  [ unprojected
-                  , translateByXY 0  100 . overlap $
-                      [ translateByXY 0    0 . represent False $ path
-                      , translateByXY 0  500 . projectOnto False path $ unprojected
-                      , translateByXY 0 1000 . projectOnto False path $ subdivide 6 unprojected
-                      ]
-                  ]
+               transformFromState (state ^. stateBase) stacked
+
+
 
         where
         path :: OpenCurve SubSpace
         path = tr "path" $
-               scaleBy 500 $
+               applyScale 500 $
                segmentsToOpenCurve [ Curved (Point2 0 0  ) (Point2 2 0)
                                    , Curved (Point2 2 0.5) (Point2 2 1)
                                    ] (Point2 4 1)
@@ -104,21 +108,21 @@ instance Model ProjectionState where
                --                              ]
         pathLength = arcLength path
         layerThickness = 50
-        unprojected :: ShapeTree Int SubSpace
+        unprojected :: Layout (StyleOf ProjectionState)
         unprojected = overlap [
                        -- follow text path
-                       translateByXY 0 (-1) . withColor white . mask . shapeFrom . rectangle $ Point2 pathLength 2
+                       translateByXY 0 (-1) . withColor white . mask . rectangle $ Point2 pathLength 2
                        -- translateByXY (state ^. stateOffset) 0 .
                        ,  translateByXY 0 (-(layerThickness * 3 / 2)) .
                           overlap $
                           [ slashDotted (transparent 0.5 red) layerThickness
                           , translateByXY 0 layerThickness $ doubleDotted (transparent 0.5 $ light blue) layerThickness
-                          , translateByXY 0 layerThickness $ withColor (light green) . mask . shapeFrom . rectangle $ Point2 pathLength layerThickness
+                          , translateByXY 0 layerThickness $ withColor (light green) . mask . rectangle $ Point2 pathLength layerThickness
                           , translateByXY 0 (2*layerThickness) $ slashDotted (transparent 0.5 purple) layerThickness
                           ]
                        ]
 
-        follow :: CompoundTree SubSpace -> OpenCurve SubSpace -> ShapeTree Int SubSpace
+        follow :: CompoundLayout (StyleOf ProjectionState) -> OpenCurve SubSpace -> Layout (StyleOf ProjectionState)
         follow text path =
            let thickness = 2
                betweenGap = 1
@@ -126,13 +130,13 @@ instance Model ProjectionState where
                dotGap = 2
                numDots = floor (pathLength / (dotLength + dotGap))
            in  withColor (dark . greenish $ red) .
-               projectOnto False path .
+               projectOnto path .
                translateByXY (state ^. stateOffset) 0 .
                translateByXY 10 3 .
                scaleBy 5 $
                text
 
-        doubleDotted :: Color -> SubSpace -> ShapeTree Int SubSpace
+        doubleDotted :: Color -> SubSpace -> Layout (StyleOf ProjectionState)
         doubleDotted color thickness =
            let dotThickness = thickness / 3
                dotLength = 80
@@ -145,10 +149,11 @@ instance Model ProjectionState where
                overlap .
                verticallySpacedBy (dotThickness * 2) .
                replicate 2 .
+               mask .
                rectangle $
                dotLength `by` dotThickness
 
-        slashDotted :: Color -> SubSpace -> ShapeTree Int SubSpace
+        slashDotted :: Color -> SubSpace -> Layout (StyleOf ProjectionState)
         slashDotted color thickness =
            let dotLength = 20
                dotGap = 20
@@ -181,15 +186,15 @@ instance HandlesInput token ProjectionState where
               _ -> return ()
           )
 
-marker :: Color -> Point2 SubSpace -> ShapeTree Int SubSpace
+marker :: Color -> Point2 SubSpace -> Layout (StyleOf ProjectionState)
 marker color center = withColor (transparent 0.5 color) $ translateBy center marker0
 
-marker0 :: CompoundTree SubSpace
+marker0 :: CompoundLayout (StyleOf ProjectionState)
 marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square
     where
         s = 8
-        square :: CompoundTree SubSpace
-        square = rectangle (Point2 s s)
+        square :: CompoundLayout (StyleOf ProjectionState)
+        square = mask $ rectangle (Point2 s s)
 
 main :: IO ()
 main = runApplication $ ProjectionState

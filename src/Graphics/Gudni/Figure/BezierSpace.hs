@@ -7,7 +7,8 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Graphics.Gudni.Figure.BezierSpace
-  ( BezierSpace(..)
+  ( CanFit(..)
+  , BezierSpace(..)
   , makeBezierSpace
   , traverseBezierSpace
   , bezierSpaceLengths
@@ -21,10 +22,9 @@ import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Box
-import Graphics.Gudni.Figure.Projection
+import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.Cut
-import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Reversible
 import Graphics.Gudni.Util.Chain
@@ -42,6 +42,13 @@ import Control.Applicative
 import Control.Monad
 import Data.Functor.Classes
 import Data.Maybe (fromMaybe, fromJust)
+
+class (HasSpace t) => CanFit t where
+    isForward :: t -> Bool
+    projectTangent :: SpaceOf t -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> t -> t
+    fillGap :: (Chain f) => f t -> f t -> f t
+    projectDefaultCurve :: Bool -> Int -> Maybe (SpaceOf t) -> SpaceOf t -> Bezier (SpaceOf t) -> t -> t
+
 
 data BezierSpace s = BezierSpace
   { bsStart       :: Point2 s
@@ -79,52 +86,57 @@ subdivideAcuteBezier iterations bz@(Bez v0 vC v1) =
            in  subdivideAcuteBezier (iterations - 1) left <|> subdivideAcuteBezier (iterations - 1) right
       else pure bz
 
-makeBezierSpace :: forall f s . (Eq1 f, Chain f, Space s) => (Bezier s -> s) -> f (Bezier s) -> BezierSpace s
+makeBezierSpace :: forall f s . (Chain f, Space s, Show (f(Bezier s))) => (Bezier s -> s) -> OpenCurve_ f s -> BezierSpace s
 makeBezierSpace lengthFun chain =
   fromJust . go 0 $ fixedChain
   where
-  fixedChain = join . fmap (subdivideAcuteBezier 3) $ chain
+  fixedChain = join . fmap (subdivideAcuteBezier 3) $ view curveSegments $ chain
   go :: s -> f (Bezier s) -> Maybe (BezierSpace s)
   go start vector =
     let (left, right) = halfSplit vector
     in if right `eq1` empty
        then if left `eq1` empty
             then Nothing
-            else let (Bez v0 vC v1) = firstLink left
-                     curveLength :: s
-                     curveLength = lengthFun (Bez v0 vC v1)
-                     normal0 = normalize (perp (vC .-. v0))
-                     normal1 = normalize (perp (v1 .-. vC))
-                     node :: BezierTree s
-                     node = BezierLeaf curveLength vC
-                 in  Just $ BezierSpace v0 normal0 v1 normal1 node (start + curveLength)
-        else
-           let makeSplit (BezierSpace lLPoint  lLNormal lRPoint lRNormal leftTree  leftOffset )
-                         (BezierSpace _rLPoint rLNormal rRPoint rRNormal rightTree rightOffset) =
-                         let node = BezierSplit
-                                      { bzTreeSplitX = leftOffset
-                                      , bzTreeSplitPoint = lRPoint
-                                      , bzTreeLeftNormal = lRNormal
-                                      , bzTreeRightNormal = rLNormal
-                                      , bzTreeLeft  = leftTree
-                                      , bzTreeRight = rightTree
-                                      }
-                         in BezierSpace lLPoint lLNormal rRPoint rRNormal node rightOffset
-           in  case go start left of
-                   Just leftSpace ->
-                       case go (bsLength leftSpace) right of
-                           Just rightSpace -> Just $ makeSplit leftSpace rightSpace
-                           Nothing -> Just $ leftSpace
-                   Nothing -> Nothing
+            else makePart start left
+       else
+            if left `eq1` empty
+            then makePart start right
+            else let makeSplit (BezierSpace lLPoint  lLNormal lRPoint lRNormal leftTree  leftOffset )
+                               (BezierSpace _rLPoint rLNormal rRPoint rRNormal rightTree rightOffset) =
+                               let node = BezierSplit
+                                            { bzTreeSplitX = leftOffset
+                                            , bzTreeSplitPoint = lRPoint
+                                            , bzTreeLeftNormal = lRNormal
+                                            , bzTreeRightNormal = rLNormal
+                                            , bzTreeLeft  = leftTree
+                                            , bzTreeRight = rightTree
+                                            }
+                               in BezierSpace lLPoint lLNormal rRPoint rRNormal node rightOffset
+                 in
+                    case go start left of
+                         Just leftSpace ->
+                             case go (bsLength leftSpace) right of
+                                 Just rightSpace -> Just $ makeSplit leftSpace rightSpace
+                                 Nothing -> Just $ leftSpace
+                         Nothing -> Nothing
+  makePart start part =
+      let (Bez v0 vC v1) = firstLink part
+          curveLength :: s
+          curveLength = lengthFun (Bez v0 vC v1)
+          normal0 = normalize (perp (vC .-. v0))
+          normal1 = normalize (perp (v1 .-. vC))
+          node :: BezierTree s
+          node = BezierLeaf curveLength vC
+      in  Just $ BezierSpace v0 normal0 v1 normal1 node (start + curveLength)
 
 traverseBezierSpace :: forall t f
                     .  ( Alternative f
                        , Chain f
-                       , Space (SpaceOf t)
+                       , HasSpace t
                        , CanCut t
                        , CanFit t
                        , Reversible t
-                       , HasBox t
+                       , CanBox t
                        )
                     => Bool
                     -> Int
@@ -167,7 +179,7 @@ traverseBezierSpace debug max_steps m_accuracy bSpace@(BezierSpace sPoint sNorma
                               rightResult = pure (projectTangent end ePoint eNormal rightItem)
                           in  fillGap leftResult rightResult
                      else pure (projectTangent end ePoint eNormal bz)
-                else pure . projectOntoCurve debug max_steps m_accuracy start (Bez sPoint control ePoint) $ bz
+                else pure . projectDefaultCurve debug max_steps m_accuracy start (Bez sPoint control ePoint) $ bz
 
 bezierSpaceLengths :: Alternative t => BezierSpace s -> t s
 bezierSpaceLengths = go . bsTree

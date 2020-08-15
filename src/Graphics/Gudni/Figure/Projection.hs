@@ -7,8 +7,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Graphics.Gudni.Figure.Projection
-  ( CanProject(..)
-  , CanFit(..)
+  ( CanApplyProjection(..)
   )
 where
 
@@ -17,10 +16,10 @@ import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Bezier
+import Graphics.Gudni.Figure.BezierSpace
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.Cut
-import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Loop
@@ -42,26 +41,17 @@ import Data.Maybe (fromMaybe, fromJust)
 -- @projectionWithStepsAccuracy@, and use default implementations for the
 -- remaining functions.  You may also want to define a default
 -- accuracy by overriding @project@.
-class (Space (SpaceOf t)) => CanProject u t where
-    projectOnto :: Bool -> u -> t -> t
-    default projectOnto :: Bool -> u -> t -> t
-    projectOnto debug = projectionWithAccuracy debug 1e-3
+class (HasSpace t) => CanApplyProjection t where
+    projectDefault :: Bool -> BezierSpace (SpaceOf t) -> t -> t
+    default projectDefault :: Bool -> BezierSpace (SpaceOf t) -> t -> t
+    projectDefault debug = projectionWithAccuracy debug 1e-3
 
-    projectionWithAccuracy :: Bool -> SpaceOf t -> u -> t -> t
-    default projectionWithAccuracy :: Bool -> SpaceOf t -> u -> t -> t
+    projectionWithAccuracy :: Bool -> SpaceOf t -> BezierSpace (SpaceOf t) -> t -> t
+    default projectionWithAccuracy :: Bool -> SpaceOf t -> BezierSpace (SpaceOf t) -> t -> t
     projectionWithAccuracy debug accuracy =
         projectionWithStepsAccuracy debug (maxStepsFromAccuracy accuracy) (Just accuracy)
 
-    projectionWithSteps :: Bool -> Int -> u -> t -> t
+    projectionWithSteps :: Bool -> Int -> BezierSpace (SpaceOf t) -> t -> t
     projectionWithSteps debug max_steps = projectionWithStepsAccuracy debug max_steps Nothing
 
-    projectionWithStepsAccuracy :: Bool -> Int -> Maybe (SpaceOf t) -> u -> t -> t
-
-class Reversible t where
-    reverseItem :: t -> t
-
-class (Space (SpaceOf t)) => CanFit t where
-    isForward :: t -> Bool
-    projectTangent :: SpaceOf t -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> t -> t
-    fillGap :: (Chain f) => f t -> f t -> f t
-    projectOntoCurve :: Bool -> Int -> Maybe (SpaceOf t) -> SpaceOf t -> Bezier (SpaceOf t) -> t -> t
+    projectionWithStepsAccuracy :: Bool -> Int -> Maybe (SpaceOf t) -> BezierSpace (SpaceOf t) -> t -> t

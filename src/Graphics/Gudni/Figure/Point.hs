@@ -7,6 +7,7 @@
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -79,11 +80,11 @@ instance (Out s) => Out (Point2 s)
 instance Space s => HasSpace (Point2 s) where
   type SpaceOf (Point2 s) = s
 
-class ( Chain (ContainerFunctor t)
-      , HasSpace t) => PointContainer t where
-   type ContainerFunctor t :: Type -> Type
-   containedPoints :: (Functor (ContainerFunctor t)) => t -> (ContainerFunctor t) (Point2 (SpaceOf t))
+class (HasSpace t) => PointContainer t where
    mapOverPoints   :: (Point2 (SpaceOf t) -> Point2 (SpaceOf t)) -> t -> t
+
+instance Space s => PointContainer (Point2 s) where
+   mapOverPoints = ($)
 
 zeroPoint :: Num s => Point2 s
 zeroPoint = Point2 0 0
@@ -106,13 +107,7 @@ by = makePoint
 -- | Calculate the area of a box defined by the origin and this point.
 pointArea :: Num s => Point2 s -> s
 pointArea (Point2 x y) = x * y
-{-
-instance Random s => Random (Point2 s) where
-  random = runRand $ do x <- getRandom; y <- getRandom; return (Point2 x y)
-  randomR (Point2 x0 y0, Point2 x1 y1) = runRand $ do x <- getRandomR (x0, x1)
-                                                      y <- getRandomR (y0, y1)
-                                                      return (Point2 x y)
--}
+
 -- Convenience functions for reasoning about points
 
 taxiDistance :: (Space s) => Point2 s -> Point2 s -> s

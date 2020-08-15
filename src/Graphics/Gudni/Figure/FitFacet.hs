@@ -22,7 +22,6 @@ import Graphics.Gudni.Figure.Facet
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.Cut
-import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.Reversible
@@ -52,16 +51,13 @@ instance Space s => CanFit (Facet_ s) where
     isForward facet = True -- the order of facets doesn't matter.
     projectTangent offset v0 normal = mapOverSceneBez (projectTangent offset v0 normal)
     fillGap leftResult rightResult = leftResult <|> rightResult
-    projectOntoCurve debugFlag max_steps m_accuracy start sourceCurve =
-         mapOverSceneBez (projectOntoCurve debugFlag max_steps m_accuracy start sourceCurve)
+    projectDefaultCurve debugFlag max_steps m_accuracy start sourceCurve =
+         mapOverSceneBez (projectDefaultCurve debugFlag max_steps m_accuracy start sourceCurve)
 
-{-
 instance ( Space s
          , Chain f
-
-         ) => CanProject (BezierSpace s) (Facet_ s) where
-    projectionWithStepsAccuracy debug max_steps m_accuracy bSpace facets =
+         ) => CanApplyProjection (FacetGroup_ f s) where
+    projectionWithStepsAccuracy debug max_steps m_accuracy bSpace (FacetGroup facets) =
         let fixed :: f (Facet_ s)
             fixed = join . fmap (replaceKnob verticalAxis) $ facets
-        in  join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ fixed
--}
+        in  undefined -- join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ FacetGroup fixed

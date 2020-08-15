@@ -85,7 +85,7 @@ projectPoint max_steps m_accuracy bz p@(Point x y) = goProjectPoint len bz (Poin
    len = (inverseArcLength max_steps m_accuracy bz x)
 -}
 
--- instance (Space s) => CanProject (Bezier s) (Bezier s) where
+-- instance (Space s) => CanApplyProjection (Bezier s) (Bezier s) where
 --     projectionWithStepsAccuracy max_steps m_accuracy path =
 --        over bzPoints (fmap (goProjectPoint max_steps m_accuracy path))
 
@@ -168,7 +168,7 @@ projectBezierAfter offset bz = tr "projectAfter" . overBezier (projectPointAfter
 traverseBezierSpace :: forall f t a s
                     .  (Space (SpaceOf t)
                        , Alternative f
-                       , HasBox t
+                       , CanBox t
                        , s ~ SpaceOf t
                        , Show t
                        , Show (f a))

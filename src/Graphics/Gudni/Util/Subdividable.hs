@@ -14,6 +14,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Facet
 import Graphics.Gudni.Figure.ShapeTree
+import Graphics.Gudni.Layout
 import Graphics.Gudni.Raster.TraverseShapeTree
 --import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Debug
@@ -45,11 +46,22 @@ instance Space s => CanSubdivide (Shape s) where
     subdivide steps (Shape outlines) = Shape $ fmap (subdivide steps) outlines
 
 instance (CanSubdivide (Leaf i)) => CanSubdivide (STree i) where
-    subdivide steps = mapSTree (subdivide steps)
+    subdivide steps = mapSLeaf (subdivide steps)
 
 instance (CanSubdivide rep) => CanSubdivide (SRep token label rep) where
     subdivide steps = over sRep (subdivide steps)
 
+instance IsStyle style => CanSubdivide (Layout style) where
+    subdivide steps (Layout tree) = Layout $ mapSItem (fmap (subdivide steps)) tree
+
+instance IsStyle style => CanSubdivide (CompoundLayout style) where
+    subdivide steps (CompoundLayout tree) = CompoundLayout $ mapSItem (fmap (subdivide steps)) tree
+
+instance IsStyle style => CanSubdivide (LayoutRep style) where
+    subdivide steps rep =
+      case rep of
+        Glyph style c -> Glyph style c
+        LayoutShape shape -> LayoutShape (subdivide steps shape)
 {-
 instance (Space s, Space t, s~t) => CanSubdivide (FacetSide s t) where
     represent dk facetSide@(FacetSide sceneSide textureSide) =

@@ -49,12 +49,12 @@ withLinearGradient :: (CanFill a) => Point2 (SpaceOf a) -> Color -> Point2 (Spac
 withLinearGradient start startColor end endColor =
   withFill (Linear $ LinearGradient start end startColor endColor)
 
-instance (Space s) => CanFill (ShapeTree token textureLabel s) where
-    type UnFilled (ShapeTree token textureLabel s) = CompoundTree s
-    withFill substance = SLeaf . Just . SRep defaultValue substance
+instance (Space s) => CanFill (ShapeTree token s) where
+    type UnFilled (ShapeTree token s) = CompoundTree s
+    withFill substance = ShapeTree . SLeaf . SItem . Just . SRep defaultValue substance
 
-instance HasToken (ShapeTree token textureLabel s) where
-  type TokenOf (ShapeTree token textureLabel s) = token
+instance Show token => HasToken (ShapeTree token s) where
+  type TokenOf (ShapeTree token s) = token
 
-instance Tokenized (ShapeTree token s) where
-  overToken fToken = mapSTree (fmap (over sRepToken fToken))
+instance Show token => Tokenized (ShapeTree token s) where
+  overToken fToken = overShapeTree (mapSItem (fmap (over sRepToken fToken)))

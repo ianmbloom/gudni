@@ -10,7 +10,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Layout.Adjacent
+-- Module      :  Graphics.Gudni.Layout.Collect
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -20,7 +20,7 @@
 --
 -- Top level functions for creating bounding box based layouts.
 
-module Graphics.Gudni.Layout.Adjacent
+module Graphics.Gudni.Layout.Collect
   ( Overlappable (..)
   , rackOf
   , rack
@@ -32,6 +32,7 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout.Layout
+import Graphics.Gudni.Layout.Alignment
 import Graphics.Gudni.Layout.Style
 import Graphics.Gudni.Layout.Empty
 import Graphics.Gudni.Layout.Overlappable
@@ -46,64 +47,49 @@ import Control.Lens
 import Control.Applicative
 import Control.Monad.State
 
-nextTo :: ( HasSpace leaf
-          , Axis axis
-          , SwitchAxis axis
-          , IsStyle style
-          )
-       => axis
-       -> style
-       -> Maybe Alignment
-       -> meld
-       -> STree (AdjacentMeld style meld) leaf
-       -> STree (AdjacentMeld style meld) leaf
-       -> STree (AdjacentMeld style meld) leaf
-nextTo axis style alignment meld = SMeld (AdjacentMeld style (NextTo (eitherAxis axis) alignment) meld)
-
-loaf :: ( HasSpace leaf
+loaf :: ( IsLayout layout
         , Axis axis
         , SwitchAxis axis
-        , IsStyle style)
+        )
         => axis
-        -> style
+        -> StyleOf layout
         -> Maybe Alignment
-        -> meld
-        -> [STree (AdjacentMeld style meld) leaf]
-        -> STree (AdjacentMeld style meld) leaf
+        -> Meld layout
+        -> [layout]
+        -> layout
 loaf axis style alignment meld =
   foldl (nextTo axis style alignment meld) emptyItem
 
-rackOf :: ( HasSpace leaf
-          , IsStyle style
+rackOf :: ( IsLayout layout
           )
-          => style
+          => StyleOf layout
           -> Maybe Alignment
-          -> meld
-          -> [STree (AdjacentMeld style meld) leaf]
-          -> STree (AdjacentMeld style meld) leaf
+          -> Meld layout
+          -> [layout]
+          -> layout
 rackOf = loaf Horizontal
 
-rack :: ( HasSpace leaf
-        , IsStyle style
-        , HasDefault meld
+rack :: ( IsLayout layout
+        , HasDefault (StyleOf layout)
+        , HasDefault (Meld layout)
         )
-        => [STree (AdjacentMeld style meld) leaf]
-        -> STree (AdjacentMeld style meld) leaf
+        => [layout]
+        -> layout
 rack = rackOf defaultValue Nothing defaultValue
 
-stackOf ::( HasSpace leaf
-          , IsStyle style)
-          => style
+stackOf ::( IsLayout layout
+          )
+          => StyleOf layout
           -> Maybe Alignment
-          -> meld
-          -> [STree (AdjacentMeld style meld) leaf]
-          -> STree (AdjacentMeld style meld) leaf
+          -> Meld layout
+          -> [layout]
+          -> layout
 stackOf = loaf Vertical
 
-stack :: ( HasSpace leaf
-         , IsStyle style
-         , HasDefault meld
+stack :: ( IsLayout layout
+         , HasDefault (Meld layout)
+         , HasDefault (StyleOf layout)
          )
-         => [STree (AdjacentMeld style meld) leaf]
-         -> STree (AdjacentMeld style meld) leaf
+         => [layout]
+         -> layout
 stack = stackOf defaultValue Nothing defaultValue

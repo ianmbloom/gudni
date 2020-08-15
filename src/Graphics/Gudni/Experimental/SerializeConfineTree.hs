@@ -49,6 +49,7 @@ import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Layout.FromLayout
 import Graphics.Gudni.OpenCL.Rasterizer
 import Graphics.Gudni.Experimental.ConfineTree
 
@@ -119,7 +120,7 @@ withConfinedScene :: ( MonadIO m
                      )
                   => Maybe (Point2 PixelSpace)
                   -> PictureMap
-                  -> Scene (FullShapeTree token SubSpace)
+                  -> Scene (Maybe (FinalTree token SubSpace))
                   -> (Pile Word8 -> ConfineState token SubSpace -> m a)
                   -> m a
 withConfinedScene canvasSize pictureMap scene code =
@@ -170,11 +171,10 @@ confineShape :: MonadIO m
              -> Color
              -> SubstanceTag
              -> Compound
-             -> Transformer SubSpace
              -> Shape SubSpace
              -> ConfineMonad token SubSpace m (Maybe BoundingBox)
-confineShape canvasSize color substanceTag combineType transformer shape =
-  do let transformedOutlines = map (mapOverPoints (fmap clampReasonable) . applyTransformer transformer) $ view shapeOutlines shape
+confineShape canvasSize color substanceTag combineType shape =
+  do let transformedOutlines = view shapeOutlines . mapOverPoints (fmap clampReasonable) $ shape
          boundingBox = minMaxBoxes . fmap boxOf $ transformedOutlines
      if excludeBox canvasSize boundingBox
      then return ()
@@ -204,6 +204,9 @@ addHardFacet substanceTagId hardFacet =
          boundingBox = boxOf hardFacet
      addItem boundingBox [facetTag]
 -}
+
+combineBoxes compound = liftA2 minMaxBox
+
 -- | For each shape in the shapeTree serialize the substance metadata and serialize the compound subtree.
 confineSubstance :: forall m item token .
                   ( item ~ Shape SubSpace
@@ -215,10 +218,9 @@ confineSubstance :: forall m item token .
                  -> (TextureSpace -> SpaceOf item)
                  -> (SpaceOf item)
                  -> Overlap
-                 -> Transformer (SpaceOf item)
-                 -> SRep token PictureMemoryReference (STree Compound item)
+                 -> SRep token PictureMemoryReference (Tree Compound item)
                  -> ConfineMonad token (SpaceOf item) m ()
-confineSubstance canvasSize fromTextureSpace tolerance Overlap transformer (SRep mToken substance subTree) =
+confineSubstance canvasSize fromTextureSpace tolerance Overlap (SRep mToken substance subTree) =
     do  -- Depending on the substance of the shape take appropriate actions.
         let (subTransform, baseSubstance) = breakdownSubstance substance
         let color = case baseSubstance of
@@ -226,7 +228,7 @@ confineSubstance canvasSize fromTextureSpace tolerance Overlap transformer (SRep
                         _ -> black
         descriptionReference <- sliceStart <$> addToPileState conDescriptionPile (asBytes baseSubstance)
         let substanceTag = substanceAndRefToTag baseSubstance descriptionReference
-        mShapeBox <- traverseCompoundTree defaultValue transformer (confineShape canvasSize color substanceTag) (const $ liftA2 minMaxBox) Nothing subTree
+        mShapeBox <- traverseTree traverseCompound combineBoxes (confineShape canvasSize color substanceTag) defaultValue subTree
         case mToken of
              Nothing -> return ()
              Just token ->
@@ -267,14 +269,14 @@ confineSubstance canvasSize fromTextureSpace tolerance Overlap transformer (SRep
 
 confineOverScene :: (MonadIO m, Show token)
                  => Maybe (Point2 SubSpace)
-                 -> Scene (ShapeTreePictureMemory token SubSpace)
+                 -> Scene (FinalTreePictureMemory token SubSpace)
                  -> ConfineMonad token SubSpace m ()
 confineOverScene canvasSize scene =
   do   -- Move the backgound color into the serializer state.
        liftIO $ putStrLn "===================== Serialize scene start ====================="
        conBackgroundColor .= scene ^. sceneBackgroundColor
        -- Serialize the shape tree.
-       traverseShapeTree (confineSubstance canvasSize textureSpaceToSubspace (SubSpace $ realToFrac tAXICABfLATNESS)) (\ _ _ _ -> ()) () (scene ^. sceneShapeTree)
+       traverseTree keepMeld (const3 ()) (confineSubstance canvasSize textureSpaceToSubspace (SubSpace $ realToFrac tAXICABfLATNESS)) Overlap (scene ^. sceneShapeTree)
        liftIO $ putStrLn "===================== Serialize scene end   ====================="
 
 outputConfineState :: (Show s, Show token, Storable (HardFacet_ s))

@@ -39,7 +39,7 @@ module Graphics.Gudni.Util.Util
   , startTimeKeeper
   , markTime
   , showTimes
-  , with
+  , withLift
   , withIO
   , lpad
   , putStrList
@@ -50,6 +50,8 @@ module Graphics.Gudni.Util.Util
   , eitherMaybe
   , firstMaybe
   , secondMaybe
+  , const2
+  , const3
   )
 where
 
@@ -174,8 +176,8 @@ fmapMaybe = fmap -- this is just here to force the selection of the right monad.
 wrapMaybe :: (a -> Bool) -> a -> Maybe a
 wrapMaybe cond x = if cond x then Just x else Nothing
 
-with :: (MonadState p m, Monad m) => (m1 (b, s) -> m (b, s)) -> Lens' p s -> StateT s m1 b -> m b
-with lifter lens mf =
+withLift :: (MonadState p m, Monad m) => (m1 (b, s) -> m (b, s)) -> Lens' p s -> StateT s m1 b -> m b
+withLift lifter lens mf =
   do state <- use lens
      (result, state') <- lifter $ runStateT mf state
      lens .= state'
@@ -232,3 +234,9 @@ eitherMaybe :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
 eitherMaybe f a b = f <$> a <*> b <|> a <|> b
 firstMaybe  f a b = f <$> a <*> b <|> a
 secondMaybe f a b = f <$> a <*> b       <|> b
+
+const2 :: a -> b -> c -> c
+const2 a b c = c
+
+const3 :: a -> b -> c -> d -> d
+const3 a b c d = d

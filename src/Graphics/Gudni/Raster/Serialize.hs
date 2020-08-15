@@ -49,6 +49,7 @@ import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Layout.FromLayout
 import Graphics.Gudni.OpenCL.Rasterizer
 
 import Control.Monad
@@ -130,7 +131,7 @@ withSerializedScene :: ( MonadIO m
                     => Rasterizer
                     -> Point2 PixelSpace
                     -> PictureMap
-                    -> Scene (ShapeTree token SubSpace)
+                    -> Scene (Maybe (FinalTree token SubSpace))
                     -> (Pile Word8 -> SerialState token SubSpace -> m a)
                     -> m a
 withSerializedScene rasterizer canvasSize pictureMap scene code =
@@ -142,17 +143,17 @@ withSerializedScene rasterizer canvasSize pictureMap scene code =
               substanceTagPile <- liftIO $ newPile
               descriptionPile <- liftIO $ newPile
               tileTree <- liftIO $ buildTileTreeM canvasSize (rasterizer ^. rasterDeviceSpec . specMaxTileSize) newPile
-              state            <- execStateT (buildOverScene rasterizer (fromIntegral <$> canvasSize) sceneWithPictMem) $
-                  SerialState
-                      { _serTokenMap         = M.empty
-                      , _serBackgroundColor  = clearBlack
-                      , _serGeometryPile     = geometryPile
-                      , _serTileTree         = tileTree
-                      , _serFacetPile        = facetPile
-                      , _serItemTagPile      = itemTagPile
-                      , _serSubstanceTagPile = substanceTagPile
-                      , _serDescriptionPile  = descriptionPile
-                      }
+              state <- execStateT (buildOverScene rasterizer (fromIntegral <$> canvasSize) sceneWithPictMem) $
+                       SerialState
+                           { _serTokenMap         = M.empty
+                           , _serBackgroundColor  = clearBlack
+                           , _serGeometryPile     = geometryPile
+                           , _serTileTree         = tileTree
+                           , _serFacetPile        = facetPile
+                           , _serItemTagPile      = itemTagPile
+                           , _serSubstanceTagPile = substanceTagPile
+                           , _serDescriptionPile  = descriptionPile
+                           }
               result <- code pictDataPile state
               liftIO $
                   do freePile $ state ^. serGeometryPile
@@ -180,11 +181,10 @@ onShape :: MonadIO m
         -> Point2 SubSpace
         -> SubstanceTag
         -> Compound
-        -> Transformer SubSpace
         -> Shape SubSpace
         -> SerialMonad token s m (Maybe BoundingBox)
-onShape rasterizer canvasSize substanceTag combineType transformer shape =
-  do let transformedOutlines = map (mapOverPoints (fmap clampReasonable) . applyTransformer transformer) $ view shapeOutlines shape
+onShape rasterizer canvasSize substanceTag combineType shape =
+  do let transformedOutlines = view shapeOutlines . mapOverPoints (fmap clampReasonable) $  shape
          boundingBox = minMaxBoxes . fmap boxOf $ transformedOutlines
      if excludeBox canvasSize boundingBox
      then return ()
@@ -206,7 +206,7 @@ onShape rasterizer canvasSize substanceTag combineType transformer shape =
                     return strandRefs
              let itemTags = map (strandInfoTag combineType substanceTagId) strandRefs
              addItem boundingBox itemTags
-     return $ Just boundingBox
+     return (Just boundingBox)
 
 addHardFacet :: MonadIO m
              => SubstanceTagId
@@ -233,15 +233,14 @@ onSubstance :: forall m item token .
             -> (TextureSpace -> SpaceOf item)
             -> (SpaceOf item)
             -> Overlap
-            -> Transformer (SpaceOf item)
-            -> SRep token PictureMemoryReference (STree Compound item)
+            -> SRep token PictureMemoryReference (Tree Compound item)
             -> SerialMonad token (SpaceOf item) m ()
-onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap transformer (SRep mToken substance subTree) =
+onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap (SRep mToken substance subTree) =
     do  -- Depending on the substance of the shape take appropriate actions.
         let (subTransform, baseSubstance) = breakdownSubstance substance
         descriptionReference <- sliceStart <$> addToPileState serDescriptionPile (asBytes baseSubstance)
         let substanceTag = substanceAndRefToTag baseSubstance descriptionReference
-        mShapeBox <- traverseCompoundTree defaultValue transformer (onShape rasterizer canvasSize substanceTag) combineBoxes Nothing subTree
+        mShapeBox <- traverseTree traverseCompound combineBoxes (onShape rasterizer canvasSize substanceTag) defaultValue subTree
         case mToken of
              Nothing -> return ()
              Just token ->
@@ -256,6 +255,8 @@ onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap transformer
                case mShapeBox of
                     Nothing -> return ()
                     Just shapeBox ->
+                         return ()
+                         {-
                          do let -- Transformation information is transfered to the texture here.
                                 -- First create two facets that cover the entire bounding box of the shape.
                                 facets :: [Facet_ (SpaceOf item)]
@@ -265,7 +266,7 @@ onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap transformer
                                 combined = CombineTransform transformer subTransform
                                 -- apply all transformations to the facets
                                 transformedFacets :: [Facet_ (SpaceOf item)]
-                                transformedFacets = fmap (applyTransformer combined) facets
+                                transformedFacets = undefined --fmap (applyTransformer combined) facets
                                 -- tesselate the facets
                                 tesselatedFacets :: [[Facet_ (SpaceOf item)]]
                                 tesselatedFacets = fmap (tesselateFacet tolerance) transformedFacets
@@ -277,18 +278,19 @@ onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap transformer
                             -- Add all hard facets with the new substance tag id.
                             mapM (addHardFacet $ SubstanceTagId substanceTagId) hardFacets
                             return ()
+                         -}
 
 buildOverScene :: (MonadIO m, Show token)
                => Rasterizer
                -> Point2 SubSpace
-               -> Scene (ShapeTreePictureMemory token SubSpace)
+               -> Scene (FinalTreePictureMemory token SubSpace)
                -> SerialMonad token SubSpace m ()
 buildOverScene rasterizer canvasSize scene =
   do   -- Move the backgound color into the serializer state.
        liftIO $ putStrLn "===================== Serialize scene start ====================="
        serBackgroundColor .= scene ^. sceneBackgroundColor
        -- Serialize the shape tree.
-       traverseShapeTree (onSubstance rasterizer canvasSize textureSpaceToSubspace (SubSpace $ realToFrac tAXICABfLATNESS)) (\ _ _ _ -> ()) () (scene ^. sceneShapeTree)
+       traverseTree keepMeld (const3 ()) (onSubstance rasterizer canvasSize textureSpaceToSubspace (SubSpace $ realToFrac tAXICABfLATNESS)) Overlap (scene ^. sceneShapeTree)
        liftIO $ putStrLn "===================== Serialize scene end   ====================="
 
 outputSerialState :: (Show s, Show token, Storable (HardFacet_ s))

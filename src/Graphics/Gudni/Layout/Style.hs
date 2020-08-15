@@ -10,7 +10,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Layout.Adjacent
+-- Module      :  Graphics.Gudni.Layout.Collect
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -28,6 +28,8 @@ module Graphics.Gudni.Layout.Style
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Layout.Proximity
+import Graphics.Gudni.Layout.WithBox
 import Graphics.Gudni.Layout.Alignment
 import Graphics.Gudni.Layout.Overlappable
 import Graphics.Gudni.Layout.Font
@@ -40,26 +42,30 @@ import Control.Lens
 import Control.Applicative
 
 class HasStyle a where
-  type StyleOf a :: *
+    type StyleOf a :: *
 
-class (HasSpace style, HasDefault style, Show style) => IsStyle style where
-  styleTextAlignX :: style -> Maybe Alignment
-  styleTextAlignY :: style -> Maybe Alignment
-  styleGapX :: style -> (SpaceOf style)
-  styleGapY :: style -> (SpaceOf style)
-  styleGlyph :: Monad m => style -> CodePoint -> FontMonad m (Shape (SpaceOf style), Maybe (Box (SpaceOf style)))
+class ( HasToken style
+      , HasSpace style
+      , HasDefault style
+      , Show style)
+      => IsStyle style where
+    styleTextAlignX :: style -> Maybe Alignment
+    styleTextAlignY :: style -> Maybe Alignment
+    styleGapX :: style -> (SpaceOf style)
+    styleGapY :: style -> (SpaceOf style)
+    styleGlyph :: Monad m => style -> CodePoint -> FontMonad style m (ProximityCompoundTree style)
 
 data DefaultStyle = Title | Heading | Normal deriving (Eq, Show)
 
 instance HasSpace DefaultStyle where
   type SpaceOf DefaultStyle = SubSpace
 
-overGlyph :: (Shape s -> Shape s) -> (Box s -> Box s) -> (Shape s, Maybe (Box s)) -> (Shape s, Maybe (Box s))
-overGlyph sf bf (shape, box) = (sf shape, fmap bf box)
-
 instance HasDefault DefaultStyle where
   defaultValue = Normal
 
+instance HasToken DefaultStyle where
+  type TokenOf DefaultStyle = Int
+  
 instance IsStyle DefaultStyle where
   styleTextAlignX _ = Just AlignMin
   styleTextAlignY _ = Just AlignMax
@@ -67,6 +73,6 @@ instance IsStyle DefaultStyle where
   styleGapY _ = 0.1
   styleGlyph style codePoint =
     case style of
-      Title   -> overGlyph (scaleBy 1.5) (scaleBy 1.5) <$> getGlyph codePoint
-      Heading -> overGlyph (scaleBy 1.2) (scaleBy 1.2) <$> getGlyph codePoint
+      Title   -> scaleBy 1.5 <$> getGlyph codePoint
+      Heading -> scaleBy 1.2 <$> getGlyph codePoint
       Normal  -> getGlyph codePoint

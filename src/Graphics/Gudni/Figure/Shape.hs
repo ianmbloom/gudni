@@ -37,8 +37,7 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Box
-import Graphics.Gudni.Figure.Transformable
-import Graphics.Gudni.Figure.Projection
+import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.BezierSpace
 import Graphics.Gudni.Figure.Outline
 import Graphics.Gudni.Util.Chain
@@ -53,26 +52,25 @@ deriving instance (Eq   (Outline_ f s)) => Eq (Shape_ f s)
 deriving instance (Ord  (Outline_ f s)) => Ord (Shape_ f s)
 
 instance (Chain f, Space s) => PointContainer (Shape_ f s) where
-    type ContainerFunctor (Shape_ f s) = f
-    containedPoints = concatChains . fmap containedPoints . view shapeOutlines
     mapOverPoints f = over shapeOutlines (fmap (mapOverPoints f))
 
-instance (Chain f, Space s) => HasBox (Shape_ f s) where
+instance ( Chain f
+         , Space s
+         )
+         => BezierContainer (Shape_ f s)
+    where
+    type BezFunctor (Shape_ f s) = f
+    joinOverBeziers f = Shape . fmap (joinOverBeziers f) . view shapeOutlines
+
+instance (Chain f, Space s) => CanBox (Shape_ f s) where
     boxOf = minMaxBoxes . fmap boxOf . view shapeOutlines
 
 instance Space s => HasSpace (Shape_ f s) where
     type SpaceOf (Shape_ f s) = s
 
-instance (Chain f, Space s) => SimpleTransformable (Shape_ f s) where
-    translateBy p = over shapeOutlines $ fmap $ mapOverPoints (translateBy p)
-    scaleBy     s = over shapeOutlines $ fmap $ mapOverPoints (scaleBy s)
-    stretchBy   p = over shapeOutlines $ fmap $ mapOverPoints (stretchBy p)
-instance (Chain f, Space s) => Transformable (Shape_ f s) where
-    rotateBy    a = over shapeOutlines $ fmap $ mapOverPoints (rotateBy a)
-instance (Chain f, Space s)
-         => CanProject (BezierSpace s) (Shape_ f s) where
-    projectionWithStepsAccuracy debug max_steps m_accuracy path shape =
-        over shapeOutlines (fmap (projectionWithStepsAccuracy debug max_steps m_accuracy path)) shape
-
 type ShapeFunctor = V.Vector
+
+instance HasSpace a => HasSpace (ShapeFunctor a) where
+    type SpaceOf (ShapeFunctor a) = SpaceOf a
+    
 type Shape s = Shape_ ShapeFunctor s

@@ -23,7 +23,6 @@ import Graphics.Gudni.Figure.BezierSpace
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.Cut
-import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.Reversible
@@ -41,7 +40,6 @@ import qualified Data.Vector as V
 import Control.Applicative
 import Control.Monad
 import Data.Functor.Classes
-import Data.Maybe (fromMaybe, fromJust)
 
 instance Reversible (Bezier s) where
     reverseItem = reverseBezier
@@ -68,7 +66,7 @@ instance (Space s, Reversible (Bezier s))=> CanFit (Bezier s) where
     -- We can assume that the target curve has already been split and ordered so that the start x is less than or equal to the conrol x
     -- and the control x is less than or equal to the end x. In other words the curve is roughly horizontal.
     -- We can also assume that all the x coordinates will be within the range of 0 to the source curves arcLength after correction.
-    projectOntoCurve debugFlag max_steps m_accuracy start sourceCurve targetCurve =
+    projectDefaultCurve debugFlag max_steps m_accuracy start sourceCurve targetCurve =
         let -- Transform an x value into a t-parameter for the source curve
             -- that corresponds to a point x arc-distance along the curve.
             correctX x  = inverseArcLength max_steps m_accuracy sourceCurve (x - start)

@@ -34,24 +34,24 @@ instance Out Horizontal
 
 class (Show a, Show (NextAxis a), Axis (NextAxis a)) => Axis a where
   type NextAxis a :: Type
-  pick :: a -> Lens' (Point2 s) s
+  with :: a -> Lens' (Point2 s) s
   nextAxis :: a -> NextAxis a
   isVertical :: a -> Bool
   isHorizontal :: a -> Bool
 
 along :: Axis a => a -> Lens' (Point2 s) s
-along = pick . nextAxis
+along = with . nextAxis
 
 instance Axis Vertical where
   type NextAxis Vertical = Horizontal
-  pick Vertical = pX
+  with Vertical = pX
   nextAxis Vertical = Horizontal
   isVertical   _ = True
   isHorizontal _ = False
 
 instance Axis Horizontal where
   type NextAxis Horizontal = Vertical
-  pick Horizontal = pY
+  with Horizontal = pY
   nextAxis Horizontal = Vertical
   isVertical   _ = False
   isHorizontal _ = True

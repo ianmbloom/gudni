@@ -38,11 +38,11 @@ import System.IO.Silently
 import System.Info
 import Data.Maybe
 
-getTest :: BenchmarkState -> (String, BenchmarkState -> FontMonad IO (ShapeTree Int SubSpace))
+getTest :: BenchmarkState -> (String, BenchmarkState -> Layout DefaultStyle)
 getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
-instance HasToken BenchmarkState where
-  type TokenOf BenchmarkState = Int
+instance HasStyle BenchmarkState where
+  type StyleOf BenchmarkState = DefaultStyle
 
 instance Model BenchmarkState where
     screenSize state = --FullScreen
@@ -51,14 +51,17 @@ instance Model BenchmarkState where
     updateModelState frame elapsedTime inputs state =
         over stateBase (updateSceneState frame elapsedTime) $ foldl (flip processInput) state inputs
     constructScene state status =
-        do  testScene <- (snd $ getTest state) state
-            let testName = (fst $ getTest state)
-            let repMode = state ^. stateBase . stateRepMode
-                repDk   = state ^. stateBase . stateRepDk
-            statusTree <- fromGlyph <$> statusDisplay (state ^. stateBase) testName (lines status)
-            let tree = (if repMode then represent repDk else id) . transformFromState (state ^. stateBase) $ testScene
-                withStatus = if False then overlap [statusTree, tree] else tree
-            return . Scene (light gray) $ withStatus
+        do let testScene = (snd $ getTest state) state
+               testName = (fst $ getTest state)
+               repMode = state ^. stateBase . stateRepMode
+               repDk   = state ^. stateBase . stateRepDk
+               statusTree = statusDisplay (state ^. stateBase) testName (lines status)
+           flatScene <- sceneFromLayout gray $ transformFromState (state ^. stateBase) testScene
+           let tree = if repMode
+                      then place . represent repDk . fromJust $ flatScene ^. sceneShapeTree
+                      else transformFromState (state ^. stateBase) $ testScene
+               withStatus = if False then overlap [statusTree, tree] else tree
+           sceneFromLayout (light gray) $ withStatus
     providePictureMap state = return $ state ^. statePictureMap
 
 instance HandlesInput Int BenchmarkState where

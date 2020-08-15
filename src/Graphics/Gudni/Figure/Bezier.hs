@@ -6,6 +6,7 @@
 -- | Functions on quadratic Bézier curves
 module Graphics.Gudni.Figure.Bezier
   ( Bezier(..)
+  , BezierContainer(..)
   , line
   , curved
   , bzStart
@@ -33,9 +34,9 @@ import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.ArcLength
-import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Util.Chain
 
+import Data.Kind
 import Numeric.Interval
 import Linear
 import Linear.Affine
@@ -77,14 +78,6 @@ unfoldV3 (V3 a b c) = pure a <|> pure b <|> pure c
 unfoldBezier :: Alternative f => Bezier s -> f (Point2 s)
 unfoldBezier = unfoldV3 . view bzPoints
 
-instance Space s => SimpleTransformable (Bezier s) where
-    translateBy delta = over bzPoints (fmap (translateBy delta))
-    scaleBy     scale = over bzPoints (fmap (scaleBy scale))
-    stretchBy   delta = over bzPoints (fmap (stretchBy delta))
-
-instance Space s => Transformable (Bezier s) where
-    rotateBy    angle = over bzPoints (fmap (rotateBy angle))
-
 overBezier :: (Point2 s -> Point2 z) -> Bezier s -> Bezier z
 overBezier f (Bezier v3) =  Bezier (fmap f v3)
 
@@ -104,6 +97,12 @@ instance Space s => HasSpace (Bezier s) where
 eval :: Num s => s -> Bezier s -> Point2 s
 eval t (Bez p0 p1 p2) = let mt = 1 - t in
     p0 ^* (mt * mt) + (p1 ^* (mt * 2) + p2 ^* t) ^* t
+
+
+class BezierContainer t where
+  type BezFunctor t :: Type -> Type
+  joinOverBeziers :: ((Bezier (SpaceOf t)) -> (BezFunctor t) (Bezier (SpaceOf t)))
+                  -> t -> t
 
 -- | Arc length of a single quadratic Bézier segment.
 -- From https://github.com/linebender/kurbo
@@ -223,7 +222,7 @@ inverseArcLength max_steps m_accuracy bz goal_length =
 maxStepsFromAccuracy :: (Floating s, RealFrac s) => s -> Int
 maxStepsFromAccuracy accuracy = ceiling (-1 * log accuracy / log 2)
 
-instance (Space s) => HasBox (Bezier s) where
+instance (Space s) => CanBox (Bezier s) where
   boxOf (Bez v0 c v1) = minMaxBox (minMaxBox (boxOf v0) (boxOf c)) (boxOf v1)
 
 instance Hashable s => Hashable (Bezier s) where

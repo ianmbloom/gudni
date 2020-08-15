@@ -22,7 +22,15 @@
 
 module Graphics.Gudni.Figure.Transformer
  ( Transformer (..)
- , applyTransformer
+ , SimpleTransformer(..)
+ , CanApplySimpleTransformer(..)
+ , CanApplyTransformer (..)
+ , applyTranslation
+ , applyStretch
+ , applyScale
+ , applyRotation
+ , translateBox
+ , stretchBox
 )
 where
 
@@ -30,11 +38,19 @@ import Graphics.Gudni.Figure.HasDefault
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Point
+import Graphics.Gudni.Figure.Box
+import Graphics.Gudni.Figure.Bezier
+import Graphics.Gudni.Figure.ArcLength
+import Graphics.Gudni.Figure.Outline
 import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.BezierSpace
+import Graphics.Gudni.Figure.Facet
+import Graphics.Gudni.Figure.FitBezier
+import Graphics.Gudni.Figure.Shape
 
+import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Debug
 
 import Control.Monad.Random
@@ -48,52 +64,150 @@ import Data.Either
 
 import System.Random
 
-instance Num s => HasDefault (Transformer s) where
-    defaultValue = Translate (Point2 0 0)
+instance HasDefault (SimpleTransformer s) where
+    defaultValue = IdentityTransform
+instance HasDefault (Transformer s) where
+    defaultValue = Simple defaultValue
 
+-- | Transformations that can be applied to a bounding box as well.
+data SimpleTransformer s where
+  IdentityTransform :: SimpleTransformer s
+  Translate :: Point2 s -> SimpleTransformer s
+  Stretch   :: Point2 s -> SimpleTransformer s
+  CombineSimple :: SimpleTransformer s -> SimpleTransformer s -> SimpleTransformer s
+  deriving (Show)
+
+-- | Transformations that break bounding boxes.
 data Transformer s where
-  IdentityTransform :: Transformer s
-  Translate :: Point2 s -> Transformer s
-  Scale     :: s        -> Transformer s
-  Stretch   :: Point2 s -> Transformer s
-  Rotate    :: Angle s  -> Transformer s
-  Project   :: Bool -> BezierSpace s -> Transformer s
+  Simple  :: SimpleTransformer s -> Transformer s
+  Rotate  :: Angle s  -> Transformer s
+  Project :: OpenCurve s -> Transformer s
   CombineTransform :: Transformer s -> Transformer s -> Transformer s
   deriving (Show)
 
-applyTransformer :: (CanProject (BezierSpace (SpaceOf t)) t, Transformable t) => Transformer (SpaceOf t) -> t -> t
-applyTransformer IdentityTransform = id
-applyTransformer (Translate delta) = translateBy delta
-applyTransformer (Scale scale)     = scaleBy scale
-applyTransformer (Stretch size)    = stretchBy size
-applyTransformer (Rotate angle)    = rotateBy angle
-applyTransformer (Project debug curve)   = projectOnto debug curve
-applyTransformer (CombineTransform a b) = applyTransformer b . applyTransformer a
+instance (Space s) => SimpleTransformable (Transformer s) where
+    translateBy p = CombineTransform (Simple $ Translate p)
+    stretchBy   p = CombineTransform (Simple $ Stretch p)
+
+instance (Space s) => Transformable (Transformer s) where
+    rotateBy    a = CombineTransform (Rotate a)
+instance (Space s) => Projectable (Transformer s) where
+    projectOnto path = CombineTransform (Project path)
+
+instance (Space s) => HasSpace (Transformer s) where
+  type SpaceOf (Transformer s) = s
+
+class CanApplyTransformer a where
+  applyTransformer :: Transformer (SpaceOf a) -> a -> a
+
+class CanApplySimpleTransformer a where
+  applySimpleTransformer :: SimpleTransformer (SpaceOf a) -> a -> a
+
+instance (Space s, Chain f) => CanApplySimpleTransformer (Shape_ f s) where
+  applySimpleTransformer f = over shapeOutlines (fmap (execSimpleTransformer f))
+
+instance (Space s) => CanApplySimpleTransformer (Box s) where
+  applySimpleTransformer trans =
+    case trans of
+       IdentityTransform -> id
+       Translate p -> translateBox p
+       Stretch s -> stretchBox s
+       CombineSimple a b -> applySimpleTransformer b . applySimpleTransformer a
+
+instance (Space s, Chain f) => CanApplyTransformer (Shape_ f s) where
+  applyTransformer trans =
+    case trans of
+        Simple simple -> execSimpleTransformer simple
+        Rotate a      -> applyRotation a
+        Project path  -> projectDefault False . makeBezierSpace arcLength $ path
+        CombineTransform a b -> applyTransformer b . applyTransformer a
+
+
+execSimpleTransformer :: (PointContainer t) => SimpleTransformer (SpaceOf t) -> t -> t
+execSimpleTransformer simpleTransformer =
+    case simpleTransformer of
+        IdentityTransform -> id
+        Translate delta   -> applyTranslation delta
+        Stretch size      -> applyStretch size
+        CombineSimple a b -> execSimpleTransformer b . execSimpleTransformer a
+
+translate_ :: Space s => Point2 s -> Point2 s -> Point2 s
+translate_ = (^+^)
+
+stretch_ :: Space s => Point2 s -> Point2 s -> Point2 s
+stretch_ = liftA2 (*)
+
+rotate_ :: Space s => Angle s -> Point2 s -> Point2 s
+rotate_ = rotate
+
+translateBox p = mapBox (translate_ p)
+stretchBox s = mapBox (stretch_ s)
+
+applyTranslation :: PointContainer t => Point2 (SpaceOf t) -> t -> t
+applyTranslation p = mapOverPoints (translate_ p)
+
+applyStretch :: PointContainer t => Point2 (SpaceOf t) -> t -> t
+applyStretch p = mapOverPoints (stretch_ p)
+
+applyScale :: PointContainer t => SpaceOf t -> t -> t
+applyScale s = mapOverPoints (stretch_ . pure $ s)
+
+applyRotation :: PointContainer t => Angle (SpaceOf t) -> t -> t
+applyRotation angle = mapOverPoints (rotate_ angle)
+
+instance (Chain f, Space s)
+         => CanApplyProjection (Shape_ f s) where
+    projectionWithStepsAccuracy debug max_steps m_accuracy path shape =
+        joinOverBeziers (projectBezierWithStepsAccuracy debug max_steps m_accuracy path) shape
+
+instance ( Space s
+         , Chain f
+         ) => CanApplyProjection (OpenCurve_ f s) where
+    projectionWithStepsAccuracy debug max_steps m_accuracy path =
+        joinOverBeziers (projectBezierWithStepsAccuracy debug max_steps m_accuracy path)
+
+instance ( Space s
+         , Chain f
+         )
+         => CanApplyProjection (Outline_ f s) where
+    projectionWithStepsAccuracy debug max_steps m_accuracy path =
+         joinOverBeziers (projectBezierWithStepsAccuracy debug max_steps m_accuracy path)
+
 
 -- * Instances
 
-instance NFData s => NFData (Transformer s) where
+instance NFData s => NFData (SimpleTransformer s) where
   rnf (Translate a) = a `deepseq` ()
-  rnf (Scale     a) = a `deepseq` ()
   rnf (Stretch   a) = a `deepseq` ()
-  rnf (Rotate    a) = a `deepseq` ()
+  rnf (CombineSimple a b) = rnf a `deepseq` rnf b `deepseq` ()
+
+instance NFData s => NFData (Transformer s) where
+  rnf (Simple a) = rnf a
+  rnf (Rotate a) = a `deepseq` ()
+  rnf (Project path        ) = path `deepseq` ()
+  rnf (CombineTransform a b) = a `deepseq` b `deepseq` ()
 
 instance (Floating s, Num s, Random s) => Random (Transformer s) where
   random = runRand $
     do r :: Int <- getRandomR (0,1)
        case r of
          0 -> do delta :: Point2 s <- getRandom
-                 return $ Translate delta
+                 return . Simple . Translate $ delta
          1 -> do scale :: s <- getRandomR(0,100)
-                 return $ Scale scale
+                 return . Simple . Stretch $ pure scale
          2 -> do size :: Point2 s <- getRandom
-                 return $ Stretch size
+                 return . Simple . Stretch $ size
          3 -> do angle :: s <- getRandomR(0,1)
                  return $ Rotate (angle @@ turn)
   randomR _ = random
 
-instance Hashable s => Hashable (Transformer s) where
+instance Hashable s => Hashable (SimpleTransformer s) where
     hashWithSalt s (Translate a) = s `hashWithSalt` (0 :: Int) `hashWithSalt` a
-    hashWithSalt s (Scale a)     = s `hashWithSalt` (1 :: Int) `hashWithSalt` a
     hashWithSalt s (Stretch a)   = s `hashWithSalt` (2 :: Int) `hashWithSalt` a
-    hashWithSalt s (Rotate a)    = s `hashWithSalt` (3 :: Int) `hashWithSalt` a
+    hashWithSalt s (CombineSimple a b) = s `hashWithSalt` (3 :: Int) `hashWithSalt` a `hashWithSalt` b
+
+instance Hashable s => Hashable (Transformer s) where
+    hashWithSalt s (Simple a)    = s `hashWithSalt` (0 :: Int) `hashWithSalt` a
+    hashWithSalt s (Rotate a)    = s `hashWithSalt` (1 :: Int) `hashWithSalt` a
+    hashWithSalt s (Project a)   = s `hashWithSalt` (2 :: Int) `hashWithSalt` a
+    hashWithSalt s (CombineTransform a b) = s `hashWithSalt` (3 :: Int) `hashWithSalt` a `hashWithSalt` b

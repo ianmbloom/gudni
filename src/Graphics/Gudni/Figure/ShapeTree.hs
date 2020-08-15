@@ -25,7 +25,8 @@
 -- generates a Scene which contains a ShapeTree for each frame that they wish to render.
 
 module Graphics.Gudni.Figure.ShapeTree
-  ( TreeType(..)
+  ( HasMeld(..)
+  , TreeType(..)
   , TagTreeType(..)
   , STree(..)
   , SBranch(..)
@@ -33,11 +34,25 @@ module Graphics.Gudni.Figure.ShapeTree
   , sRepToken
   , sRepSubstance
   , sRep
+  , overSRep
+  , addBranch
+  , liftShapeTree
+  , liftCompoundTree
   , Compound (..)
   , ShapeTree_(..)
   , ShapeTree(..)
+  , overShapeTree
+  , FullShapeTree(..)
   , CompoundTree_(..)
   , CompoundTree(..)
+  , overCompoundTree
+  , FullCompoundTree(..)
+  , BranchTree_(..)
+  , BranchTree(..)
+  , TransTree_(..)
+  , TransTree(..)
+  , Tree_(..)
+  , Tree(..)
   , Scene(..)
   , sceneBackgroundColor
   , sceneShapeTree
@@ -68,8 +83,10 @@ import Control.DeepSeq
 
 import Data.Vector as V
 
-class HasSpace (Leaf i) => TreeType i where
+class HasMeld i where
     type Meld i :: *
+
+class HasSpace (Leaf i) => TreeType i where
     type Leaf i :: *
 
 class (HasSpace (Item i), TreeType i) => TagTreeType i where
@@ -83,7 +100,7 @@ class (HasSpace (Item i), TreeType i) => TagTreeType i where
 data STree i where
      SMeld :: Meld i -> STree i -> STree i -> STree i
      SLeaf :: Leaf i -> STree i
-deriving instance (Show (Meld i), Show (Tag i), Show (Leaf i)) => Show (STree i)
+deriving instance (Show (Meld i), Show (Leaf i)) => Show (STree i)
 
 instance HasSpace (Leaf i) => HasSpace (STree i) where
   type SpaceOf (STree i) = SpaceOf (Leaf i)
@@ -91,50 +108,96 @@ instance HasSpace (Leaf i) => HasSpace (STree i) where
 data SBranch i where
      SBranch :: Tag i -> STree i -> SBranch i
      SItem   :: Item i -> SBranch i
+deriving instance (Show (Meld i), Show (Leaf i), Show (Tag i), Show (Item i)) => Show (SBranch i)
 
 instance HasSpace (Item i) => HasSpace (SBranch i) where
   type SpaceOf (SBranch i) = SpaceOf (Item i)
 
-data CompoundTree_ s
+data BranchTree_ meld tag item
 
-instance (Space s) => TreeType (CompoundTree_ s) where
-  type Meld (CompoundTree_ s) = Compound
-  type Leaf (CompoundTree_ s) = SBranch (CompoundTree_ s)
+instance HasMeld (BranchTree_ meld tag item) where
+  type Meld (BranchTree_ meld tag item) = meld
 
-instance (Space s) => TagTreeType (CompoundTree_ s) where
-  type Tag  (CompoundTree_ s) = Transformer s
-  type Item (CompoundTree_ s) = Maybe (Shape s)
+instance (HasSpace item) => TreeType (BranchTree_ meld tag item) where
+  type Leaf (BranchTree_ meld tag item) = SBranch (BranchTree_ meld tag item)
 
-type CompoundTree s = STree (CompoundTree_ s)
+instance (HasSpace item) => TagTreeType (BranchTree_ meld tag item) where
+  type Tag  (BranchTree_ meld tag item) = tag
+  type Item (BranchTree_ meld tag item) = item
 
-data ShapeTree_ token textureLabel s
+type TransTree_ meld item = BranchTree_ meld (Transformer (SpaceOf item)) item
 
-instance (Space s) => TreeType (ShapeTree_ token textureLabel s) where
-    type Meld (ShapeTree_ token textureLabel s) = Overlap
-    type Leaf (ShapeTree_ token textureLabel s) = SBranch (ShapeTree_ token textureLabel s)
+type CompoundTree_ s = TransTree_ Compound (Maybe (Shape s))
+type ShapeTree_ token tex s = TransTree_ Overlap (Maybe (SRep token tex (CompoundTree s)))
 
-instance (Space s) => TagTreeType (ShapeTree_ token textureLabel s) where
-    type Tag  (ShapeTree_ token textureLabel s) = Transformer s
-    type Item (ShapeTree_ token textureLabel s) = Maybe (SRep token textureLabel (CompoundTree s))
+newtype CompoundTree s = CompoundTree (STree (CompoundTree_ s))
+overCompoundTree f (CompoundTree x) = CompoundTree (f x)
 
-type ShapeTree token textureLabel s = STree (ShapeTree_ token textureLabel s)
+newtype ShapeTree token s = ShapeTree (STree (ShapeTree_ token NamedTexture s))
+overShapeTree f (ShapeTree x) = ShapeTree (f x)
+
+type TransTree meld item = STree (TransTree_ meld item)
+
+type BranchTree meld tag item = STree (BranchTree_ meld tag item)
+
+type FullCompoundTree s = TransTree Compound (Shape s)
+type FullShapeTree token tex s = TransTree Overlap (SRep token tex (FullCompoundTree s))
+
+
+data Tree_ meld leaf
+
+type Tree meld leaf = STree (Tree_ meld leaf)
+
+instance HasMeld (Tree_ meld item) where
+  type Meld (Tree_ meld item) = meld
+
+instance (HasSpace leaf) => TreeType (Tree_ meld leaf) where
+  type Leaf (Tree_ meld leaf) = leaf
+
+instance Space s => HasSpace (ShapeTree token s) where
+  type SpaceOf (ShapeTree token s) = s
+
+instance Space s => HasSpace (CompoundTree s) where
+  type SpaceOf (CompoundTree s) = s
+
+overSRep f (SRep token tex rep) = SRep token tex (f rep)
 
 addBranch :: (Leaf i~SBranch i) => Tag i -> STree i -> STree i
 addBranch tag = SLeaf . SBranch tag
 
-instance (HasSpace (Leaf i), Tag i~Transformer (SpaceOf (Leaf i)), Leaf i~SBranch i)
-         => SimpleTransformable (STree i) where
-  translateBy delta tree = if delta == zeroPoint then tree else addBranch (Translate delta) tree
-  scaleBy factor tree    = if factor == 1 then tree else        addBranch (Scale factor) tree
-  stretchBy size tree    = if size == Point2 1 1 then tree else addBranch (Stretch size) tree
+instance (HasSpace leaf, tag~Transformer(SpaceOf leaf)) => SimpleTransformable (STree (BranchTree_ meld tag leaf)) where
+  translateBy delta tree = if delta == zeroPoint then tree else addBranch (Simple $ Translate delta) tree
+  stretchBy size tree    = if size == Point2 1 1 then tree else addBranch (Simple $ Stretch size) tree
 
-instance (HasSpace (Leaf i), Tag i~Transformer (SpaceOf (Leaf i)), Leaf i~SBranch i)
-         => Transformable (STree i) where
+instance (HasSpace leaf,tag~Transformer(SpaceOf leaf)) => Transformable (STree (BranchTree_ meld tag leaf)) where
   rotateBy angle tree = if angle == (0 @@ rad) then tree else addBranch (Rotate angle) tree
 
-instance (HasSpace (Leaf i), Tag i~Transformer (SpaceOf (Leaf i)), Leaf i~SBranch i, s~SpaceOf(Leaf i))
-         => CanProject (BezierSpace s) (STree i) where
-  projectionWithStepsAccuracy debug max_steps m_accuracy path = addBranch (Project debug path)
+instance (HasSpace leaf, tag~Transformer(SpaceOf leaf)) => Projectable (STree (BranchTree_ meld tag leaf)) where
+  projectOnto path = addBranch (Project path)
+
+instance (Space s) => SimpleTransformable (ShapeTree token s) where
+  translateBy p = overShapeTree (translateBy p)
+  stretchBy   p = overShapeTree (stretchBy   p)
+
+instance (Space s) => Transformable (ShapeTree token s) where
+  rotateBy   a = overShapeTree (rotateBy a)
+
+instance (Space s) => Projectable (ShapeTree token s) where
+  projectOnto path = overShapeTree (projectOnto path)
+
+instance (Space s) => SimpleTransformable (CompoundTree s) where
+  translateBy p = overCompoundTree (translateBy p)
+  stretchBy   p = overCompoundTree (stretchBy   p)
+
+instance (Space s) => Transformable (CompoundTree s) where
+  rotateBy   a = overCompoundTree (rotateBy a)
+
+instance (Space s) => Projectable (CompoundTree s) where
+  projectOnto path = overCompoundTree (projectOnto path)
+
+liftShapeTree f (ShapeTree a) (ShapeTree b) = ShapeTree $ f a b
+liftCompoundTree f (CompoundTree a) (CompoundTree b) = CompoundTree $ f a b
+
 
 -- | Type of melding of compound shapes.
 data Compound
@@ -164,32 +227,25 @@ instance HasDefault Overlap where
   defaultValue = Overlap
 
 -- | An SRep defines an individual shape and it's metadata.
-data SRep token textureLabel rep = SRep
+data SRep token tex rep = SRep
   { _sRepToken     :: Maybe token
-  , _sRepSubstance :: Substance textureLabel (SpaceOf rep)
+  , _sRepSubstance :: Substance tex (SpaceOf rep)
   , _sRep          :: rep
   }
 makeLenses ''SRep
 
-instance HasBox rep => HasBox (SRep token tex rep) where
+instance CanBox rep => CanBox (SRep token tex rep) where
   boxOf = boxOf . view sRep
 
-deriving instance (Space (SpaceOf rep), Show token, Show rep, Show textureLabel) => Show (SRep token textureLabel rep)
+deriving instance (Space (SpaceOf rep), Show token, Show rep, Show tex) => Show (SRep token tex rep)
 
-instance HasSpace rep => HasSpace (SRep token textureLabel rep) where
-  type SpaceOf (SRep token textureLabel rep) = SpaceOf rep
-
-instance (SimpleTransformable rep) => SimpleTransformable (SRep token texture rep) where
-    translateBy p = over sRep (translateBy p)
-    scaleBy     s = over sRep (scaleBy s)
-    stretchBy   p = over sRep (stretchBy p)
-instance (Transformable rep) => Transformable (SRep token texture rep) where
-    rotateBy    a = over sRep (rotateBy a)
+instance HasSpace rep => HasSpace (SRep token tex rep) where
+  type SpaceOf (SRep token tex rep) = SpaceOf rep
 
 -- | A container for a ShapeTree that indicates the background color.
-data Scene i = Scene
+data Scene t = Scene
   { _sceneBackgroundColor :: Color
-  , _sceneShapeTree       :: Maybe (STree i)
+  , _sceneShapeTree       :: t
   }
 makeLenses ''Scene
-deriving instance Show (STree i) => Show (Scene i)
+deriving instance Show t => Show (Scene t)

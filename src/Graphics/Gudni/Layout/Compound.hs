@@ -31,6 +31,10 @@ class Compoundable a where
   subtractFrom :: a -> a -> a
 
 -- | Instance for combining simple compound shapes.
-instance Compoundable (STree (CompoundTree_)) where
+instance Compoundable (STree (BranchTree_ Compound tag item)) where
   addOver      = SMeld CompoundAdd
   subtractFrom = SMeld CompoundSubtract -- the subtracted shape must be above what is being subtracted in the stack.
+
+instance Compoundable (CompoundTree s) where
+  addOver      = liftCompoundTree addOver
+  subtractFrom = liftCompoundTree subtractFrom -- the subtracted shape must be above what is being subtracted in the stack.

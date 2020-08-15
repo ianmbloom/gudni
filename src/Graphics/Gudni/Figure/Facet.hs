@@ -36,16 +36,17 @@ module Graphics.Gudni.Figure.Facet
   , tesselateFacetSteps
   , triangleToFacet
   , rectangleToFacets
+  , FacetGroup_(..)
+  , FacetGroup(..)
   )
 where
 
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
+import Graphics.Gudni.Figure.Shape
 import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.BezierSpace
 import Graphics.Gudni.Figure.Box
-import Graphics.Gudni.Figure.Transformable
-import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.Cut
@@ -77,6 +78,12 @@ data Facet_ s = Facet
 makeLenses ''Facet_
 
 type Facet = Facet_ SubSpace
+
+newtype FacetGroup_ f s = FacetGroup {unFacetGroup :: f (Facet_ s)}
+type FacetGroup s = FacetGroup_ ShapeFunctor s
+
+instance Space s => HasSpace (FacetGroup_ f s) where
+  type SpaceOf (FacetGroup_ f s) = s
 
 data HardFacet_ s = HardFacet
   { _hardFace    :: V3 (Point2 s)
@@ -156,42 +163,47 @@ maybeSubdivideFacet f facet =
              in  Just $ pure triX <|> pure triY <|> pure triZ <|> pure triIn
         else Nothing
 
-maybeCutFacet :: (Space s, Alternative f) => (Bezier s -> Maybe s) -> Facet_ s -> Maybe (f (Facet_ s), f (Facet_ s))
+maybeCutFacet :: (Space s) => (Bezier s -> Maybe s) -> Facet_ s -> Maybe (FacetGroup s, FacetGroup s)
 maybeCutFacet f facet =
     let mSplitPoints = fmap (f . view sceneSide) $ facet ^. facetSides
     in  if or (fmap isJust mSplitPoints)
         then let splitPoints = fmap (fromMaybe hALF) mSplitPoints
                  (V4 triX triY triZ triIn) = subdivideFacetT splitPoints facet
              in  case mSplitPoints of
-                    V3 Nothing  (Just _) (Just _) -> Just (pure triX, pure triY <|> pure triZ <|> pure triIn)
-                    V3 (Just _) Nothing  (Just _) -> Just (pure triY, pure triX <|> pure triZ <|> pure triIn)
-                    V3 (Just _) (Just _) Nothing  -> Just (pure triZ, pure triX <|> pure triY <|> pure triIn)
+                    V3 Nothing  (Just _) (Just _) -> Just (FacetGroup $ pure triX, FacetGroup $ pure triY <|> pure triZ <|> pure triIn)
+                    V3 (Just _) Nothing  (Just _) -> Just (FacetGroup $ pure triY, FacetGroup $ pure triX <|> pure triZ <|> pure triIn)
+                    V3 (Just _) (Just _) Nothing  -> Just (FacetGroup $ pure triZ, FacetGroup $ pure triX <|> pure triY <|> pure triIn)
                     _ -> error "split not quite working"
         else Nothing
 
 instance (Space s) => CanDeknob (Facet_ s) where
     deKnob axis = maybeSubdivideFacet (maybeKnobSplitPoint axis)
 
-instance Space s => CanCut (Facet_ s) where
+instance Space s => CanCut (FacetGroup s) where
     -- | Split item across horizontal or vertical line
-    splitAtCut axis splitPoint = undefined -- join . fmap (maybeCutFacet (maybeCutPointBezier axis splitPoint))
+    splitAtCut axis splitPoint = undefined . fmap (maybeCutFacet (maybeCutPointBezier axis splitPoint)) . unFacetGroup
     -- | Determine if horizontal or vertical line cuts item
-    canCut axis splitPoint = undefined -- or . fmap (canCut axis splitPoint . view sceneSide) . view facetSides
+    canCut axis splitPoint = undefined -- or . join . fmap (fmap (canCut axis splitPoint . view sceneSide) . view facetSides) . unFacetGroup
 
+tesselateFacet :: (Space s)
+               => s
+               -> FacetGroup s
+               -> FacetGroup s
+tesselateFacet tolerance (FacetGroup facets) =
+  FacetGroup $ go facets
+  where
+  go facets =
+     let subFacets = join . fmap subdivideFacet $ facets
+         (continued, done) = segregate (shouldSubdivideFacet tolerance) subFacets
+         rest = go continued
+     in  (rest <|> done)
 
-
-
-tesselateFacet :: (Space s, Chain f)
-               => SpaceOf (Facet_ s) -> Facet_ s -> f (Facet_ s)
-tesselateFacet tolerance facet =
-  let subFacets = subdivideFacet facet
-      (continued, done) = segregate (shouldSubdivideFacet tolerance) subFacets
-      rest = join . fmap (tesselateFacet tolerance) $ continued
-  in  (rest <|> done)
-
-tesselateFacetSteps :: (Space s, Chain f) => Int -> Facet_ s -> f (Facet_ s)
-tesselateFacetSteps steps facet =
-  go steps (pure facet)
+tesselateFacetSteps :: (Space s)
+                    => Int
+                    -> FacetGroup s
+                    -> FacetGroup s
+tesselateFacetSteps steps (FacetGroup facets) = FacetGroup $
+  go steps facets
   where
   go steps facets =
      if steps > 0
@@ -236,29 +248,10 @@ instance (Space s) => HasSpace (Facet_ s) where
 instance (Space s) => HasSpace (HardFacet_ s) where
     type SpaceOf (HardFacet_ s) = s
 
-instance (Space s) => SimpleTransformable (FacetSide s) where
-    translateBy p = over sceneSide (translateBy p)
-    scaleBy s     = over sceneSide (scaleBy s)
-    stretchBy p   = over sceneSide (stretchBy p)
-
-instance (Space s) => Transformable (FacetSide s) where
-    rotateBy a = over sceneSide (rotateBy a)
-
-instance (Space s) => SimpleTransformable (Facet_ s) where
-    translateBy p = over facetSides (fmap (translateBy p))
-    scaleBy s     = over facetSides (fmap (scaleBy s    ))
-    stretchBy p   = over facetSides (fmap (stretchBy p  ))
-
-instance (Space s) => Transformable (Facet_ s) where
-    rotateBy a    = over facetSides (fmap (rotateBy a   ))
-
-instance (Space s) => CanProject (BezierSpace s) (Facet_ s) where
-    projectionWithStepsAccuracy = undefined
-
-instance (Space s) => HasBox (Facet_ s) where
+instance (Space s) => CanBox (Facet_ s) where
     boxOf (Facet v3) = foldl1 minMaxBox (fmap (boxOf . view sceneSide) v3)
 
-instance (Space s) => HasBox (HardFacet_ s) where
+instance (Space s) => CanBox (HardFacet_ s) where
     boxOf (HardFacet face _) = foldl1 minMaxBox (fmap boxOf face)
 
 instance StorableM HardFacet where

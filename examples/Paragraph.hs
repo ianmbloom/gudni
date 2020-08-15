@@ -46,9 +46,6 @@ initialModel =
 instance HasStyle ParagraphState where
   type StyleOf ParagraphState = DefaultStyle
 
-instance HasToken ParagraphState where
-  type TokenOf ParagraphState = Int
-
 instance Model ParagraphState where
     screenSize state = --FullScreen
                        Window $ Point2 1024 900
@@ -56,14 +53,13 @@ instance Model ParagraphState where
         let state' = foldl (flip processInput) state inputs
         in  over stateBase (updateSceneState frame elapsedTime) state'
     constructScene state status =
-        do  let layout :: Layout Int SubSpace (StyleOf ParagraphState)
-                layout = withColor black . rack $ [paragraph mobyDick, placeMask . scaleBy 10 . mask $ circle]
+        do  let layout :: Layout (StyleOf ParagraphState)
+                layout = withColor black . rack $ [paragraph mobyDick, scaleBy 10 . mask $ circle]
                 --statusTree = statusDisplay (state ^. stateBase) "Test Paragraph" (lines status)
-                tree :: Layout Int SubSpace (StyleOf ParagraphState)
+                tree :: Layout (StyleOf ParagraphState)
                 tree = transformFromState (state ^. stateBase) layout
                 withStatus = {-if False then overlap [statusTree, tree] else-} tree
-
-            Scene (light gray) <$> fromLayout withStatus
+            sceneFromLayout (light gray) withStatus
 
 instance HandlesInput token ParagraphState where
     processInput input = over stateBase (processInput input)
@@ -72,6 +68,7 @@ main :: IO ()
 main = --silence $
        do putStrLn "Started"
           runApplication (initialModel :: ParagraphState)
+
 
 -- | Sample text paragraph.
 mobyDick :: String

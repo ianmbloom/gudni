@@ -28,7 +28,6 @@ import Foreign.C.Types
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Color
-import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Facet
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.StorableM

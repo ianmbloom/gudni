@@ -32,9 +32,7 @@ import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Interface.Time
 import Graphics.Gudni.Util.Representation
 
---import Data.Maybe(listToMaybe, fromMaybe, fromJust)
 import Control.Lens
---import Control.Monad
 import Control.Monad.State
 import Control.Monad.IfElse
 
@@ -76,11 +74,13 @@ transformFromState state constructed =
         scaleBy sc $
         constructed
 
-statusDisplay :: (IsStyle style)
+statusDisplay :: ( IsStyle style
+                 , SpaceOf style~SubSpace
+                 )
               => BasicSceneState
               -> String
               -> [String]
-              -> Layout Int SubSpace style
+              -> Layout style
 statusDisplay state testName status =
     translateByXY 1800 800 .
     rotateBy (45 @@ deg) .
@@ -89,7 +89,6 @@ statusDisplay state testName status =
     withColor (dark red) .
     paragraph $
     unlines $ testName : status
-
 
 instance HandlesInput token BasicSceneState where
     processInput input state =

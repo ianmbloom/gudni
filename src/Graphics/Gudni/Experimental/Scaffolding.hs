@@ -59,7 +59,7 @@ data Scaf m o t where
 instance HasSpace t => HasSpace (Scaf m o t) where
   type SpaceOf (Scaf m o t) = SpaceOf t
 
-type Scaffold m o t = STree o (Scaf m o t)
+type Scaffold m o t = TransTree o (Scaf m o t)
 
 data ScafPoint s = ScafPoint (Point2 s) | Ambiguous
 
@@ -71,13 +71,10 @@ overScafPoint f (ScafPoint p) = ScafPoint (f p)
 overScafPoint f Ambiguous     = Ambiguous
 
 instance Space s => SimpleTransformable (ScafPoint s) where
-  type Simple (ScafPoint s) = ScafPoint s
   translateBy delta = overScafPoint (translateBy delta)
-  scaleBy scale     = overScafPoint (scaleBy scale)
   stretchBy point   = overScafPoint (stretchBy point)
 
 instance Space s => Transformable (ScafPoint s) where
-  type Transformed (ScafPoint s) = ScafPoint s
   rotateBy rotate = overScafPoint (rotateBy rotate)
 
 type NameMap s = M.Map [ScafName] (ScafPoint s)
@@ -92,15 +89,14 @@ scaffoldToSTree scaf = buildScaffold mapping transformedScaf
   go :: Scaffold m o t -> (Scaffold m o t, NameMap (SpaceOf t))
   go scaffold =
     case scaffold of
-       STransform transform tree ->
-         let (innerTree, innerMap) = go tree
-         in  (undefined {-applyTransformer transform innerTree-}, undefined {-M.map (applyTransformer transform) innerMap-})
        SMeld meld a b ->
          let (a', aMap) = go a
              (b', bMap) = go b
          in  (SMeld meld a' b', combineMaps aMap bMap)
-       SLeaf scaf -> goScaf scaf
-       SEmpty -> (SEmpty, M.empty)
+       SLeaf (SBranch transform child) ->
+           let (innerTree, innerMap) = go tree
+           in  (undefined {-applyTransformer transform innerTree-}, undefined {-M.map (applyTransformer transform) innerMap-})
+       SLeaf (SItem scaf) -> goScaf scaf
   goScaf :: Scaf m o t -> (Scaffold m o t, NameMap (SpaceOf t))
   goScaf scaf =
       case scaf of
@@ -144,13 +140,12 @@ buildScaffold nameMap tree = go tree
   go :: Scaffold m o t -> m (STree o t)
   go scaffold =
      case scaffold of
-        STransform transform tree -> error "transforms should not be in traversed scaffold."
         SMeld meld a b ->
           do  a' <- go a
               b' <- go b
               return $ SMeld meld a' b'
-        SLeaf scaf -> buildScaf nameMap scaf
-        SEmpty -> return SEmpty
+        SLeaf (SBranch transform child) -> error "transforms should not be in traversed scaffold."
+        SLeaf (SItem scaf) -> buildScaf nameMap scaf
 
 combineMaps :: NameMap s -> NameMap s -> NameMap s
 combineMaps = M.unionWith (const (const Ambiguous))
@@ -164,10 +159,9 @@ mapPointRef f ref =
 mapScaffoldPoints :: (Point2 (SpaceOf t) -> Point2 (SpaceOf t)) -> Scaffold m o t -> Scaffold m o t
 mapScaffoldPoints f scaffold =
      case scaffold of
-        STransform transform tree -> STransform transform (mapScaffoldPoints f tree)
         SMeld meld a b -> SMeld meld (mapScaffoldPoints f a) (mapScaffoldPoints f b)
-        SLeaf scaf -> SLeaf $ mapScafPoints f scaf
-        SEmpty -> SEmpty
+        SLeaf (SBranch transform child) -> SLeaf $ SBranch transform $ mapScaffoldPoints f tree
+        SLeaf (SItem item) -> SLeaf . SItem $ mapScafPoints f scaf
 
 mapScafPoints :: (Point2 (SpaceOf t) -> Point2 (SpaceOf t)) -> Scaf m o t -> Scaf m o t
 mapScafPoints f scaf =
@@ -179,7 +173,6 @@ mapScafPoints f scaf =
 
 instance (HasSpace t) => SimpleTransformable (Scaf m o t) where
   translateBy delta   = mapScafPoints (translateBy delta  )
-  scaleBy     scale   = mapScafPoints (scaleBy     scale  )
   stretchBy   boxSize = mapScafPoints (stretchBy   boxSize)
 
 instance (Space (SpaceOf (Scaf m o t)), SimpleTransformable (Scaf m o t)) => Transformable (Scaf m o t) where

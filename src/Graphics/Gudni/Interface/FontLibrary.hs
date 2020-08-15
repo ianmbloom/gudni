@@ -49,7 +49,7 @@ absolutizeMacPath aPath
 fontDirectories :: IO [String]
 fontDirectories =
   case os of
-    "darwin" -> mapM absolutizeMacPath ["~/Library/Fonts/", "/Library/Fonts/"]
+    "darwin" -> mapM absolutizeMacPath ["~/Library/Fonts/", "/Library/Fonts/", "/System/Library/Fonts/Supplemental/"]
     _        -> return ["C:\\windows\\fonts\\"]
 
 -- | Get the absolute contents of a director.
@@ -78,7 +78,7 @@ findDefaultFont = do
         Nothing -> case enumerateFonts cache of
             [] -> die "could not find any fonts"
             all@(first : _) -> do
-                putStrLn "Did not find known font.  Picking first from available fonts:"
+                putStrLn "Did not find known font.  withing first from available fonts:"
                 traverse_ print all
                 return (fromJust (findFontInCache cache first))
 -- | Return a list of loadable font files on the system.

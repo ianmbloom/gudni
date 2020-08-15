@@ -1230,7 +1230,7 @@ void addThreshold ( PMEM  ThresholdQueue *tQ
                   ) {
     //DEBUG_IF(printf("beg add enclosed%i add %i ", *enclosedByStrand, addType);showThreshold(newThresholdTag, newThreshold);printf("\n");)
     //DEBUG_IF(printf("original ");showThreshold(newThresholdTag, newThreshold);printf("\n");)
-    // in the beggining the slot at position numThresholds is free, we are either at the end of the list or just picked up the top
+    // in the beggining the slot at position numThresholds is free, we are either at the end of the list or just withed up the top
     // threshold from the holding queue
     if (tKeep(newThresholdTag, newThreshold)) {
         // horizontal thresholds that have no persistance can be ignored.

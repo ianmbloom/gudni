@@ -8,10 +8,11 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE AllowAmbiguousTypes   #-}
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Layout.Adjacent
+-- Module      :  Graphics.Gudni.Layout.Collect
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -22,18 +23,10 @@
 -- Top level functions for creating bounding box based layouts.
 
 module Graphics.Gudni.Layout.Layout
-  ( Alignment(..)
-  , Adjacency(..)
-  , AdjacentMeld(..)
+  ( IsLayout(..)
   , Layout(..)
   , LayoutRep(..)
-  , LayoutCompound(..)
-  , LayoutCompoundRep(..)
-  , place
-  , placeMask
-  , mapLayoutFormSubstance
-  , mapLayoutFormToken
-  , fromLayout
+  , CompoundLayout(..)
   )
 where
 
@@ -43,10 +36,12 @@ import Graphics.Gudni.Raster.TraverseShapeTree
 import Graphics.Gudni.Layout.Fill
 import Graphics.Gudni.Layout.Empty
 import Graphics.Gudni.Layout.Alignment
-import Graphics.Gudni.Layout.Style
+import Graphics.Gudni.Layout.Proximity
 import Graphics.Gudni.Layout.Overlappable
+import Graphics.Gudni.Layout.Compound
+import Graphics.Gudni.Layout.Style
 import Graphics.Gudni.Layout.Font
-import Graphics.Gudni.Layout.MaybeBox
+import Graphics.Gudni.Layout.WithBox
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
 import Linear
@@ -55,271 +50,141 @@ import Data.Char
 import Data.Maybe
 import Control.Lens
 import Control.Applicative
+import Control.Monad
 
-data Adjacency
-    = NextTo
-    { _adjNextTo :: EitherAxis
-    , _adjAlign  :: Maybe Alignment
-    }
-    | OnTopOf
-    { _adjOverlapAlignVertical   :: Maybe Alignment
-    , _adjOverlapAlignHorizontal :: Maybe Alignment
-    }
-    deriving (Show)
-makeLenses ''Adjacency
-
-instance HasDefault Adjacency where
-  defaultValue = OnTopOf Nothing Nothing
-
-data AdjacentMeld style meld
-    = AdjacentMeld
-    { _layAdjStyle :: style
-    , _layAdjType  :: Adjacency
-    , _layAdjMeld  :: meld
-    } deriving (Show)
-makeLenses ''AdjacentMeld
-
-instance (HasDefault style, HasDefault meld) => HasDefault (AdjacentMeld style meld) where
-    defaultValue = AdjacentMeld defaultValue defaultValue defaultValue
-
-data LayoutCompoundRep s style
+data LayoutRep style
   = Glyph
   { _layGlyphStyle :: style
   , _layGlyph      :: CodePoint
   }
-  | CompoundItem
-  { _layCompoundItem :: CompoundTree s
-  , _layCompoundItemBox :: Maybe (Box s)
-  } deriving (Show)
-makeLenses ''LayoutCompoundRep
-
-type LayoutCompound s style = STree (AdjacentMeld style Compound) (Maybe (LayoutCompoundRep s style))
-
-data LayoutRep token s style
-  = Item
-  { _layItem :: ShapeTree token s
-  , _layItemBox :: Maybe (Box s)
-  }
-  | Form
-  { _layFormSubstance :: Substance NamedTexture s
-  , _layFormToken :: Maybe token
-  , _layForm :: LayoutCompound s style
+  | LayoutShape
+  { _layShape :: Shape (SpaceOf style)
   }
 makeLenses ''LayoutRep
 
-type Layout token s style = STree (AdjacentMeld style Overlap) (Maybe (LayoutRep token s style ))
+deriving instance (Show style, Show (SpaceOf style)) => Show (LayoutRep style)
 
-deriving instance (Space s, Show style, Show token) => Show (LayoutRep token s style)
+data CompoundLayout style =
+    CompoundLayout {
+        _compoundLayout :: TransTree (ProximityMeld style Compound) (Maybe (LayoutRep style))
+    }
+makeLenses ''CompoundLayout
 
-instance (Space s) => HasSpace (LayoutRep token s style) where
-  type SpaceOf (LayoutRep token s style) = s
+deriving instance ( Show style
+                  , IsStyle style
+                  ) => Show (CompoundLayout style)
 
-instance (Space s) => HasSpace (LayoutCompoundRep s style) where
-  type SpaceOf (LayoutCompoundRep s style) = s
+data Layout style =
+     Layout {
+        _layout :: TransTree (ProximityMeld style Overlap) (Maybe (SRep (TokenOf style) NamedTexture (CompoundLayout style)))
+     }
+makeLenses ''Layout
 
-instance (Space s) => CanFill (Layout token s style) where
-  type UnFilled (Layout token s style) = LayoutCompound s style
-  withFill substance = SLeaf . Just . Form substance Nothing
+deriving instance ( Show style
+                  , Show (TokenOf style)
+                  , IsStyle style
+                  ) => Show (Layout style)
 
-place :: (IsStyle style) => ShapeTree token s -> Layout token s style
-place item = SLeaf . Just . Item item $ Nothing
+instance (IsStyle style) => HasSpace (LayoutRep style) where
+  type SpaceOf (LayoutRep style) = SpaceOf style
 
-placeMask :: (IsStyle style) => CompoundTree s -> LayoutCompound s style
-placeMask item = SLeaf . Just . CompoundItem item $ Nothing
+instance (IsStyle style) => HasSpace (Layout style) where
+  type SpaceOf (Layout style) = SpaceOf style
 
-mapLayoutFormSubstance :: (Substance NamedTexture s -> Substance NamedTexture s) -> Layout token s style -> Layout token s style
-mapLayoutFormSubstance f =
-  mapSTree . fmap $ \rep ->
-     case rep of
-       Form substance token child -> Form (f substance) token child
-       _ -> rep
+instance (IsStyle style) => HasSpace (CompoundLayout style) where
+  type SpaceOf (CompoundLayout style) = SpaceOf style
 
-mapLayoutFormToken :: (Maybe token -> Maybe token) -> Layout token s style -> Layout token s style
-mapLayoutFormToken f =
-  mapSTree . fmap $ \rep ->
-     case rep of
-       Form substance token child -> Form substance (f token) child
-       _ -> rep
+instance (IsStyle style) => CanFill (Layout style) where
+  type UnFilled (Layout style) = CompoundLayout style
+  withFill substance = Layout . SLeaf . SItem . Just . SRep Nothing substance
 
-keep :: a -> b -> (b, b)
-keep _ b = (b, b)
+class (HasStyle t, HasMeld t, HasEmpty t) => IsLayout t where
+  type UnPlaced t :: *
+  place   :: UnPlaced t -> t
+  nextTo  :: SwitchAxis axis => axis -> StyleOf t -> Maybe Alignment -> Meld t -> t -> t -> t
+  onTopOf :: StyleOf t -> Maybe Alignment -> Maybe Alignment -> Meld t -> t -> t -> t
 
-const2 :: (c -> d) -> a -> b -> c -> d
-const2 f a b c = f c
+overLayouts f (Layout a) (Layout b) = Layout (f a b)
 
-overMaybe :: Monad m => (a -> FontMonad m b) -> Maybe a -> FontMonad m (Maybe b)
-overMaybe f mA =
-  case mA of
-    Nothing -> return Nothing
-    Just a -> Just <$> f a
+instance HasDefault style => Overlappable (Layout style) where
+  combine = overLayouts (SMeld defaultValue)
 
-overMaybe2 :: Monad m => (a -> FontMonad m b) -> c -> d -> Maybe a -> FontMonad m (Maybe b)
-overMaybe2 = const2 . overMaybe
+instance HasStyle (Layout style) where
+  type StyleOf (Layout style) = style
 
+instance HasMeld (Layout style) where
+  type Meld (Layout style) = Overlap
 
-fromLayout :: forall token s style m .
-              ( s~SpaceOf style
-              , IsStyle style
-              , Monad m
-              , Show token
-              )
-           => Layout token s style
-           -> FontMonad m (Maybe (ShapeTree token s))
-fromLayout layout =
-  let traversed :: FontMonad m (Maybe (MaybeBox (ShapeTree token s)))
-      traversed =  traverseTree keep
-                                (\trans -> fmap (over maybeItem (STransform trans)))
-                                const
-                                defaultValue
-                                IdentityTransform
-                                (const2 onLayoutLeaf)
-                                (eitherMaybeMeld onLayoutMeld)
-                                layout
-  in  fmap (view maybeItem) <$> traversed
+instance HasEmpty (Layout style) where
+  emptyItem = Layout (SLeaf . SItem $ Nothing)
+  isEmpty (Layout (SLeaf (SItem Nothing))) = True
+  isEmpty _ = False
 
-eitherMaybeMeld :: (t -> a -> a -> a) -> t -> Maybe a -> Maybe a -> Maybe a
-eitherMaybeMeld f a = eitherMaybe (f a)
+instance IsStyle style => HasToken (Layout style) where
+  type TokenOf (Layout style) = TokenOf style
 
-fromCompoundLayout :: ( s~SpaceOf style
-                      , IsStyle style
-                      , Monad m
-                      , Space s
-                      )
-                   => Maybe (LayoutCompound s style)
-                   -> FontMonad m (Maybe (MaybeBox (CompoundTree s)))
-fromCompoundLayout mLayout =
-                     let doLeaf :: AdjacentMeld style Compound
-                                -> Transformer s
-                                -> Maybe (LayoutCompoundRep s style)
-                                -> FontMonad m (Maybe (MaybeBox (CompoundTree s)))
-                         doLeaf = overMaybe2 onLayoutCompoundLeaf
-                     in
-                     _ (traverseTree keep
-                                     (\trans -> over maybeItem (STransform trans))
-                                     (const id)
-                                     defaultValue
-                                     IdentityTransform
-                                     doLeaf
-                                     (eitherMaybeMeld onLayoutMeld))
-                                     mLayout
+instance (IsStyle style, Show (TokenOf style)) => Tokenized (Layout style) where
+  overToken fToken (Layout tree) = Layout . mapSItem (fmap (over sRepToken fToken)) $ tree
 
-onLayoutLeaf :: forall token s style m
-             .  ( s~SpaceOf style
-                , IsStyle style
-                , Monad m
-                )
-             => Maybe (LayoutRep token s style)
-             -> FontMonad m (Maybe (MaybeBox (ShapeTree token s)))
-onLayoutLeaf mRep =
-    case mRep of
-       Nothing -> return Nothing
-       Just rep ->
-            case rep of
-              Item item mBox -> return $ Just $ MaybeBox item mBox
-              Form substance mToken layout ->
-                  do (mCompound :: Maybe (MaybeBox (CompoundTree s))) <- fromCompoundLayout $ Just layout
-                     overMaybe (\ (MaybeBox child mBox) ->
-                                       let shapeTree :: ShapeTree token s
-                                           shapeTree = overToken (const mToken) . withFill substance $ child
-                                       in  return $ MaybeBox shapeTree mBox
-                               ) mCompound
+instance (IsStyle style) => IsLayout (Layout style) where
+  type UnPlaced (Layout style) = ShapeTree (TokenOf style) (SpaceOf style)
+  place = liftToLayoutTree
+  nextTo axis style alignment         meld = overLayouts (SMeld (ProximityMeld (NextTo (eitherAxis axis) alignment) style meld))
+  onTopOf style mAlignVert mAlignHori meld = overLayouts (SMeld (ProximityMeld (OnTopOf mAlignVert mAlignHori)      style meld))
 
-onLayoutCompoundLeaf :: ( s~SpaceOf style
-                        , IsStyle style
-                        , Monad m
-                        )
-                     => LayoutCompoundRep s style
-                     -> FontMonad m (MaybeBox (CompoundTree s))
-onLayoutCompoundLeaf rep =
-    case rep of
-        Glyph style codePoint  -> do (shape, box) <- styleGlyph style codePoint
-                                     return $ MaybeBox (SLeaf $ Just shape) box
-        CompoundItem item mBox -> return $ MaybeBox item mBox
+liftToLayoutTree :: (IsStyle style) => ShapeTree (TokenOf style) (SpaceOf style) -> Layout style
+liftToLayoutTree (ShapeTree tree) = Layout . mapBranchMeld (ProximityMeld defaultValue defaultValue) . mapSItem (fmap (overSRep liftToCompoundLayoutTree)) $ tree
 
-onLayoutMeld :: ( SpaceOf style~SpaceOf leaf
-                , IsStyle style
-                , HasBox leaf
-                , CanProject (BezierSpace (SpaceOf leaf)) leaf
-                , Transformable leaf
-                )
-             => AdjacentMeld style meld
-             -> MaybeBox (STree meld (Maybe leaf))
-             -> MaybeBox (STree meld (Maybe leaf))
-             -> MaybeBox (STree meld (Maybe leaf))
-onLayoutMeld (AdjacentMeld style adjacency meld) a b =
-    withBoxToMaybeBox $
-    meldWithBox meld $
-    let aC = collapseMaybeBox a
-        bC = collapseMaybeBox b
-    in
-    case adjacency of
-        NextTo eAxis mAlignment ->
-           let (a0, b0) = (fromEitherAxis (nextTo Horizontal) (nextTo Vertical) eAxis) aC bC
-               (a1, b1) = case mAlignment of
-                            Nothing -> (a0, b0)
-                            Just alignment -> (fromEitherAxis (align Horizontal) (align Vertical) eAxis) alignment a0 b0
-           in (a1, b1)
-        OnTopOf mAlignHori mAlignVert ->
-           let (a0, b0) = case mAlignHori of
-                             Nothing -> (aC,bC)
-                             Just alignHori -> align Horizontal alignHori aC bC
-               (a1, b1) = case mAlignVert of
-                             Nothing -> (a0,b0)
-                             Just alignVert -> align Vertical alignVert a0 b0
-            in (a1, b1)
+liftCompoundLayout f (CompoundLayout a) (CompoundLayout b) = CompoundLayout (f a b)
 
-whenBothNotEmpty :: HasEmpty a => a -> a -> (a, a) -> (a, a)
-whenBothNotEmpty a b f =
-  if isEmpty a || isEmpty b
-  then (a, b)
-  else f
+instance (IsStyle style) => Compoundable (CompoundLayout style) where
+  addOver      = liftCompoundLayout addOver
+  subtractFrom = liftCompoundLayout subtractFrom -- the subtracted shape must be above what is being subtracted in the stack.
 
-alignWithSize :: (Axis axis, SimpleTransformable t)
-              => axis
-              -> Alignment
-              -> WithBox t
-              -> SpaceOf t
-              -> WithBox t
-alignWithSize axis alignment a size =
-    let aSize = a ^. withBox . acrossBox axis
-        offsetA = case alignment of
-                    AlignMin    -> 0
-                    AlignMax    -> size - aSize
-                    AlignCenter -> (size - aSize) / 2
-        newA = translateOnAxis (nextAxis axis) offsetA $ a
-    in  newA
+instance HasStyle (CompoundLayout style) where
+  type StyleOf (CompoundLayout style) = style
 
+instance HasMeld (CompoundLayout style) where
+  type Meld (CompoundLayout style) = Compound
 
-align :: ( HasBox leaf
-         , CanProject (BezierSpace (SpaceOf leaf)) leaf
-         , Transformable leaf
-         , Axis axis)
-      => axis
-      -> Alignment
-      -> WithBox (STree meld leaf)
-      -> WithBox (STree meld leaf)
-      -> (WithBox (STree meld leaf)
-         ,WithBox (STree meld leaf)
-         )
-align axis alignment a b =
-  let aSize = a ^. withBox . acrossBox axis
-      bSize = b ^. withBox . acrossBox axis
-      size  = max aSize bSize
-      a' = alignWithSize axis alignment a size
-      b' = alignWithSize axis alignment b size
-  in  (a', b')
+instance HasEmpty (CompoundLayout style) where
+  emptyItem = CompoundLayout (SLeaf . SItem $ Nothing)
+  isEmpty (CompoundLayout (SLeaf (SItem Nothing))) = True
+  isEmpty _ = False
 
-nextTo :: ( HasBox leaf
-          , CanProject (BezierSpace (SpaceOf leaf)) leaf
-          , Transformable leaf
-          , Axis axis)
-       => axis
-       ->  WithBox (STree meld leaf)
-       ->  WithBox (STree meld leaf)
-       -> (WithBox (STree meld leaf)
-          ,WithBox (STree meld leaf)
-          )
-nextTo axis a b =
-  let d = a ^. withBox . maxBox . along axis - b ^. withBox . minBox . along axis
-      newB = translateOnAxis (nextAxis axis) d b
-  in  (a, newB)
+instance HasDefault style => Overlappable (CompoundLayout style) where
+  combine = liftCompoundLayout (SMeld defaultValue)
+
+instance (IsStyle style) => IsLayout (CompoundLayout style) where
+  type UnPlaced (CompoundLayout style) = CompoundTree (SpaceOf style)
+  place = liftToCompoundLayoutTree
+  nextTo  axis style alignment  meld       = liftCompoundLayout $ SMeld (ProximityMeld (NextTo (eitherAxis axis) alignment) style meld)
+  onTopOf style mAlignVert mAlignHori meld = liftCompoundLayout $ SMeld (ProximityMeld (OnTopOf mAlignVert mAlignHori)      style meld)
+
+liftToCompoundLayoutTree :: HasDefault style => CompoundTree (SpaceOf style) -> CompoundLayout style
+liftToCompoundLayoutTree (CompoundTree tree) = CompoundLayout . mapBranchMeld (ProximityMeld defaultValue defaultValue) . mapSItem (fmap LayoutShape) $ tree
+
+instance (IsStyle style) =>
+         Compoundable (STree (BranchTree_ (ProximityMeld style Compound) tag item)) where
+  addOver      = SMeld (ProximityMeld defaultValue defaultValue CompoundAdd     )
+  subtractFrom = SMeld (ProximityMeld defaultValue defaultValue CompoundSubtract) -- the subtracted shape must be above what is being subtracted in the stack.
+
+instance (IsStyle style) => SimpleTransformable (Layout style) where
+  translateBy p = over layout (translateBy p)
+  stretchBy   p = over layout (stretchBy   p)
+
+instance (IsStyle style) => Transformable (Layout style) where
+  rotateBy   a = over layout (rotateBy a)
+
+instance (IsStyle style) => Projectable (Layout style) where
+  projectOnto path = over layout (projectOnto path)
+
+instance (IsStyle style) => SimpleTransformable (CompoundLayout style) where
+  translateBy p = over compoundLayout (translateBy p)
+  stretchBy   p = over compoundLayout (stretchBy   p)
+
+instance (IsStyle style) => Transformable (CompoundLayout style) where
+  rotateBy   a = over compoundLayout (rotateBy a)
+
+instance (IsStyle style) => Projectable (CompoundLayout style) where
+  projectOnto path = over compoundLayout (projectOnto path)

@@ -40,8 +40,6 @@ import Graphics.Gudni.Figure.BezierSpace
 import Graphics.Gudni.Figure.FitBezier
 import Graphics.Gudni.Figure.OpenCurve
 import Graphics.Gudni.Figure.Box
-import Graphics.Gudni.Figure.Transformable
-import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Figure.Reversible
@@ -76,17 +74,18 @@ instance (Show (f (Bezier s))) => Show (Outline_ f s) where
 type Outline s = Outline_ V.Vector s
 
 instance ( Chain f
-         , Space s) => PointContainer (Outline_ f s) where
-   type ContainerFunctor (Outline_ f s) = f
-   containedPoints = join . fmap unfoldBezier . view outlineSegments
+         , Space s)
+         => PointContainer (Outline_ f s)
+   where
    mapOverPoints f = over outlineSegments (fmap (over bzPoints (fmap f)))
 
-instance (Chain f, Space s) => SimpleTransformable (Outline_ f s) where
-    translateBy p = mapOverPoints (translateBy p)
-    scaleBy     s = mapOverPoints (scaleBy s)
-    stretchBy   p = mapOverPoints (stretchBy p)
-instance (Chain f, Space s) => Transformable (Outline_ f s) where
-    rotateBy    a = mapOverPoints (rotateBy a)
+instance ( Chain f
+         , Space s
+         )
+         => BezierContainer (Outline_ f s)
+  where
+  type BezFunctor (Outline_ f s) = f
+  joinOverBeziers f = Outline .  join . fmap f . view outlineSegments
 
 -- | Close an open curve and convert it to an shape. An additional line segment is added if the outset and the terminator of
 -- the curve are not the same.
@@ -134,22 +133,15 @@ pointInsideOutline poly point =
     view outlineSegments $
     poly
 
-instance Reversible (f (Bezier s)) => Reversible (Outline_ f s) where
-  reverseItem = over outlineSegments reverseItem
-
-instance ( Space s
-         , Chain f
-         )
-         => CanProject (BezierSpace s) (Outline_ f s) where
-    projectionWithStepsAccuracy debug max_steps m_accuracy bSpace curve =
-         Outline . join . fmap (projectBezierWithStepsAccuracy debug max_steps m_accuracy bSpace) . view outlineSegments $ curve
+instance Chain f => Reversible (Outline_ f s) where
+  reverseItem = over outlineSegments (fmap reverseItem . reverseChain)
 
 -- * Instances
-instance (Space s) => HasSpace (Outline_ f s) where
+instance Space s => HasSpace (Outline_ f s) where
   type SpaceOf (Outline_ f s) = s
 
-instance (Chain f, Space s) => HasBox (Outline_ f s) where
-  boxOf = minMaxBoxes . fmap boxOf . containedPoints
+instance (Chain f, Space s) => CanBox (Outline_ f s) where
+  boxOf = minMaxBoxes . fmap boxOf . view outlineSegments
 
 instance (NFData s, NFData (t (Bezier s))) => NFData (Outline_ t s) where
   rnf (Outline ps) = ps `deepseq` ()

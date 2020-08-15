@@ -17,11 +17,11 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.BezierSpace
+import Graphics.Gudni.Layout.Draw
 import Graphics.Gudni.Util.Segment
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Loop
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.Subdividable
 import qualified Data.Vector as V
 
 import Control.Lens
@@ -31,25 +31,25 @@ import Control.Monad
 data ArrowDirection = PointingForward | PointingBackward deriving (Eq, Show)
 
 defaultArrowHead :: (Loop f, Space s) => Point2 s -> ArrowDirection -> Shape_ f s
-defaultArrowHead size direction = Shape . pure . stretchBy size $ fromSegments [straightXY (-1) (-0.5), straightXY 0 0, straightXY (-1) 0.5]
+defaultArrowHead size direction = Shape . pure . applyStretch size $ fromSegments [straightXY (-1) (-0.5), straightXY 0 0, straightXY (-1) 0.5]
 
 class (Space (SpaceOf t), HasSpace t, HasArcLength t, Reversible t) => CanArrow t where
-  withArrowHeadOffsetShape :: (Loop f) => Shape_ f (SpaceOf t) -> Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> Shape_ f (SpaceOf t)
+  withArrowHeadOffsetShape :: Shape (SpaceOf t) -> Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> CompoundTree (SpaceOf t)
 
-  withArrowHeadOffset :: (Loop f) => Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> Shape_ f (SpaceOf t)
+  withArrowHeadOffset :: Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> CompoundTree (SpaceOf t)
   withArrowHeadOffset offset size direction = withArrowHeadOffsetShape (defaultArrowHead size direction) offset size direction
 
-  withArrowHead :: (Loop f) => Point2 (SpaceOf t) -> ArrowDirection -> t -> Shape_ f (SpaceOf t)
+  withArrowHead :: Point2 (SpaceOf t) -> ArrowDirection -> t -> CompoundTree (SpaceOf t)
   withArrowHead size direction t =
     let len = arcLength t
         t' = if direction == PointingForward then t else reverseItem t
         offset = Point2 len 0
     in  withArrowHeadOffset offset size direction t'
 
-instance (Loop f, Space s) => CanArrow (OpenCurve_ f s) where
+instance (Space s) => CanArrow (OpenCurve s) where
   withArrowHeadOffsetShape shape offset size direction path =
-    projectOnto False path . translateBy offset $ shape
+    projectOnto path . translateBy offset $ mask shape
 
 instance (Space s) => CanArrow (Bezier s) where
   withArrowHeadOffsetShape shape offset size direction bz =
-      withArrowHeadOffsetShape shape offset size direction (makeOpenCurve [bz])
+      withArrowHeadOffsetShape shape offset size direction (makeOpenCurve (pure bz :: ShapeFunctor (Bezier s)))

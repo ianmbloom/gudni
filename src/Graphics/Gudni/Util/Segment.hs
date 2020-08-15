@@ -157,7 +157,7 @@ instance (Loop f, Space s) => HasFromSegments (Outline_ f s) where
 
 -- | Instance for creating a simple shape from a list of segments.
 instance Space s => HasFromSegments (CompoundTree s) where
-  fromSegments = SLeaf . segmentsToShape . pure
+  fromSegments = mask . segmentsToShape . pure
 
 instance NFData s => NFData (Segment s) where
   rnf (Seg o c) = o `deepseq` c `deepseq` ()

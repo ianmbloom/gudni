@@ -24,7 +24,6 @@ where
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Figure.ShapeTree
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Debug
@@ -33,6 +32,7 @@ import qualified Graphics.Gudni.Figure.Bezier as B
 
 import Control.Lens
 import Control.Monad.State
+import Control.Applicative
 import Linear
 
 import Data.Maybe
@@ -45,34 +45,38 @@ data StrokeState = StrokeState
    deriving (Show)
 makeLenses ''StrokeState
 
-instance HasToken StrokeState where
-  type TokenOf StrokeState = Int
+instance HasStyle StrokeState where
+    type StyleOf StrokeState = DefaultStyle
 
 instance Model StrokeState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
-    constructScene state _status = return . Scene gray $
-        transformFromState (state ^. stateBase) $
-        overlap ([projected, stroked])
+    constructScene state _status =
+        sceneFromLayout gray .
+        place .
+        transformFromState (state ^. stateBase) .
+        overlap $
+        [projected, stroked]
       where
         bz  = Bez (Point2 0 0) (Point2 40 0) (Point2 20 40)
         bz2 = Bez (Point2 20 40) (Point2 0 80) (Point2 40 80)
         bz3 = Bez (Point2 40 80) (Point2 40 90) (Point2 40 100)
-        path = makeOpenCurve [bz,bz2,bz3]
+        path = makeOpenCurve (pure bz <|> pure bz2 <|> pure bz3)
         stroked :: ShapeTree Int SubSpace
         stroked =
             withColor blue .
-            mask . shapeFrom .
+            mask .
             stroke 2 $ path
         projected :: ShapeTree Int SubSpace
         projected =
-            projectOnto False path .
+            projectOnto path .
             translateByXY 0 (-2.5) .
             translateByXY (state ^. stateOffset) 0 .
             withColor (transparent 0.8 red) .
             overlap .
             horizontallySpacedBy 12 .
             replicate 100 .
+            mask .
             rectangle $
             10 `by` 5
 
@@ -88,16 +92,6 @@ instance HandlesInput token StrokeState where
                           _ -> return ()
               _ -> return ()
           )
-
-marker :: Color -> Point2 SubSpace -> ShapeTree Int SubSpace
-marker color center = withColor (transparent 0.5 color) $ translateBy center marker0
-
-marker0 :: CompoundTree SubSpace
-marker0 = {-rotateBy (1/8 @@ turn) $ translateBy (Point2 (s/2) (s/2)) $-} square
-    where
-        s = 8
-        square :: CompoundTree SubSpace
-        square = rectangle (Point2 s s)
 
 main :: IO ()
 main = runApplication $ StrokeState

@@ -71,7 +71,7 @@ beziersToPairs = fmap bezierToCurvePair
 instance Space s => HasSpace (CurvePair s) where
   type SpaceOf (CurvePair s) = s
 
-instance (Space s) => HasBox (CurvePair s) where
+instance (Space s) => CanBox (CurvePair s) where
   boxOf (CurvePair c o) = minMaxBox (boxOf c) (boxOf o)
 
 instance NFData s => NFData (CurvePair s) where

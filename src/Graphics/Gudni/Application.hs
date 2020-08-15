@@ -69,6 +69,7 @@ import Graphics.Gudni.Raster.TileTree
 import Graphics.Gudni.Raster.Serialize
 import Graphics.Gudni.Raster.Params
 import Graphics.Gudni.Raster.TraverseShapeTree
+import Graphics.Gudni.Raster.FinalTree
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
@@ -84,11 +85,11 @@ import Data.Foldable
 import System.Info
 
 -- | The model typeclass is the primary interface to the application functions in Gudni
-class HasToken s => Model s where
+class (HasStyle s) => Model s where
   -- | Construct a Scene from the state of type `s`
-  constructScene   :: s -> String -> FontMonad IO (Scene (ShapeTree (TokenOf s) SubSpace))
+  constructScene   :: s -> String -> FontMonad (StyleOf s) IO (Scene (Maybe (FinalTree (TokenOf (StyleOf s)) SubSpace)))
   -- | Update the state based on the elapsed time and a list of inputs
-  updateModelState :: Int -> SimpleTime -> [Input (TokenOf s)] -> s -> s
+  updateModelState :: Int -> SimpleTime -> [Input (TokenOf (StyleOf s))] -> s -> s
   -- | Do tasks in the IO monad based and update the current state.
   ioTask           :: MonadIO m => s -> m s
   ioTask state = return state
@@ -129,9 +130,9 @@ data ApplicationState s = AppState
 makeLenses ''ApplicationState
 
 -- | Monad Stack for the event loop.
-type ApplicationMonad s = StateT (ApplicationState s) (FontMonad IO)
+type ApplicationMonad s = StateT (ApplicationState s) (FontMonad (StyleOf s) IO)
 
-runApplicationMonad :: ApplicationState s -> ApplicationMonad s a -> FontMonad IO a
+runApplicationMonad :: ApplicationState s -> ApplicationMonad s a -> FontMonad (StyleOf s) IO a
 runApplicationMonad = flip evalStateT
 
 -- | Initializes openCL, frontend interface, timekeeper, randomfield data and returns the initial `ApplicationState`
@@ -151,7 +152,7 @@ closeApplication :: ApplicationMonad s ()
 closeApplication = withIO appBackend closeInterface
 
 -- | Initialize the ApplicationMonad stack and enter the event loop.
-runApplication :: (Show s, Model s, HasToken s, Show (TokenOf s)) => s -> IO ()
+runApplication :: (Show s, Model s, HasStyle s, Show (TokenOf (StyleOf s))) => s -> IO ()
 runApplication state =
     do  -- Initialize the application and get the initial state.
         appState <- setupApplication state
@@ -200,7 +201,14 @@ beginCycle =
     do  restartAppTimer
 
 -- | Update the model state and generate a shape tree, marking time along the way.
-processState :: (Show s, Model s, HasToken s, Show (TokenOf s)) => SimpleTime -> [Input (TokenOf s)] -> ApplicationMonad s (Scene (ShapeTree (TokenOf s) SubSpace))
+processState :: ( Show s
+                , Model s
+                , HasStyle s
+                , Show (TokenOf (StyleOf s))
+                )
+             => SimpleTime
+             -> [Input (TokenOf (StyleOf s))]
+             -> ApplicationMonad s (Scene (Maybe (FinalTree (TokenOf (StyleOf s)) SubSpace)))
 processState elapsedTime inputs =
     do  frame <- fromIntegral <$> use appCycle
         markAppTime "Advance State"
@@ -217,7 +225,13 @@ processState elapsedTime inputs =
         return scene
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
-drawFrame :: (Model s, Show (TokenOf s)) => Int -> Scene (ShapeTree (TokenOf s) SubSpace) -> [(PointQueryId, Point2 SubSpace)] -> ApplicationMonad s (DrawTarget, [PointQueryResult (TokenOf s)])
+drawFrame :: ( Model s
+             , Show (TokenOf (StyleOf s))
+             , HasStyle s)
+          => Int
+          -> Scene (Maybe (FinalTree (TokenOf (StyleOf s)) SubSpace))
+          -> [(PointQueryId, Point2 SubSpace)]
+          -> ApplicationMonad s (DrawTarget, [PointQueryResult (TokenOf (StyleOf s))])
 drawFrame frameCount scene queries =
     do  --appMessage "ResetJob"
         rasterizer <- use appRasterizer
@@ -277,7 +291,13 @@ isQuit input =
         _ -> False
 
 -- | Cycle through the event loop.
-loop :: (Show s, Model s, HasToken s, Show (TokenOf s)) => [Input (TokenOf s)] -> ApplicationMonad s ()
+loop :: ( Show s
+        , Model s
+        , HasStyle s
+        , Show (TokenOf (StyleOf s))
+        )
+     => [Input (TokenOf (StyleOf s))]
+     -> ApplicationMonad s ()
 loop preppedInputs =
   do  --appMessage "checkInputs"
       unless (any isQuit preppedInputs) $

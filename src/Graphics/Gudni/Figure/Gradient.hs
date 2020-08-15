@@ -11,8 +11,6 @@ where
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Color
-import Graphics.Gudni.Figure.Projection
-import Graphics.Gudni.Figure.Transformable
 import Control.DeepSeq
 import Graphics.Gudni.Util.StorableM
 import Control.Lens

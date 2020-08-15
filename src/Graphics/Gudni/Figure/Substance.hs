@@ -34,12 +34,12 @@ import Control.DeepSeq
 
 
 -- | Type of filling for overlapping shapes.
-data Substance textureLabel s
+data Substance tex s
     = Solid Color
-    | Texture textureLabel
+    | Texture tex
     | Linear (LinearGradient s)
     | Radial (RadialGradient s)
-    | TransformSubstance (Transformer s) (Substance textureLabel s)
+    | TransformSubstance (Transformer s) (Substance tex s)
 
 data NamedTexture
   = NewTexture PictureName Picture
@@ -48,7 +48,7 @@ data NamedTexture
 
 
 breakdownSubstance :: forall tex s . (Show tex, Space s) => Substance tex s -> (Transformer s, Substance tex s)
-breakdownSubstance substance = go IdentityTransform substance
+breakdownSubstance substance = go (Simple IdentityTransform) substance
   where
   go :: Transformer s  -> Substance tex s -> (Transformer s, Substance tex s)
   go trans substance =
@@ -56,7 +56,7 @@ breakdownSubstance substance = go IdentityTransform substance
         TransformSubstance newTrans sub -> go (CombineTransform newTrans trans) sub
         x -> (trans, x)
 
-substanceIsConstant :: Substance textureLabel s -> Bool
+substanceIsConstant :: Substance tex s -> Bool
 substanceIsConstant (Solid {}) = True
 substanceIsConstant _ = False
 
@@ -73,16 +73,14 @@ instance Space s => HasSpace (Substance n s) where
   type SpaceOf (Substance n s) = s
 
 instance Space s => SimpleTransformable (Substance n s) where
-  translateBy p = TransformSubstance (Translate p)
-  scaleBy     s = TransformSubstance (Scale s)
-  stretchBy   p = TransformSubstance (Stretch p)
+  translateBy p = TransformSubstance (Simple $ Translate p)
+  stretchBy   p = TransformSubstance (Simple $ Stretch p)
 
 instance Space s => Transformable (Substance n s) where
   rotateBy    a = TransformSubstance (Rotate a)
 
-instance Space s => CanProject (BezierSpace s) (Substance n s) where
-  projectionWithStepsAccuracy debug _ _  c = TransformSubstance (Project debug c)
-
+instance Space s => Projectable (Substance n s) where
+  projectOnto path = TransformSubstance (Project path)
 
 instance (Space s, Show n, Show s) => Show (Substance n s) where
   show (Solid color) = "Solid " ++ show color

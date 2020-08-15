@@ -7,6 +7,7 @@
 {-# LANGUAGE StandaloneDeriving   #-}
 {-# LANGUAGE ExplicitForAll       #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 
 
 -----------------------------------------------------------------------------
@@ -33,7 +34,8 @@ module Graphics.Gudni.Layout.Font
 where
 
 import Graphics.Gudni.Figure
-
+import Graphics.Gudni.Layout.WithBox
+import Graphics.Gudni.Layout.Proximity
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
 
@@ -68,30 +70,32 @@ instance Show CodePoint where
   show (CodePoint x) = "CodePoint "++show (chr x) ++ "->" ++ show x
 
 -- | A cache of all glyphs that have been loaded from the font file so far and the font file itself.
-data FontCache =
+data FontCache style =
   FontCache
   { -- | Map from CodePoints to cached glyphs.
-    _gCMap  :: M.Map CodePoint (Shape SubSpace, Maybe (Box SubSpace))
+    _gCMap  :: M.Map CodePoint (ProximityCompoundTree style)
     -- | Original font data structure. Contains an error message depending on how the font is loaded.
   , _gCFont :: Either String F.Font
-  } deriving (Show)
+  }
 makeLenses ''FontCache
+
+deriving instance (Show (ProximityCompoundTree style)) => Show (FontCache style)
 
 -- | An initial 'FontCache'
 emptyFontCache = FontCache M.empty (Left "No Font Loaded")
 
 -- | Monad transformer for holding the glyphcache.
-type FontMonad m = StateT FontCache m
+type FontMonad style m = StateT (FontCache style) m
 
 -- | Evaluate a 'FontMonad'.
-runFontMonad :: (Monad m) => FontMonad m a -> m a
+runFontMonad :: (Monad m) => FontMonad style m a -> m a
 runFontMonad mf = evalStateT mf emptyFontCache
 
-instance HasSpace a => HasSpace (FontMonad m a) where
-  type SpaceOf (FontMonad m a) = SpaceOf a
+-- instance (HasSpace a, s~SpaceOf a) => HasSpace (FontMonad s m a) where
+--   type SpaceOf (FontMonad s m a) = SpaceOf a
 
 -- | Add a fontfile to the FontMonad.
-addFont :: String -> FontMonad IO ()
+addFont :: String -> FontMonad style IO ()
 addFont file_name =
   do  -- load the TrueType font file into a buffer.
       ttf_buffer <- liftIO $ LB.readFile file_name
@@ -113,7 +117,7 @@ rightOrError (Right t) = t
 rightOrError (Left err) = error err
 
 -- | Retrieve a glyph from the glyphCache, read it from the font file if necessary.
-getGlyph :: (MonadState FontCache m, Monad m) => CodePoint -> m (Shape SubSpace, Maybe (Box SubSpace))
+getGlyph :: forall style m . (MonadState (FontCache style) m, Monad m, HasSpace style) => CodePoint -> m (ProximityCompoundTree style)
 getGlyph codepoint =
   do  -- the current map from codepoints to previously decoded glyphs.
       dict <- use gCMap
@@ -126,6 +130,7 @@ getGlyph codepoint =
             let -- otherwise load it from the font, store it in the cache and return it.
                 font = rightOrError eFont
                 -- get the scale factor from the font.
+                fontScaleFactor :: (SpaceOf style)
                 fontScaleFactor = 1 / (fromIntegral $ F.unitsPerEm font)
                 -- get the width to advance for this glyph and the vector of RawGlyph structures.
                 glyphVector :: V.Vector F.RawGlyph
@@ -146,13 +151,13 @@ getGlyph codepoint =
                 vertices = map (map (flipY (fromIntegral $ height)) . VU.toList) contours
                 -- create outlines from the lists of vertices by converting them to Point2 SubSpace and scaling them
                 -- by the fontfactor, this means a normal glyph will have a height of 1 in SubSpace.
-                shape :: Shape SubSpace
-                shape =  Shape . map (Outline . pairsToBeziers . V.fromList . pairPoints . map ((^* fontScaleFactor) . fmap fromIntegral . pairToPoint)) $ vertices
+                shape :: Shape (SpaceOf style)
+                shape =  Shape . map (Outline . pairsToBeziers . V.fromList . pairPoints . map ((^* (realToFrac fontScaleFactor)) . fmap fromIntegral . pairToPoint)) $ vertices
                 -- build the Glyph constructor including the metadata and the outlines.
-                glyphBox :: Box SubSpace
-                glyphBox = Box zeroPoint (Point2 (realToFrac advance * fontScaleFactor) (realToFrac (ascent + descent) * fontScaleFactor))
-                glyph :: (Shape SubSpace, Maybe (Box SubSpace))
-                glyph = (shape, Just glyphBox)
+                glyphBox :: Box (SpaceOf style)
+                glyphBox = Box zeroPoint (Point2 (realToFrac advance * realToFrac fontScaleFactor) (realToFrac (ascent + descent) * realToFrac fontScaleFactor))
+                glyph :: ProximityCompoundTree style
+                glyph = SLeaf . SItem . Just $ WithBox shape glyphBox
             in  do  -- insert the new glyph into the cache.
                     gCMap .= M.insert codepoint glyph dict
                     -- return it as well.

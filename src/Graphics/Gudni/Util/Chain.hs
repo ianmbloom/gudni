@@ -56,7 +56,6 @@ instance Chain V.Vector where
   chainFromList = V.fromList
   concatChains = V.concat
 
-
 instance (Reversible t) => Reversible (V.Vector t) where
   reverseItem = reverseChain . fmap reverseItem
 

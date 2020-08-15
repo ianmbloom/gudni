@@ -42,7 +42,7 @@ instance HasToken a => HasToken (Glyph a) where
 -- | Instance for filling a compound shape and creating a normal shapeTree leaf.
 instance (Space s) => CanFill (CompoundTree s) (ShapeTree token s) where
     withFill substance  = SLeaf . SRep Nothing substance
-    assignToken token   = mapSTree (set sRepToken (Just token))
+    assignToken token   = mapSLeaf (set sRepToken (Just token))
 
 -- | Instance for filling a compound shape and creating a glyph wrapped shapeTree leaf.
 instance (Space s) => CanFill (Glyph (CompoundTree s)) (Glyph (ShapeTree token s)) where
@@ -201,4 +201,72 @@ offsetB = case alignment of
             AlignCenter -> (size - bSize) / 2
 newBBox = translateOnAxis (nextAxis axis) offsetB $ bBox
 newB = translateOnAxis (nextAxis axis) offsetB $ b ^. withItem
+-}
+
+whenBothNotEmpty :: HasEmpty a => a -> a -> (a, a) -> (a, a)
+whenBothNotEmpty a b f =
+  if isEmpty a || isEmpty b
+  then (a, b)
+  else f
+
+mapLayoutFormSubstance :: HasSpace style => (Substance NamedTexture (SpaceOf style) -> Substance NamedTexture (SpaceOf style)) -> Layout token style -> Layout token style
+mapLayoutFormSubstance f =
+  over layout $
+  mapSItem . fmap $ \rep ->
+     case rep of
+       SRep token substance child -> SRep token (f substance) child
+
+mapLayoutFormToken :: (Maybe token -> Maybe token) -> Layout token style -> Layout token style
+mapLayoutFormToken f =
+  over layout $
+  mapSItem . fmap $ \rep ->
+     case rep of
+       SRep token substance child -> SRep (f token) substance child
+
+type UnPlaced t :: *
+place :: UnPlaced t -> t
+
+type UnPlaced (LayoutCompound style) = CompoundTree (SpaceOf style)
+place item = LayoutCompound . SLeaf . SItem . Just . CompoundItem item $ Nothing
+
+type UnPlaced (Layout token style) = ShapeTree token (SpaceOf style)
+place shapeTree = Layout . SLeaf . SItem . Just . Item shapeTree $ Nothing
+
+liftCompoundToProximity :: IsStyle style => CompoundTree (SpaceOf style) -> FontMonad style m (ProximityTree style)
+liftCompoundToProximity tree =
+    let trBranch = traverseSBranch const const liftCompoundRep
+        trTree   = traverseSTree keep liftMeld
+    in  undefined
+
+liftMeld :: meld -> ProximityMeld meld
+liftMeld meld = SMeld (ProximityMeld noProximity defaultValue meld)
+
+listShape :: Shape s -> WithBox (Shape s)
+liftShape shape = WithBox shape (boxOf shape)
+
+liftLayoutCompoundRep :: LayoutCompoundRep style -> FontMonad style m (ProximityTree style)
+liftLayoutCompoundRep rep =
+    case rep of
+         Glyph style codePoint  -> styleGlyph style codePoint
+         CompoundItem tree      -> liftCompoundToProximity tree
+
+liftShapeTreeToProximity :: ShapeTree token style -> FontMonad style m (Proximity
+
+type FullLayoutCompoundRep style = LayoutCompoundRep_ (FullCompoundTree (SpaceOf style)) style
+type FullLayoutCompound style = TransTree (ProximityMeld style Compound) (FullLayoutCompoundRep style)
+
+type FullLayoutRep token style = LayoutRep_ (FullShapeTree token (SpaceOf style)) (FullLayoutCompound style) token style
+type FullLayout token style = TransTree (ProximityMeld style Overlap) (FullLayoutRep token style)
+
+{-
+toFullProximity :: forall style token
+                .  ( IsStyle style
+                   , Monad m
+                   )
+                => ProximityTree token style
+                -> Maybe (FullProximityTree token style)
+toFullProximity =
+  let fullCompound :: t
+      fullCompound = mapSItem (overSRep (fullSTree))
+  in  fullSTree fullCompound
 -}

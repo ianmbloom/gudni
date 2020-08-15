@@ -7,7 +7,7 @@
 module Graphics.Gudni.Experimental.ConstructConfineQuery
   ( constructLayerStack
   , checkPoint
-  --, checkBox
+  , checkBox
   --, tracePoint
   )
 where
@@ -17,7 +17,7 @@ import Graphics.Gudni.Figure.Cut
 import Graphics.Gudni.Raster.ItemInfo
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Experimental.ConfineTree
-import Graphics.Gudni.Experimental.ConstructConfineTree
+--import Graphics.Gudni.Experimental.ConstructConfineTree
 import Graphics.Gudni.Util.Representation
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
@@ -29,17 +29,24 @@ import Data.List
 import qualified Data.Map as M
 import Text.PrettyPrint.GenericPretty
 
-cross :: (Space s) => Point2 s -> s -> s -> ShapeTree token s
+cross :: IsStyle style
+      => Point2 (SpaceOf style)
+      -> SpaceOf style
+      -> SpaceOf style
+      -> Layout style
 cross point thickness size =
   let s = size / 2
   in
   translateBy point .
   withColor black $
-  overlap [mask . stroke thickness $ line (Point2 (-s) (-s)) (Point2 s s)
-          ,mask . stroke thickness $ line (Point2 s (-s)) (Point2 (-s) s)
+  overlap [mask . stroke thickness . makeOpenCurve $ [line (Point2 (-s) (-s)) (Point2 s s)]
+          ,mask . stroke thickness . makeOpenCurve $ [line (Point2 s (-s)) (Point2 (-s) s)]
           ]
 
-ring :: Space s => Int -> Color -> ShapeTree token s
+ring :: IsStyle style
+     => Int
+     -> Color
+     -> Layout style
 ring layer color =
     let r = 4
         l = fromIntegral layer
@@ -48,58 +55,53 @@ ring layer color =
     then withColor color $ (scaleBy (l * r) . mask $ circle) `subtractFrom` (scaleBy ((l + 1) * r) . mask $ circle)
     else withColor color $ (scaleBy ((l + 1) * r) . mask $ circle)
 
-layerRing :: forall token s
-           .  (Space s)
+layerRing :: forall token style
+           .  (IsStyle style)
            => M.Map ItemTagId Color
-           -> Point2 s
+           -> Point2 (SpaceOf style)
            -> Int
-           -> Layer
-           -> ShapeTree token s
-layerRing colorMap point depth layer =
-  let color = transparent 1 $ (M.!) colorMap (layer ^. layItemTagId)
-  in  overlap [ if even (layer ^. layWinding)
-                then emptyItem
-                else translateBy point $ ring (depth + 1) color
-              ]
+           -> ItemTagId
+           -> Layout style
+layerRing colorMap point depth itemTagId =
+  let color = transparent 1 $ (M.!) colorMap itemTagId
+  in  translateBy point $ ring (depth + 1) color
 
-constructLayerStack :: forall m token
-           .  (Monad m, Show token)
-           => M.Map ItemTagId Color
-           -> Point2 SubSpace
-           -> [Layer]
-           -> FontMonad m (ShapeTree token SubSpace)
+constructLayerStack :: forall style
+                    .  ( IsStyle style
+                       )
+                    => M.Map ItemTagId Color
+                    -> Point2 (SpaceOf style)
+                    -> [ItemTagId]
+                    -> Layout style
 constructLayerStack colorMap point stack =
   do  --let string = ((concat $ imap (\i a -> "(iT " ++ show (a ^. ancItemTagId) ++ " tg " ++ show (a ^. ancTag) ++ " c " ++ show (a ^. ancCornerWinding) ++ " w " ++ show (a ^. ancWinding) ++ ")" ) stack)) ++ "\n" ++
       --             intercalate "\n" (map show steps)
       --let string = show . sum . map (length . view layTags) $ stack -- intercalate "\n" $ map (show . view layTags) stack
       --text <- fromGlyph <$> paragraph 0.1 0.1 AlignMin AlignMin string :: FontMonad m (CompoundTree SubSpace)
-      return . overlap $ cross point 1 8:(imap (layerRing colorMap point) $ stack) -- ++ [withColor black . translateBy point . translateByXY 4 (-7.5) . scaleBy 15 $ text]
+      overlap $ cross point 1 8:(imap (layerRing colorMap point) $ stack) -- ++ [withColor black . translateBy point . translateByXY 4 (-7.5) . scaleBy 15 $ text]
 
-checkPoint :: forall m token
-           .  (Monad m, Show token)
+checkPoint :: forall style
+           .  ( IsStyle style
+              )
            => M.Map ItemTagId Color
-           -> ConfineTree SubSpace
-           -> Point2 SubSpace
-           -> FontMonad m (ShapeTree token SubSpace)
+           -> ConfineTree (SpaceOf style)
+           -> Point2 (SpaceOf style)
+           -> Layout style
 checkPoint colorMap tree point =
   let stack = pointWinding tree point
   in  constructLayerStack colorMap point stack
 
-{-
-checkBox :: forall m token
-         .  (Monad m, Show token)
+checkBox :: forall style
+         .  (IsStyle style)
          => M.Map ItemTagId Color
-         -> ConfineTree SubSpace
-         -> Box SubSpace
-         -> FontMonad m (ShapeTree token SubSpace)
-checkBox colorMap tree box =
-  let pixelStack = pixelWinding tree box
-  in  overlap <$> mapM (\(pixel, stack) ->
-                   do let boxShape = withColor black . mask . openRectangle 1 $ pixel
-                      stackShape <- constructLayerStack colorMap (pixel ^. minBox) stack
-                      return $ overlap [stackShape, boxShape]
-                ) pixelStack
--}
+         -> ConfineTree (SpaceOf style)
+         -> Point2 (SpaceOf style)
+         -> Layout style
+checkBox colorMap tree point =
+  let box = Box point (point + Point2 50 50)
+      boxStack = breakPixel tree box
+  in  overlap <$> map (withColor black . mask . openRectangle 1) $ map fst boxStack
+
 {-
 tracePoint :: forall m token
            .  (Monad m, Show token)

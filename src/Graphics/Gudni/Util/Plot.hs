@@ -31,7 +31,7 @@ module Graphics.Gudni.Util.Plot
 where
 
 import Graphics.Gudni.Figure
-
+import Graphics.Gudni.Figure.Transformer
 import Graphics.Gudni.Util.Chain
 import Graphics.Gudni.Util.Debug
 
@@ -45,6 +45,12 @@ import Control.DeepSeq
 import Control.Applicative
 import Control.Lens
 
+(>*<) :: (Chain f, Space s) => OpenCurve_ f s -> OpenCurve_ f s -> OpenCurve_ f s
+(>*<) c0 c1 = let delta = c0 ^. terminator ^-^ c1 ^. outset
+                  transC1 = applyTranslation delta c1
+              in  over curveSegments (c0 ^. curveSegments <|>) transC1
+
+
 makeArcSegment :: (Alternative t, Space s, Show (t (Bezier s))) => Angle s -> OpenCurve_ t s
 makeArcSegment angle = OpenCurve . pure $ curved (Point2 1 0) (Point2 1 (tanA $ angle ^/ 2)) (Point2 (cosA angle) (sinA angle))
 
@@ -52,7 +58,7 @@ makeArc :: (Chain t, Space s, Show (t (Bezier s))) => Angle s -> OpenCurve_ t s
 makeArc angle
     | abs (angle ^. deg) < 45 = makeArcSegment angle
     | abs (angle ^. deg) == 0 = OpenCurve empty
-    | otherwise = makeArc (angle ^/ 2) >*< mapOverPoints (rotateBy (angle ^/ 2)) (makeArc (angle ^/ 2))
+    | otherwise = makeArc (angle ^/ 2) >*< applyRotation (angle ^/ 2) (makeArc (angle ^/ 2))
 
 data Turn = Hard | Smooth deriving (Ord, Eq, Show)
 data LR s = L | R | UTurn | Arb (Angle s) deriving (Ord, Eq, Show)
@@ -95,8 +101,7 @@ plotTurtle' simp =
     m_plot <- plotTurtle'' simp
     case m_plot of
       Nothing -> return Nothing
-      Just plot -> return $ Just $ mapOverPoints (rotateBy a) plot
-
+      Just plot -> return $ Just $ applyRotation a plot
 
 plotTurtle'' :: (Chain t, Space s, Show (t (Bezier s))) => Turtle s -> State (TurtleState s) (Maybe (OpenCurve_ t s))
 plotTurtle'' (TGo distance) = do r <- use turtleRadius ; return $ Just $ OpenCurve $ pure $ line (Point2 0 0) (Point2 distance 0)
@@ -111,8 +116,8 @@ plotTurtle'' (TTurn t lr) =
       Smooth ->
         do
           r <- use turtleRadius
-          let f = if a > (0 @@ deg) then mapOverPoints (rotateBy (-90 @@ deg)) else mapOverPoints (rotateBy (90 @@ deg))
-          return $ Just $ f $ let arc = mapOverPoints (scaleBy r) $ makeArc a
+          let f = if a > (0 @@ deg) then applyRotation (-90 @@ deg) else applyRotation (90 @@ deg)
+          return $ Just $ f $ let arc = applyScale r $ makeArc a
                                   start = (arc ^. outset)
                               in  mapOverPoints (^-^ start) arc
 plotTurtle'' (TReverse pl) =

@@ -22,7 +22,10 @@
 module Graphics.Gudni.Figure.Transformable
  ( SimpleTransformable(..)
  , Transformable(..)
+ , Projectable(..)
+ , scaleBy
  , translateByXY
+ , deltaOnAxis
  , translateOnAxis
 )
 where
@@ -32,6 +35,7 @@ import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Angle
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Axis
+import Graphics.Gudni.Figure.OpenCurve
 
 import Graphics.Gudni.Util.Debug
 
@@ -48,21 +52,22 @@ import System.Random
 
 class (HasSpace t) => SimpleTransformable t where
   translateBy :: Point2 (SpaceOf t) -> t -> t
-  scaleBy     :: SpaceOf t          -> t -> t
   stretchBy   :: Point2 (SpaceOf t) -> t -> t
 
 class (SimpleTransformable t) => Transformable t where
   rotateBy    :: Angle (SpaceOf t) -> t -> t
 
+class (Transformable t) => Projectable t where
+  projectOnto :: OpenCurve (SpaceOf t) -> t -> t
+
+scaleBy :: SimpleTransformable t => SpaceOf t -> t -> t
+scaleBy s = stretchBy (pure s)
+
 translateByXY :: (HasSpace t, SimpleTransformable t) => SpaceOf t -> SpaceOf t -> t -> t
 translateByXY x y = translateBy $ makePoint x y
 
-translateOnAxis :: forall t axis . (Axis axis, SimpleTransformable t) => axis -> SpaceOf t -> t -> t
-translateOnAxis axis s = translateBy (set (pick axis) s zeroPoint)
+deltaOnAxis :: forall s axis . (Space s, Axis axis) => axis -> s -> Point2 s
+deltaOnAxis axis s = set (with axis) s zeroPoint
 
-instance (Space s) => SimpleTransformable (Point2 s) where
-    translateBy = (^+^)
-    scaleBy     = flip (^*)
-    stretchBy   = liftA2 (*)
-instance (Space s) => Transformable (Point2 s) where
-    rotateBy    = rotate
+translateOnAxis :: forall t axis . (Axis axis, SimpleTransformable t) => axis -> SpaceOf t -> t -> t
+translateOnAxis axis s = translateBy (deltaOnAxis axis s)

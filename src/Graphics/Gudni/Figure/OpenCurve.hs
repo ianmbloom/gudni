@@ -27,7 +27,6 @@ module Graphics.Gudni.Figure.OpenCurve
   , outset
   , OpenCurve(..)
   , makeOpenCurve
-  , (>*<)
   )
 where
 
@@ -36,15 +35,13 @@ import Prelude hiding (reverse)
 import Graphics.Gudni.Figure.Space
 import Graphics.Gudni.Figure.Point
 import Graphics.Gudni.Figure.Bezier
-import Graphics.Gudni.Figure.BezierSpace
-import Graphics.Gudni.Figure.FitBezier
+--import Graphics.Gudni.Figure.BezierSpace
+--import Graphics.Gudni.Figure.FitBezier
 import Graphics.Gudni.Figure.ArcLength
 import Graphics.Gudni.Figure.Reversible
 import Graphics.Gudni.Figure.Angle
-import Graphics.Gudni.Figure.Transformable
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Cut
-import Graphics.Gudni.Figure.Projection
 import qualified Graphics.Gudni.Figure.Bezier as BZ
 --import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Chain
@@ -80,9 +77,16 @@ instance Space s => HasSpace (OpenCurve_ t s) where
 
 instance ( Chain f
          , Space s) => PointContainer (OpenCurve_ f s) where
-   type ContainerFunctor (OpenCurve_ f s) = f
-   containedPoints = join . fmap unfoldBezier . view curveSegments
    mapOverPoints f = over curveSegments (fmap (over bzPoints (fmap f)))
+
+instance ( Chain f
+         , Space s
+         )
+         => BezierContainer (OpenCurve_ f s)
+  where
+  type BezFunctor (OpenCurve_ f s) = f
+  joinOverBeziers f = OpenCurve .  join . fmap f . view curveSegments
+
 
 type OpenCurve s = OpenCurve_ V.Vector s
 
@@ -109,23 +113,6 @@ terminator elt_fn (OpenCurve segments) =
 -- | Return the same curve in the opposite order.
 instance (Chain t) => Reversible (OpenCurve_ t s) where
   reverseItem = over curveSegments (reverseChain . fmap reverseBezier)
-
--- | Connect two curves end to end by translating c1 so that the starting point of 'c1' is equal to the terminator of 'c0'
-(>*<) :: (Chain f, Space s) => OpenCurve_ f s -> OpenCurve_ f s -> OpenCurve_ f s
-(>*<) c0 c1 = let delta = c0 ^. terminator ^-^ c1 ^. outset
-                  transC1 = mapOverPoints (translateBy delta) c1
-              in  over curveSegments (c0 ^. curveSegments <|>) transC1
-
-instance ( Space s
-         , Chain f
-         ) => CanProject (BezierSpace s) (OpenCurve_ f s) where
-    projectionWithStepsAccuracy debug max_steps m_accuracy bSpace  =
-         over curveSegments (join . fmap (projectBezierWithStepsAccuracy debug max_steps m_accuracy bSpace))
-
-instance (Chain f, Space s, CanProject (BezierSpace s) t, Chain f) => CanProject (OpenCurve_ f s) t where
-    projectionWithStepsAccuracy debug max_steps m_accuracy path =
-      let bSpace = makeBezierSpace arcLength (view curveSegments path)
-      in  projectionWithStepsAccuracy debug max_steps m_accuracy bSpace
 
 instance (Hashable s, Hashable (t (Bezier s))) => Hashable (OpenCurve_ t s) where
     hashWithSalt s (OpenCurve segs) = s `hashWithSalt` segs
