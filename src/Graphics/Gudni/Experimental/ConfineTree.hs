@@ -17,21 +17,36 @@ module Graphics.Gudni.Experimental.ConfineTree
   , confineCurveTag
   , confineCurve
   , confineCut
+  , confineTraceCross
   , confineCrossings
   , confineOverhang
   , confineLessCut
   , confineMoreCut
-  , confineAnchorPoint
+  , pointFromAxis
+  , orderedBezier
   , Branch(..)
   , maxBoundaries
-  , inRangeBez
   , breakPixel
   , pointWinding
   , prepareOutline
   , addBezierToConfineTree
+  , crossConfineTree
   , traverseCrossings
   , interimPoint
-  , outsidePoint
+  , TraceItem(..)
+  , traceTag
+  , traceTreeTag
+  , traceItemTagId
+  , traceBox
+  , traceAxis
+  , traceCrosses
+  , With(..)
+  , onAxis
+  , fromAxis
+  , curveEndPointsBox
+  , LessPoint(..)
+  , positiveSlope
+  , crossesAlong
   )
 where
 
@@ -41,6 +56,7 @@ import Graphics.Gudni.Figure.Axis
 import Graphics.Gudni.Figure.Box
 import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Cut
+import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.Outline
 import Graphics.Gudni.Figure.ShapeTree
 import Graphics.Gudni.Figure.Deknob
@@ -72,14 +88,38 @@ instance Show Depth where
   show (Depth x) = show x
 instance Out Depth
 
+data TraceItem s
+     = TraceItem
+     { _traceTag        :: Int
+     , _traceTreeTag    :: Int
+     , _traceItemTagId  :: ItemTagId
+     , _traceBox        :: Box s
+     , _traceAxis       :: EitherAxis
+     , _traceCrosses    :: Bool
+     }
+     deriving (Show, Generic)
+makeLenses ''TraceItem
+
+instance Out s => Out (TraceItem s)
+
+newtype With axis s = With {unAxis :: s} deriving (Generic, Show, Eq, Ord)
+
+onAxis :: axis -> s -> With axis s
+onAxis axis s = With s
+
+instance (Out s) => Out (With axis s)
+
+fromAxis :: axis -> With axis s -> s
+fromAxis axis (With s) = s
 data Confine axis s
      = Confine
      { _confineItemTagId :: ItemTagId
      , _confineCrossings :: [ItemTagId]
+     , _confineTraceCross:: [TraceItem s]
      , _confineCurveTag  :: Int
      , _confineCurve     :: Bezier s
-     , _confineCut       :: s
-     , _confineOverhang  :: s
+     , _confineCut       :: With axis s
+     , _confineOverhang  :: With axis s
      , _confineLessCut   :: Maybe (Confine (NextAxis axis) s)
      , _confineMoreCut   :: Maybe (Confine (NextAxis axis) s)
      }
@@ -97,11 +137,8 @@ maxBoundaries = Box (Point2 (-maxBound) (-maxBound)) (Point2 maxBound maxBound)
 curveEndPointsBox :: Space s => Bezier s -> Box s
 curveEndPointsBox (Bez v0 _ v1) = minMaxBox (boxOf v0) (boxOf v1)
 
-confineAnchorPoint :: Space s => Confine t s -> Point2 s
-confineAnchorPoint tree = (curveEndPointsBox $ tree ^. confineCurve) ^. minBox
-
 curveOnAxis :: (Eq s, Axis axis) => axis -> Bezier s -> Bool
-curveOnAxis axis bez = bez ^. bzStart . with axis == bez ^. bzEnd . with axis
+curveOnAxis axis bez = bez ^. bzStart . athwart axis == bez ^. bzEnd . athwart axis
 
 prepareOutline :: (Space s) => Outline s -> V.Vector (Bezier s)
 prepareOutline =
@@ -114,75 +151,111 @@ prepareOutline =
 
 -- Order the curve so that the start point is less then or equal to the end point on axis
 orderedBezier :: (Ord s, Axis axis) => axis -> Bezier s -> Bezier s
-orderedBezier axis bez = if bez ^. bzStart . with axis <= bez ^. bzEnd . with axis then bez else reverseBezier bez
+orderedBezier axis bez = if bez ^. bzStart . athwart axis <= bez ^. bzEnd . athwart axis then bez else reverseBezier bez
 
--- This assumes the bezier is ordered on axis
-sizeOnAxis :: (Space s, Axis axis) => axis -> Bezier s -> s
-sizeOnAxis axis bez = bez ^. bzEnd . with axis - bez ^. bzStart . with axis
+class (LessPoint (NextAxis axis)) => LessPoint axis where
+    lessPoint :: axis -> Bool
+    comp :: Space s => axis -> s -> s -> Bool
 
-aboveRangeMin :: (Space s, Axis axis) => axis -> Point2 s -> Bezier s -> Bool
-aboveRangeMin axis p bez = p ^. with axis >= bez ^. bzStart . with axis
+instance LessPoint Horizontal where
+    lessPoint Horizontal = True
+    comp Horizontal = (>=)
 
-belowRangeMin :: (Space s, Axis axis) => axis -> Point2 s -> Bezier s -> Bool
-belowRangeMin axis p = not . aboveRangeMin axis p
+instance LessPoint Vertical where
+    lessPoint Vertical = False
+    comp Vertical = (>)
 
-belowRangeMax :: (Space s, Axis axis) => axis -> Point2 s -> Bezier s -> Bool
-belowRangeMax axis p bez = p ^. with axis < bez ^. bzEnd . with axis
+limit :: (Space s) => s
+limit = 0.125 / 8
 
-aboveRangeMax :: (Space s, Axis axis) => axis -> Point2 s -> Bezier s -> Bool
-aboveRangeMax axis p = not . belowRangeMax axis p
+positiveSlope :: (Axis axis, Ord s) => axis -> Bezier s -> Bool
+positiveSlope axis bez = bez ^. bzStart . along axis <= bez ^. bzEnd . along axis
 
--- This assumes the bezier is ordered on axis
-inRangeBez :: (Space s, Axis axis) => axis -> Point2 s -> Bezier s -> Bool
-inRangeBez axis p bez =
-    -- tr ("inRangeBez axis " ++ show axis ++ " p " ++ show p) $
-    aboveRangeMin axis p bez && belowRangeMax axis p bez
+foldBez :: (Point2 s -> a) -> (a -> a -> a) -> Bezier s -> a
+foldBez f g = foldl1 g . fmap f . unBezier
 
--- This assumes the bezier is ordered on axis
-lessThanBezier :: (Space s, Axis axis) => axis -> Point2 s -> Bezier s -> Bool
-lessThanBezier axis p = go
+bezAlong :: Axis axis => axis -> (s -> s -> s) -> Bezier s -> s
+bezAlong axis = foldBez (view (along axis))
+bezAthwart :: Axis axis => axis -> (s -> s -> s) -> Bezier s -> s
+bezAthwart axis = foldBez (view (athwart axis))
+
+bezierSlopeLTEZero :: (Axis axis, Space s) => axis -> Bezier s -> Bool
+bezierSlopeLTEZero axis bez =
+  let alo = bez ^. bzEnd . along   axis - bez ^. bzStart . along   axis
+      ath = bez ^. bzEnd . athwart axis - bez ^. bzStart . athwart axis
+  in  ((alo > 0) /= (ath > 0)) || (ath == 0 && alo /= 0)
+
+crossesAlong :: (Axis axis, Space s) => axis -> s -> s -> s -> Bezier s -> Bool
+crossesAlong axis baseline start end bez =
+  if start == end
+  then False
+  else
+  if start > end
+  then crossesAlong axis baseline end start bez
+  else go bez
   where
   go bez =
-    let maxAxis = max (bez ^. bzStart . along axis) (bez ^. bzEnd . along axis)
-        minAxis = min (bez ^. bzStart . along axis) (bez ^. bzEnd . along axis)
-    in
-    if p ^. along axis <= minAxis
-    then True
-    else if p ^. along axis > maxAxis || sizeOnAxis axis bez <= iota
-         then False
-         else let (less, more) = splitBezier 0.5 bez
-              in
-              if p ^. with axis <= less ^. bzEnd . with axis
-              then go less
-              else go more
+    let minAthwart = bezAthwart axis min bez
+        maxAthwart = bezAthwart axis max bez
+        minAlong   = bezAlong   axis min bez
+        maxAlong   = bezAlong   axis max bez
+        (lessBez, moreBez) = splitBezier 0.5 bez
+    in  if baseline <  minAthwart ||
+           baseline >= maxAthwart ||
+           start >= maxAlong ||
+           end   <  minAlong
+        then -- segment is totally outside the range of curve
+             False
+        else if (maxAlong - minAlong > limit && -- curve size remains greater than the limit
+                 baseline /= minAthwart &&      -- and the segment isn't right on the baseline
+                 (start >= minAlong || end < maxAlong) -- and the start or end points are somewhere inside curve limits
+                )
+                || isKnob (along axis) bez -- or the curve creates a knob, meaning there could be more than one cross point
+             then -- must split
+                  go lessBez /= go moreBez
+             else if start < minAlong && end >= maxAlong
+                  then True
+                  else
+                  if bezierSlopeLTEZero axis bez
+                  then (start < maxAlong && end >= maxAlong)
+                  else -- we know that end >= minAlong and since start < end
+                       -- then if end == minAlong then start < minAlong
+                       -- else if end > minAlong then
+                       ( start < minAlong                     &&      isVertical axis ) ||
+                       ((start < maxAlong && end >= maxAlong) && not (isVertical axis))
+                       --((start <= minAlong && end > minAlong) && not (isVertical axis))
+
 
 interimPoint :: Point2 s -> Point2 s -> Point2 s
 interimPoint start end = Point2 (start ^. pX) (end ^. pY)
 
--- Using /= for xor
-
-crossesHorizontal :: (Space s) => Point2 s -> Point2 s -> Bezier s -> Bool
-crossesHorizontal start end bez =
-    let ip = interimPoint start end
-        oBez = orderedBezier Horizontal bez
-    in  inRangeBez Horizontal ip oBez &&
-        (lessThanBezier Horizontal ip  oBez /=
-         lessThanBezier Horizontal end oBez)
-
-crossesVertical :: (Space s) => Point2 s -> Point2 s -> Bezier s -> Bool
-crossesVertical start end bez =
-    let ip = interimPoint start end
-        oBez = orderedBezier Vertical bez
-    in  inRangeBez Vertical ip oBez &&
-        (lessThanBezier Vertical start oBez /=
-         lessThanBezier Vertical ip    oBez)
-
 crosses :: (Space s) => Point2 s -> Point2 s -> Bezier s -> Bool
 crosses start end bez =
-    crossesHorizontal start end bez /= crossesVertical start end bez
+    let iP = interimPoint start end
+    in
+    crossesAlong Vertical   (start ^. pX) (start ^. pY) (iP  ^. pY) bez /=
+    crossesAlong Horizontal (iP    ^. pY) (iP    ^. pX) (end ^. pX) bez
 
-outsidePoint :: Space s => Point2 s
-outsidePoint = Point2 0 minBound -- this point can be any arbitrary point outside the range of any shape.
+createTraceItem :: (SwitchAxis axis, Axis axis, LessPoint axis, Space s)
+                => axis
+                -> Int
+                -> Int
+                -> ItemTagId
+                -> Box s
+                -> With           axis  s
+                -> With (NextAxis axis) s
+                -> With (NextAxis axis) s
+                -> Bezier s
+                -> TraceItem s
+createTraceItem axis tag treeTag itemTagId box baseline start end bez =
+    TraceItem
+    { _traceTag        = tag
+    , _traceTreeTag    = treeTag
+    , _traceItemTagId  = itemTagId
+    , _traceBox        = box
+    , _traceAxis       = eitherAxis axis
+    , _traceCrosses    = crossesAlong axis (unAxis baseline) (unAxis start) (unAxis end) bez
+    }
 
 addBezierToConfineTree :: forall s . (Space s)
                        => ItemTagId
@@ -192,46 +265,120 @@ addBezierToConfineTree :: forall s . (Space s)
                        -> ConfineTree s
 addBezierToConfineTree itemTagId tag bez =
     --tc ("addBezierToConfineTree itemTagId " ++ show itemTagId ++ " tag " ++ show tag ++ " bez " ++ show bez) .
-    go Vertical outsidePoint
+    goInsert Vertical
     where
+    box :: Box s
     box = curveEndPointsBox bez -- we use curveEndPointsBox because there are some situations where the control point
                                 -- is slightly outside the range of the endpoints even though the knobs have been removed.
-    go :: forall axis . (Axis axis) => axis -> Point2 s -> Maybe (Confine axis s) -> Maybe (Confine axis s)
-    go axis start mTree =
+    goInsert :: (Axis axis) => axis -> Maybe (Confine axis s) -> Maybe (Confine axis s)
+    goInsert axis mTree =
         case mTree of
           Nothing ->
-              let cut = box ^. minBox . with axis
-              in  Just .
-                  addCrossing start $
+              let cut = box ^. minBox . athwart axis
+              in  Just $
                   Confine
-                    { _confineItemTagId = itemTagId
-                    , _confineCrossings = []
-                    , _confineCurveTag  = tag
-                    , _confineCurve     = bez
-                    , _confineCut       = cut
-                    , _confineOverhang  = cut
-                    , _confineLessCut   = Nothing
-                    , _confineMoreCut   = Nothing
+                    { _confineItemTagId  = itemTagId
+                    , _confineCrossings  = []
+                    , _confineTraceCross = []
+                    , _confineCurveTag   = tag
+                    , _confineCurve      = bez
+                    , _confineCut        = onAxis axis cut
+                    , _confineOverhang   = onAxis axis cut
+                    , _confineLessCut    = Nothing
+                    , _confineMoreCut    = Nothing
                     }
           Just tree ->
-              let cut = tree ^. confineCut
-                  anchor = confineAnchorPoint tree
-                  setLess = if box ^. minBox . with axis < cut
-                            then let lessBranch = go (nextAxis axis) anchor (tree ^. confineLessCut)
-                                 in  over confineOverhang (max (box ^. maxBox . with axis)) .
-                                     set confineLessCut lessBranch
-                            else id
-                  setMore = if box ^. minBox . with axis >= cut
-                            then let moreBranch = go (nextAxis axis) anchor (tree ^. confineMoreCut)
-                                 in  set confineMoreCut moreBranch
-                            else id
-              in  Just . setLess . setMore . addCrossing start $ tree
-    addCrossing :: Point2 s -> Confine axis s -> Confine axis s
-    addCrossing start tree =
-      if crosses start (confineAnchorPoint tree) bez
-      then over confineCrossings (toggleCrossing itemTagId) tree
-      else tree
+              let oldTag = tree ^. confineCurveTag
+                  setLess = lessCut axis (box ^. minBox) tree
+                            (\t -> over confineOverhang (max (onAxis axis (box ^. maxBox . athwart axis))) .
+                                   set confineLessCut (goInsert (nextAxis axis) t))
+                  setMore = moreCut axis (box ^. minBox) tree
+                            (set confineMoreCut . goInsert (nextAxis axis))
+              in  Just . setLess . setMore $ tree
 
+crossConfineTree :: forall s
+                 .  (Space s)
+                 => ConfineTree s
+                 -> ConfineTree s
+crossConfineTree mTop = go Vertical mTop mTop
+    where
+    go :: (Axis axis) => axis -> Maybe (Confine axis s) -> ConfineTree s -> ConfineTree s
+    go axis mTree =
+        case mTree of
+            Nothing -> id
+            Just tree ->
+                let less = go (nextAxis axis) (tree ^. confineLessCut)
+                    more = go (nextAxis axis) (tree ^. confineMoreCut)
+                    this = addCrossingToConfineTree (tree ^. confineItemTagId) (tree ^. confineCurveTag) (tree ^. confineCurve)
+                in  less . more . this
+
+pointFromAxis :: (Axis axis, Space s) => axis -> With axis s -> With (NextAxis axis) s -> Point2 s
+pointFromAxis axis parentLine parentCut =
+    set (athwart axis)  (fromAxis axis            parentLine) .
+    set (along axis) (fromAxis (nextAxis axis) parentCut) $
+    zeroPoint
+
+addCrossingToConfineTree :: forall s
+                         .  (Space s)
+                         => ItemTagId
+                         -> Int
+                         -> Bezier s
+                         -> ConfineTree s
+                         -> ConfineTree s
+addCrossingToConfineTree itemTagId tag bez =
+    tc ("addCrossingToConfineTree " ++ show tag) .
+    goCrossing Vertical (onAxis Vertical minBound) (onAxis Horizontal minBound)
+    where
+    box :: Box s
+    box = curveEndPointsBox bez -- we use curveEndPointsBox because there are some situations where the control point
+                                -- is slightly outside the range of the endpoints even though the knobs have been removed.
+    goCrossing :: forall axis
+               .  (Axis axis, SwitchAxis axis, SwitchAxis (NextAxis axis), LessPoint axis, axis~NextAxis(NextAxis axis))
+               => axis
+               -> With axis s
+               -> With (NextAxis axis) s
+               -> Maybe (Confine axis s)
+               -> Maybe (Confine axis s)
+    goCrossing axis parentCut parentLine mTree =
+        case mTree of
+            Nothing -> Nothing
+            Just tree ->
+                let cut :: With axis s
+                    cut = tree ^. confineCut
+                    goNext :: Maybe (Confine (NextAxis axis) s) -> Maybe (Confine (NextAxis axis) s)
+                    goNext = goCrossing (nextAxis axis) parentLine (tree ^. confineCut)
+                    addNext :: Maybe (Confine (NextAxis axis) s) -> Maybe (Confine (NextAxis axis) s)
+                    addNext = addCrossing (nextAxis axis) tag parentLine (tree ^. confineCut)
+                    addOver :: Lens' (Confine axis s) (Maybe (Confine (NextAxis axis) s)) -> Confine axis s -> Confine axis s
+                    addOver side t = set side (addNext (t ^. side)) t
+                in  Just .
+                    lessCut axis (box ^. minBox) tree (set confineLessCut . goNext) .
+                    moreCut axis (box ^. maxBox) tree (set confineMoreCut . goNext) . -- this is maxBox not minBox
+                    addOver confineLessCut .
+                    addOver confineMoreCut $
+                    tree
+    addCrossing :: forall axis
+                .  (Axis axis, SwitchAxis (NextAxis axis), LessPoint axis, axis~NextAxis(NextAxis (axis)))
+                => axis
+                -> Int
+                -> With axis s
+                -> With (NextAxis axis) s
+                -> Maybe (Confine axis s)
+                -> Maybe (Confine axis s)
+    addCrossing axis tag parentCut parentLine mTree =
+        case mTree of
+            Nothing -> Nothing
+            Just tree ->
+                Just $
+                tc ("-------- addCrossing from tag: " ++ show tag ++ " to: " ++ show (tree ^. confineCurveTag)) $
+                let stopCut = tree ^. confineCut
+                    start = tr "start" $ parentCut
+                    end   = tr "end"   $ stopCut
+                in
+                over confineTraceCross (createTraceItem (nextAxis axis) tag (tree ^. confineCurveTag) itemTagId box parentLine start end bez:) $
+                if crossesAlong (nextAxis axis) (unAxis parentLine) (unAxis start) (unAxis end) bez
+                then over confineCrossings (toggleCrossing itemTagId) tree
+                else tree
 
 eitherConfine :: Lens' (Confine Vertical s) x -> Lens' (Confine Horizontal s) x -> Either (Confine Vertical s) (Confine Horizontal s) -> x
 eitherConfine a b (Left  confine) = confine ^. a
@@ -239,32 +386,20 @@ eitherConfine a b (Right confine) = confine ^. b
 
 lessCut :: (Axis axis, Space s) => axis -> Point2 s -> Confine axis s -> (Branch (NextAxis axis) s -> a -> a) -> a -> a
 lessCut axis point tree goNext =
-    if point ^. with axis < tree ^. confineCut
+    if onAxis axis (point ^. athwart axis) < tree ^. confineCut
     then goNext (tree ^. confineLessCut)
     else id
 
 moreCut :: (Axis axis, Space s) => axis -> Point2 s -> Confine axis s -> (Branch (NextAxis axis) s -> a -> a) -> a -> a
 moreCut axis point tree goNext =
-    if point ^. with axis >= tree ^. confineCut
+    if onAxis axis (point ^. athwart axis) >= tree ^. confineCut
     then goNext (tree ^. confineMoreCut)
     else id
 
 lessOverhang :: (Axis axis, Space s) => axis -> Point2 s -> Confine axis s -> (Branch (NextAxis axis) s -> a -> a) -> a -> a
 lessOverhang axis point tree goNext =
-    if point ^. with axis < tree ^. confineOverhang
+    if onAxis axis (point ^. athwart axis) < tree ^. confineOverhang
     then goNext (tree ^. confineLessCut)
-    else id
-
-
-overCurve :: (Axis axis, Space s) => axis -> Point2 s -> Confine axis s -> (a -> a) -> a -> a
-overCurve axis point tree f =
-    let oBez = orderedBezier Vertical (tree ^. confineCurve)
-    in
-    if point ^. with axis >= tree ^. confineCut &&
-       inRangeBez Vertical point oBez
-    then if lessThanBezier Vertical point oBez
-         then id
-         else f
     else id
 
 toggleCrossing :: ItemTagId -> [ItemTagId] -> [ItemTagId]
@@ -284,53 +419,48 @@ crossCurve anchor point stack (itemTagId, bez) =
     then toggleCrossing itemTagId stack
     else stack
 
-pointWinding :: forall s . (Space s) => ConfineTree s -> Point2 s -> [ItemTagId]
-pointWinding mTree point =
-    let anchor = findAnchorPoint mTree point
-        anchorStack = collectAnchorStack mTree point
-        curves = findCurves mTree anchor point
-    in  foldl (crossCurve anchor point) anchorStack curves
+firstTwo (a, b, c) = (a, b)
+lastOf3  (_, _, c) = c
 
-findAnchorPoint :: forall s
-                . (Space s)
-                => ConfineTree s
-                -> Point2 s
-                -> Point2 s
-findAnchorPoint mTree point = go Vertical mTree outsidePoint
-    where
-    go :: (Axis axis) => axis -> Branch axis s -> Point2 s -> Point2 s
-    go axis mTree lastAnchor =
-      case mTree of
-        Nothing -> lastAnchor
-        Just tree ->
-           let newAnchor = confineAnchorPoint tree
-           in
-           if point ^. with axis >= tree ^. confineCut
-           then go (nextAxis axis) (tree ^. confineMoreCut) newAnchor
-           else go (nextAxis axis) (tree ^. confineLessCut) newAnchor
+pointWinding :: forall s . (Space s) => ConfineTree s -> Point2 s -> ([ItemTagId],[Int])
+pointWinding mTree point =
+    let (anchor, anchorStack) = collectAnchorStack mTree point
+        curves = findCurves mTree anchor point
+    in  (foldl (crossCurve anchor point) anchorStack $ map firstTwo curves, map lastOf3 curves)
+
 
 traverseCrossings :: [ItemTagId] -> [ItemTagId] -> [ItemTagId]
 traverseCrossings = flip (foldl (flip toggleCrossing))
 
-collectAnchorStack :: forall s . (Space s) => ConfineTree s -> Point2 s -> [ItemTagId]
+collectAnchorStack :: forall s . (Space s) => ConfineTree s -> Point2 s -> (Point2 s, [ItemTagId])
 collectAnchorStack mTree point =
-    go Vertical mTree []
+    go Vertical (onAxis Vertical minBound) (onAxis Horizontal minBound) [] mTree
     where
-    go :: (Axis axis) => axis -> Branch axis s -> [ItemTagId] -> [ItemTagId]
-    go axis mTree  =
+    go :: (Axis axis, axis~NextAxis(NextAxis axis))
+       => axis
+       -> With axis s
+       -> With (NextAxis axis) s
+       -> [ItemTagId]
+       -> Branch axis s
+       -> (Point2 s, [ItemTagId])
+    go axis parentCut parentLine layers mTree =
         case mTree of
-            Nothing -> id
+            Nothing -> let anchor = pointFromAxis axis parentCut parentLine
+                       in  (anchor, layers)
             Just tree ->
-                lessCut axis point tree (go (nextAxis axis)) .
-                moreCut axis point tree (go (nextAxis axis)) .
-                traverseCrossings (tree ^. confineCrossings)
+                let layers' = traverseCrossings (tree ^. confineCrossings) layers
+                    goNext  = go (nextAxis axis) parentLine (tree ^. confineCut) layers'
+                in
+                if onAxis axis (point ^. athwart axis) < tree ^. confineCut
+                then goNext (tree ^. confineLessCut)
+                else goNext (tree ^. confineMoreCut)
 
 curveOverlaps :: forall s axis
               .  (Space s)
               => Box s
               -> Confine axis s
-              -> [(ItemTagId, Bezier s)]
-              -> [(ItemTagId, Bezier s)]
+              -> [(ItemTagId, Bezier s, Int)]
+              -> [(ItemTagId, Bezier s, Int)]
 curveOverlaps anchorBox tree =
   let itemTagId = tree ^. confineItemTagId
       bez = tree ^. confineCurve
@@ -338,7 +468,7 @@ curveOverlaps anchorBox tree =
   in
   if bezBox ^. maxBox . pX >= anchorBox ^. minBox . pX &&
      bezBox ^. maxBox . pY >= anchorBox ^. minBox . pY
-  then ((itemTagId, bez):)
+  then ((itemTagId, bez, tree ^. confineCurveTag):)
   else id
 
 findCurves :: forall s
@@ -346,18 +476,19 @@ findCurves :: forall s
            => ConfineTree s
            -> Point2 s
            -> Point2 s
-           -> [(ItemTagId, Bezier s)]
-findCurves mTree anchorPoint point =
+           -> [(ItemTagId, Bezier s, Int)]
+findCurves mTree pointFromAxis point =
     go Vertical mTree []
     where
-    box = minMaxBox (pointToBox anchorPoint) (pointToBox point)
-    go :: (Axis axis) => axis -> Branch axis s -> [(ItemTagId, Bezier s)] -> [(ItemTagId, Bezier s)]
+    box :: Box s
+    box = minMaxBox (pointToBox pointFromAxis) (pointToBox point)
+    go :: (Axis axis) => axis -> Branch axis s -> [(ItemTagId, Bezier s, Int)] -> [(ItemTagId, Bezier s, Int)]
     go axis mTree =
       case mTree of
         Nothing -> id
         Just tree ->
-            moreCut      axis       point tree (go (nextAxis axis)) .
-            lessOverhang axis anchorPoint tree (go (nextAxis axis)) .
+            moreCut      axis         point tree (go (nextAxis axis)) .
+            lessOverhang axis pointFromAxis tree (go (nextAxis axis)) .
             curveOverlaps box tree
 
 class Breaker (NextAxis axis) => Breaker axis where
@@ -365,7 +496,7 @@ class Breaker (NextAxis axis) => Breaker axis where
 
 instance Breaker Vertical where
     lessBreak axis box tree goNext =
-        if box ^. minBox . with axis < tree ^. confineOverhang
+        if box ^. minBox . athwart axis < unAxis (tree ^. confineOverhang)
         then goNext (tree ^. confineLessCut)
         else id
 
@@ -375,7 +506,7 @@ instance Breaker Horizontal where
 
 moreBreak :: (Axis axis, Space s) => axis -> Box s -> Confine axis s -> (Branch (NextAxis axis) s -> a -> a) -> a -> a
 moreBreak axis box tree goNext =
-    if box ^. maxBox . with axis >= tree ^. confineCut
+    if box ^. maxBox . athwart axis >= unAxis (tree ^. confineCut)
     then goNext (tree ^. confineMoreCut)
     else id
 

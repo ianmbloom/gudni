@@ -67,7 +67,7 @@ translateByXY :: (HasSpace t, SimpleTransformable t) => SpaceOf t -> SpaceOf t -
 translateByXY x y = translateBy $ makePoint x y
 
 deltaOnAxis :: forall s axis . (Space s, Axis axis) => axis -> s -> Point2 s
-deltaOnAxis axis s = set (with axis) s zeroPoint
+deltaOnAxis axis s = set (athwart axis) s zeroPoint
 
 translateOnAxis :: forall t axis . (Axis axis, SimpleTransformable t) => axis -> SpaceOf t -> t -> t
 translateOnAxis axis s = translateBy (deltaOnAxis axis s)

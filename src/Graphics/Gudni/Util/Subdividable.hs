@@ -14,7 +14,8 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Facet
 import Graphics.Gudni.Figure.ShapeTree
-import Graphics.Gudni.Layout
+import Graphics.Gudni.Layout.Layout
+import Graphics.Gudni.Layout.Style
 import Graphics.Gudni.Raster.TraverseShapeTree
 --import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Debug
@@ -42,7 +43,7 @@ instance (Alternative f, Monad f, Space s) => CanSubdivide (Outline_ f s) where
 instance (Alternative f, Monad f, Space s) => CanSubdivide (OpenCurve_ f s) where
     subdivide steps (OpenCurve bs) = OpenCurve (subdivideBeziers steps bs)
 
-instance Space s => CanSubdivide (Shape s) where
+instance (Alternative f, Monad f, Space s) => CanSubdivide (Shape_ f s) where
     subdivide steps (Shape outlines) = Shape $ fmap (subdivide steps) outlines
 
 instance (CanSubdivide (Leaf i)) => CanSubdivide (STree i) where

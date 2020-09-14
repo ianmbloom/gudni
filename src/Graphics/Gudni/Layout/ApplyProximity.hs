@@ -51,26 +51,31 @@ import Control.Applicative
 
 combineDeltas (a0, b0) (a1, b1) = (a0 + a1, b0 + b1)
 
-applyMaybeAlign :: ( Space s
+applyMaybeAlign :: ( IsStyle style
                    , Axis axis
+                   , StyleAxis axis
                    )
-                => axis
+                => style
+                -> axis
                 -> Maybe Alignment
-                -> ( Box s, Box s)
-                -> ( Point2 s, Point2 s)
-applyMaybeAlign axis mAlign boxes = case mAlign of
-                                  Nothing -> (zeroPoint, zeroPoint)
-                                  Just alignment -> applyAlign axis alignment boxes
+                -> (Box    (SpaceOf style), Box    (SpaceOf style))
+                -> (Point2 (SpaceOf style), Point2 (SpaceOf style))
+applyMaybeAlign style axis mAlign boxes =
+    case mAlign of
+        Nothing -> (zeroPoint, zeroPoint)
+        Just alignment -> applyAlign style axis alignment boxes
 
-applyAlignWithSize :: ( Space s
-                 , Axis axis
-                 )
-              => axis
-              -> Alignment
-              -> s
-              -> Box s
-              -> Point2 s
-applyAlignWithSize axis alignment size box =
+applyAlignWithSize :: ( IsStyle style
+                      , Axis axis
+                      , StyleAxis axis
+                      )
+                   => style
+                   -> axis
+                   -> Alignment
+                   -> SpaceOf style
+                   -> Box (SpaceOf style)
+                   -> Point2 (SpaceOf style)
+applyAlignWithSize style axis alignment size box =
     let boxSize = box ^. acrossBox axis
         offset = case alignment of
                     AlignMin    -> 0
@@ -80,40 +85,44 @@ applyAlignWithSize axis alignment size box =
 
 overBoth f (a, b) = (f a, f b)
 
-applyAlign :: ( Space s
-              , Axis axis)
-           => axis
+applyAlign :: ( IsStyle style
+              , Axis axis
+              , StyleAxis axis
+              )
+           => style
+           -> axis
            -> Alignment
-           -> (Box s, Box s)
-           -> (Point2 s, Point2 s)
-applyAlign axis alignment (a, b) =
+           -> (Box    (SpaceOf style), Box    (SpaceOf style))
+           -> (Point2 (SpaceOf style), Point2 (SpaceOf style))
+applyAlign style axis alignment (a, b) =
   let (aSize, bSize) = overBoth (view (acrossBox axis)) (a, b)
       size  = max aSize bSize
-  in  overBoth (applyAlignWithSize axis alignment size) (a, b)
+  in  overBoth (applyAlignWithSize style axis alignment size) (a, b)
 
-applyNextTo :: ( Space s
+applyNextTo :: ( IsStyle style
                , Axis axis
+               , StyleAxis axis
                )
-            => axis
-            -> (Box s, Box s)
-            -> (Point2 s, Point2 s)
-applyNextTo axis (a, b) =
+            => style
+            -> axis
+            -> (Box    (SpaceOf style), Box    (SpaceOf style))
+            -> (Point2 (SpaceOf style), Point2 (SpaceOf style))
+applyNextTo style axis (a, b) =
   let d = a ^. maxBox . along axis - b ^. minBox . along axis
-  in  (zeroPoint, deltaOnAxis (nextAxis axis) d)
+  in  (zeroPoint, deltaOnAxis (nextAxis axis) (d + styleGap axis style) )
 
-applyProximity :: ( Space s
-                  , IsStyle style)
+applyProximity :: ( IsStyle style)
                => style
                -> Proximity
-               -> (Box s, Box s)
-               -> ( Point2 s, Point2 s)
+               -> (Box    (SpaceOf style), Box    (SpaceOf style))
+               -> (Point2 (SpaceOf style), Point2 (SpaceOf style))
 applyProximity style proximity (aBox, bBox) =
         case proximity of
             NextTo eAxis mAlignment ->
-               let nextToDeltas = (fromEitherAxis (applyNextTo     Horizontal) (applyNextTo     Vertical) eAxis) (aBox, bBox)
-                   alignDeltas  =  fromEitherAxis (applyMaybeAlign Vertical) (applyMaybeAlign Horizontal) eAxis mAlignment (aBox, bBox)
+               let nextToDeltas = (fromEitherAxis (applyNextTo     style Horizontal) (applyNextTo     style Vertical  ) eAxis)          (aBox, bBox)
+                   alignDeltas  =  fromEitherAxis (applyMaybeAlign style Vertical)   (applyMaybeAlign style Horizontal) eAxis mAlignment (aBox, bBox)
                in  combineDeltas nextToDeltas alignDeltas
             OnTopOf mAlignHori mAlignVert ->
-               let alignHoriDeltas = applyMaybeAlign Horizontal mAlignHori (aBox, bBox)
-                   alignVertDeltas = applyMaybeAlign Vertical   mAlignVert (aBox, bBox)
+               let alignHoriDeltas = applyMaybeAlign style Horizontal mAlignHori (aBox, bBox)
+                   alignVertDeltas = applyMaybeAlign style Vertical   mAlignVert (aBox, bBox)
                 in combineDeltas alignHoriDeltas alignVertDeltas

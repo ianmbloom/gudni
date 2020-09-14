@@ -30,9 +30,9 @@ import Text.PrettyPrint.GenericPretty
 -- | Find the t parameter that cuts a bezier at verticle line x
 findCutBezier :: (Space s, Axis axis) => axis -> s -> Bezier s -> s
 findCutBezier axis cut bezier =
-    if (bezier ^. bzStart . with axis <= bezier ^. bzEnd . with axis)
-    then findSplit (\t ->         cut - (view (bzControl . with axis) . insideBezier t $ bezier ))
-    else findSplit (\t -> negate (cut - (view (bzControl . with axis) . insideBezier t $ bezier)))
+    if (bezier ^. bzStart . athwart axis <= bezier ^. bzEnd . athwart axis)
+    then findSplit (\t ->         cut - (view (bzControl . athwart axis) . insideBezier t $ bezier ))
+    else findSplit (\t -> negate (cut - (view (bzControl . athwart axis) . insideBezier t $ bezier)))
 
 maybeCutPointBezier :: (Space s, Axis axis) => axis -> s -> Bezier s -> Maybe s
 maybeCutPointBezier axis split bz =
@@ -51,8 +51,8 @@ instance Space s => CanCut (Bezier s) where
      let splitT = findCutBezier axis cut bezier
          (left,right) = splitBezier splitT bezier
          -- correct the split to be exactly the same as the cutpoint
-     in  (set (bzEnd . with axis) cut left, set (bzStart . with axis) cut right)
+     in  (set (bzEnd . athwart axis) cut left, set (bzStart . athwart axis) cut right)
    canCut axis splitPoint bz =
-       let start = bz ^. bzStart . with axis
-           end   = bz ^. bzEnd   . with axis
+       let start = bz ^. bzStart . athwart axis
+           end   = bz ^. bzEnd   . athwart axis
        in  splitPoint > min start end && splitPoint < max start end

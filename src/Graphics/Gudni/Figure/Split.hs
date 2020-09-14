@@ -8,6 +8,7 @@ module Graphics.Gudni.Figure.Split
   , findSplit
   , splitClosestControl
   , maybeKnobSplitPoint
+  , isKnob
   )
 where
 

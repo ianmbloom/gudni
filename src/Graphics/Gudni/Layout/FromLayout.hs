@@ -190,6 +190,7 @@ collapseTrans tree =
 
 remeldCollapseTree :: ( HasSpace leaf
                       , IsStyle style
+                      , SpaceOf style ~ SpaceOf leaf
                       )
                    => ProximityMeld style meld
                    -> CollapseTree meld leaf

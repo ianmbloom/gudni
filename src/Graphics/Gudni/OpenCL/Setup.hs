@@ -186,7 +186,7 @@ setupOpenCL enableProfiling useCLGLInterop src =
               generateThresholdsKernel <- getKernelAndDump device program "generateThresholdsKernel"
               collectMergedBlocksKernel<- getKernelAndDump device program "collectMergedBlocksKernel"
               collectRenderBlocksKernel<- getKernelAndDump device program "collectRenderBlocksKernel"
-              splitBlocksKernel          <- getKernelAndDump device program "splitBlocksKernel"
+              splitBlocksKernel        <- getKernelAndDump device program "splitBlocksKernel"
               combineSectionKernel     <- getKernelAndDump device program "combineSectionKernel"
               mergeTileKernel          <- getKernelAndDump device program "mergeBlockKernel"
               sortThresholdsKernel     <- getKernelAndDump device program "sortThresholdsKernel"

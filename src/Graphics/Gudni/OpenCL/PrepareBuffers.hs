@@ -190,14 +190,13 @@ createBuffersInCommon params =
 
 releaseBuffersInCommon :: BuffersInCommon -> CL ()
 releaseBuffersInCommon bic =
-    do
-        releaseBuffer "bicGeometryHeap  " $ bic ^. bicGeometryHeap
-        releaseBuffer "bicFacetHeap     " $ bic ^. bicFacetHeap
-        releaseBuffer "bicItemTagHeap   " $ bic ^. bicItemTagHeap
-        releaseBuffer "bicSubTagHeap    " $ bic ^. bicSubTagHeap
-        releaseBuffer "bicDescriptions  " $ bic ^. bicDescriptions
-        releaseBuffer "bicPictHeap      " $ bic ^. bicPictHeap
-        releaseBuffer "bicRandoms       " $ bic ^. bicRandoms
+    do  releaseBuffer "bicGeometryHeap " $ bic ^. bicGeometryHeap
+        releaseBuffer "bicFacetHeap    " $ bic ^. bicFacetHeap
+        releaseBuffer "bicItemTagHeap  " $ bic ^. bicItemTagHeap
+        releaseBuffer "bicSubTagHeap   " $ bic ^. bicSubTagHeap
+        releaseBuffer "bicDescriptions " $ bic ^. bicDescriptions
+        releaseBuffer "bicPictHeap     " $ bic ^. bicPictHeap
+        releaseBuffer "bicRandoms      " $ bic ^. bicRandoms
         return ()
 
 newtype BlockId = BlockId {unBlockId :: Int} deriving (Eq, Ord, Num)
@@ -262,12 +261,12 @@ createBlockSection params =
 
 releaseBlockSection :: BlockSection -> CL ()
 releaseBlockSection blockSection =
-  do releaseBuffer "sectTileBuffer      " $ blockSection ^. sectTileBuffer
-     releaseBuffer "sectThresholdBuffer " $ blockSection ^. sectThresholdBuffer
-     releaseBuffer "sectThresholdTagBuffer    " $ blockSection ^. sectThresholdTagBuffer
-     releaseBuffer "sectQueueSliceBuffer" $ blockSection ^. sectQueueSliceBuffer
-     releaseBuffer "sectBlockIdBuffer   " $ blockSection ^. sectBlockIdBuffer
-     releaseBuffer "sectActiveFlagBuffer" $ blockSection ^. sectActiveFlagBuffer
+  do releaseBuffer "sectTileBuffer         " $ blockSection ^. sectTileBuffer
+     releaseBuffer "sectThresholdBuffer    " $ blockSection ^. sectThresholdBuffer
+     releaseBuffer "sectThresholdTagBuffer " $ blockSection ^. sectThresholdTagBuffer
+     releaseBuffer "sectQueueSliceBuffer   " $ blockSection ^. sectQueueSliceBuffer
+     releaseBuffer "sectBlockIdBuffer      " $ blockSection ^. sectBlockIdBuffer
+     releaseBuffer "sectActiveFlagBuffer   " $ blockSection ^. sectActiveFlagBuffer
      return ()
 
 data PointQuery = PointQuery

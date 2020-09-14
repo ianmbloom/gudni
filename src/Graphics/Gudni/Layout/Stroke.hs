@@ -18,6 +18,7 @@ import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Projection
 import Graphics.Gudni.Figure.BezierSpace
 import Graphics.Gudni.Util.Chain
+import Graphics.Gudni.Util.Subdividable
 import Graphics.Gudni.Util.Loop
 import Graphics.Gudni.Util.Debug
 import qualified Data.Vector as V
@@ -77,4 +78,4 @@ segmentedRectangle height ls =
       bottom = reverseChain . fmap reverseBezier . segmentedLine height $ ls
       startCap = line (lastLink bottom ^. bzEnd) (firstLink top ^. bzStart)
       endCap = line (lastLink top ^. bzEnd) (firstLink bottom ^. bzStart)
-   in Shape . pure . Outline $ top <|> pure endCap <|> bottom <|> pure startCap
+   in {-subdivide 3 .-} Shape . pure . Outline $ top <|> pure endCap <|> bottom <|> pure startCap

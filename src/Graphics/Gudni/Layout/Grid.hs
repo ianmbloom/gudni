@@ -17,21 +17,48 @@
 module Graphics.Gudni.Layout.Grid
   ( horizontallySpacedBy
   , verticallySpacedBy
+  , gridFrom
   , gridOf
   )
 where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Util.Util
+import Control.Lens
 
-horizontallySpacedBy :: (HasSpace a, SimpleTransformable a) => SpaceOf a -> [a] -> [a]
-horizontallySpacedBy s = zipWith ($) (map translateBy $ iterate (^+^ Point2 s 0) zeroPoint)
+horizontallySpacedBy :: (HasSpace a)
+                     => (Point2 (SpaceOf a) -> a -> a)
+                     -> Point2 (SpaceOf a)
+                     -> SpaceOf a
+                     -> [a]
+                     -> [a]
+horizontallySpacedBy f topLeft s = zipWith ($) (map f $ iterate (^+^ Point2 s 0) (Point2 (topLeft ^. pX) 0))
 
-verticallySpacedBy :: (HasSpace a, SimpleTransformable a) => SpaceOf a -> [a] -> [a]
-verticallySpacedBy s = zipWith ($) (map translateBy $ iterate (^+^ Point2 0 s) zeroPoint)
+verticallySpacedBy :: (HasSpace a)
+                   => (Point2 (SpaceOf a) -> a -> a)
+                   -> Point2 (SpaceOf a)
+                   -> SpaceOf a
+                   -> [a]
+                   -> [a]
+verticallySpacedBy f topLeft s = zipWith ($) (map f $ iterate (^+^ Point2 0 s) (Point2 0 (topLeft ^. pY)))
 
-verticallySpacedListBy :: (HasSpace a, SimpleTransformable a) => SpaceOf a -> [[a]] -> [[a]]
-verticallySpacedListBy s = zipWith ($) (map (\i -> map (translateBy i)) $ iterate (^+^ Point2 0 s) zeroPoint)
+verticallySpacedListBy :: (HasSpace a)
+                       => (Point2 (SpaceOf a) -> a -> a)
+                       -> Point2 (SpaceOf a)
+                       -> SpaceOf a
+                       -> [[a]]
+                       -> [[a]]
+verticallySpacedListBy f topLeft s = zipWith ($) (map (\i -> map (f i)) $ iterate (^+^ Point2 0 s) (Point2 0 (topLeft ^. pY)))
+
+gridFrom :: (HasSpace a)
+         => (Point2 (SpaceOf a) -> a -> a)
+         -> Point2 (SpaceOf a)
+         -> SpaceOf a
+         -> Int
+         -> Int
+         -> [a]
+         -> [a]
+gridFrom f topLeft s width height = concat . take height . verticallySpacedListBy f topLeft s . map (take width . horizontallySpacedBy f topLeft s) . breakList width
 
 gridOf :: (HasSpace a, SimpleTransformable a)
        => SpaceOf a
@@ -39,4 +66,4 @@ gridOf :: (HasSpace a, SimpleTransformable a)
        -> Int
        -> [a]
        -> [a]
-gridOf s width height = concat . take height . verticallySpacedListBy s . map (take width . horizontallySpacedBy s) . breakList width
+gridOf = gridFrom translateBy zeroPoint

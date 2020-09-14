@@ -74,7 +74,7 @@ instance Model StrokeState where
             translateByXY (state ^. stateOffset) 0 .
             withColor (transparent 0.8 red) .
             overlap .
-            horizontallySpacedBy 12 .
+            horizontallySpacedBy translateBy zeroPoint 12 .
             replicate 100 .
             mask .
             rectangle $

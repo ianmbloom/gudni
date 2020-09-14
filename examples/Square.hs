@@ -50,11 +50,12 @@ instance Model SquareState where
             do  stateAngle .= (realToFrac elapsedTime / 2) @@ turn
             ) $ foldl (flip processInput) state inputs
     ioTask = return
+    --shouldLoop _ = False
     constructScene state status =
       let l = fromLayout .
-              translateBy (Point2 100 100) .      -- translate the child ShapeTree
+              --translateBy (Point2 100 100) .      -- translate the child ShapeTree
               scaleBy  (state ^. stateScale) .    -- scale the child ShapeTree based on the current state.
-              rotateBy (state ^. stateAngle) .    -- rotate the child ShapeTree based on the current state.
+              --rotateBy (state ^. stateAngle) .    -- rotate the child ShapeTree based on the current state.
               withColor yellow .                  -- create a leaf of the ShapeTree and fill the contained CompoundTree with a color.
               mask .
               rectangle $                         -- create new compoundTree with just one leaf that is the outline of a unit square.

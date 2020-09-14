@@ -24,6 +24,7 @@ module Graphics.Gudni.Layout.Style
   ( HasStyle(..)
   , IsStyle(..)
   , DefaultStyle(..)
+  , StyleAxis(..)
   )
 where
 
@@ -51,11 +52,11 @@ class ( HasToken style
       => IsStyle style where
     styleTextAlignX :: style -> Maybe Alignment
     styleTextAlignY :: style -> Maybe Alignment
-    styleGapX :: style -> (SpaceOf style)
-    styleGapY :: style -> (SpaceOf style)
-    styleGlyph :: Monad m => style -> CodePoint -> FontMonad style m (ProximityCompoundTree style)
+    styleGapX       :: style -> SpaceOf style
+    styleGapY       :: style -> SpaceOf style
+    styleGlyph      :: Monad m => style -> CodePoint -> FontMonad style m (ProximityCompoundTree style)
 
-data DefaultStyle = Title | Heading | Normal deriving (Eq, Show)
+data DefaultStyle = Title | Heading | Normal | Wide deriving (Eq, Show)
 
 instance HasSpace DefaultStyle where
   type SpaceOf DefaultStyle = SubSpace
@@ -65,14 +66,33 @@ instance HasDefault DefaultStyle where
 
 instance HasToken DefaultStyle where
   type TokenOf DefaultStyle = Int
-  
+
 instance IsStyle DefaultStyle where
   styleTextAlignX _ = Just AlignMin
   styleTextAlignY _ = Just AlignMax
-  styleGapX _ = 0.1
-  styleGapY _ = 0.1
+  styleGapX style =
+      case style of
+          Wide -> 1
+          _    -> 0.1
+  styleGapY style =
+      case style of
+          Wide -> 1
+          _    -> 0.1
   styleGlyph style codePoint =
     case style of
       Title   -> scaleBy 1.5 <$> getGlyph codePoint
       Heading -> scaleBy 1.2 <$> getGlyph codePoint
       Normal  -> getGlyph codePoint
+      Wide    -> styleGlyph Normal codePoint
+
+class StyleAxis axis where
+  styleTextAlign :: IsStyle style => axis -> style -> Maybe Alignment
+  styleGap       :: IsStyle style => axis -> style -> SpaceOf style
+
+instance StyleAxis Horizontal where
+  styleTextAlign Horizontal = styleTextAlignX
+  styleGap       Horizontal = styleGapX
+
+instance StyleAxis Vertical where
+  styleTextAlign Vertical = styleTextAlignY
+  styleGap      Vertical  = styleGapY

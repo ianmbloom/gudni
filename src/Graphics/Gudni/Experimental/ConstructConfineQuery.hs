@@ -8,6 +8,7 @@ module Graphics.Gudni.Experimental.ConstructConfineQuery
   ( constructLayerStack
   , checkPoint
   , checkBox
+  , ring
   --, tracePoint
   )
 where
@@ -39,17 +40,17 @@ cross point thickness size =
   in
   translateBy point .
   withColor black $
-  overlap [mask . stroke thickness . makeOpenCurve $ [line (Point2 (-s) (-s)) (Point2 s s)]
-          ,mask . stroke thickness . makeOpenCurve $ [line (Point2 s (-s)) (Point2 (-s) s)]
+  overlap [ mask . stroke thickness . makeOpenCurve $ [line (Point2 (-s) (-s)) (Point2 s s)]
+          , mask . stroke thickness . makeOpenCurve $ [line (Point2 s (-s)) (Point2 (-s) s)]
           ]
 
 ring :: IsStyle style
-     => Int
+     => SpaceOf style
+     -> Int
      -> Color
      -> Layout style
-ring layer color =
-    let r = 4
-        l = fromIntegral layer
+ring r layer color =
+    let l = fromIntegral layer
     in
     if layer > 0
     then withColor color $ (scaleBy (l * r) . mask $ circle) `subtractFrom` (scaleBy ((l + 1) * r) . mask $ circle)
@@ -64,7 +65,7 @@ layerRing :: forall token style
            -> Layout style
 layerRing colorMap point depth itemTagId =
   let color = transparent 1 $ (M.!) colorMap itemTagId
-  in  translateBy point $ ring (depth + 1) color
+  in  translateBy point $ ring 4 (depth + 1) color
 
 constructLayerStack :: forall style
                     .  ( IsStyle style
@@ -89,7 +90,8 @@ checkPoint :: forall style
            -> Layout style
 checkPoint colorMap tree point =
   let stack = pointWinding tree point
-  in  constructLayerStack colorMap point stack
+  in  overlap [ constructLayerStack colorMap point (fst stack)
+              , translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show $ snd stack]
 
 checkBox :: forall style
          .  (IsStyle style)
@@ -101,27 +103,3 @@ checkBox colorMap tree point =
   let box = Box point (point + Point2 50 50)
       boxStack = breakPixel tree box
   in  overlap <$> map (withColor black . mask . openRectangle 1) $ map fst boxStack
-
-{-
-tracePoint :: forall m token
-           .  (Monad m, Show token)
-           => M.Map ItemTagId Color
-           -> ConfineTree SubSpace
-           -> Point2 SubSpace
-           -> Int
-           -> FontMonad m (ShapeTree token SubSpace)
-tracePoint colorMap tree point i =
-  let (stack, steps) = pointWinding tree point
-      step = steps ^?! ix (clamp 0 (length steps - 1) i)
-  in
-  do  confine <- case step ^. stepConfine of
-                   Left  vTree -> constructConfine Vertical   vTree reasonableBoundaries
-                   Right hTree -> constructConfine Horizontal hTree reasonableBoundaries
-      let corner = case step ^. stepConfine of
-                      Left  vTree -> confineAnchorPoint vTree
-                      Right hTree -> confineAnchorPoint hTree
-      let string = "horiWind " ++ show (step ^. stepHoriWind) ++ "\nvertWind " ++ show (step ^. stepVertWind)
-      text <- fromGlyph . withColor (dark green) . translateBy corner . translateByXY 4 0 . scaleBy 30 <$> paragraph 0.1 0.1 AlignMin AlignMin string
-      label <- constructAnchorStack colorMap point (step ^. stepStack) []
-      return . overlap $ [label, text, confine]
--}

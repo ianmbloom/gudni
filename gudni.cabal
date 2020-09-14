@@ -74,6 +74,7 @@ library
                      , Graphics.Gudni.Figure.Angle
                      --, Graphics.Gudni.Experimental.Scaffolding
                      , Graphics.Gudni.Experimental.ConfineTree
+                     , Graphics.Gudni.Experimental.ConfineTreeTest
                      , Graphics.Gudni.Experimental.ConstructConfineTree
                      , Graphics.Gudni.Experimental.ConstructConfineQuery
                      , Graphics.Gudni.Experimental.SerializeConfineTree
@@ -160,7 +161,6 @@ library
                      , Graphics.Gudni.Util.FlattenTree
                      , Graphics.Gudni.Util.Chain
                      , Graphics.Gudni.Util.Loop
-
                      , Graphics.Gudni.Util.RandomField
 
   -- LANGUAGE extensions used by modules in this package.

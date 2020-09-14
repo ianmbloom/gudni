@@ -54,7 +54,7 @@ instance Model ParagraphState where
         in  over stateBase (updateSceneState frame elapsedTime) state'
     constructScene state status =
         do  let layout :: Layout (StyleOf ParagraphState)
-                layout = withColor black . rack $ [paragraph mobyDick, scaleBy 10 . mask $ circle]
+                layout = withColor black . rack $ [paragraphOf Wide mobyDick, scaleBy 10 . mask $ circle]
                 --statusTree = statusDisplay (state ^. stateBase) "Test Paragraph" (lines status)
                 tree :: Layout (StyleOf ParagraphState)
                 tree = transformFromState (state ^. stateBase) layout

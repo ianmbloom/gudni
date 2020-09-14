@@ -98,7 +98,6 @@ eval :: Num s => s -> Bezier s -> Point2 s
 eval t (Bez p0 p1 p2) = let mt = 1 - t in
     p0 ^* (mt * mt) + (p1 ^* (mt * 2) + p2 ^* t) ^* t
 
-
 class BezierContainer t where
   type BezFunctor t :: Type -> Type
   joinOverBeziers :: ((Bezier (SpaceOf t)) -> (BezFunctor t) (Bezier (SpaceOf t)))

@@ -40,6 +40,7 @@ import Graphics.Gudni.Figure.Facet
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.ItemInfo
 import Graphics.Gudni.Raster.SubstanceInfo
+import Graphics.Gudni.Raster.Strand
 import Graphics.Gudni.Raster.Enclosure
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.TraverseShapeTree
@@ -81,7 +82,7 @@ appendEnclosure enclosure =
                return ref
            )
         -- the size of the shape data is measured in 64 bit chunks so that a short int can address more data.
-        let sizePair = fromIntegral (sizeOf (undefined :: Point2 SubSpace) * 2)
+        let sizePair = fromIntegral (sizeOf (undefined :: Point2 StrandElement_) * 2)
             adjustedRefs = fmap (StrandRef . fromIntegral . (`div` sizePair)) strandRefs
         return adjustedRefs
 
@@ -141,7 +142,7 @@ withSerializedScene rasterizer canvasSize pictureMap scene code =
               facetPile        <- liftIO $ newPile
               itemTagPile      <- liftIO $ newPile
               substanceTagPile <- liftIO $ newPile
-              descriptionPile <- liftIO $ newPile
+              descriptionPile  <- liftIO $ newPile
               tileTree <- liftIO $ buildTileTreeM canvasSize (rasterizer ^. rasterDeviceSpec . specMaxTileSize) newPile
               state <- execStateT (buildOverScene rasterizer (fromIntegral <$> canvasSize) sceneWithPictMem) $
                        SerialState
@@ -299,12 +300,12 @@ outputSerialState state =
   do  putStrLn $ "serTokenMap         " ++ (show . view serTokenMap            $ state)
       putStrLn $ "serBackgroundColor  " ++ (show . view serBackgroundColor     $ state)
       putStrLn "---------------- serPictureMems -----------------------"
-      putStrList =<< (pileToList . view serDescriptionPile      $ state)
+      putStrList =<< (pileToList . view serDescriptionPile  $ state)
       putStrLn "---------------- serFacetPile -----------------------"
       putStrList =<< (pileToList . view serFacetPile        $ state)
       putStrLn "---------------- serSubstanceTagPile -----------------------"
       putStrList =<< (pileToList . view serSubstanceTagPile $ state)
-      --putStrLn "---------------- serTileTree -----------------------"
-      --putStrLn . show . view serTileTree       $ state
-      --putStrLn "---------------- geoGeometryPile -----------------------"
-      --putStr =<< fmap unlines (bytePileToGeometry . view geoGeometryPile $ state)
+      -- putStrLn "---------------- serTileTree -----------------------"
+      -- putStrLn . show . view serTileTree       $ state
+      putStrLn "---------------- geoGeometryPile -----------------------"
+      putStr =<< fmap unlines (bytePileToGeometry . view serGeometryPile $ state)

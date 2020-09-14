@@ -168,8 +168,8 @@ mapBox f (Box tl br) = Box (f tl) (f br)
 
 splitBox :: (Space s, Axis a) => a -> s -> Box s -> (Box s, Box s)
 splitBox axis cutPoint box =
-    ( set (maxBox . with axis) cutPoint box
-    , set (minBox . with axis) cutPoint box
+    ( set (maxBox . athwart axis) cutPoint box
+    , set (minBox . athwart axis) cutPoint box
     )
 
 -- | True if the box has zero height and zero width.

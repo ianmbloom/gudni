@@ -9,10 +9,11 @@ module Graphics.Gudni.Figure.Axis
   ( Vertical(..)
   , Horizontal(..)
   , Axis(..)
-  , along
+  , athwart
   , EitherAxis(..)
   , SwitchAxis(..)
   , fromEitherAxis
+  , withEitherAxis
   )
 where
 
@@ -34,24 +35,24 @@ instance Out Horizontal
 
 class (Show a, Show (NextAxis a), Axis (NextAxis a)) => Axis a where
   type NextAxis a :: Type
-  with :: a -> Lens' (Point2 s) s
+  along :: a -> Lens' (Point2 s) s
   nextAxis :: a -> NextAxis a
   isVertical :: a -> Bool
   isHorizontal :: a -> Bool
 
-along :: Axis a => a -> Lens' (Point2 s) s
-along = with . nextAxis
+athwart :: Axis a => a -> Lens' (Point2 s) s
+athwart = along . nextAxis
 
 instance Axis Vertical where
   type NextAxis Vertical = Horizontal
-  with Vertical = pX
+  along Vertical = pY
   nextAxis Vertical = Horizontal
   isVertical   _ = True
   isHorizontal _ = False
 
 instance Axis Horizontal where
   type NextAxis Horizontal = Vertical
-  with Horizontal = pY
+  along Horizontal = pX
   nextAxis Horizontal = Vertical
   isVertical   _ = False
   isHorizontal _ = True
@@ -72,3 +73,12 @@ fromEitherAxis hori vert axis =
   case axis of
     Left Horizontal -> hori
     Right Vertical  -> vert
+
+withEitherAxis :: (Horizontal -> c)
+               -> (Vertical -> c)
+               -> EitherAxis
+               -> c
+withEitherAxis hori vert axis =
+  case axis of
+    Left Horizontal -> hori Horizontal
+    Right Vertical  -> vert Vertical

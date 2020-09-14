@@ -391,7 +391,7 @@ typedef struct ParseState {
                int  buildCount;
         RANDOM_POS  randomFieldCursor;
     CMEM     float *randomField;
-  } ParseState;
+} ParseState;
 
 typedef struct Traversal {
     float4  travLeftControl;
@@ -1422,6 +1422,7 @@ bool traverseTree( GMEM    float2 *strandHeap
     l->travRight       = *((GMEM float2 *)(strandHeap + 1)); // load the rightmost point of the strand.
     l->travLeftControl = *((GMEM float4 *)(strandHeap + 2)); // load the leftmost point of the strand and it's control point.
     GMEM float4 *tree =   (GMEM float4 *)(strandHeap + 4); // Move to tree portion of strand array.
+    //DEBUG_IF(printf("treeSize: %i strandHeap: %p\n", treeSize, strandHeap);)
     //DEBUG_IF(printf("l->travRight: %v2f l->travLeft: %v2f l->travControl: %v2f\n", l->travLeft, l->travControl, l->travRight);)
     bool inRange = checkInRange(l,columnBox);
     //DEBUG_IF(printf("inRange %i\n", inRange);)
@@ -1615,7 +1616,7 @@ void buildThresholdArray ( PMEM  ThresholdQueue *tQ
         if (itemTagIsShape(itemTag)) {
              // if you don't shift the shape to the tile size there will be accuracy errors with height floating point geometric values
             int strandRef = itemTagShapeId(itemTag);
-            //if(itemIndex >= CUTOFF) {DEBUG_IF(printf("itemIndex %i strandRef %i itemTagShapeId(itemTag) %i itemTagSubstanceTagId(itemTag) %i\n", itemIndex, strandRef, itemTagShapeId(itemTag), itemTagSubstanceTagId(itemTag));)}
+            //DEBUG_IF(printf("itemIndex %i strandRef %i itemTagShapeId(itemTag) %i itemTagSubstanceTagId(itemTag) %i\n", itemIndex, strandRef, itemTagShapeId(itemTag), itemTagSubstanceTagId(itemTag));)
             if (queueSize(tQ) < MAXTHRESHOLDS) {
                 GMEM float2 *strandHeap = (GMEM float2 *)&geometryHeap[strandRef];
                 uint2 strandHeader = *((GMEM uint2 *)strandHeap);

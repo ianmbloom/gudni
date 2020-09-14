@@ -75,10 +75,10 @@ bezierArrow bz@(Bez v0 c v1) =
              , withColor black . mask . stroke 1 $ makeOpenCurve [bz]
              ]
 
-constructPath start end =
-  overlap [ withColor white . mask . stroke 1 . makeOpenCurve $ [line start (interimPoint start end)]
-          , withColor white . mask . stroke 1 . makeOpenCurve $ [line (interimPoint start end) end]
-          ]
+rectangleAround :: IsStyle style => Point2 (SpaceOf style) -> Layout style
+rectangleAround point =
+  let size = 16
+  in  withColor black . translateBy point . translateBy (pure (-size/2)) . mask $ openRectangle 2 (pointToBox (pure size))
 
 constructConfine :: forall axis style
                  .  ( IsStyle style
@@ -87,22 +87,22 @@ constructConfine :: forall axis style
                  => axis
                  -> M.Map ItemTagId Color
                  -> [ItemTagId]
-                 -> Point2 (SpaceOf style)
+                 -> With axis            (SpaceOf style)
+                 -> With (NextAxis axis) (SpaceOf style)
                  -> Confine axis (SpaceOf style)
                  -> Box (SpaceOf style)
                  -> Layout style
-constructConfine axis colorMap layers start tree boundary =
+constructConfine axis colorMap layers parentCut parentLine tree boundary =
     let thickness :: SpaceOf style
         thickness = 1
         cut       = tree ^.  confineCut
         overhang  = tree ^.  confineOverhang
-        anchorPoint = confineAnchorPoint tree
-        aColor = axisColor axis
+        aColor    = axisColor axis
         aLine :: Bezier (SpaceOf style)
-        aLine = axisLine axis cut boundary
+        aLine = axisLine axis (fromAxis axis cut) boundary
         overhangBox :: Box (SpaceOf style)
-        overhangBox = overlapBlock axis cut overhang boundary
-        anchorPath = constructPath start anchorPoint
+        overhangBox = overlapBlock axis (fromAxis axis cut) (fromAxis axis overhang) boundary
+
         axisShape :: Layout style
         axisShape = withColor (transparent 0.2 aColor) . mask . stroke thickness . makeOpenCurve $ [aLine]
         overhangShape :: Layout style
@@ -114,43 +114,71 @@ constructConfine axis colorMap layers start tree boundary =
                 scaleBy 40 .
                 withColor (transparent 0.5 purple) $
                 text
-        -- let cornerString = show (tree ^. confineCurveTag) ++ " " ++ show (confineAnchorPoint tree) ++ ":\n" ++
-        --                    show (tree ^. confineCornerWinding)
-        --                    ++ "\n" ++ intercalate "\n" (map show (tree ^. confineCornerHistory))
-        -- cornerText = paragraph cornerString :: FontMonad m (CompoundTree s)
-        corner = constructLayerStack colorMap anchorPoint layers
-                     -- overlap [ withColor (transparent 0.5 cornerColor) . translateBy anchorPoint . closedCircle $ 4
-                     --        , withColor (transparent 0.5 aColor) . translateBy anchorPoint . closedCircle $ 6
-                     --        --, withColor cornerColor . translateBy anchorPoint . translateByXY 6 (-7.5) . scaleBy 15 $ cornerText
-                     --        ]
-    in  overlap $ [label, corner, curve, axisShape, anchorPath{-, overhangShape-}]
+        corner = constructCorner axis colorMap layers parentCut parentLine tree
+    in  overlap $ [label, curve, axisShape, overhangShape, corner]
+
+constructCorner  :: forall axis style
+                 .  ( IsStyle style
+                    , AxisConstruction axis
+                    )
+                 => axis
+                 -> M.Map ItemTagId Color
+                 -> [ItemTagId]
+                 -> With axis            (SpaceOf style)
+                 -> With (NextAxis axis) (SpaceOf style)
+                 -> Confine axis (SpaceOf style)
+                 -> Layout style
+constructCorner axis colorMap layers parentCut parentLine tree =
+        let stopCut   = tree ^. confineCut
+            start     = pointFromAxis axis parentCut parentLine
+            end       = pointFromAxis axis stopCut   parentLine
+            pathLine  = withColor (transparent 0.1 white) . mask . stroke 10 . makeOpenCurve $ [line start end]
+            cornerString = show . map showTrace $ tree ^. confineTraceCross
+            cornerText = translateBy end . translateByXY 10 0 . scaleBy 20 . withColor blue . blurb $ cornerString
+        in  overlap [ pathLine
+                    , rectangleAround end
+                    , constructLayerStack colorMap end layers
+                    , cornerText
+                    ]
+
+
+
+showBool True  = "1"
+showBool False = "0"
+
+showAxis (Left Horizontal) = "H"
+showAxis (Right Vertical)  = "V"
+
+showTrace traceItem = show (traceItem ^. traceTag) ++ "//" ++ show (traceItem ^. traceTreeTag) ++ ":" ++ showAxis (traceItem ^. traceAxis) ++ showBool (traceItem ^. traceCrosses)
+
+
 
 constructConfineTree :: forall style
                      .  (IsStyle style)
                      => M.Map ItemTagId Color
                      -> ConfineTree (SpaceOf style)
                      -> Layout style
-constructConfineTree colorMap tree = go Vertical tree 0 outsidePoint [] reasonableBoundaries
+constructConfineTree colorMap tree = go Vertical tree 0 (onAxis Vertical minBound) (onAxis Horizontal minBound) [] reasonableBoundaries
   where
-  go :: (Axis axis, AxisConstruction axis)
+  go :: (Axis axis, AxisConstruction axis, axis~NextAxis(NextAxis axis))
      => axis
      -> Branch axis (SpaceOf style)
      -> Int
-     -> Point2 (SpaceOf style)
+     -> With axis            (SpaceOf style)
+     -> With (NextAxis axis) (SpaceOf style)
      -> [ItemTagId]
      -> Box (SpaceOf style)
      -> Layout style
-  go axis mTree depth start layers boundary =
+  go axis mTree depth parentCut parentLine layers boundary =
         if widthOf boundary > 0 && heightOf boundary > 0
         then case mTree of
-                 Nothing -> emptyItem
-                 Just tree ->
-                        let layers' = traverseCrossings (tree ^. confineCrossings) layers
-                            confine = constructConfine axis colorMap layers' start tree boundary
-                            cut     = tree ^.  confineCut
-                            anchor  = confineAnchorPoint tree
-                            (lessBound, moreBound) = splitBox axis cut boundary
-                            lessBranch = go (nextAxis axis) (tree ^.  confineLessCut) (depth + 1) anchor layers' lessBound
-                            moreBranch = go (nextAxis axis) (tree ^.  confineMoreCut) (depth + 1) anchor layers' moreBound
-                        in  overlap [confine, lessBranch, moreBranch]
+               Nothing   -> emptyItem
+               Just tree ->
+                      let layers' = traverseCrossings (tree ^. confineCrossings) layers
+                          confine = constructConfine axis colorMap layers' parentCut parentLine tree boundary
+                          cut     = tree ^.  confineCut
+                          (lessBound, moreBound) = splitBox axis (fromAxis axis cut) boundary
+                          lessBranch = go (nextAxis axis) (tree ^.  confineLessCut) (depth + 1) parentLine cut layers' lessBound
+                          moreBranch = go (nextAxis axis) (tree ^.  confineMoreCut) (depth + 1) parentLine cut layers' moreBound
+                      in  overlap [confine, lessBranch, moreBranch]
         else emptyItem

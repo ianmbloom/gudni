@@ -186,10 +186,10 @@ pointWinding tree point = tc ("pointWinding " ++ show point) $
               let cut         = tree ^. confineCut
                   overhang    = tree ^. confineOverhang
                   itemTagId   = tree ^. confineItemTagId
-                  anchorPoint = confineAnchorPoint tree
+                  pointFromAxis = confineAnchorPoint tree
                   anchor      = Anc { _ancItemTagId     = itemTagId
                                     , _ancTag           = tree ^. confineCurveTag
-                                    , _ancPoint         = anchorPoint
+                                    , _ancPoint         = pointFromAxis
                                     , _ancWinding       = 0
                                     , _ancCornerWinding = tree ^. confineCornerWinding
                                     , _ancCount         = 0

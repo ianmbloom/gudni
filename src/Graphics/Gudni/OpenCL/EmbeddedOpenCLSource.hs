@@ -21,5 +21,5 @@ import qualified Data.ByteString.Char8 as BS
 import Data.FileEmbed
 
 -- | Raw embedded source from the Kernels.cl file.
-embeddedOpenCLSource ::                BS.ByteString
+embeddedOpenCLSource :: BS.ByteString
 embeddedOpenCLSource = $(embedFile "src/Graphics/Gudni/OpenCL/Kernels.cl")

@@ -459,7 +459,6 @@ runRaster params =
         -- Get the OpenCL state from the Library structure.
             state = params ^. rpRasterizer . rasterClState
         -- total number of 32 bit words in the output buffer.
-        -- liftIO $ outputGeometryState (params ^. rpGeometryState)
         -- liftIO $ outputSerialState(params ^. rpSerialState)
         runCL state $
             do liftIO $ putStrLn "tileTreeTraversal complete"

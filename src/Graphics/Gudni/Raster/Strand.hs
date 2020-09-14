@@ -19,7 +19,8 @@
 -- the raster kernel.
 
 module Graphics.Gudni.Raster.Strand
-  ( Strand(..)
+  ( StrandElement_(..)
+  , Strand(..)
   , outlineToStrands
   )
 where
@@ -58,9 +59,10 @@ import Linear
 -- point of the sequence and it's control point. This allows the raster thread to quickly look at the horizontal range of the strand. These are followed by the middle points
 -- of the sequence ordered as a complete binary tree.
 
-data Strand =  Strand { strandVector :: V.Vector (Point2 SubSpace)
-                      , strandLeft   :: SubSpace
-                      , strandRight  :: SubSpace
+type StrandElement_ = Float
+data Strand =  Strand { strandVector :: V.Vector (Point2 StrandElement_)
+                      --, strandLeft   :: Float
+                      --, strandRight  :: Float
                       }
 
 instance Show Strand where
@@ -122,11 +124,10 @@ reverseIfBackwards vector =
 -- | Reorder a vector into a horizontally searchable tree based on a predermined lookup table
 -- of tree shapes.
 reorder :: ReorderTable -> V.Vector (Point2 SubSpace) -> Strand
-reorder table vector =
-  let len = V.length vector
-      left = V.head vector ^. pX
-      right = V.last vector ^. pX
-  in  Strand (V.generate len ((V.!) vector . fromReorderTable table len)) left right
+reorder table subSpaceVector =
+  let vector = V.map (fmap (realToFrac :: SubSpace -> Float)) subSpaceVector
+      len    = V.length vector
+  in  Strand (V.generate len ((V.!) vector . fromReorderTable table len))
 
 -- | Split an outline into strands.
 splitShape :: ReorderTable
@@ -166,14 +167,14 @@ outlineToStrands table sectionSize (Outline ps) =
 --  | in 64bit pieces    |           | ending curve point| leftmost curve point and control        | complete binary tree of point control point pairs...
 
 instance StorableM Strand where
-  sizeOfM (Strand vector _ _) =
+  sizeOfM (Strand vector) =
     do sizeOfM (undefined::CUInt) -- size
        sizeOfM (undefined::CUInt) -- reserved
        sizeOfM vector
   alignmentM _  = do alignmentM (undefined::CUInt) -- size
                      alignmentM (undefined::CUInt) -- reserved
   peekM = error "no peek for Strand."
-  pokeM strand@(Strand vector _ _) =
+  pokeM strand@(Strand vector) =
     do let size = (fromIntegral $ sizeOfV strand) `div` 8 :: CUInt
        pokeM size       -- size
        pokeM (0::CUInt) -- reserved
