@@ -588,3 +588,94 @@ countCross axis baseline start end bez = tc "countCross" $
               if startLess /= endLess
               then 1
               else 0
+
+newtype WindingNumber = Winding {unWind :: Int} deriving (Eq, Ord, Num, Integral, Real, Enum, Generic)
+
+instance Show WindingNumber where
+  show (Winding x) = show x
+instance Out WindingNumber
+
+
+newtype Depth = Depth {unDepth :: Int} deriving (Eq, Ord, Num, Integral, Real, Enum, Generic)
+
+instance Show Depth where
+  show (Depth x) = show x
+instance Out Depth
+
+data TraceItem s
+     = TraceItem
+     { _traceTag        :: Int
+     , _traceTreeTag    :: Int
+     , _traceItemTagId  :: ItemTagId
+     , _traceBox        :: Box s
+     , _traceAxis       :: EitherAxis
+     , _traceCrosses    :: Bool
+     }
+     deriving (Show, Generic)
+makeLenses ''TraceItem
+
+instance Out s => Out (TraceItem s)
+
+, _confineTraceCross:: [TraceItem s]
+
+createTraceItem :: (SwitchAxis axis, Axis axis, LessPoint axis, Space s)
+                => axis
+                -> Int
+                -> Int
+                -> ItemTagId
+                -> Box s
+                -> With           axis  s
+                -> With (NextAxis axis) s
+                -> With (NextAxis axis) s
+                -> Bezier s
+                -> TraceItem s
+createTraceItem axis tag treeTag itemTagId box baseline start end bez =
+    TraceItem
+    { _traceTag        = tag
+    , _traceTreeTag    = treeTag
+    , _traceItemTagId  = itemTagId
+    , _traceBox        = box
+    , _traceAxis       = eitherAxis axis
+    , _traceCrosses    = crossesAlong axis (unAxis baseline) (unAxis start) (unAxis end) bez
+    }
+
+over confineTraceCross (createTraceItem (nextAxis axis) tag (tree ^. confineCurveTag) itemTagId box parentLine start end bez:) $
+
+  , TraceItem(..)
+  , traceTag
+  , traceTreeTag
+  , traceItemTagId
+  , traceBox
+  , traceAxis
+  , traceCrosses
+
+showTrace traceItem = show (traceItem ^. traceTag) ++ "//" ++ show (traceItem ^. traceTreeTag) ++ ":" ++ showAxis (traceItem ^. traceAxis) ++ showBool (traceItem ^. traceCrosses)
+
+
+ class (LessPoint (NextAxis axis)) => LessPoint axis where
+     lessPoint :: axis -> Bool
+     comp :: Space s => axis -> s -> s -> Bool
+
+ instance LessPoint Horizontal where
+     lessPoint Horizontal = True
+     comp Horizontal = (>=)
+
+ instance LessPoint Vertical where
+     lessPoint Vertical = False
+     comp Vertical = (>)
+
+-- Order the curve so that the start point is less then or equal to the end point on axis
+orderedBezier :: (Ord s, Axis axis) => axis -> Bezier s -> Bezier s
+orderedBezier axis bez = if bez ^. bzStart . athwart axis <= bez ^. bzEnd . athwart axis then bez else reverseBezier bez
+
+positiveSlope :: (Axis axis, Ord s) => axis -> Bezier s -> Bool
+positiveSlope axis bez = bez ^. bzStart . along axis <= bez ^. bzEnd . along axis
+
+curveEndPointsBox :: Space s => Bezier s -> Box s
+curveEndPointsBox (Bez v0 _ v1) = minMaxBox (boxOf v0) (boxOf v1)
+
+maxBoundaries :: Space s => Box s
+maxBoundaries = Box (Point2 (-maxBound) (-maxBound)) (Point2 maxBound maxBound)
+
+curveOnAxis :: (Eq s, Axis axis) => axis -> Bezier s -> Bool
+curveOnAxis axis bez = bez ^. bzStart . athwart axis == bez ^. bzEnd . athwart axis

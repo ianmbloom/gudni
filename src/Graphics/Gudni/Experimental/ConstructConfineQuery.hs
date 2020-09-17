@@ -7,7 +7,6 @@
 module Graphics.Gudni.Experimental.ConstructConfineQuery
   ( constructLayerStack
   , checkPoint
-  , checkBox
   , ring
   --, tracePoint
   )
@@ -90,11 +89,11 @@ checkPoint :: forall style
            -> Layout style
 checkPoint colorMap tree point =
   let (anchor, itemTagIds, curveTags) = pointWinding tree point
-  in  overlap [ constructLayerStack colorMap point itemTagIds
-              , translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show $ curveTags
+  in  overlap [ translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show . length $ curveTags
+              , constructLayerStack colorMap point itemTagIds
               --, withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line anchor point]
               ]
-
+{-
 checkBox :: forall style
          .  (IsStyle style)
          => M.Map ItemTagId Color
@@ -105,3 +104,4 @@ checkBox colorMap tree point =
   let box = Box point (point + Point2 50 50)
       boxStack = breakPixel tree box
   in  overlap <$> map (withColor black . mask . openRectangle 1) $ map fst boxStack
+-}

@@ -133,7 +133,7 @@ constructCorner axis colorMap layers parentCut parentLine tree =
             start     = pointFromAxis axis parentCut parentLine
             end       = pointFromAxis axis stopCut   parentLine
             pathLine  = withColor (transparent 0.1 white) . mask . stroke 10 . makeOpenCurve $ [line start end]
-            cornerString = (show $ tree ^. confineCurveTag) ++ "->" ++ (show . map showTrace $ tree ^. confineTraceCross) ++ (show end)
+            --cornerString = (show $ tree ^. confineCurveTag) ++ "->" ++ (show . map showTrace $ tree ^. confineTraceCross) ++ (show end)
             --cornerText = translateBy end . rotateBy (45 @@ deg) . translateByXY 10 0 . scaleBy 20 . withColor blue . blurb $ cornerString
         in  overlap [ pathLine
                     , rectangleAround end
@@ -146,12 +146,8 @@ constructCorner axis colorMap layers parentCut parentLine tree =
 showBool True  = "1"
 showBool False = "0"
 
-showAxis (Left Horizontal) = "H"
-showAxis (Right Vertical)  = "V"
-
-showTrace traceItem = show (traceItem ^. traceTag) ++ "//" ++ show (traceItem ^. traceTreeTag) ++ ":" ++ showAxis (traceItem ^. traceAxis) ++ showBool (traceItem ^. traceCrosses)
-
-
+showAxis (Left Horizontal) = showSymbol Horizontal
+showAxis (Right Vertical)  = showSymbol Vertical
 
 constructConfineTree :: forall style
                      .  (IsStyle style)

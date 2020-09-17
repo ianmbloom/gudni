@@ -73,6 +73,7 @@ library
                      , Graphics.Gudni.Layout
                      , Graphics.Gudni.Figure.Angle
                      --, Graphics.Gudni.Experimental.Scaffolding
+                     , Graphics.Gudni.Experimental.CrossesBezier
                      , Graphics.Gudni.Experimental.ConfineTree
                      , Graphics.Gudni.Experimental.ConstructConfineTree
                      , Graphics.Gudni.Experimental.ConstructConfineQuery
