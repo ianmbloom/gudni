@@ -39,6 +39,7 @@ class (Show a, Show (NextAxis a), Axis (NextAxis a)) => Axis a where
   nextAxis :: a -> NextAxis a
   isVertical :: a -> Bool
   isHorizontal :: a -> Bool
+  showSymbol :: a -> String
 
 athwart :: Axis a => a -> Lens' (Point2 s) s
 athwart = along . nextAxis
@@ -49,6 +50,7 @@ instance Axis Vertical where
   nextAxis Vertical = Horizontal
   isVertical   _ = True
   isHorizontal _ = False
+  showSymbol _ = "V"
 
 instance Axis Horizontal where
   type NextAxis Horizontal = Vertical
@@ -56,6 +58,7 @@ instance Axis Horizontal where
   nextAxis Horizontal = Vertical
   isVertical   _ = False
   isHorizontal _ = True
+  showSymbol _ = "H"
 
 type EitherAxis = Either Horizontal Vertical
 

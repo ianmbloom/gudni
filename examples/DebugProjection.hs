@@ -122,10 +122,10 @@ instance Model ProjectionState where
                projectOnto path .
                translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
                overlap .
-               horizontallySpacedBy (dotLength + dotGap) .
+               horizontallySpacedBy translateBy zeroPoint (dotLength + dotGap) .
                replicate numDots .
                overlap .
-               verticallySpacedBy (thickness + betweenGap) .
+               verticallySpacedBy translateBy zeroPoint (thickness + betweenGap) .
                replicate 2 .
                mask .
                rectangle $

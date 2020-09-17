@@ -57,12 +57,9 @@ import Data.Hashable
 import Linear
 import Linear.Affine
 
-import System.Random
-
 import Foreign.Storable
 import Foreign.Ptr
 
-import Control.Monad.Random
 import Control.DeepSeq
 import Control.Lens
 import Data.Kind

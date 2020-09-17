@@ -21,7 +21,6 @@ import Graphics.Gudni.Util.Fuzzy
 import Graphics.Gudni.Util.Representation
 import Graphics.Gudni.Experimental.TreeOrderTable
 import Graphics.Gudni.Experimental.ConfineTree
-import Graphics.Gudni.Experimental.ConfineTreeTest
 import Graphics.Gudni.Experimental.ConstructConfineTree
 import Graphics.Gudni.Experimental.ConstructConfineQuery
 import Graphics.Gudni.Experimental.SerializeConfineTree
@@ -82,12 +81,13 @@ instance Model ConfineTreeState where
                 randomCurves = evalRand (sequence . replicate 4 $ fuzzyCurve range 20) (mkStdGen $ (state ^. stateBase . stateStep)) :: [ShapeTree Int SubSpace]
                 maxSize   = 64
                 table     = buildTreeOrderTable maxSize
-                shapes    = scaleBy 400 $
-                            overlap [ -- place .
-                                      -- rotateBy (state ^. stateShapeAngle) .
-                                      -- translateByXY (-1) (-1)
-                                      -- $
-                                      -- overlap randomCurves
+                shapes    = scaleBy 100 $
+                            overlap [ place .
+                                      scaleBy 5 .
+                                      rotateBy (state ^. stateShapeAngle) .
+                                      translateByXY (-1) (-1)
+                                      $
+                                      overlap randomCurves
                                       -- ,
                                       -- withColor (transparent 0.25 blue) .
                                       -- rotateBy (state ^. stateShapeAngle) .
@@ -127,43 +127,57 @@ instance Model ConfineTreeState where
                                       -- --rectangle (Point2 1 1)
                                       -- sixPointRectangle
                                       --,
-                                      withColor (transparent 0.25 red) .
-                                      translateByXY (0) (-1) .
-                                      rotateBy (state ^. stateShapeAngle) .
-                                      scaleBy 1.5 .
-                                      mask
-                                      $
-                                      triangle
+                                      -- withColor (transparent 0.25 red) .
+                                      -- translateByXY (0) (-1) .
+                                      -- rotateBy (state ^. stateShapeAngle) .
+                                      -- scaleBy 6 .
+                                      -- mask
+                                      -- $
+                                      -- triangle
                                       -- ,
                                       -- withColor (transparent 0.25 $ light green) .
                                       -- translateByXY (0.5) (-0.5) .
                                       -- rotateBy (state ^. stateShapeAngle) .
-                                      -- scaleBy 1.5 .
+                                      -- scaleBy 6 .
                                       -- mask
                                       -- $
                                       -- triangle
+                                      -- ,
+                                      -- withColor (transparent 0.25 red) .
+                                      -- mask
+                                      -- $
+                                      -- triangle2
+                                      -- ,
+                                      -- withColor (transparent 0.25 purple) .
+                                      -- mask
+                                      -- $
+                                      --triangle3
                                     ]
             scene <- sceneFromLayout (light gray) shapes
             confineState <- liftIO $ withConfinedScene Nothing M.empty scene $ \ pictDataPile serialState -> return serialState
-            let tree            = trWith pretty "confineTree" $ crossConfineTree $ confineState ^. conConfineTree
+            let tree            = crossConfineTree $ confineState ^. conConfineTree
                 colorMap        = confineState ^. conColorMap
                 constructed     = constructConfineTree colorMap tree
                 makePixel point = Box point (point + Point2 500 500)
+                setPoints :: [Layout DefaultStyle]
+                setPoints = map (checkPoint colorMap tree . applyScale 100) [Point2 1 1]
                 randomPoints :: [Layout DefaultStyle]
                 randomPoints    = map (checkPoint colorMap tree . applyScale 500) $
-                                  evalRand (take 50 <$> getRandomRs (Point2 (-1) (-1), Point2 1 1)) .
+                                  evalRand (take 200 <$> getRandomRs (Point2 (-1) (-1), Point2 1 1)) .
                                   mkStdGen $ round $
                                   state ^. stateBase . statePlayhead
-                testScene = overlap [--overlap randomPoints
-                                    --, overlap setPoints
+                testScene = overlap [overlap randomPoints
+                                     ,
+                                    --overlap setPoints
+                                    --,
                                     --trace
                                     --, withColor purple . translateBy (Point2 490.40347 (-446.67499)) . scaleBy 15 $ circle
-                                    --,
-                                    constructed
-                                    , shapes
+                                      constructed
+                                    ,
+                                      shapes
                                     ]
                 statusTree = statusDisplay (state ^. stateBase) "Test ConfineTree" (lines status)
-                treeScene  = transformFromState (state ^. stateBase) runCrossTests --runLessCurveTests) --testScene
+                treeScene  = transformFromState (state ^. stateBase) testScene
                 withStatus = if False then overlap [statusTree, treeScene] else treeScene
             sceneFromLayout gray withStatus
     providePictureMap _ = noPictures
@@ -185,6 +199,22 @@ triangle =
     , straightXY 0 1
     ]
 
+triangle2 :: Space s => Shape s
+triangle2 =
+    Shape . pure . fromSegments $
+    [ straightXY    0 0
+    , straightXY    2 3
+    , straightXY (-1) 2
+    ]
+
+triangle3 :: Space s => Shape s
+triangle3 =
+    Shape . pure . fromSegments $
+    [ straightXY    0   0
+    , straightXY (-2)   2
+    , straightXY (-3) (-1)
+    ]
+
 instance HandlesInput token ConfineTreeState where
    processInput input =
           over stateBase (processInput input) . (
@@ -192,8 +222,8 @@ instance HandlesInput token ConfineTreeState where
           case input ^. inputType of
               (InputKey Pressed _ inputKeyboard) ->
                   do  case inputKeyboard of
-                          Key LetterN -> stateShapeAngle %= normalizeAngle . (^+^ (0.5 @@ deg))
-                          Key LetterM -> stateShapeAngle %= normalizeAngle . (^-^ (0.5 @@ deg))
+                          Key LetterN -> stateShapeAngle %= normalizeAngle . (^+^ (3 @@ deg))
+                          Key LetterM -> stateShapeAngle %= normalizeAngle . (^-^ (3 @@ deg))
                           Key LetterZ -> whenM (uses stateTraceStep (> 0     )) $ stateTraceStep -= 1
                           Key LetterX -> whenM (uses stateTraceStep (< 100000)) $ stateTraceStep += 1
                           _ -> return ()

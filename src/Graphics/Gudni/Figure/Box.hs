@@ -50,6 +50,7 @@ module Graphics.Gudni.Figure.Box
   , pointToBox
   , emptyBox
   , makeBox
+  , boxAroundPoints
   ) where
 
 import Graphics.Gudni.Figure.Space
@@ -156,6 +157,13 @@ bottomSide = bottomRightBox . pY
 -- | Make a box from its four sides.
 makeBox        :: s -> s -> s -> s -> Box s
 makeBox l t r b = Box (makePoint l t) (makePoint r b)
+
+boxAroundPoints :: Ord s => Point2 s -> Point2 s -> Box s
+boxAroundPoints a b = makeBox (min (a ^. pX) (b ^. pX))
+                              (min (a ^. pY) (b ^. pY))
+                              (max (a ^. pX) (b ^. pX))
+                              (max (a ^. pY) (b ^. pY))
+
 -- | Make a box from the origin to a point.
 pointToBox :: Num s => Point2 s -> Box s
 pointToBox p = Box zeroPoint p

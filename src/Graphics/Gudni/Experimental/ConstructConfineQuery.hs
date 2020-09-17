@@ -89,9 +89,11 @@ checkPoint :: forall style
            -> Point2 (SpaceOf style)
            -> Layout style
 checkPoint colorMap tree point =
-  let stack = pointWinding tree point
-  in  overlap [ constructLayerStack colorMap point (fst stack)
-              , translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show $ snd stack]
+  let (anchor, itemTagIds, curveTags) = pointWinding tree point
+  in  overlap [ constructLayerStack colorMap point itemTagIds
+              , translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show $ curveTags
+              --, withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line anchor point]
+              ]
 
 checkBox :: forall style
          .  (IsStyle style)

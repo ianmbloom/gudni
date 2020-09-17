@@ -11,6 +11,7 @@ module Graphics.Gudni.Util.Debug
   , trFl
   , tc
   , tcWith
+  , tcP
   , trCList
   , trLength
   , trFWhen
@@ -97,6 +98,9 @@ traceWhen cond message = if cond then trace message else id
 
 tc :: Show a => String -> a -> a
 tc = tcWith show
+
+tcP :: Out a => String -> a -> a
+tcP = tcWith pretty
 --tc m x = trace (m++"-->") $ trace ("-->"++m++"   "++(show x)) x
 
 --trHeap len m h = tinternal (\y -> (show $ show16and8 0 $ B.unpack $ B.take len y) ++ "...") m h

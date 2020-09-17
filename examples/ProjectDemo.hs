@@ -144,10 +144,10 @@ instance Model ProjectionState where
                numDots = floor (pathLength / (dotLength + dotGap))
            in  withColor color .
                overlap .
-               horizontallySpacedBy (dotLength + dotGap) .
+               horizontallySpacedBy translateBy zeroPoint (dotLength + dotGap) .
                replicate numDots .
                overlap .
-               verticallySpacedBy (dotThickness * 2) .
+               verticallySpacedBy translateBy zeroPoint (dotThickness * 2) .
                replicate 2 .
                mask .
                rectangle $
@@ -160,7 +160,7 @@ instance Model ProjectionState where
                numDots = floor (arcLength path / (dotLength + dotGap))
            in  withColor color .
                overlap .
-               horizontallySpacedBy (dotLength + dotGap) .
+               horizontallySpacedBy translateBy zeroPoint (dotLength + dotGap) .
                replicate numDots .
                mask $
                slantedLine dotLength thickness

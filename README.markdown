@@ -109,7 +109,7 @@ To get it to compile on MacOSX Sierra I changed the following in my local OpenCL
 On MacOS versions later than Mojave, c2hs cannot process certain macros in the file normally found at
 /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include/dispatch/base.h
 
-You can temporarily fix this by commenting out the if clause of the if-else-endif in the definition for DISPATCH_ENUM and DISPATCH_OPTIONS like so:
+You can temporarily fix this by commenting out the if clause of the if-else-endif in the definition for DISPATCH_ENUM and DISPATCH_OPTIONS like so (sorry for the hack):
 
 Line 241:
 ```

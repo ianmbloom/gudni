@@ -446,3 +446,32 @@ both2 = wrapList2 . catMaybes2
 -}
 
 myTestTree = STree (SLeaf (SItem (Just 1))) (STree (SLeaf (STag "left" (SLeaf (SItem (Just 2))))) (SLeaf (STag "right" (SLeaf (SItem Nothing) ))))
+
+
+
+                    (set confineLessCut . goNext) .
+                    moreCut axis (box ^. maxBox . athwart axis) tree (set confineMoreCut . goNext) . -- this is maxBox not minBox
+                    addOver confineLessCut .
+                    addOver confineMoreCut $
+
+
+                    addNext :: Maybe (Confine (NextAxis axis) s) -> Maybe (Confine (NextAxis axis) s)
+                    addNext = addCrossing (nextAxis axis) parentLine (tree ^. confineCut)
+                    addOver :: Lens' (Confine axis s) (Maybe (Confine (NextAxis axis) s)) -> Confine axis s -> Confine axis s
+                    addOver side t = set side (addNext (t ^. side)) t
+
+    box :: Box s
+    box = curveEndPointsBox bez -- we use curveEndPointsBox because there are some situations where the control point
+                                -- is slightly outside the range of the endpoints even though the knobs have been removed.
+
+if start < minAlong && end >= maxAlong
+     then True
+     else
+
+if {- tr "bezierSlopeLTEZero" $-} bezierSlopeLTEZero axis bez
+     then (start < maxAlong && end >= maxAlong) {-(start < maxAlong && end >= maxAlong)-}
+     else -- we know that end >= minAlong and since start < end
+          -- then if end == minAlong then start < minAlong
+          -- else if end > minAlong then
+          (({- tr "(start <= minAlong && end > minAlong) &&      isVertical axis " $ -} start < minAlong && end >= minAlong) &&      isVertical axis ) ||
+          (({- tr "(start <= maxAlong && end > maxAlong) && not (isVertical axis)" $ -} start < maxAlong && end >= maxAlong) && not (isVertical axis))

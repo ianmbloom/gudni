@@ -74,7 +74,6 @@ library
                      , Graphics.Gudni.Figure.Angle
                      --, Graphics.Gudni.Experimental.Scaffolding
                      , Graphics.Gudni.Experimental.ConfineTree
-                     , Graphics.Gudni.Experimental.ConfineTreeTest
                      , Graphics.Gudni.Experimental.ConstructConfineTree
                      , Graphics.Gudni.Experimental.ConstructConfineQuery
                      , Graphics.Gudni.Experimental.SerializeConfineTree
@@ -394,24 +393,6 @@ executable paragraph-example
                -threaded
                -- "-with-rtsopts=-N -p -s -h -i0.1"
 
-executable tree-example
-   -- other-modules:
-  if flag(benchmarks)
-    build-depends:   gudni
-                   , base
-                   , lens
-                   , vector
-                   , mtl
-  else
-    buildable: False
-  hs-source-dirs: ./src/Graphics/Gudni/Experimental
-  main-is: ScaffoldTree.hs
-  default-language: Haskell2010
-  ghc-options: -main-is ScaffoldTree
-               -O3
-               -threaded
-               -- "-with-rtsopts=-N -p -s -h -i0.1"
-
 executable confinetree
    -- other-modules:
   if flag(benchmarks)
@@ -431,6 +412,29 @@ executable confinetree
   main-is: ConfineTreeDemo.hs
   default-language: Haskell2010
   ghc-options: -main-is ConfineTreeDemo
+               -O3
+               -threaded
+               -- "-with-rtsopts=-N -p -s -h -i0.1"
+
+executable confinetreecrosstest
+   -- other-modules:
+  if flag(benchmarks)
+    build-depends:   gudni
+                   , base
+                   , lens
+                   , vector
+                   , containers
+                   , mtl
+                   , IfElse
+                   , GenericPretty
+                   , MonadRandom >=0.5 && <0.6
+                   , random >=1.1 && <1.2
+  else
+    buildable: False
+  hs-source-dirs: ./src/Graphics/Gudni/Experimental
+  main-is: ConfineTreeCrossTest.hs
+  default-language: Haskell2010
+  ghc-options: -main-is ConfineTreeCrossTest
                -O3
                -threaded
                -- "-with-rtsopts=-N -p -s -h -i0.1"
