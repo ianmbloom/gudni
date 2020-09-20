@@ -27,9 +27,13 @@ module Graphics.Gudni.Layout.Fill
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
+import Graphics.Gudni.ShapeTree
+import Graphics.Gudni.Layout.Token
+
+
 import Control.Lens
-import Graphics.Gudni.Raster.TraverseShapeTree
 
 class (HasSpace a) => CanFill a where
     type UnFilled a :: *

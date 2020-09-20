@@ -30,9 +30,9 @@ module Graphics.Gudni.Layout.WithBox
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Raster.TraverseShapeTree
-
+import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Layout.Empty
+
 import Control.Lens
 import Control.Applicative
 import Graphics.Gudni.Util.Util

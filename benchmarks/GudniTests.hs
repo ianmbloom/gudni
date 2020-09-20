@@ -5,7 +5,6 @@ module GudniTests
  ( BenchmarkState(..)
  , initialModel
  , stateBase
- , stateCursor
  , statePictureMap
  , stateTests
  , stateCurrentTest
@@ -15,14 +14,13 @@ module GudniTests
 where
 
 import Graphics.Gudni.Interface
-import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Layout
+import Graphics.Gudni.Draw
+import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Application
 
-import Graphics.Gudni.Layout
-
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.Fuzzy
 import Graphics.Gudni.Util.Segment
 
 import Data.Word
@@ -37,7 +35,6 @@ import System.Random
 
 data BenchmarkState = BenchmarkState
   { _stateBase        :: BasicSceneState
-  , _stateCursor      :: Point2 PixelSpace
   , _statePictureMap  :: PictureMap
   , _stateTests       :: [(String, BenchmarkState -> Layout DefaultStyle )]
   , _stateCurrentTest :: Int
@@ -60,8 +57,8 @@ initialModel pictureMap =
         , _stateStep        = 100
         , _stateRepMode     = False
         , _stateRepDk       = False
+        , _stateCursor      = Point2 0 0
         }
-    , _stateCursor      = Point2 63 1376
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
     , _stateCurrentTest = 19
@@ -540,5 +537,4 @@ instance Show BenchmarkState where
   show state =
      "BenchmarkState { " ++
      show (state ^. stateBase       ) ++ ", " ++
-     show (state ^. stateCursor     ) ++ ", " ++
      show (state ^. stateCurrentTest) ++  " }"

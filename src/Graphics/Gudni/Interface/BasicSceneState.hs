@@ -19,6 +19,7 @@ module Graphics.Gudni.Interface.BasicSceneState
   , stateStep
   , stateRepMode
   , stateRepDk
+  , stateCursor
   , transformFromState
   , simpleTransformFromState
   , statusDisplay
@@ -30,7 +31,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Interface.Time
-import Graphics.Gudni.Util.Representation
+import Graphics.Gudni.Draw
 
 import Control.Lens
 import Control.Monad.State
@@ -52,6 +53,7 @@ data BasicSceneState = BasicSceneState
   , _stateStep        :: Int
   , _stateRepMode     :: Bool
   , _stateRepDk       :: Bool
+  , _stateCursor      :: Point2 SubSpace
   } deriving (Show)
 makeLenses ''BasicSceneState
 
@@ -127,6 +129,7 @@ instance HandlesInput token BasicSceneState where
                          _                 -> return ()
              (InputMouse detection modifier clicks positionInfo) ->
                  case detection of
+                   Released -> stateCursor .= fmap fromIntegral positionInfo
                    _ -> return ()
              _ -> return ()
 

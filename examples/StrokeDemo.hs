@@ -22,13 +22,13 @@ module StrokeDemo
 where
 
 import Graphics.Gudni.Interface
-import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
-import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Draw
+import Graphics.Gudni.ShapeTree
 
-import qualified Graphics.Gudni.Figure.Bezier as B
+import Graphics.Gudni.Util.Debug
 
 import Control.Lens
 import Control.Monad.State
@@ -98,7 +98,7 @@ main = runApplication $ StrokeState
        (BasicSceneState
            { _stateScale       = 5
            , _stateDelta       = Point2 100 100
-           , _stateAngle       = 0 @@ deg -- 0.02094 @@ rad -- 0 @@ turn-- quarterTurn
+           , _stateAngle       = 0 @@ deg
            , _statePaused      = True
            , _stateSpeed       = 0.1
            , _statePace        = 0.5
@@ -109,5 +109,6 @@ main = runApplication $ StrokeState
            , _stateStep        = 69
            , _stateRepMode     = False
            , _stateRepDk       = False
+           , _stateCursor      = Point2 0 0
            }
        ) 0

@@ -10,6 +10,7 @@ module Graphics.Gudni.Layout.Overlappable
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Layout.Empty
 
 import Control.Applicative

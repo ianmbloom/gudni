@@ -28,14 +28,17 @@ module Graphics.Gudni.Layout.FromLayout
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Raster.TraverseShapeTree
-import Graphics.Gudni.Raster.FinalTree
+
+import Graphics.Gudni.ShapeTree
+
+import Graphics.Gudni.Layout.Token
 import Graphics.Gudni.Layout.WithBox
 import Graphics.Gudni.Layout.Style
 import Graphics.Gudni.Layout.Proximity
 import Graphics.Gudni.Layout.ApplyProximity
 import Graphics.Gudni.Layout.Font
 import Graphics.Gudni.Layout.Layout
+
 import Graphics.Gudni.Util.Util
 
 import Control.Lens

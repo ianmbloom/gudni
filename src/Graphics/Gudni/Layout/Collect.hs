@@ -30,14 +30,19 @@ module Graphics.Gudni.Layout.Collect
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
+import Graphics.Gudni.ShapeTree
+
 import Graphics.Gudni.Layout.Layout
 import Graphics.Gudni.Layout.Alignment
 import Graphics.Gudni.Layout.Style
 import Graphics.Gudni.Layout.Empty
 import Graphics.Gudni.Layout.Overlappable
 import Graphics.Gudni.Layout.Font
+
 import Graphics.Gudni.Util.Debug
+
 import Linear
 import Data.List
 import Data.Char
@@ -50,46 +55,51 @@ import Control.Monad.State
 loaf :: ( IsLayout layout
         , Axis axis
         , SwitchAxis axis
+        , Foldable f
         )
         => axis
         -> StyleOf layout
         -> Maybe Alignment
         -> Meld layout
-        -> [layout]
+        -> f layout
         -> layout
 loaf axis style alignment meld =
   foldl (nextTo axis style alignment meld) emptyItem
 
 rackOf :: ( IsLayout layout
+          , Foldable f
           )
           => StyleOf layout
           -> Maybe Alignment
           -> Meld layout
-          -> [layout]
+          -> f layout
           -> layout
 rackOf = loaf Horizontal
 
 rack :: ( IsLayout layout
         , HasDefault (StyleOf layout)
         , HasDefault (Meld layout)
+        , Foldable f
         )
-        => [layout]
+        => f layout
         -> layout
 rack = rackOf defaultValue Nothing defaultValue
 
 stackOf ::( IsLayout layout
+          , Foldable f
           )
           => StyleOf layout
           -> Maybe Alignment
           -> Meld layout
-          -> [layout]
+          -> f layout
           -> layout
 stackOf = loaf Vertical
 
 stack :: ( IsLayout layout
          , HasDefault (Meld layout)
          , HasDefault (StyleOf layout)
+         , Foldable f
          )
-         => [layout]
+         => f layout
          -> layout
 stack = stackOf defaultValue Nothing defaultValue

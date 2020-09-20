@@ -11,19 +11,18 @@ module ConfineTreeDemo
 where
 
 import Graphics.Gudni.Interface
-import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Application
+import Graphics.Gudni.Draw
+import Graphics.Gudni.ShapeTree
+
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Segment
-import Graphics.Gudni.Util.Fuzzy
-import Graphics.Gudni.Util.Representation
-import Graphics.Gudni.Experimental.TreeOrderTable
-import Graphics.Gudni.Experimental.ConfineTree
-import Graphics.Gudni.Experimental.ConstructConfineTree
-import Graphics.Gudni.Experimental.ConstructConfineQuery
-import Graphics.Gudni.Experimental.SerializeConfineTree
+
+import Graphics.Gudni.Raster.ConfineTree.TreeOrderTable
+import Graphics.Gudni.Raster.ConfineTree.ConfineTree
+import Graphics.Gudni.Raster.ConfineTree.Serialize
 
 import qualified Data.Map as M
 import Control.Lens
@@ -60,6 +59,7 @@ initialModel =
         , _stateStep        = 45
         , _stateRepMode     = False
         , _stateRepDk       = False
+        , _stateCursor      = Point2 0 0
         }
     --, _stateTree        = tree
     , _stateShapeAngle = 1.07334 @@ rad -- 1.15187 @@ rad --0.91625 @@ rad -- 5.44538 @@ rad -- 4.20620 @@ rad -- 3.98806 @@ rad -- 30 @@ deg
@@ -152,15 +152,21 @@ instance Model ConfineTreeState where
                                       -- mask
                                       -- $
                                       --triangle3
+                                      -- rotateBy (state ^. stateShapeAngle) .
+                                      -- withColor (transparent 0.25 purple) .
+                                      -- mask
+                                      -- $
+                                      -- knob
                                     ]
             scene <- sceneFromLayout (light gray) shapes
             confineState <- liftIO $ withConfinedScene Nothing M.empty scene $ \ pictDataPile serialState -> return serialState
             let tree            = crossConfineTree $ confineState ^. conConfineTree
                 colorMap        = confineState ^. conColorMap
+                constructed :: Layout DefaultStyle
                 constructed     = constructConfineTree colorMap tree
                 makePixel point = Box point (point + Point2 500 500)
                 setPoints :: [Layout DefaultStyle]
-                setPoints = map (checkPoint colorMap tree . applyScale 100) [Point2 1 1]
+                setPoints = map (checkPoint colorMap tree) [Point2 35.59410 209.51909] --[state ^. stateBase . stateCursor]
                 randomPoints :: [Layout DefaultStyle]
                 randomPoints    = map (checkPoint colorMap tree . applyScale 500) $
                                   evalRand (take 200 <$> getRandomRs (Point2 (-1) (-1), Point2 1 1)) .
@@ -172,9 +178,9 @@ instance Model ConfineTreeState where
                                     --,
                                     --trace
                                     --, withColor purple . translateBy (Point2 490.40347 (-446.67499)) . scaleBy 15 $ circle
-                                      constructed
-                                    ,
-                                      shapes
+                                     shapes
+                                     ,
+                                     constructed
                                     ]
                 statusTree = statusDisplay (state ^. stateBase) "Test ConfineTree" (lines status)
                 treeScene  = transformFromState (state ^. stateBase) testScene
@@ -213,6 +219,13 @@ triangle3 =
     [ straightXY    0   0
     , straightXY (-2)   2
     , straightXY (-3) (-1)
+    ]
+
+knob :: Space s => Shape s
+knob =
+    Shape . pure . fromSegments $
+    [ straightXY    0   0
+    , curvedXY 0 4 2 2
     ]
 
 instance HandlesInput token ConfineTreeState where

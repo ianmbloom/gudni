@@ -31,8 +31,9 @@ module Graphics.Gudni.Layout.Layout
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Figure.BezierSpace
-import Graphics.Gudni.Raster.TraverseShapeTree
+import Graphics.Gudni.ShapeTree
+
+import Graphics.Gudni.Layout.Token
 import Graphics.Gudni.Layout.Fill
 import Graphics.Gudni.Layout.Empty
 import Graphics.Gudni.Layout.Alignment

@@ -56,112 +56,146 @@ flag trace
 library
   -- Modules exported by the library.
   exposed-modules:     Graphics.Gudni.Application
-                     , Graphics.Gudni.Interface.BasicSceneState
+                     , Graphics.Gudni.Base
                      , Graphics.Gudni.Figure
-                     , Graphics.Gudni.Figure.Bezier
-                     , Graphics.Gudni.Figure.CurvePair
                      , Graphics.Gudni.Interface
+                     , Graphics.Gudni.Layout
+                     , Graphics.Gudni.ShapeTree
+                     , Graphics.Gudni.Draw
+
+                     , Graphics.Gudni.Util.CTypeConversion
+                     , Graphics.Gudni.Util.CurvePair
+
                      , Graphics.Gudni.Util.Debug
-                     , Graphics.Gudni.Util.Fuzzy
-                     , Graphics.Gudni.Util.Plot
+                     , Graphics.Gudni.Util.FlattenTree
+                     , Graphics.Gudni.Util.Pile
+                     , Graphics.Gudni.Util.RandomField
                      , Graphics.Gudni.Util.Segment
-                     , Graphics.Gudni.Util.Representation
+                     , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Subdividable
                      , Graphics.Gudni.Util.Util
-                     , Graphics.Gudni.OpenCL.DeviceQuery
-                     , Graphics.Gudni.OpenCL.KernelQuery
-                     , Graphics.Gudni.Layout
-                     , Graphics.Gudni.Figure.Angle
-                     --, Graphics.Gudni.Experimental.Scaffolding
-                     , Graphics.Gudni.Experimental.CrossesBezier
-                     , Graphics.Gudni.Experimental.ConfineTree
-                     , Graphics.Gudni.Experimental.ConstructConfineTree
-                     , Graphics.Gudni.Experimental.ConstructConfineQuery
-                     , Graphics.Gudni.Experimental.SerializeConfineTree
-                     , Graphics.Gudni.Experimental.TreeOrderTable
+
+                     , Graphics.Gudni.Raster.ConfineTree.ConfineTree
+                     , Graphics.Gudni.Raster.ConfineTree.Serialize
+                     , Graphics.Gudni.Raster.ConfineTree.TreeOrderTable
 
   -- Modules included in this library but not exported.
-  other-modules:       Graphics.Gudni.Figure.HasDefault
-                     , Graphics.Gudni.Figure.Axis
-                     , Graphics.Gudni.Figure.Box
-                     , Graphics.Gudni.Figure.Color
-                     , Graphics.Gudni.Figure.ArcLength
-                     , Graphics.Gudni.Figure.Reversible
-                     , Graphics.Gudni.Figure.OpenCurve
-                     , Graphics.Gudni.Figure.Outline
-                     , Graphics.Gudni.Figure.Point
-                     , Graphics.Gudni.Figure.Space
-                     , Graphics.Gudni.Figure.Split
-                     , Graphics.Gudni.Figure.Cut
-                     , Graphics.Gudni.Figure.Substance
-                     , Graphics.Gudni.Figure.Projection
-                     , Graphics.Gudni.Figure.Shape
-                     , Graphics.Gudni.Figure.ShapeTree
-                     , Graphics.Gudni.Figure.FitBezier
-                     , Graphics.Gudni.Figure.FitFacet
-                     , Graphics.Gudni.Figure.BezierSpace
+  other-modules:       Graphics.Gudni.Base.HasDefault
+                     , Graphics.Gudni.Base.Reversible
+                     , Graphics.Gudni.Base.Chain
+                     , Graphics.Gudni.Base.Loop
+
                      , Graphics.Gudni.Figure.Deknob
-                     , Graphics.Gudni.Figure.Transformable
-                     , Graphics.Gudni.Figure.Transformer
-                     , Graphics.Gudni.Figure.Picture
                      , Graphics.Gudni.Figure.Facet
-                     , Graphics.Gudni.Figure.Gradient
-                     , Graphics.Gudni.Figure.Token
+                     , Graphics.Gudni.Figure.Fit
+                     , Graphics.Gudni.Figure.Primitive
+                     , Graphics.Gudni.Figure.Split
+                     , Graphics.Gudni.Figure.Substance
+                     , Graphics.Gudni.Figure.Transform
+
+                     , Graphics.Gudni.Figure.Bezier.Deknob
+                     , Graphics.Gudni.Figure.Deknob.Class
+
+                     , Graphics.Gudni.Figure.Facet.Facet
+                     , Graphics.Gudni.Figure.Facet.Subdivide
+                     , Graphics.Gudni.Figure.Facet.Traverse
+
+                     , Graphics.Gudni.Figure.Fit.Bezier
+                     , Graphics.Gudni.Figure.Fit.Facet
+
+                     , Graphics.Gudni.Figure.Primitive.Angle
+                     , Graphics.Gudni.Figure.Primitive.ArcLength
+                     , Graphics.Gudni.Figure.Primitive.Axis
+                     , Graphics.Gudni.Figure.Primitive.Bezier
+                     , Graphics.Gudni.Figure.Primitive.Box
+                     , Graphics.Gudni.Figure.Bezier.Cross
+                     , Graphics.Gudni.Figure.Primitive.OpenCurve
+                     , Graphics.Gudni.Figure.Primitive.Outline
+                     , Graphics.Gudni.Figure.Primitive.Point
+                     , Graphics.Gudni.Figure.Primitive.Shape
+                     , Graphics.Gudni.Figure.Primitive.Space
+
+                     , Graphics.Gudni.Figure.Bezier.Cut
+                     , Graphics.Gudni.Figure.Bezier.Split
+
+                     , Graphics.Gudni.Figure.Substance.Color
+                     , Graphics.Gudni.Figure.Substance.Gradient
+                     , Graphics.Gudni.Figure.Substance.Picture
+                     , Graphics.Gudni.Figure.Substance.Type
+
+                     , Graphics.Gudni.Figure.Transform.Transformable
+                     , Graphics.Gudni.Figure.Transform.Transformer
+                     , Graphics.Gudni.Figure.Transform.Projection
+                     , Graphics.Gudni.Figure.Transform.Projection.BezierSpace
+                     , Graphics.Gudni.Figure.Transform.Projection.Apply
+
+                     , Graphics.Gudni.Interface.BasicSceneState
                      , Graphics.Gudni.Interface.DrawTarget
                      , Graphics.Gudni.Interface.FontLibrary
+                     , Graphics.Gudni.Interface.GLInterop
                      , Graphics.Gudni.Interface.Input
                      , Graphics.Gudni.Interface.InterfaceSDL
-                     , Graphics.Gudni.Interface.GLInterop
+                     , Graphics.Gudni.Interface.Query
                      , Graphics.Gudni.Interface.ScreenMode
                      , Graphics.Gudni.Interface.Time
-                     , Graphics.Gudni.Interface.Query
-                     , Graphics.Gudni.Raster.Constants
-                     , Graphics.Gudni.OpenCL.Setup
-                     , Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
-                     , Graphics.Gudni.OpenCL.PrepareBuffers
-                     , Graphics.Gudni.OpenCL.CallKernels
-                     , Graphics.Gudni.OpenCL.ProcessBuffers
-                     , Graphics.Gudni.OpenCL.CppDefines
-                     , Graphics.Gudni.OpenCL.Instances
-                     , Graphics.Gudni.OpenCL.Rasterizer
-                     , Graphics.Gudni.Raster.ItemInfo
-                     , Graphics.Gudni.Raster.Params
-                     , Graphics.Gudni.Raster.ReorderTable
-                     , Graphics.Gudni.Raster.Serialize
-                     , Graphics.Gudni.Raster.Strand
-                     , Graphics.Gudni.Raster.Enclosure
-                     , Graphics.Gudni.Raster.TileTree
-                     , Graphics.Gudni.Raster.StrandReference
-                     , Graphics.Gudni.Raster.TraverseShapeTree
-                     , Graphics.Gudni.Raster.Serialize
-                     , Graphics.Gudni.Raster.SubstanceInfo
-                     , Graphics.Gudni.Raster.TextureReference
-                     , Graphics.Gudni.Raster.FinalTree
-                     , Graphics.Gudni.Layout.Proximity
-                     , Graphics.Gudni.Layout.FromLayout
-                     , Graphics.Gudni.Layout.Fill
-                     , Graphics.Gudni.Layout.Empty
-                     , Graphics.Gudni.Layout.Style
+
+                     , Graphics.Gudni.Draw.Representation
+                     , Graphics.Gudni.Draw.Representation.Class
+                     , Graphics.Gudni.Draw.Representation.ConfineTree
+                     , Graphics.Gudni.Draw.Representation.ConfineQuery
+
+                     , Graphics.Gudni.Draw.ArrowHead
+                     , Graphics.Gudni.Draw.Elipse
+                     , Graphics.Gudni.Draw.Fuzzy
+                     , Graphics.Gudni.Draw.Plot
+                     , Graphics.Gudni.Draw.Rectangle
+                     , Graphics.Gudni.Draw.Stroke
+                     , Graphics.Gudni.Draw.Text
+
                      , Graphics.Gudni.Layout.Alignment
-                     , Graphics.Gudni.Layout.Compound
-                     , Graphics.Gudni.Layout.Layout
-                     , Graphics.Gudni.Layout.Draw
-                     , Graphics.Gudni.Layout.Grid
-                     , Graphics.Gudni.Layout.Overlappable
                      , Graphics.Gudni.Layout.ApplyProximity
                      , Graphics.Gudni.Layout.Collect
+                     , Graphics.Gudni.Layout.Compound
+                     , Graphics.Gudni.Layout.Empty
+                     , Graphics.Gudni.Layout.Fill
                      , Graphics.Gudni.Layout.Font
-                     , Graphics.Gudni.Layout.Stroke
-                     , Graphics.Gudni.Layout.ArrowHead
-                     , Graphics.Gudni.Layout.Text
+                     , Graphics.Gudni.Layout.FromLayout
+                     , Graphics.Gudni.Layout.Grid
+                     , Graphics.Gudni.Layout.Layout
+                     , Graphics.Gudni.Layout.Mask
+                     , Graphics.Gudni.Layout.Overlappable
+                     , Graphics.Gudni.Layout.Proximity
+                     , Graphics.Gudni.Layout.Style
+                     , Graphics.Gudni.Layout.Token
                      , Graphics.Gudni.Layout.WithBox
-                     , Graphics.Gudni.Util.CTypeConversion
-                     , Graphics.Gudni.Util.StorableM
-                     , Graphics.Gudni.Util.Pile
-                     , Graphics.Gudni.Util.FlattenTree
-                     , Graphics.Gudni.Util.Chain
-                     , Graphics.Gudni.Util.Loop
-                     , Graphics.Gudni.Util.RandomField
+
+                     , Graphics.Gudni.Raster.OpenCL.CallKernels
+                     , Graphics.Gudni.Raster.OpenCL.CppDefines
+                     , Graphics.Gudni.Raster.OpenCL.DeviceQuery
+                     , Graphics.Gudni.Raster.OpenCL.EmbeddedOpenCLSource
+                     , Graphics.Gudni.Raster.OpenCL.Instances
+                     , Graphics.Gudni.Raster.OpenCL.KernelQuery
+                     , Graphics.Gudni.Raster.OpenCL.PrepareBuffers
+                     , Graphics.Gudni.Raster.OpenCL.ProcessBuffers
+                     , Graphics.Gudni.Raster.OpenCL.Rasterizer
+                     , Graphics.Gudni.Raster.OpenCL.Setup
+
+                     , Graphics.Gudni.Raster.Constants
+                     , Graphics.Gudni.Raster.ItemInfo
+                     , Graphics.Gudni.Raster.SubstanceInfo
+                     , Graphics.Gudni.Raster.TextureReference
+
+                     , Graphics.Gudni.Raster.Thresholds.Enclosure
+                     , Graphics.Gudni.Raster.Thresholds.Params
+                     , Graphics.Gudni.Raster.Thresholds.ReorderTable
+                     , Graphics.Gudni.Raster.Thresholds.Serialize
+                     , Graphics.Gudni.Raster.Thresholds.Strand
+                     , Graphics.Gudni.Raster.Thresholds.StrandReference
+                     , Graphics.Gudni.Raster.Thresholds.TileTree
+
+                     , Graphics.Gudni.ShapeTree.STree
+                     , Graphics.Gudni.ShapeTree.FinalTree
+                     , Graphics.Gudni.ShapeTree.Traverse
 
   -- LANGUAGE extensions used by modules in this package.
   other-extensions:    FlexibleContexts
@@ -417,7 +451,7 @@ executable confinetree
                -threaded
                -- "-with-rtsopts=-N -p -s -h -i0.1"
 
-executable confinetreecrosstest
+executable crosstest
    -- other-modules:
   if flag(benchmarks)
     build-depends:   gudni
@@ -433,9 +467,9 @@ executable confinetreecrosstest
   else
     buildable: False
   hs-source-dirs: ./src/Graphics/Gudni/Experimental
-  main-is: ConfineTreeCrossTest.hs
+  main-is: CrossesBezierTest.hs
   default-language: Haskell2010
-  ghc-options: -main-is ConfineTreeCrossTest
+  ghc-options: -main-is CrossesBezierTest
                -O3
                -threaded
                -- "-with-rtsopts=-N -p -s -h -i0.1"
@@ -447,5 +481,6 @@ benchmark criterion
     build-depends: gudni
                  , base
                  , criterion
+                 , linear
     default-language:    Haskell2010
     type: exitcode-stdio-1.0

@@ -87,7 +87,7 @@ curvesInBox tree box = catMaybes . map (trimCurve box) . go Vertical $ tree
                     moreBranch = if cut      < box ^. maxBox . axis then curve : go (nextAxis thisAxis) (tree ^.  confineMoreCut) else []
                 in  lessBranch ++ moreBranch
 
-constructConfineTreeFromBoxes :: forall s token . (Out s, Space s) => ConfineTree s -> ShapeTree token s
+constructConfineTreeFromBoxes :: forall s token . (Space s) => ConfineTree s -> ShapeTree token s
 constructConfineTreeFromBoxes tree =
     overlap . map (drawCurve) . concatMap (curvesInBox tree) . confineTreeBoxes $ tree
 

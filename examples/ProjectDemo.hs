@@ -23,17 +23,14 @@ module ProjectDemo
 where
 
 import Graphics.Gudni.Interface
-import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
-import Graphics.Gudni.Util.Representation
+import Graphics.Gudni.Draw
+
 import Graphics.Gudni.Util.Subdividable
 import Graphics.Gudni.Util.Segment
-import Graphics.Gudni.Util.Plot
 import Graphics.Gudni.Util.Debug
-
-import qualified Graphics.Gudni.Figure.Bezier as B
 
 import Control.Lens
 import Control.Monad.State
@@ -41,10 +38,7 @@ import Linear
 import Linear.Affine
 import qualified Data.Vector as V
 import Control.Applicative
-
-
 import Data.Maybe
-import Control.Lens
 
 data ProjectionState = ProjectionState
    {_stateBase        :: BasicSceneState

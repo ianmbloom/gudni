@@ -22,7 +22,7 @@ module Graphics.Gudni.Raster.TextureReference
   , PictureMap(..)
   , PictureMemoryReference(..)
   , ShapeTreePictureMemory(..)
-  , FinalTreePictureMemory 
+  , FinalTreePictureMemory
   , makePictureMap
   , namePicturesInShapeTree
   , pictureTextureSize
@@ -33,22 +33,15 @@ module Graphics.Gudni.Raster.TextureReference
   )
 where
 
-import Foreign.C.Types
-import Graphics.Gudni.Figure.Space
-import Graphics.Gudni.Figure.Point
-import Graphics.Gudni.Figure.Color
-import Graphics.Gudni.Figure.Box
-import Graphics.Gudni.Figure.Transformable
-import Graphics.Gudni.Figure.Picture
-import Graphics.Gudni.Figure.Substance
-import Graphics.Gudni.Figure.ShapeTree
-import Graphics.Gudni.Figure.Shape
-import Graphics.Gudni.Raster.TraverseShapeTree
+import Graphics.Gudni.Figure
+import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Layout.FromLayout
+
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Util.Debug
 
+import Foreign.C.Types
 import Codec.Picture
 
 import Data.List

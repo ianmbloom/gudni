@@ -10,15 +10,13 @@ module GudniBenchmarks
 where
 
 import Graphics.Gudni.Interface
-import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
-
+import Graphics.Gudni.Draw
+import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Application
-import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.Fuzzy
-import Graphics.Gudni.Util.Representation
 
+import Graphics.Gudni.Util.Debug
 
 import Data.Word
 import Data.List(isInfixOf)

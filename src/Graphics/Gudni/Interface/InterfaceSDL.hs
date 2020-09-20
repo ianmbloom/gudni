@@ -2,7 +2,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.OpenCL.InterfaceSDL
+-- Module      :  Graphics.Gudni.Raster.OpenCL.InterfaceSDL
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -27,7 +27,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Interface.ScreenMode
-import Graphics.Gudni.OpenCL.DeviceQuery
+import Graphics.Gudni.Raster.OpenCL.DeviceQuery
 import Graphics.Gudni.Util.Debug
 
 import qualified SDL

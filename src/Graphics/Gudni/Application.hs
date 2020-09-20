@@ -58,18 +58,18 @@ import Graphics.Gudni.Interface.Time
 import Graphics.Gudni.Interface.FontLibrary
 import Graphics.Gudni.Interface.Query
 
-import Graphics.Gudni.OpenCL.Setup
-import Graphics.Gudni.OpenCL.Rasterizer
-import Graphics.Gudni.OpenCL.ProcessBuffers
+import Graphics.Gudni.Raster.OpenCL.Setup
+import Graphics.Gudni.Raster.OpenCL.Rasterizer
+import Graphics.Gudni.Raster.OpenCL.ProcessBuffers
+
+import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Raster.Constants (rANDOMFIELDsIZE)
-import Graphics.Gudni.OpenCL.EmbeddedOpenCLSource
+import Graphics.Gudni.Raster.OpenCL.EmbeddedOpenCLSource
 import Graphics.Gudni.Raster.TextureReference
-import Graphics.Gudni.Raster.TileTree
-import Graphics.Gudni.Raster.Serialize
-import Graphics.Gudni.Raster.Params
-import Graphics.Gudni.Raster.TraverseShapeTree
-import Graphics.Gudni.Raster.FinalTree
+import Graphics.Gudni.Raster.Thresholds.TileTree
+import Graphics.Gudni.Raster.Thresholds.Serialize
+import Graphics.Gudni.Raster.Thresholds.Params
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout

@@ -18,7 +18,7 @@ allSides box = [leftRange box, topRange box, rightRange box, bottomRange box]
 
 inRange start end p = (p + iota) >= min start end && (p - iota) <= max start end
 
-breakSide :: (Out s, Space s) => Bezier s -> Side s -> Either (Side s, Side s) (Side s)
+breakSide :: (Space s) => Bezier s -> Side s -> Either (Side s, Side s) (Side s)
 breakSide bez side =
   let rangeAxis = if isVertical side then pY else pX
       mCutT = tr "mCutT" $ maybeCutPointBezier ((trP "side" side) ^. cutAxis) (side ^. cutPoint) bez
@@ -31,7 +31,7 @@ breakSide bez side =
              else Right side
       Nothing -> Right side
 
-breakSides :: (Out s, Space s) => Bezier s -> [Side s] -> ([Side s], [Side s])
+breakSides :: (Space s) => Bezier s -> [Side s] -> ([Side s], [Side s])
 breakSides bez (s:ss) =
     case breakSide bez s of
         Left (a, b) -> ([a], b:ss)
@@ -41,7 +41,7 @@ breakSides bez [] = ([],[])
 
 isVertical side = side ^. cutAxis == Vertical
 
-sideToLine :: (Out s, Space s) => Side s -> Bezier s
+sideToLine :: (Space s) => Side s -> Bezier s
 sideToLine side =
   let cutAxisLens = if isVertical side then pX else pY
       rangeAxis   = if isVertical side then pY else pX
@@ -49,7 +49,7 @@ sideToLine side =
       pEnd        = set cutAxisLens (side ^. cutPoint) . set rangeAxis (side ^. rangeEnd  ) $ zeroPoint
   in  line pStart pEnd
 
-breakBox :: (Out s, Space s) => Bezier s -> Box s -> ([Bezier s], [Bezier s])
+breakBox :: (Space s) => Bezier s -> Box s -> ([Bezier s], [Bezier s])
 breakBox bez box =
   let (firstCut, secondCut) = breakSides (trP "bez" bez) (allSides (trP "box" box))
       (secondCut', thirdCut) = breakSides bez secondCut
@@ -57,7 +57,7 @@ breakBox bez box =
       secondLoop = bez:map sideToLine secondCut
   in  (trP "firstLoop" firstLoop, trP "secondLoop" secondLoop)
 
-constructCurve :: (Out s, Space s) => Box s -> Bezier s -> ShapeTree token s
+constructCurve :: (Space s) => Box s -> Bezier s -> ShapeTree token s
 constructCurve boundary bez =
   let (firstLoop, secondLoop) = breakBox bez boundary
       first  = withColor orange       . mask . shapeFrom . makeOutline $ firstLoop
@@ -679,3 +679,35 @@ maxBoundaries = Box (Point2 (-maxBound) (-maxBound)) (Point2 maxBound maxBound)
 
 curveOnAxis :: (Eq s, Axis axis) => axis -> Bezier s -> Bool
 curveOnAxis axis bez = bez ^. bzStart . athwart axis == bez ^. bzEnd . athwart axis
+
+
+class Breaker (NextAxis axis) => Breaker axis where
+    lessBreak :: (Space s) => axis -> Box s -> Confine axis s -> (Branch (NextAxis axis) s -> a -> a) -> a -> a
+
+instance Breaker Vertical where
+    lessBreak axis box tree goNext =
+        if box ^. minBox . athwart axis < unAxis (tree ^. confineOverhang)
+        then goNext (tree ^. confineLessCut)
+        else id
+
+instance Breaker Horizontal where
+    lessBreak axis point tree goNext=
+        goNext (tree ^. confineLessCut)
+
+moreBreak :: (Axis axis, Space s) => axis -> Box s -> Confine axis s -> (Branch (NextAxis axis) s -> a -> a) -> a -> a
+moreBreak axis box tree goNext =
+    if box ^. maxBox . athwart axis >= unAxis (tree ^. confineCut)
+    then goNext (tree ^. confineMoreCut)
+    else id
+
+breakPixel :: forall s . (Space s) => ConfineTree s -> Box s -> [(Box s, [ItemTagId])]
+breakPixel mTree box =
+    go Vertical mTree box []
+    where
+    go :: (Axis axis, Breaker axis) => axis -> Branch axis s -> Box s -> [ItemTagId] -> [(Box s, [ItemTagId])]
+    go axis mTree box layers =
+       case mTree of
+           Nothing   -> [(box, layers)]
+           Just tree ->
+               let crossed = traverseCrossings (tree ^. confineCrossings) layers
+               in  undefined

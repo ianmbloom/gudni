@@ -22,15 +22,13 @@ module Plot
 where
 
 import Graphics.Gudni.Interface
-import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
-import Graphics.Gudni.Util.Plot
+import Graphics.Gudni.Draw
 
 import Control.Lens
 import Control.Monad.State
-
 import Data.Maybe
 
 data PlotState = PlotState

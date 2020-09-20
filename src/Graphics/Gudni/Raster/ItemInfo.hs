@@ -32,15 +32,15 @@ module Graphics.Gudni.Raster.ItemInfo
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Figure.Facet
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.StorableM
 
+import Graphics.Gudni.ShapeTree.STree
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.SubstanceInfo
-import Graphics.Gudni.Raster.StrandReference
+import Graphics.Gudni.Raster.Thresholds.StrandReference
 
 import Data.Bits
 import Numeric
@@ -59,7 +59,7 @@ newtype StrandId = StrandId {unStrandId :: Reference StrandReference} deriving (
 instance Show StrandId where
     show (StrandId i) = show i ++ "gid"
 
-newtype FacetId = FacetId {unFacetId :: Reference (HardFacet_ SubSpace)} deriving (Ord, Eq, Num, Enum)
+newtype FacetId = FacetId {unFacetId :: Reference (Facet_ SubSpace)} deriving (Ord, Eq, Num, Enum)
 
 instance Show FacetId where
     show (FacetId i) = show i ++ "fid"

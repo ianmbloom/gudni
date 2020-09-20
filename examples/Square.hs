@@ -25,6 +25,8 @@ import Graphics.Gudni.Interface
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
+import Graphics.Gudni.Draw
+import Graphics.Gudni.ShapeTree
 
 import Control.Lens
 import Control.Monad.State
@@ -32,8 +34,8 @@ import Control.Monad.State
 import Data.Maybe
 
 data SquareState = SquareState
-  { _stateAngle :: Angle SubSpace
-  , _stateScale :: SubSpace
+  { _squareAngle :: Angle SubSpace
+  , _squareScale :: SubSpace
   } deriving (Show)
 makeLenses ''SquareState
 
@@ -47,14 +49,14 @@ instance Model SquareState where
     screenSize state = Window (Point2 100 100)
     updateModelState frame elapsedTime inputs state =
         execState (
-            do  stateAngle .= (realToFrac elapsedTime / 2) @@ turn
+            do  squareAngle .= (realToFrac elapsedTime / 2) @@ turn
             ) $ foldl (flip processInput) state inputs
     ioTask = return
     --shouldLoop _ = False
     constructScene state status =
       let l = fromLayout .
               --translateBy (Point2 100 100) .      -- translate the child ShapeTree
-              scaleBy  (state ^. stateScale) .    -- scale the child ShapeTree based on the current state.
+              scaleBy  (state ^. squareScale) .    -- scale the child ShapeTree based on the current state.
               --rotateBy (state ^. stateAngle) .    -- rotate the child ShapeTree based on the current state.
               withColor yellow .                  -- create a leaf of the ShapeTree and fill the contained CompoundTree with a color.
               mask .
@@ -69,8 +71,8 @@ instance HandlesInput token SquareState where
          case input ^. inputType of
              (InputKey Pressed _ inputKeyboard) ->
                   case inputKeyboard of
-                     Key ArrowUp    -> stateScale *=  1.25
-                     Key ArrowDown  -> stateScale //= 1.25
+                     Key ArrowUp    -> squareScale *=  1.25
+                     Key ArrowDown  -> squareScale //= 1.25
                      _                   -> return ()
              _ -> return ()
 

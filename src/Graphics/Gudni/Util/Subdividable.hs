@@ -11,12 +11,10 @@ module Graphics.Gudni.Util.Subdividable
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Figure.Deknob
-import Graphics.Gudni.Figure.Facet
-import Graphics.Gudni.Figure.ShapeTree
+import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Layout.Layout
 import Graphics.Gudni.Layout.Style
-import Graphics.Gudni.Raster.TraverseShapeTree
+import Graphics.Gudni.ShapeTree
 --import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Debug
 import Linear.V2

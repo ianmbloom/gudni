@@ -28,7 +28,10 @@ module Graphics.Gudni.Layout.Style
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
+
+import Graphics.Gudni.Layout.Token
 import Graphics.Gudni.Layout.Proximity
 import Graphics.Gudni.Layout.WithBox
 import Graphics.Gudni.Layout.Alignment

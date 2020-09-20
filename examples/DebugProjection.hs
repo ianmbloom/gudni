@@ -23,25 +23,21 @@ module DebugProjection
 where
 
 import Graphics.Gudni.Interface
-import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
-import Graphics.Gudni.Util.Representation
+import Graphics.Gudni.Draw
+import Graphics.Gudni.ShapeTree
+
 import Graphics.Gudni.Util.Segment
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
-
-import qualified Graphics.Gudni.Figure.Bezier as B
 
 import Control.Lens
 import Control.Monad.State
 import Linear
 import Linear.Affine
-
-
 import Data.Maybe
-import Control.Lens
 
 data ProjectionState = ProjectionState
    {_stateBase        :: BasicSceneState

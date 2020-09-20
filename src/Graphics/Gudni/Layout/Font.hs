@@ -34,8 +34,12 @@ module Graphics.Gudni.Layout.Font
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.ShapeTree
+
 import Graphics.Gudni.Layout.WithBox
 import Graphics.Gudni.Layout.Proximity
+
+import Graphics.Gudni.Util.CurvePair
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
 

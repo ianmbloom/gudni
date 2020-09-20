@@ -22,16 +22,14 @@ module FacetTesselation
 where
 
 import Graphics.Gudni.Interface
-import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
-import Graphics.Gudni.Util.Representation
+import Graphics.Gudni.Draw
+
 import Graphics.Gudni.Util.Subdividable
 import Graphics.Gudni.Util.Segment
 import Graphics.Gudni.Util.Debug
-
-import qualified Graphics.Gudni.Figure.Bezier as B
 
 import Control.Lens
 import Control.Monad.State
@@ -39,10 +37,7 @@ import Linear
 import Linear.Affine
 import qualified Data.Vector as V
 import Control.Applicative
-
-
 import Data.Maybe
-import Control.Lens
 
 data FacetState = FacetState
    {_stateBase        :: BasicSceneState
@@ -58,46 +53,63 @@ instance HasStyle FacetState where
 slantedLine :: Shape SubSpace
 slantedLine = segmentsToShape [[Seg (Point2 0 0) Nothing, Seg (Point2 0.25 0) Nothing, Seg (Point2 1.25 1) Nothing, Seg (Point2 1 1) Nothing]]
 
+hatch :: IsStyle style
+      => SpaceOf style
+      -> SpaceOf style
+      -> Point2 (SpaceOf style)
+      -> Layout style
+hatch thickness size point =
+  let s = size / 2
+  in
+  translateBy point .
+  withColor black $
+  overlap [ mask . stroke thickness . makeOpenCurve $ [line (Point2 (-s) (-s)) (Point2 s s)]
+          , mask . stroke thickness . makeOpenCurve $ [line (Point2 s (-s)) (Point2 (-s) s)]
+          ]
+
+
 instance Model FacetState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
+    --shouldLoop _ = False
     constructScene state _status =
-        do let angle   = state ^. stateBase . stateAngle
-               repMode = state ^. stateBase . stateRepMode
-               repDk   = state ^. stateBase . stateRepDk
-               offset  = state ^. stateOffset
-           sceneFromLayout gray .
-               transformFromState (state ^. stateBase) .
-               stack $
-               [ overlap [  overlap . fmap (place . represent repDk) $ unFacetGroup projectedFacet
-                         , withColor (dark gray) . mask . stroke 3 $ path
-                         ]
-               , overlap [ overlap . fmap (place . represent repDk) $ unFacetGroup tesselatedFacets
-                         , withColor (dark gray) . mask . stroke 3 $ path
-                         ]
-               , overlap [ overlap . fmap (place . represent repDk) $ unFacetGroup tesselatedFacets
-                         , withColor (dark gray) . mask . stroke 3 $ path
-                         ]
-               ]
-      where
-        bzX = Bez (Point2 0 0) (Point2 0.5 1) (Point2 1 0) :: Bezier SubSpace
-        bz1 = Bez (Point2 20 0) (Point2 0   0) (Point2 0 40)
-        bz2 = Bez (Point2 0 40) (Point2 0 80) (Point2 40 80)
-        bz3 = Bez (Point2 40 80) (Point2 80 80) (Point2 80 160)
-        bz4 = Bez (Point2 80 160) (Point2 80 300) (Point2 160 300)
-        path :: OpenCurve SubSpace
-        path = makeOpenCurve (pure bz1 <|> pure bz2 <|> pure bz3 <|> pure bz4)
-        triangle :: V3 (Point2 SubSpace)
-        triangle = V3 (Point2 0 0) (Point2 100 0) (Point2 0 100)
-        facets :: FacetGroup SubSpace
-        facets = FacetGroup $ pure $ triangleToFacet triangle triangle
-        projectedFacet :: FacetGroup SubSpace
-        projectedFacet = projectDefault False (makeBezierSpace arcLength $ path) facets
-        tesselatedFacets :: FacetGroup SubSpace
-        tesselatedFacets = tesselateFacetSteps 1 $ projectedFacet
-        fullyTesselated :: FacetGroup SubSpace
-        fullyTesselated  = tesselateFacet 0.5 $ projectedFacet
+       let angle   = state ^. stateBase . stateAngle
+           repMode = state ^. stateBase . stateRepMode
+           repDk   = state ^. stateBase . stateRepDk
+           offset  = state ^. stateOffset
+           point   = state ^. stateBase . stateCursor
+           triangle :: V3 (Point2 SubSpace)
+           triangle = V3 (Point2 0 0) (Point2 800 0) (Point2 0 800)
 
+           pairTriangle = V3 (V2 (Point2 0 0)   (Point2 400 0  ))
+                             (V2 (Point2 800 0) (Point2 800 800))
+                             (V2 (Point2 0 800) (Point2 0 400))
+           facets :: [Facet_ SubSpace]
+           --facets = pure $ triangleToFacet triangle triangle
+           facets = pure $ pairsToFacet pairTriangle triangle
+           potential :: [Facet_ SubSpace]
+           potential = join . fmap (traversePotentialFacet 0.5 point) $ facets
+           traversed :: [Facet_ SubSpace]
+           traversed = join . fmap (traverseFacet 0.5 point) $ facets
+           tesselatedFacets :: [Facet_ SubSpace]
+           tesselatedFacets = {-trP "tesselated" $-} join . fmap (subdivideFacetSteps 3) $ facets
+           fullyTesselated :: [Facet_ SubSpace]
+           fullyTesselated  = join . fmap (tesselateFacet 1) $ facets
+
+        in sceneFromLayout gray .
+               transformFromState (state ^. stateBase) .
+               overlap $
+                   [ hatch 0.1 20 point
+                   , stack $
+                       [ -- , overlap . fmap (place . represent repDk) $ unFacetGroup tesselatedFacets
+                         overlap [ --overlap . fmap (place . represent repDk) $ potential
+                                   overlap . fmap (place . represent repDk) $ traversed
+                                 , overlap . fmap (place . represent repDk) $ facets
+                                 ]
+                       --, overlap . fmap (place . represent repDk) $ fullyTesselated
+
+                       ]
+                   ]
     providePictureMap _ = noPictures
     handleOutput state target = do
         presentTarget target
@@ -135,5 +147,6 @@ main = runApplication $ FacetState
            , _stateStep        = 69
            , _stateRepMode     = False
            , _stateRepDk       = False
+           , _stateCursor      = Point2 0 0
            }
        ) 0.75 (0 @@ deg)

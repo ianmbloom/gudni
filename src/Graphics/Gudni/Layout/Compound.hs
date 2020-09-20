@@ -24,6 +24,7 @@ module Graphics.Gudni.Layout.Compound
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.ShapeTree
 
 -- | Typeclass of shape representations that can be combined with other shapes.
 class Compoundable a where

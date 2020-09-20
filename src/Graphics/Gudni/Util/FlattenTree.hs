@@ -10,15 +10,15 @@ module Graphics.Gudni.Util.FlattenTree
   )
 where
 
+import Graphics.Gudni.Base.Loop
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Raster.TraverseShapeTree
+import Graphics.Gudni.ShapeTree
+
+import Graphics.Gudni.Util.Util
 
 import qualified Data.Sequence as S
 import Control.Monad.State
-import Graphics.Gudni.Util.Loop
-import Graphics.Gudni.Util.Util
 import Control.Monad.Identity
-
 import Control.Applicative
 
 class CanFlatten t where

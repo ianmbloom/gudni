@@ -35,11 +35,12 @@ module Graphics.Gudni.Util.Segment
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Layout.Draw
-import Graphics.Gudni.Figure.CurvePair
-import Graphics.Gudni.Util.Chain
-import Graphics.Gudni.Util.Loop
+import Graphics.Gudni.ShapeTree
+import Graphics.Gudni.Layout
+
+import Graphics.Gudni.Util.CurvePair
 
 import Control.Lens
 
