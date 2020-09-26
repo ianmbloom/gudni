@@ -21,21 +21,22 @@
 --
 -- Data structures for applying vector transformations and projections to bitmap textures.
 
-module Graphics.Gudni.Figure.Facet.Facet
+module Graphics.Gudni.Figure.Facet.Type
   ( Facet_(..)
   , Facet(..)
-  , sceneSide
-  , textureSide
+  , facetOutput
+  , facetInput
   , triangleToFacet
   , pairsToFacet
   , facetToBeziers
-  , rotateV3
   , rectangleToFacets
   , shouldSubdivideFacet
   )
 where
 
 import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Facet.Triangle
+import Graphics.Gudni.Figure.Facet.BezierTriangle
 --import Graphics.Gudni.Figure.Projection.BezierSpace
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Split
@@ -60,8 +61,8 @@ import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint hiding ((<>))
 
 data Facet_ s = Facet
-  { _sceneSide   :: V3 (V2 (Point2 s))
-  , _textureSide :: V3 (Point2 s)
+  { _facetOutput :: BezTri s
+  , _facetInput :: Tri s
   } deriving (Show, Generic)
 makeLenses ''Facet_
 
@@ -69,34 +70,11 @@ instance (Out s) => Out (Facet_ s)
 
 type Facet = Facet_ SubSpace
 
-shouldSubdivideBezier :: (Space s) => s -> Bezier s -> Bool
-shouldSubdivideBezier tolerance bez =
-  let midPoint = mid (bez ^. bzStart) (bez ^. bzEnd)
-      tDistance = taxiDistance midPoint (bez ^. bzControl)
-  in  tDistance > tolerance
-
 shouldSubdivideFacet :: (Space s) => s -> Facet_ s -> Bool
-shouldSubdivideFacet tolerance = or . fmap (shouldSubdivideBezier tolerance) . facetToBeziers
-
-rotateV3 :: V3 a -> V3 a
-rotateV3 (V3 a0 a1 a2) = (V3 a1 a2 a0)
-
-facetStartPoints :: Facet_ s -> V3 (Point2 s)
-facetStartPoints = fmap (view _x) . view sceneSide
-
-facetControls :: Facet_ s -> V3 (Point2 s)
-facetControls  = fmap (view _y) . view sceneSide
-
-facetEndPoints :: Facet_ s -> V3 (Point2 s)
-facetEndPoints = fmap (view _x) . rotateV3 . view sceneSide
+shouldSubdivideFacet tolerance = or . fmap (shouldSubdivideBezier tolerance) . bezTriToBeziers . view facetOutput
 
 facetToBeziers :: Facet_ s -> V3 (Bezier s)
-facetToBeziers facet =
-  let starts   = facetStartPoints facet
-      controls = facetControls    facet
-      ends     = facetEndPoints   facet
-  in  liftA3 Bez starts controls ends
-
+facetToBeziers = bezTriToBeziers . view facetOutput
 
 triangleToFacet :: Space s => V3 (Point2 s) -> V3 (Point2 s) -> Facet_ s
 triangleToFacet (V3 p0 p1 p2) texture =

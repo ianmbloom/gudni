@@ -173,9 +173,11 @@ instance (IsStyle style) =>
 instance (IsStyle style) => SimpleTransformable (Layout style) where
   translateBy p = over layout (translateBy p)
   stretchBy   p = over layout (stretchBy   p)
+  simpleTransformWith t = over layout (simpleTransformWith t)
 
 instance (IsStyle style) => Transformable (Layout style) where
   rotateBy   a = over layout (rotateBy a)
+  transformWith t = over layout (transformWith t)
 
 instance (IsStyle style) => Projectable (Layout style) where
   projectOnto path = over layout (projectOnto path)
@@ -183,9 +185,11 @@ instance (IsStyle style) => Projectable (Layout style) where
 instance (IsStyle style) => SimpleTransformable (CompoundLayout style) where
   translateBy p = over compoundLayout (translateBy p)
   stretchBy   p = over compoundLayout (stretchBy   p)
+  simpleTransformWith t = over compoundLayout (simpleTransformWith t)
 
 instance (IsStyle style) => Transformable (CompoundLayout style) where
   rotateBy   a = over compoundLayout (rotateBy a)
+  transformWith t = over compoundLayout (transformWith t)
 
 instance (IsStyle style) => Projectable (CompoundLayout style) where
   projectOnto path = over compoundLayout (projectOnto path)

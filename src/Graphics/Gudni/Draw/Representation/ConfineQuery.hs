@@ -15,10 +15,13 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.ItemInfo
 import Graphics.Gudni.Layout
-import Graphics.Gudni.Raster.ConfineTree.ConfineTree
+import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.ConfineTree.Traverse
 
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Elipse
+import Graphics.Gudni.Draw.Symbols
+import Graphics.Gudni.Draw.Text
 import Graphics.Gudni.Draw.Representation.Class
 
 import Graphics.Gudni.Util.Debug
@@ -30,20 +33,6 @@ import Data.Maybe
 import Data.List
 import qualified Data.Map as M
 import Text.PrettyPrint.GenericPretty
-
-cross :: IsStyle style
-      => Point2 (SpaceOf style)
-      -> SpaceOf style
-      -> SpaceOf style
-      -> Layout style
-cross point thickness size =
-  let s = size / 2
-  in
-  translateBy point .
-  withColor black $
-  overlap [ mask . stroke thickness . makeOpenCurve $ [line (Point2 (-s) (-s)) (Point2 s s)]
-          , mask . stroke thickness . makeOpenCurve $ [line (Point2 s (-s)) (Point2 (-s) s)]
-          ]
 
 ring :: IsStyle style
      => SpaceOf style
@@ -80,7 +69,7 @@ constructLayerStack colorMap point stack =
       --             intercalate "\n" (map show steps)
       --let string = show . sum . map (length . view layTags) $ stack -- intercalate "\n" $ map (show . view layTags) stack
       --text <- fromGlyph <$> paragraph 0.1 0.1 AlignMin AlignMin string :: FontMonad m (CompoundTree SubSpace)
-      overlap $ cross point 1 8:(imap (layerRing colorMap point) $ stack) -- ++ [withColor black . translateBy point . translateByXY 4 (-7.5) . scaleBy 15 $ text]
+      overlap $ hatch 1 8 point:(imap (layerRing colorMap point) $ stack) -- ++ [withColor black . translateBy point . translateByXY 4 (-7.5) . scaleBy 15 $ text]
 
 checkPoint :: forall style
            .  ( IsStyle style
@@ -91,7 +80,8 @@ checkPoint :: forall style
            -> Layout style
 checkPoint colorMap tree point =
   let (anchor, itemTagIds, curveTags) = pointWinding tree point
-  in  overlap [-- translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show $ point -- length $ curveTags
+  in  overlap [--translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show $ point -- length $ curveTags
+               -- ,
                constructLayerStack colorMap point itemTagIds
               --, withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line anchor point]
               ]

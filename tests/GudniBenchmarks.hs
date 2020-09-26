@@ -36,7 +36,44 @@ import System.IO.Silently
 import System.Info
 import Data.Maybe
 
-getTest :: BenchmarkState -> (String, BenchmarkState -> Layout DefaultStyle)
+data BenchmarkState = BenchmarkState
+  { _stateBase        :: BasicSceneState
+  , _statePictureMap  :: PictureMap
+  , _stateTests       :: [(String, SubSpace -> Int -> Layout DefaultStyle )]
+  , _stateCurrentTest :: Int
+  }
+makeLenses ''BenchmarkState
+
+instance Show BenchmarkState where
+  show state =
+     "BenchmarkState { " ++
+     show (state ^. stateBase       ) ++ ", " ++
+     show (state ^. stateCurrentTest) ++  " }"
+
+initialModel pictureMap =
+    BenchmarkState
+    { _stateBase = BasicSceneState
+        { _stateScale       = 10
+        , _stateDelta       = Point2 20 20
+        , _stateAngle       = 0 @@ rad
+        , _statePaused      = True
+        , _stateSpeed       = 0.1
+        , _statePace        = 1
+        , _stateLastTime    = 0
+        , _stateDirection   = True
+        , _statePlayhead    = 0
+        , _stateFrameNumber = 0
+        , _stateStep        = 100
+        , _stateRepMode     = False
+        , _stateRepDk       = False
+        , _stateCursor      = Point2 0 0
+        }
+    , _statePictureMap  = pictureMap
+    , _stateTests       = testList
+    , _stateCurrentTest = 19
+    }
+
+getTest :: BenchmarkState -> (String, SubSpace -> Int -> Layout DefaultStyle)
 getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
 
 instance HasStyle BenchmarkState where
@@ -49,7 +86,7 @@ instance Model BenchmarkState where
     updateModelState frame elapsedTime inputs state =
         over stateBase (updateSceneState frame elapsedTime) $ foldl (flip processInput) state inputs
     constructScene state status =
-        do let testScene = (snd $ getTest state) state
+        do let testScene = (snd $ getTest state) (state ^. stateBase . statePlayhead) (state ^. stateBase . stateStep)
                testName = (fst $ getTest state)
                repMode = state ^. stateBase . stateRepMode
                repDk   = state ^. stateBase . stateRepDk

@@ -23,6 +23,7 @@
 module Graphics.Gudni.Figure.Transform.Transformer
  ( Transformer (..)
  , SimpleTransformer(..)
+ , CanInvert(..)
  , CanApplySimpleTransformer(..)
  , CanApplyTransformer (..)
  , applyTranslation
@@ -37,7 +38,6 @@ where
 import Graphics.Gudni.Base.HasDefault
 import Graphics.Gudni.Figure.Primitive
 import Graphics.Gudni.Figure.Transform.Projection
-import Graphics.Gudni.Figure.Transform.Transformable
 import Graphics.Gudni.Figure.Facet
 import Graphics.Gudni.Figure.Fit.Bezier
 
@@ -60,6 +60,9 @@ instance HasDefault (SimpleTransformer s) where
 instance HasDefault (Transformer s) where
     defaultValue = Simple defaultValue
 
+class CanInvert a where
+  invert :: a -> a
+
 -- | Transformations that can be applied to a bounding box as well.
 data SimpleTransformer s where
   IdentityTransform :: SimpleTransformer s
@@ -67,6 +70,17 @@ data SimpleTransformer s where
   Stretch   :: Point2 s -> SimpleTransformer s
   CombineSimple :: SimpleTransformer s -> SimpleTransformer s -> SimpleTransformer s
   deriving (Show)
+
+invertScale :: Space s => s -> s
+invertScale s = if s == 0 then 0 else 1/s
+
+instance Space s => CanInvert (SimpleTransformer s) where
+  invert t =
+    case t of
+      IdentityTransform -> IdentityTransform
+      Translate p -> Translate (negate p)
+      Stretch s -> Stretch (fmap invertScale s)
+      CombineSimple a b -> CombineSimple (invert b) (invert a)
 
 -- | Transformations that break bounding boxes.
 data Transformer s where
@@ -76,14 +90,13 @@ data Transformer s where
   CombineTransform :: Transformer s -> Transformer s -> Transformer s
   deriving (Show)
 
-instance (Space s) => SimpleTransformable (Transformer s) where
-    translateBy p = CombineTransform (Simple $ Translate p)
-    stretchBy   p = CombineTransform (Simple $ Stretch p)
-
-instance (Space s) => Transformable (Transformer s) where
-    rotateBy    a = CombineTransform (Rotate a)
-instance (Space s) => Projectable (Transformer s) where
-    projectOnto path = CombineTransform (Project path)
+instance (Num (Angle s), Space s) => CanInvert (Transformer s) where
+  invert t =
+    case t of
+      Simple st -> Simple (invert st)
+      Rotate a -> Rotate (negate a)
+      Project curve -> error "invert projection not implemented."
+      CombineTransform a b -> CombineTransform (invert b) (invert a)
 
 instance (Space s) => HasSpace (Transformer s) where
   type SpaceOf (Transformer s) = s

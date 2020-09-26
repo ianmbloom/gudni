@@ -13,7 +13,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Figure.Primitive.Shape
+-- Module      :  Graphics.Gudni.Figure.Shape.Type
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -24,7 +24,7 @@
 -- A ShapeTree is the main input data structure for the Gudni Rasterizer. A client program
 -- generates a Scene which contains a ShapeTree for each frame that they wish to render.
 
-module Graphics.Gudni.Figure.Primitive.Shape
+module Graphics.Gudni.Figure.Shape.Type
   ( Shape_(..)
   , shapeOutlines
   , Shape(..)
@@ -35,8 +35,8 @@ where
 import Graphics.Gudni.Figure.Primitive.Space
 import Graphics.Gudni.Figure.Primitive.Point
 import Graphics.Gudni.Figure.Primitive.Box
-import Graphics.Gudni.Figure.Primitive.Bezier
-import Graphics.Gudni.Figure.Primitive.Outline
+import Graphics.Gudni.Figure.Bezier.Type
+import Graphics.Gudni.Figure.Shape.Outline
 import Graphics.Gudni.Base.Chain
 import Control.Lens
 import Data.Vector as V

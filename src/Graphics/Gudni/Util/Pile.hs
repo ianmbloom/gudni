@@ -35,11 +35,13 @@ module Graphics.Gudni.Util.Pile
   , listToPile
   , extendPile
   , addToPileState
+  , addFoldableToPileState
   , newPile
   , newPileSize
   , freePile
   , resetPile
   , isEmptyPile
+  , pileItem
   , BytePile (..)
   , AsBytes(..)
   , asBytes
@@ -211,6 +213,9 @@ addToPile' pile@(Pile cursor allocated startPtr) item =
     do e <- extendPile pile
        addToPile' e item
 
+pileItem :: forall t . Storable t => Pile t -> Int -> IO t
+pileItem pile index = peek (_pileData pile `plusPtr` (index * sizeOf (undefined :: t)))
+
 class (Show a, Show b, Storable a) => CanPile a b where
   addToPile :: Pile a -> b -> IO (Pile a, Slice a)
 
@@ -223,6 +228,16 @@ addToPileState :: (Storable a, Show a, CanPile a b, MonadState s m, MonadIO m)
 addToPileState lens object =
   do pile <- use lens
      (pile', ref) <- liftIO $ addToPile pile object
+     lens .= pile'
+     return ref
+
+addFoldableToPileState :: (Storable a, Show a, MonadState s m, MonadIO m, Foldable f)
+                       => Lens' s (Pile a)
+                       -> f a
+                       -> m (Slice a)
+addFoldableToPileState lens object =
+  do pile <- use lens
+     (pile', ref) <- liftIO $ addFoldableToPile pile object
      lens .= pile'
      return ref
 

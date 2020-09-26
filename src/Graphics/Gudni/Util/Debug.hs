@@ -11,8 +11,10 @@ module Graphics.Gudni.Util.Debug
   , trFl
   , tc
   , tcWith
+  , tcDepth
   , tcP
   , trCList
+  , trDepth
   , trLength
   , trFWhen
   , trWhen
@@ -98,6 +100,18 @@ traceWhen cond message = if cond then trace message else id
 
 tc :: Show a => String -> a -> a
 tc = tcWith show
+
+indenter depth = concat (replicate depth "   ")
+
+tcWithDepth :: Int -> (a -> String) -> String -> a -> a
+tcWithDepth i f m x = trace (indenter i ++"START "++m) $
+                      trace (indenter i ++ "END "++m++"--->"++(f x)) x
+
+tcDepth depth message = tcWithDepth depth show message
+
+trDepth depth message = tr (indenter depth ++ message)
+
+
 
 tcP :: Out a => String -> a -> a
 tcP = tcWith pretty

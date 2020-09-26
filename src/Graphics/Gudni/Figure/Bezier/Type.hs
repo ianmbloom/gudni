@@ -2,9 +2,10 @@
 {-# LANGUAGE PatternSynonyms     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE FlexibleInstances     #-}
 
 -- | Functions on quadratic Bézier curves
-module Graphics.Gudni.Figure.Primitive.Bezier
+module Graphics.Gudni.Figure.Bezier.Type
   ( Bezier(..)
   , BezierContainer(..)
   , line
@@ -19,6 +20,7 @@ module Graphics.Gudni.Figure.Primitive.Bezier
   , isKnob
   , isKnobThreshold
   , isKnobAbsolute
+  , shouldSubdivideBezier
   , reverseBezier
   , maxStepsFromAccuracy
   , dropBezier
@@ -41,6 +43,9 @@ import Graphics.Gudni.Figure.Primitive.Point
 import Graphics.Gudni.Figure.Primitive.Box
 import Graphics.Gudni.Figure.Primitive.ArcLength
 
+import Graphics.Gudni.Util.StorableM
+
+import Foreign.Storable
 import Data.Kind
 import Numeric.Interval
 import Linear
@@ -98,6 +103,12 @@ isKnobThreshold threshold axis bz@(Bez v0 control v1) =
       b = abs (control ^. athwart axis  - v1 ^. athwart axis)
       c = abs (v0 ^. athwart axis - v1 ^. athwart axis)
   in  abs ((a + b) - c) > threshold
+
+shouldSubdivideBezier :: (Space s) => s -> Bezier s -> Bool
+shouldSubdivideBezier tolerance bez =
+  let midPoint = mid (bez ^. bzStart) (bez ^. bzEnd)
+      tDistance = taxiDistance midPoint (bez ^. bzControl)
+  in  tDistance > tolerance
 
 instance Reversible (Bezier s) where
     reverseItem = reverseBezier
@@ -253,3 +264,16 @@ instance NFData s => NFData (Bezier s) where
 
 fixBezierNeighbor :: Bezier s -> Bezier s -> Bezier s
 fixBezierNeighbor bz0 bz1 = set bzEnd (view bzStart bz1) bz0
+
+instance StorableM (Bezier SubSpace) where
+    sizeOfM _ = do sizeOfM (undefined :: V3 (Point2 SubSpace))
+    alignmentM _ = do alignmentM (undefined :: V3 (Point2 SubSpace))
+    peekM = do v3 <- peekM
+               return $ Bezier v3
+    pokeM (Bezier v3) = do pokeM v3
+
+instance Storable (Bezier SubSpace) where
+    sizeOf = sizeOfV
+    alignment = alignmentV
+    peek = peekV
+    poke = pokeV

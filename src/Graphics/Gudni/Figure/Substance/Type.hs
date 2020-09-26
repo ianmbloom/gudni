@@ -69,9 +69,11 @@ instance Space s => HasSpace (Substance n s) where
 instance Space s => SimpleTransformable (Substance n s) where
   translateBy p = TransformSubstance (Simple $ Translate p)
   stretchBy   p = TransformSubstance (Simple $ Stretch p)
+  simpleTransformWith t = TransformSubstance (Simple $ t)
 
 instance Space s => Transformable (Substance n s) where
   rotateBy    a = TransformSubstance (Rotate a)
+  transformWith t = TransformSubstance t
 
 instance Space s => Projectable (Substance n s) where
   projectOnto path = TransformSubstance (Project path)

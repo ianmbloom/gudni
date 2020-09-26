@@ -74,10 +74,17 @@ library
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Subdividable
                      , Graphics.Gudni.Util.Util
+                     , Graphics.Gudni.Util.Shuffle
+                     , Graphics.Gudni.Util.TreeOrderTable
 
-                     , Graphics.Gudni.Raster.ConfineTree.ConfineTree
+                     , Graphics.Gudni.Raster.ConfineTree.Type
+                     , Graphics.Gudni.Raster.ConfineTree.TaggedBezier
+                     , Graphics.Gudni.Raster.ConfineTree.Build
+                     , Graphics.Gudni.Raster.ConfineTree.Decorate
+                     , Graphics.Gudni.Raster.ConfineTree.Sweep
+                     , Graphics.Gudni.Raster.ConfineTree.Traverse
                      , Graphics.Gudni.Raster.ConfineTree.Serialize
-                     , Graphics.Gudni.Raster.ConfineTree.TreeOrderTable
+                     , Graphics.Gudni.Raster.ConfineTree.Depth
 
   -- Modules included in this library but not exported.
   other-modules:       Graphics.Gudni.Base.HasDefault
@@ -93,10 +100,11 @@ library
                      , Graphics.Gudni.Figure.Substance
                      , Graphics.Gudni.Figure.Transform
 
-                     , Graphics.Gudni.Figure.Bezier.Deknob
                      , Graphics.Gudni.Figure.Deknob.Class
 
-                     , Graphics.Gudni.Figure.Facet.Facet
+                     , Graphics.Gudni.Figure.Facet.Triangle
+                     , Graphics.Gudni.Figure.Facet.BezierTriangle
+                     , Graphics.Gudni.Figure.Facet.Type
                      , Graphics.Gudni.Figure.Facet.Subdivide
                      , Graphics.Gudni.Figure.Facet.Traverse
 
@@ -106,17 +114,19 @@ library
                      , Graphics.Gudni.Figure.Primitive.Angle
                      , Graphics.Gudni.Figure.Primitive.ArcLength
                      , Graphics.Gudni.Figure.Primitive.Axis
-                     , Graphics.Gudni.Figure.Primitive.Bezier
                      , Graphics.Gudni.Figure.Primitive.Box
-                     , Graphics.Gudni.Figure.Bezier.Cross
-                     , Graphics.Gudni.Figure.Primitive.OpenCurve
-                     , Graphics.Gudni.Figure.Primitive.Outline
                      , Graphics.Gudni.Figure.Primitive.Point
-                     , Graphics.Gudni.Figure.Primitive.Shape
                      , Graphics.Gudni.Figure.Primitive.Space
 
+                     , Graphics.Gudni.Figure.Shape.Type
+                     , Graphics.Gudni.Figure.Shape.Outline
+                     , Graphics.Gudni.Figure.Shape.OpenCurve
+
+                     , Graphics.Gudni.Figure.Bezier.Type
+                     , Graphics.Gudni.Figure.Bezier.Cross
                      , Graphics.Gudni.Figure.Bezier.Cut
                      , Graphics.Gudni.Figure.Bezier.Split
+                     , Graphics.Gudni.Figure.Bezier.Deknob
 
                      , Graphics.Gudni.Figure.Substance.Color
                      , Graphics.Gudni.Figure.Substance.Gradient
@@ -146,6 +156,7 @@ library
 
                      , Graphics.Gudni.Draw.ArrowHead
                      , Graphics.Gudni.Draw.Elipse
+                     , Graphics.Gudni.Draw.Symbols
                      , Graphics.Gudni.Draw.Fuzzy
                      , Graphics.Gudni.Draw.Plot
                      , Graphics.Gudni.Draw.Rectangle
@@ -245,6 +256,7 @@ library
                      , loop
                      , lens
                      , monad-memo
+                     , transformers
 
                      , mmorph
                      , parallel
@@ -272,6 +284,7 @@ library
                      , numeric-limits
                      , GenericPretty
                      , pretty
+                     , STMonadTrans
 
 
   -- Directories containing source files.
@@ -297,7 +310,7 @@ executable gudni-benchmarks
                    , IfElse
   else
     buildable: False
-  hs-source-dirs: ./benchmarks
+  hs-source-dirs: ./tests
   main-is: GudniBenchmarks.hs
   default-language: Haskell2010
   ghc-options: -main-is GudniBenchmarks
@@ -349,7 +362,7 @@ executable facet-tesselation
                    , vector
   else
     buildable: False
-  hs-source-dirs: ./examples
+  hs-source-dirs: ./tests
   main-is: FacetTesselation.hs
   default-language: Haskell2010
   ghc-options: -main-is FacetTesselation
@@ -429,7 +442,8 @@ executable paragraph-example
                -- "-with-rtsopts=-N -p -s -h -i0.1"
 
 executable confinetree
-   -- other-modules:
+    other-modules:     GudniTests
+                       BasicShapes
   if flag(benchmarks)
     build-depends:   gudni
                    , base
@@ -443,10 +457,10 @@ executable confinetree
                    , random >=1.1 && <1.2
   else
     buildable: False
-  hs-source-dirs: ./src/Graphics/Gudni/Experimental
-  main-is: ConfineTreeDemo.hs
+  hs-source-dirs: ./tests
+  main-is: ConfineTreeTest.hs
   default-language: Haskell2010
-  ghc-options: -main-is ConfineTreeDemo
+  ghc-options: -main-is ConfineTreeTest
                -O3
                -threaded
                -- "-with-rtsopts=-N -p -s -h -i0.1"
@@ -466,7 +480,7 @@ executable crosstest
                    , random >=1.1 && <1.2
   else
     buildable: False
-  hs-source-dirs: ./src/Graphics/Gudni/Experimental
+  hs-source-dirs: ./tests
   main-is: CrossesBezierTest.hs
   default-language: Haskell2010
   ghc-options: -main-is CrossesBezierTest
@@ -475,7 +489,7 @@ executable crosstest
                -- "-with-rtsopts=-N -p -s -h -i0.1"
 
 benchmark criterion
-    hs-source-dirs: benchmarks
+    hs-source-dirs: tests
     main-is: CriterionBenchmarks.hs
     ghc-options: -O2 -Wall -rtsopts
     build-depends: gudni

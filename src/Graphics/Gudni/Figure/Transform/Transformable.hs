@@ -31,6 +31,7 @@ module Graphics.Gudni.Figure.Transform.Transformable
 where
 
 import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Transform.Transformer
 
 import Graphics.Gudni.Util.Debug
 
@@ -48,9 +49,12 @@ import System.Random
 class (HasSpace t) => SimpleTransformable t where
   translateBy :: Point2 (SpaceOf t) -> t -> t
   stretchBy   :: Point2 (SpaceOf t) -> t -> t
+  simpleTransformWith :: SimpleTransformer (SpaceOf t) -> t -> t
+
 
 class (SimpleTransformable t) => Transformable t where
   rotateBy    :: Angle (SpaceOf t) -> t -> t
+  transformWith :: Transformer (SpaceOf t) -> t -> t
 
 class (Transformable t) => Projectable t where
   projectOnto :: OpenCurve (SpaceOf t) -> t -> t
@@ -66,3 +70,15 @@ deltaOnAxis axis s = set (athwart axis) s zeroPoint
 
 translateOnAxis :: forall t axis . (Axis axis, SimpleTransformable t) => axis -> SpaceOf t -> t -> t
 translateOnAxis axis s = translateBy (deltaOnAxis axis s)
+
+instance (Space s) => SimpleTransformable (Transformer s) where
+    translateBy p = CombineTransform (Simple $ Translate p)
+    stretchBy   p = CombineTransform (Simple $ Stretch p)
+    simpleTransformWith t = CombineTransform (Simple t)
+
+instance (Space s) => Transformable (Transformer s) where
+    rotateBy    a = CombineTransform (Rotate a)
+    transformWith t = CombineTransform t
+
+instance (Space s) => Projectable (Transformer s) where
+    projectOnto path = CombineTransform (Project path)

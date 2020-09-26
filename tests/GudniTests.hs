@@ -2,14 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module GudniTests
- ( BenchmarkState(..)
- , initialModel
- , stateBase
- , statePictureMap
- , stateTests
- , stateCurrentTest
- , stateFrameNumber
- , testList
+ ( testList
+ , findTest
  )
 where
 
@@ -26,43 +20,13 @@ import Graphics.Gudni.Util.Segment
 import Data.Word
 import Data.Maybe
 import Data.Char
+import Data.List
 import Control.Lens
 import qualified Data.Vector.Storable as VS
 import qualified Data.Vector as V
 
 import Control.Monad.Random
 import System.Random
-
-data BenchmarkState = BenchmarkState
-  { _stateBase        :: BasicSceneState
-  , _statePictureMap  :: PictureMap
-  , _stateTests       :: [(String, BenchmarkState -> Layout DefaultStyle )]
-  , _stateCurrentTest :: Int
-  }
-makeLenses ''BenchmarkState
-
-initialModel pictureMap =
-    BenchmarkState
-    { _stateBase = BasicSceneState
-        { _stateScale       = 10
-        , _stateDelta       = Point2 20 20
-        , _stateAngle       = 0 @@ rad
-        , _statePaused      = True
-        , _stateSpeed       = 0.1
-        , _statePace        = 1
-        , _stateLastTime    = 0
-        , _stateDirection   = True
-        , _statePlayhead    = 0
-        , _stateFrameNumber = 0
-        , _stateStep        = 100
-        , _stateRepMode     = False
-        , _stateRepDk       = False
-        , _stateCursor      = Point2 0 0
-        }
-    , _statePictureMap  = pictureMap
-    , _stateTests       = testList
-    , _stateCurrentTest = 19
-    }
 
 testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("benchmark1"        , benchmark1          ) --  1 -
@@ -107,8 +71,11 @@ testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
            , ("bigGrid"           , bigGrid             )
            ]
 
-maxThresholdTest :: BenchmarkState -> Layout DefaultStyle
-maxThresholdTest state =
+findTest :: String -> [(String, a)] -> Int
+findTest name = fromJust . findIndex ((== name) . fst)
+
+maxThresholdTest :: SubSpace -> Int -> Layout DefaultStyle
+maxThresholdTest playhead step =
     translateByXY (-1) 1 .
     rotateBy (0.2 @@ rad) .
     scaleBy 0.1 .
@@ -122,10 +89,10 @@ maxThresholdTest state =
 
 -- | Stack of very wide thin RGB rectangles useful for testing large numbers of shapes per tile and
 -- subpixel geometry.
-maxShapeTest ::  BenchmarkState -> Layout DefaultStyle
-maxShapeTest state =
+maxShapeTest ::  SubSpace -> Int -> Layout DefaultStyle
+maxShapeTest playhead step =
     overlap .
-    gridOf 1 1 (state ^. stateBase . stateStep + 400 + 1) .
+    gridOf 1 1 (step + 400 + 1) .
     concat .
     repeat $
         [ withColor (transparent 1.0 (pureRed    )) . mask . rectangle $ Point2 10000 1
@@ -134,27 +101,24 @@ maxShapeTest state =
         ]
 
 -- | A fuzz test of random curves where the random points are all within a donut shape.
-fuzzyDonut :: BenchmarkState -> Layout DefaultStyle
-fuzzyDonut state =
-    let time = view (stateBase . stateLastTime) state
-    in  place .
+fuzzyDonut :: SubSpace -> Int -> Layout DefaultStyle
+fuzzyDonut playhead step =
+      place .
         translateByXY 500 500 .
-        overlap $ evalRand (sequence . replicate 16 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+        overlap $ evalRand (sequence . replicate 16 $ fuzzyRadial 400 500 100) (mkStdGen $ (round $ playhead * 2000) + step)
 
 -- | A basic fuzz test of random curves contained in a rectagular area.
-fuzzyBasic :: BenchmarkState -> Layout DefaultStyle
-fuzzyBasic state =
-    let time = view (stateBase . stateLastTime) state
-    in  place .
+fuzzyBasic :: SubSpace -> Int -> Layout DefaultStyle
+fuzzyBasic playhead step =
+      place .
         translateByXY 100 100 .
         overlap $
-        evalRand (sequence . replicate 16 $ fuzzyCurve (makePoint 1440 900) 10) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+        evalRand (sequence . replicate 16 $ fuzzyCurve (makePoint 1440 900) 10) (mkStdGen $ (round $ playhead * 2000) + step)
 
 -- | Just a lot of very transparent squares all on top of one and other.
-overlappingSquares :: BenchmarkState -> Layout DefaultStyle
-overlappingSquares state =
-    let time = view (stateBase . stateLastTime) state
-    in  place .
+overlappingSquares :: SubSpace -> Int -> Layout DefaultStyle
+overlappingSquares playhead step =
+      place .
         translateByXY 5 5 .
         rotateBy (3 @@ deg) .
         --scaleBy 0.5 .
@@ -162,97 +126,89 @@ overlappingSquares state =
         replicate 2000 $ {-translateBy (Point2 (-22) (-22)) .-} withColor (transparent 0.001 blue) $ mask $ rectangle (50 `by` 50)
 
 -- | Lot of circles stacked on top of one another in nearly the same place.
-overlappingCircles :: BenchmarkState -> Layout DefaultStyle
-overlappingCircles state =
-    let time = view (stateBase . stateLastTime) state
-    in  --translateByXY (-4) (-3) .
+overlappingCircles :: SubSpace -> Int -> Layout DefaultStyle
+overlappingCircles playhead step =
+      --translateByXY (-4) (-3) .
         --scaleBy 0.5 .
         place .
         overlap $
-        evalRand (sequence . replicate 100 $ fuzzyCircle (makePoint 2 2) 5 5) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
+        evalRand (sequence . replicate 100 $ fuzzyCircle (makePoint 2 2) 5 5) (mkStdGen $ (round $ playhead * 2000))
 
 -- | A random field of transparent circles.
-fuzzyCircles :: BenchmarkState -> Layout DefaultStyle
-fuzzyCircles state =
-     let time = view (stateBase . stateLastTime) state
-     in  translateByXY (-4) (-3) .
+fuzzyCircles :: SubSpace -> Int -> Layout DefaultStyle
+fuzzyCircles playhead step =
+        translateByXY (-4) (-3) .
          --scaleBy 0.5 .
          place .
          overlap $
-         --evalRand (sequence . replicate 100000 $ fuzzyCircle (makePoint 200 200) 5 50) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
-         evalRand (sequence . replicate 100000 $ fuzzyCircle (makePoint 5760 3600) 5 50) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
+         --evalRand (sequence . replicate 100000 $ fuzzyCircle (makePoint 200 200) 5 50) (mkStdGen $ (round $ playhead * 2000))
+         evalRand (sequence . replicate 10000 $ fuzzyCircle (makePoint 5760 3600) 5 50) (mkStdGen $ (round $ playhead * 2000))
 
 -- | A random field of transparent circles.
-fuzzyCirclesGrad :: BenchmarkState -> Layout DefaultStyle
-fuzzyCirclesGrad state =
-    let time = view (stateBase . stateLastTime) state
-    in  translateByXY (-4) (-3) .
+fuzzyCirclesGrad :: SubSpace -> Int -> Layout DefaultStyle
+fuzzyCirclesGrad playhead step =
+        translateByXY (-4) (-3) .
         --scaleBy 0.5 .
         place .
         overlap $
-        --evalRand (sequence . replicate 100000 $ fuzzyCircle (makePoint 200 200) 5 50) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
-        evalRand (sequence . replicate 10000 $ fuzzyCircleGradient (makePoint 5760 3600) 5 50) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
+        --evalRand (sequence . replicate 100000 $ fuzzyCircle (makePoint 200 200) 5 50) (mkStdGen $ (round $ playhead * 2000))
+        evalRand (sequence . replicate 10000 $ fuzzyCircleGradient (makePoint 5760 3600) 5 50) (mkStdGen $ (round $ playhead * 2000))
 
 -- | Smaller random field of transparent circles.
-fuzzyCircles2 :: BenchmarkState -> Layout DefaultStyle
-fuzzyCircles2 state =
-    let time = view (stateBase . stateLastTime) state
-    in  translateByXY 0 0 .
+fuzzyCircles2 :: SubSpace -> Int -> Layout DefaultStyle
+fuzzyCircles2 playhead step =
+      translateByXY 0 0 .
         place .
         overlap $
-        evalRand (sequence . replicate (state ^. stateBase . stateStep) $ fuzzyCircle (makePoint 20 20) 5 10) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
+        evalRand (sequence . replicate step $ fuzzyCircle (makePoint 20 20) 5 10) (mkStdGen $ (round $ playhead * 2000))
 
 -- | A random field of transparent circles.
-millionFuzzyCircles :: BenchmarkState -> Layout DefaultStyle
-millionFuzzyCircles state =
-    let time = view (stateBase . stateLastTime) state
-    in  --translateByXY (100) (100) .
+millionFuzzyCircles :: SubSpace -> Int -> Layout DefaultStyle
+millionFuzzyCircles playhead step =
+      --translateByXY (100) (100) .
         place .
         scaleBy 0.5 .
         overlap $
-        evalRand (sequence . replicate 1000000 $ fuzzyCircle (makePoint 5760 3600) 5 10) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000))
+        evalRand (sequence . replicate 1000000 $ fuzzyCircle (makePoint 5760 3600) 5 10) (mkStdGen $ (round $ playhead * 2000))
 
 -- | A random field of transparent squares.
-fuzzySquares :: BenchmarkState -> Layout DefaultStyle
-fuzzySquares state =
-    let time = view (stateBase . stateLastTime) state
-    in  place .
+fuzzySquares :: SubSpace -> Int -> Layout DefaultStyle
+fuzzySquares playhead step =
+      place .
         overlap $
-        evalRand (sequence . replicate 50000 $ fuzzySquare (makePoint 2880 1800) 10 60) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+        evalRand (sequence . replicate 50000 $ fuzzySquare (makePoint 2880 1800) 10 60) (mkStdGen $ (round $ playhead * 2000) + step)
 
 -- | Smaller random field of transparent squares.
-fuzzySquares2 :: BenchmarkState -> Layout DefaultStyle
-fuzzySquares2 state =
-    let time = view (stateBase . stateLastTime) state
-    in  place .
+fuzzySquares2 :: SubSpace -> Int -> Layout DefaultStyle
+fuzzySquares2 playhead step =
+      place .
         overlap $
-        evalRand (sequence . replicate 20 $ fuzzySquare (makePoint 30 30) 10 60) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+        evalRand (sequence . replicate 20 $ fuzzySquare (makePoint 30 30) 10 60) (mkStdGen $ (round $ playhead * 2000) + step)
 
-fuzzyGlyphs :: BenchmarkState -> Layout DefaultStyle
-fuzzyGlyphs state =
+fuzzyGlyphs :: SubSpace -> Int -> Layout DefaultStyle
+fuzzyGlyphs playhead step =
    let defaultGlyphs = V.fromList $ map glyph ['!'..'z']
        len = length defaultGlyphs
-       time = view (stateBase . stateLastTime) state
    in  translateByXY 200 200 .
        overlap $
-       evalRand (sequence . replicate 1000 $ fuzzyGlyph defaultGlyphs (makePoint 512 512) 10 300) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+       evalRand (sequence . replicate 1000 $ fuzzyGlyph defaultGlyphs (makePoint 512 512) 10 300) (mkStdGen $ (round $ playhead * 2000) + step)
 
-fuzzyGlyphs2 :: BenchmarkState -> Layout DefaultStyle
-fuzzyGlyphs2 state =
+fuzzyGlyphs2 :: SubSpace -> Int -> Layout DefaultStyle
+fuzzyGlyphs2 playhead step =
     let defaultGlyphs  = V.fromList $ map glyph ['!'..'z']
         len = length defaultGlyphs
-        time = view (stateBase . stateLastTime) state
     in  overlap $
-        evalRand (sequence . replicate 25000 $ fuzzyGlyph defaultGlyphs (makePoint 2880 2000) 10 200) (mkStdGen $ (round $ state ^. stateBase . statePlayhead * 2000) + (state ^. stateBase . stateStep))
+        evalRand (sequence . replicate 25000 $ fuzzyGlyph defaultGlyphs (makePoint 2880 2000) 10 200) (mkStdGen $ (round $ playhead * 2000) + step)
 
 -- | A grid of rotating glyphs with overlapping subtracted glyphs
-benchmark1 :: BenchmarkState -> Layout DefaultStyle
-benchmark1 state =
+benchmark1 :: SubSpace -> Int -> Layout DefaultStyle
+benchmark1 playhead step =
     let defaultGlyphs = map glyph "***O***X" --"ALl WoRk AnD nO pLaY mAkEs JaCk A dUlL bOy" ++ ['a'..'z']++['A'..'Z']++['0'..'9']++"!@#$%^&*()_+-={}[]:;\"'<>,./?\\|"
         subtractorGlyphs = map glyph "*"
-        dSize         = state ^. stateBase . stateScale
-        angle         = normalizeAngle ((((fromIntegral $ state ^. stateBase . stateStep) / 100) + (state ^. stateBase . statePlayhead)) @@ turn)
+        dSize         = 10
+        angle         = normalizeAngle ((((fromIntegral $ step) / 100) + (realToFrac playhead)) @@ turn)
         defaultString = cycle $ defaultGlyphs
+        angles :: [Angle SubSpace]
         angles        = map (normalizeAngle . (angle ^+^) . (^*0.5) . (@@ deg) ) [0..]
         textGrid  :: CompoundLayout DefaultStyle
         textGrid   = scaleBy dSize . overlap . gridOf 0.5 50 50 . zipWith (\a -> rotateBy a) angles $ defaultString
@@ -261,11 +217,11 @@ benchmark1 state =
     in  translateByXY 0 0 .
         scaleBy 50 .
         withColor (transparent 1.0 black) $
-        subtractFrom subtractor textGrid
+        {-subtractFrom subtractor-} textGrid
 
 -- | A grid of rectangles.
-rectGrid :: BenchmarkState -> Layout DefaultStyle
-rectGrid state =
+rectGrid :: SubSpace -> Int -> Layout DefaultStyle
+rectGrid playhead step =
     let grid :: CompoundTree SubSpace
         grid =  overlap . gridOf 1 256 256 . repeat . mask . rectangle $ Point2 0.5 0.5
     in  place .
@@ -274,8 +230,8 @@ rectGrid state =
         grid
 
 -- | A very big grid of rectangles.
-bigGrid :: BenchmarkState -> Layout DefaultStyle
-bigGrid state =
+bigGrid :: SubSpace -> Int -> Layout DefaultStyle
+bigGrid playhead step =
     let grid :: CompoundTree SubSpace
         grid =  overlap . gridOf 1 1600 1600 . repeat . mask . rectangle $ Point2 0.5 0.5
     in  place .
@@ -283,8 +239,8 @@ bigGrid state =
         grid
 
 -- | A grid of rectangles in direct contact
-solidGrid :: BenchmarkState -> Layout DefaultStyle
-solidGrid state =
+solidGrid :: SubSpace -> Int -> Layout DefaultStyle
+solidGrid playhead step =
     let grid  :: CompoundTree SubSpace
         grid   = overlap . gridOf 1 600 600 . repeat . mask . rectangle $ Point2 1 1
     in  place .
@@ -292,8 +248,8 @@ solidGrid state =
         grid
 
 -- | A grid of rectangles.
-checkerBoard :: BenchmarkState -> Layout DefaultStyle
-checkerBoard state =
+checkerBoard :: SubSpace -> Int -> Layout DefaultStyle
+checkerBoard playhead step =
     let grid  :: CompoundTree SubSpace
         grid = overlap .
                gridOf 1 10 10 .
@@ -307,8 +263,8 @@ checkerBoard state =
         grid
 
 -- | A knob is a vertical curve section whose control point sticks out further in the x direction than it's other points
-simpleKnob :: BenchmarkState -> Layout DefaultStyle
-simpleKnob state =
+simpleKnob :: SubSpace -> Int -> Layout DefaultStyle
+simpleKnob playhead step =
         place .
         scaleBy 10 .
         withColor (transparent 1.0 (red)) .
@@ -318,9 +274,9 @@ simpleKnob state =
         ]
 
 -- | Test shape for intersecting thresholds.
-hourGlass :: BenchmarkState -> Layout DefaultStyle
-hourGlass state =
-  let step = fromIntegral $ state ^. stateBase . stateStep
+hourGlass :: SubSpace -> Int -> Layout DefaultStyle
+hourGlass playhead step =
+  let step = fromIntegral $ step
   in    place .
         scaleBy 8 .
         withColor (transparent 1.0 (dark $ dark gray)) .
@@ -332,8 +288,8 @@ hourGlass state =
         ]
 
 -- | Test for loading a texture.
-testPict :: BenchmarkState -> Layout DefaultStyle
-testPict state =
+testPict :: SubSpace -> Int -> Layout DefaultStyle
+testPict playhead step =
     let w = 1000
         h = 300
         f (Point2 x y) = hslColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
@@ -345,8 +301,8 @@ testPict state =
                 ]
 
 -- | Test for radial gradient rendering.
-testRadialGradient :: BenchmarkState -> Layout DefaultStyle
-testRadialGradient state =
+testRadialGradient :: SubSpace -> Int -> Layout DefaultStyle
+testRadialGradient playhead step =
     let w = 1000
         h = 300
         f (Point2 x y) = hslColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
@@ -356,8 +312,8 @@ testRadialGradient state =
         overlap [ withRadialGradient zeroPoint 0 clearBlack 100 red . mask . rectangle $ Point2 300 300 ]
 
 -- | Test for linear gradient rendering.
-testLinearGradient :: BenchmarkState -> Layout DefaultStyle
-testLinearGradient state =
+testLinearGradient :: SubSpace -> Int -> Layout DefaultStyle
+testLinearGradient playhead step =
     let w = 1000
         h = 300
         f (Point2 x y) = hslColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
@@ -366,8 +322,8 @@ testLinearGradient state =
         overlap [ withLinearGradient zeroPoint clearBlack (Point2 100 500) red . mask $ rectangle (Point2 500 500) ]
 
 -- | Simple stack of squares.
-stackOfSquares :: BenchmarkState -> Layout DefaultStyle
-stackOfSquares state = place $
+stackOfSquares :: SubSpace -> Int -> Layout DefaultStyle
+stackOfSquares playhead step = place $
         overlap
           [ (translateByXY 0 0  . withColor (transparent 1.0 red    ) . mask $ rectangle (Point2 8 4) )
           , (translateByXY 0 4  . withColor (transparent 1.0 green  ) . mask $ rectangle (Point2 8 4) )
@@ -376,16 +332,16 @@ stackOfSquares state = place $
           ]
 
 -- | Basic test for shape subtraction.
-openSquare :: BenchmarkState -> Layout DefaultStyle
-openSquare state =
+openSquare :: SubSpace -> Int -> Layout DefaultStyle
+openSquare playhead step =
     place .
     withColor (transparent 1 orange) $
           subtractFrom (translateBy (Point2 1 1) . mask $ rectangle (Point2 3 3))
                     (mask $ rectangle (Point2 5 5))
 
 -- | Basic test for shape subtraction and transparency.
-openSquareOverlap2 :: BenchmarkState -> Layout DefaultStyle
-openSquareOverlap2 state =
+openSquareOverlap2 :: SubSpace -> Int -> Layout DefaultStyle
+openSquareOverlap2 playhead step =
     place .
     scaleBy 20 $
     overlap [ (translateByXY 0 0 . withColor (transparent 0.25 blue  ) $ subtractFrom (translateBy (Point2 4 4) . mask . rectangle $ Point2 8 8 ) (mask . rectangle $ Point2 16 16) )
@@ -393,9 +349,9 @@ openSquareOverlap2 state =
             ]
 
 -- | Basic test for shape subtraction and muliple transparency.
-openSquareOverlap3 :: BenchmarkState -> Layout DefaultStyle
-openSquareOverlap3 state =
-    let angle = view (stateBase . statePlayhead) state @@ turn
+openSquareOverlap3 :: SubSpace -> Int -> Layout DefaultStyle
+openSquareOverlap3 playhead step =
+    let angle = realToFrac playhead @@ turn :: Angle SubSpace
     in  place .
         translateByXY 400 400 .
         scaleBy 50 $
@@ -405,16 +361,16 @@ openSquareOverlap3 state =
                 ]
 
 -- | Test for shape edges that abut.
-concentricSquares2 :: BenchmarkState -> Layout DefaultStyle
-concentricSquares2 state =
+concentricSquares2 :: SubSpace -> Int -> Layout DefaultStyle
+concentricSquares2 playhead step =
     place $
     overlap [ (translateByXY 0 0 . withColor (transparent 1.0 red ) $ subtractFrom (translateBy (Point2 1 1) . mask . rectangle $ Point2 3 3 ) (mask . rectangle $ Point2 5 5) )
             , (translateByXY 1 1 . withColor (transparent 1.0 blue) $ subtractFrom (translateBy (Point2 1 1) . mask . rectangle $ Point2 1 1 ) (mask . rectangle $ Point2 3 3) )
             ]
 
 -- | Another test for shape edges that abut.
-concentricSquares3 :: BenchmarkState -> Layout DefaultStyle
-concentricSquares3 state =
+concentricSquares3 :: SubSpace -> Int -> Layout DefaultStyle
+concentricSquares3 playhead step =
     place $
     overlap [ translateByXY 0 0 . withColor (transparent 1.0 red   ) $ subtractFrom (translateBy (Point2 2 2) $ (mask $ rectangle (Point2 6 6)) ) (mask $ rectangle (Point2 10 10))
             , translateByXY 2 2 . withColor (transparent 1.0 green ) $ subtractFrom (translateBy (Point2 2 2) $ (mask $ rectangle (Point2 2 2)) ) (mask $ rectangle (Point2  6  6))
@@ -422,9 +378,9 @@ concentricSquares3 state =
             ]
 
 -- | Simple test one glyph.
-simpleGlyph :: forall m . BenchmarkState -> Layout DefaultStyle
-simpleGlyph state =
-    let character = chr $ state ^. stateBase . stateStep
+simpleGlyph :: forall m . SubSpace -> Int -> Layout DefaultStyle
+simpleGlyph playhead step =
+    let character = chr $ step
         g = glyphOf defaultValue character
     in  translateByXY 0 0 .
         rotateBy (6.28248 @@ rad) .
@@ -433,8 +389,8 @@ simpleGlyph state =
         g
 
 -- | Test for straight vertical segments with multiple colinear points.
-sixPointRectangle :: BenchmarkState -> Layout DefaultStyle
-sixPointRectangle state =
+sixPointRectangle :: SubSpace -> Int -> Layout DefaultStyle
+sixPointRectangle playhead step =
     place .
     withColor (transparent 1.0 (dark gray)) $
     fromSegments [straightXY 0 0, straightXY 1 0, straightXY 2 0
@@ -442,8 +398,8 @@ sixPointRectangle state =
                  ]
 
 -- | Simple Triangle
-triangle :: BenchmarkState -> Layout DefaultStyle
-triangle state =
+triangle :: SubSpace -> Int -> Layout DefaultStyle
+triangle playhead step =
     place .
     withColor (transparent 1.0 (dark green)) $
     fromSegments [ straightXY 0 0
@@ -451,8 +407,8 @@ triangle state =
                  , straightXY 0 5
                  ]
 -- | Very tiny square with no rotation. Usually the first thing tested for a new build.
-tinySquare :: BenchmarkState -> Layout DefaultStyle
-tinySquare state =
+tinySquare :: SubSpace -> Int -> Layout DefaultStyle
+tinySquare playhead step =
     place .
     translateByXY 0.0 0.5 .
     --rotateBy (45 @@ deg) .
@@ -462,8 +418,8 @@ tinySquare state =
     Point2 4 4
 
 -- | Medium sized square with no rotation.
-mediumSquare :: BenchmarkState -> Layout DefaultStyle
-mediumSquare state =
+mediumSquare :: SubSpace -> Int -> Layout DefaultStyle
+mediumSquare playhead step =
     place .
     translateByXY 0.0 1.0 .
     withColor red .
@@ -472,8 +428,8 @@ mediumSquare state =
     Point2 10 10
 
 -- | Medium sized square with no rotation.
-fullRectangle :: BenchmarkState -> Layout DefaultStyle
-fullRectangle state =
+fullRectangle :: SubSpace -> Int -> Layout DefaultStyle
+fullRectangle playhead step =
     place .
     translateByXY 0 0 .
     withColor red .
@@ -482,8 +438,8 @@ fullRectangle state =
     makePoint 2880 1800
 
 -- | Very simple rotated box.
-simpleRectangle :: BenchmarkState -> Layout DefaultStyle
-simpleRectangle state =
+simpleRectangle :: SubSpace -> Int -> Layout DefaultStyle
+simpleRectangle playhead step =
     place .
     translateByXY (0.35 + 0.1) 0 .
     rotateBy (45 @@ deg) .
@@ -494,8 +450,8 @@ simpleRectangle state =
     Point2 2 2
 
 -- | Simple rectangle test across multiple tiles.
-tallRectangle :: BenchmarkState -> Layout DefaultStyle
-tallRectangle state =
+tallRectangle :: SubSpace -> Int -> Layout DefaultStyle
+tallRectangle playhead step =
     place .
     translateByXY 0 1 .
     rotateBy (3 @@ deg) .
@@ -505,8 +461,8 @@ tallRectangle state =
     Point2 0.5 2000
 
 -- | Simple multishape test useful for subpixel geometry.
-twoBrackets :: BenchmarkState -> Layout DefaultStyle
-twoBrackets state =
+twoBrackets :: SubSpace -> Int -> Layout DefaultStyle
+twoBrackets playhead step =
     place .
     withColor white $
     overlap [ fromSegments [straightXY (-0.2) 0.0, straightXY   1.2  1.4
@@ -519,22 +475,16 @@ twoBrackets state =
 
 unitSquare = mask . rectangle $ Point2 1 1
 -- | Very simple subtraction test.
-subtractDiamond :: BenchmarkState -> Layout DefaultStyle
-subtractDiamond state =
+subtractDiamond :: SubSpace -> Int -> Layout DefaultStyle
+subtractDiamond playhead step =
     place .
     --rotateBy (45 @@ deg) .
     withColor white $
     (scaleBy 2 unitSquare) `subtractFrom` (translateByXY 1 1 . scaleBy 2 $ unitSquare)
 
-subtractDiamond2 :: BenchmarkState -> Layout DefaultStyle
-subtractDiamond2 state =
+subtractDiamond2 :: SubSpace -> Int -> Layout DefaultStyle
+subtractDiamond2 playhead step =
     place .
     --rotateBy (45 @@ deg) .
     withColor white $
     (scaleBy 2 . overlap . replicate 200 $ unitSquare) `subtractFrom` (translateByXY 1 1 . scaleBy 2 . overlap . replicate 200 $ unitSquare)
-
-instance Show BenchmarkState where
-  show state =
-     "BenchmarkState { " ++
-     show (state ^. stateBase       ) ++ ", " ++
-     show (state ^. stateCurrentTest) ++  " }"

@@ -8,8 +8,8 @@ type HardFacet = HardFacet_ SubSpace
 
 hardenFacet :: Facet_ s -> HardFacet_ s
 hardenFacet facet =
-    let sceneFacet = fmap (view _x . stripBezier . view sceneSide) . view facetSides $ facet
-        textureFacet = fmap (view (textureSide . _x)) . view facetSides $ facet
+    let sceneFacet = fmap (view _x . stripBezier . view facetOutput) . view facetSides $ facet
+        textureFacet = fmap (view (facetInput . _x)) . view facetSides $ facet
     in  HardFacet { _hardFace = sceneFacet, _hardTexture = textureFacet}
 
 instance (Space s) => HasSpace (HardFacet_ s) where
@@ -51,9 +51,9 @@ sideTriangle :: (Space s, Out s)
 sideTriangle leftSplit rightSplit left right bottom splitPoints facet =
   let (_, left')  = splitBezierSide (splitPoints ^. leftSplit)  (facet ^. facetSides . left)
       (right', _) = splitBezierSide (splitPoints ^. rightSplit) (facet ^. facetSides . right)
-      midControl = mid (facet ^. facetSides . left . sceneSide . bzEnd) (facet ^. facetSides . bottom . sceneSide . bzControl)
-      bottomBez = Bez (right' ^. sceneSide . bzEnd) midControl (left' ^. sceneSide . bzStart)
-      bottomTex = V2 (left' ^. textureSide . _x) (right' ^. textureSide . _y)
+      midControl = mid (facet ^. facetSides . left . facetOutput . bzEnd) (facet ^. facetSides . bottom . facetOutput . bzControl)
+      bottomBez = Bez (right' ^. facetOutput . bzEnd) midControl (left' ^. facetOutput . bzStart)
+      bottomTex = V2 (left' ^. facetInput . _x) (right' ^. facetInput . _y)
       bottom' = FacetSide bottomBez bottomTex
   in  set (facetSides . left) left' . set (facetSides . right) right' . set (facetSides . bottom) bottom' $ facet
 
@@ -86,7 +86,7 @@ splitBezierSide t (FacetSide bez tex) =
 
 maybeSubdivideFacet :: (Space s, Alternative f, Out s) => (Bezier s -> Maybe s) -> Facet_ s -> Maybe (f (Facet_ s))
 maybeSubdivideFacet f facet =
-    let mSplitPoints = fmap (f . view sceneSide) $ facet ^. facetSides
+    let mSplitPoints = fmap (f . view facetOutput) $ facet ^. facetSides
     in  if or (fmap isJust mSplitPoints)
         then let splitPoints = fmap (fromMaybe hALF) mSplitPoints
                  (V4 triZ triX triY triIn) = subdivideFacetT splitPoints facet
@@ -95,7 +95,7 @@ maybeSubdivideFacet f facet =
 
 maybeCutFacet :: (Space s, Out s) => (Bezier s -> Maybe s) -> Facet_ s -> Maybe (FacetGroup s, FacetGroup s)
 maybeCutFacet f facet =
-    let mSplitPoints = fmap (f . view sceneSide) $ facet ^. facetSides
+    let mSplitPoints = fmap (f . view facetOutput) $ facet ^. facetSides
     in  if or (fmap isJust mSplitPoints)
         then let splitPoints = fmap (fromMaybe hALF) mSplitPoints
                  (V4 triX triY triZ triIn) = subdivideFacetT splitPoints facet
@@ -113,7 +113,7 @@ instance (Space s, Out s) => CanCut (FacetGroup s) where
     -- | Split item across horizontal or vertical line
     splitAtCut axis splitPoint = undefined . fmap (maybeCutFacet (maybeCutPointBezier axis splitPoint)) . unFacetGroup
     -- | Determine if horizontal or vertical line cuts item
-    canCut axis splitPoint = undefined -- or . join . fmap (fmap (canCut axis splitPoint . view sceneSide) . view facetSides) . unFacetGroup
+    canCut axis splitPoint = undefined -- or . join . fmap (fmap (canCut axis splitPoint . view facetOutput) . view facetSides) . unFacetGroup
 
 stripBezier :: Bezier s -> V2 (Point2 s)
 stripBezier (Bez v0 c v1) = V2 v0 v1
@@ -142,3 +142,19 @@ instance ( Space s
         let fixed :: f (Facet_ s)
             fixed = join . fmap (undefined {- replaceKnob verticalAxis-}) $ facets
         in  undefined -- join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ FacetGroup fixed
+
+facetStartPoints :: Facet_ s -> V3 (Point2 s)
+facetStartPoints =  . view facetOutput
+
+facetControls :: Facet_ s -> V3 (Point2 s)
+facetControls  = fmap (view _y) . view facetOutput
+
+facetEndPoints :: Facet_ s -> V3 (Point2 s)
+facetEndPoints = fmap (view _x) . rotateTri1 . view facetOutput
+
+facetToBeziers :: Facet_ s -> V3 (Bezier s)
+facetToBeziers facet = bezTriToBeziers
+  let starts   = facetStartPoints facet
+      controls = facetControls    facet
+      ends     = facetEndPoints   facet
+  in  liftA3 Bez starts controls ends

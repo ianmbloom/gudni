@@ -81,7 +81,7 @@ type SubSpace_ = Float
 -- | SubSpace is short for subpixel space. A floating point value where one square unit refers to one pixel.
 newtype SubSpace = SubSpace {unSubSpace :: SubSpace_} deriving (Enum, Epsilon, RealFrac, Fractional, Real, Num, Ord, Eq, RealFloat, Floating, Generic)
 instance Out SubSpace where
-    doc x = text . show . unSubSpace $ x
+    doc x = text . show $ x
     docPrec _ = doc
 instance Bounded SubSpace where { minBound = SubSpace (-maxValue); maxBound = SubSpace maxValue }
 
@@ -143,7 +143,9 @@ instance Random TextureSpace where
 -------------------- Show --------------------------
 
 instance Show SubSpace where
-  show (SubSpace x) = (if x < 0 then \string -> "("++string++")" else id) $ showFl' 5 x
+  show x | x == minBound = "(minBound)"
+         | x == maxBound = "maxBound"
+         | otherwise = (if x < 0 then \string -> "("++string++")" else id) . showFl' 5 . unSubSpace $ x
 
 instance Show TextureSpace where
   show (TSpace x) = showFl' 5 x

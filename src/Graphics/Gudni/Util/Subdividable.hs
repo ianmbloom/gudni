@@ -63,8 +63,8 @@ instance IsStyle style => CanSubdivide (LayoutRep style) where
         LayoutShape shape -> LayoutShape (subdivide steps shape)
 {-
 instance (Space s, Space t, s~t) => CanSubdivide (FacetSide s t) where
-    represent dk facetSide@(FacetSide sceneSide textureSide) =
-        overlap [represent dk sceneSide, withColor green . mask . stroke 0.25 . mkLine $ textureSide]
+    represent dk facetSide@(FacetSide facetOutput facetInput) =
+        overlap [represent dk facetOutput, withColor green . mask . stroke 0.25 . mkLine $ facetInput]
 
 instance (Space s, Space t, s~t) => HasRepresentation (Facet_ s t) where
     represent dk facet@(Facet sides) = overlap . fmap (represent dk) $ sides

@@ -711,3 +711,183 @@ breakPixel mTree box =
            Just tree ->
                let crossed = traverseCrossings (tree ^. confineCrossings) layers
                in  undefined
+
+goChildrenOld :: forall axis
+              .  (Axis axis, SwitchAxis axis, SwitchAxis (NextAxis axis), axis~NextAxis(NextAxis axis))
+              => axis
+              -> Bool
+              -> With axis s
+              -> With (NextAxis axis) s
+              -> Confine axis s
+              -> Confine axis s
+goChildrenOld axis moreSide parentCut parentLine tree =
+   let goNext :: Bool -> Maybe (Confine (NextAxis axis) s) -> Maybe (Confine (NextAxis axis) s)
+       goNext nextSide = goAdd (nextAxis axis) nextSide parentLine (tree ^. confineCut)
+       --message = "newTag: " ++ show tag ++ " treeCurveTag: " ++ show (tree ^. confineCurveTag) ++ "   pLine " ++ show parentLine ++ " pCut " ++ show parentCut ++ " "
+       pLine = fromAxis (nextAxis axis) parentLine
+       maxAlo = box ^. maxBox . along axis
+       minAlo = box ^. minBox . along axis
+   in  if --trWhen (tag == checkTag) (" " ++ message ++ " both ") $
+          (
+          -- trWhen (tag == checkTag) (" " ++ message ++ "    moreSide " ++ show (    moreSide) ++ " && (maxAth >= pLine)" ++ show (maxAth >= pLine)) $
+                                              moreSide                               && (maxAlo >= pLine)) ||
+          (
+          -- trWhen (tag == checkTag) (" " ++ message ++ "not moreSide " ++ show (not moreSide) ++ " && (minAth <  pLine)" ++ show (minAth <  pLine)) $
+                                          not moreSide                               && (minAlo <= pLine))
+       then set confineMoreCut (goNext True  (tree ^. confineMoreCut)) .
+            set confineLessCut (goNext False (tree ^. confineLessCut)) $
+            tree
+       else tree
+
+decorateConfineTree :: forall s m
+                 .  ( Space s
+                    , Monad m
+                    )
+                 => m ()
+                 -> ConfineTree s
+                 -> m (ConfineTree s)
+decorateConfineTree op mTop = go Vertical mTop mTop
+    where
+    go :: (Axis axis) => axis -> Maybe (Confine axis s) -> ConfineTree s -> m (ConfineTree s)
+    go axis mTree =
+        case mTree of
+            Nothing -> return
+            Just tree ->
+                let less = go (nextAxis axis) (tree ^. confineLessCut)
+                    more = go (nextAxis axis) (tree ^. confineMoreCut)
+                    this = addCrossingToConfineTree op (tree ^. confineItemTagId) (tree ^. confineCurveTag) (tree ^. confineCurve)
+                in  less <=< more <=< this
+
+------------------------------------
+------------------------------------
+crossesAlong :: (Axis axis, Space s) => axis -> s -> s -> s -> Bezier s -> Bool
+crossesAlong axis baseline start end bez =
+  --tc ("crossesAlong " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
+  if start == end
+  then False
+  else
+  if start > end
+  then crossesAlong axis baseline end start bez
+  else go bez
+  where
+  go bez =
+    --tc ("go " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
+    let minAthwart = bezAthwart axis min bez
+        maxAthwart = bezAthwart axis max bez
+        minAlong   = bezAlong   axis min bez
+        maxAlong   = bezAlong   axis max bez
+        (lessBez, moreBez) = splitBezier 0.5 bez
+    in  if --tr "totally outside" $
+           baseline <  minAthwart ||
+           baseline >= maxAthwart ||
+           start >= maxAlong ||
+           end   <  minAlong
+        then -- segment is totally outside the range of curve
+             False
+        else let sizeAlong = maxAlong - minAlong
+                 barrier = if isHorizontal axis || bezierSlopeLTEZero axis bez then minAlong else maxAlong
+                 --oppose  = if isHorizontal axis || bezierSlopeLTEZero axis bez then maxAlong else minAlong
+                 isK = isKnobAbsolute axis bez
+             in
+             if --tr "mustSplit" $
+                 (sizeAlong > limit &&
+                 -- curve size remains greater than the limit
+                 --(baseline /= oppose) &&
+                 (start >= minAlong || end < maxAlong) -- and the start or end points are somewhere inside curve limits
+                )
+                || isK -- or the curve creates a knob, meaning there could be more than one cross point
+             then -- must split
+                  go lessBez /= go moreBez
+             else start < barrier && end >= barrier
+------------------------------------
+------------------------------------
+
+                  lessCut :: (Axis axis, Space s) => axis -> s -> Confine axis s -> (Branch (NextAxis axis) s -> a -> a) -> a -> a
+                  lessCut axis s tree goNext =
+                      if onAxis axis s < tree ^. confineCut
+                      then goNext (tree ^. confineLessCut)
+                      else id
+
+                  moreCut :: (Axis axis, Space s) => axis -> s -> Confine axis s -> (Branch (NextAxis axis) s -> a -> a) -> a -> a
+                  moreCut axis s tree goNext =
+                      if onAxis axis s >= tree ^. confineCut
+                      then goNext (tree ^. confineMoreCut)
+                      else id
+                  setLess = lessCut axis (box ^. minBox . athwart axis) tree
+                            (\t -> over confineOverhang (max (onAxis axis (box ^. maxBox . athwart axis))) .
+                                   set confineLessCut (goInsert (nextAxis axis) t))
+                  setMore = moreCut axis (box ^. minBox . athwart axis) tree
+                            (set confineMoreCut . goInsert (nextAxis axis))
+              in  Just . setLess . setMore $ tree
+
+--minAthwart = box ^. minBox . athwart axis <= boundary ^. minBox . athwart axis
+--minAlong   = box ^. minBox . along   axis <= boundary ^. minBox . along   axis
+
+--tr "bezOverhangs " ++ show curveTag ++ " maxAth " ++ show maxAthwart
+    -- keepPar = if parallelIsMore
+    --           then
+    --minAthwart ||
+    --minAlong   ||
+
+
+crossesAlong :: (Axis axis, Space s) => axis -> s -> s -> s -> Bezier s -> Bool
+crossesAlong axis baseline start end bez =
+  --tc ("crossesAlong " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
+  if start == end
+  then False
+  else
+  if start > end
+  then crossesAlong axis baseline end start bez
+  else go bez
+  where
+  go bez =
+    --tc ("go " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
+    let minAthwart = bezAthwart axis min bez
+        maxAthwart = bezAthwart axis max bez
+        minAlong   = bezAlong   axis min bez
+        maxAlong   = bezAlong   axis max bez
+        (lessBez, moreBez) = splitBezier 0.5 bez
+    in  if --tr "totally outside" $
+           baseline <= minAthwart ||
+           baseline >  maxAthwart ||
+           start >  maxAlong ||
+           end   <= minAlong
+        then -- segment is totally outside the range of curve
+             False
+        else let sizeAlong = maxAlong - minAlong
+                 slopeLTEZero = bezierSlopeLTEZero axis bez
+                 -- barSide = isHorizontal axis || bezierSlopeLTEZero axis bez
+                 offBaseline = baseline /= maxAthwart
+                 --oppose  = if isHorizontal axis || bezierSlopeLTEZero axis bez then maxAlong else minAlong
+                 isK = isKnobAbsolute axis bez
+             in
+             if --tr "mustSplit" $
+                 (sizeAlong > limit &&
+                 -- curve size remains greater than the limit
+                 offBaseline &&
+                 (start > minAlong || end <= maxAlong) -- and the start or end points are somewhere inside curve limits
+                )
+                || isK -- or the curve creates a knob, meaning there could be more than one cross point
+             then -- must split
+                  go lessBez /= go moreBez
+             else let barrierMax = slopeLTEZero
+                      barrier    = if barrierMax then maxAlong else minAlong
+                  in
+                  if barrierMax || isVertical
+                  then start <= barrier && end > barrier
+                  else start <  barrier && end >= barrier
+
+
+let barrierMin = not (slopeLTEZero && not offBaseline) || not (slopeLTEZero || isHorizontal axis)
+         barrier    = if barrierMin then minAlong else maxAlong
+     in
+     if slopeLTEZero || isVertical axis
+     then start <= barrier && end >  barrier
+     else start <  barrier && end >= barrier
+
+let barrierMin = not (slopeLTEZero && not offBaseline) || not (slopeLTEZero || isHorizontal axis)
+         barrier    = if barrierMin then minAlong else maxAlong
+     in
+     if slopeLTEZero || isVertical axis
+     then start <= barrier && end >  barrier
+     else start <  barrier && end >= barrier

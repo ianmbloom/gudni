@@ -10,7 +10,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Figure.Primitive.OpenCurve
+-- Module      :  Graphics.Gudni.Figure.Shape.OpenCurve
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -20,7 +20,7 @@
 --
 -- Functions for defining and combining open curves.
 
-module Graphics.Gudni.Figure.Primitive.OpenCurve
+module Graphics.Gudni.Figure.Shape.OpenCurve
   ( OpenCurve_(..)
   , curveSegments
   , terminator
@@ -37,7 +37,7 @@ import Graphics.Gudni.Base.Reversible
 
 import Graphics.Gudni.Figure.Primitive.Space
 import Graphics.Gudni.Figure.Primitive.Point
-import Graphics.Gudni.Figure.Primitive.Bezier
+import Graphics.Gudni.Figure.Bezier.Type
 import Graphics.Gudni.Figure.Primitive.ArcLength
 
 import Graphics.Gudni.Util.Debug

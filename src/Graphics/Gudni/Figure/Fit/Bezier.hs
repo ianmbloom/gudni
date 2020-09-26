@@ -153,4 +153,4 @@ arbitraryIntersection p0 slope0 p1 slope1 =
 projPoint :: forall s . Space s => Bezier s -> Point2 s -> Point2 s
 projPoint curve toProject =
     let (point, normal) = bezierPointAndNormal curve (toProject ^. pX)
-    in  point .+^ ((((toProject ^. pY) :: s) *^ normal) :: Diff V2 s)
+    in  point .+^ (((toProject ^. pY) *^ normal) :: Diff V2 s)

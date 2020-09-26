@@ -78,7 +78,7 @@ showCross :: (Axis axis, IsStyle style)
 showCross axis start end bez =
     let doesCross = crossesAlong axis (start ^. athwart axis) (start ^. along axis) (end ^. along axis) bez
         color = if doesCross then red else green
-    in  withColor color . mask . stroke 0.1 . makeOpenCurve $ [line start end]
+    in  withColor color . mask . stroke 0.3 . makeOpenCurve $ [line start end]
 
 overCs :: (Point2 s -> Point2 s) -> (EitherAxis, Point2 s, Point2 s) -> (EitherAxis, Point2 s, Point2 s)
 overCs f (x, a, b) = (x, f a, f b)
@@ -91,16 +91,26 @@ crossTests bez =
    let s :: SpaceOf style
        s = 50
        cs :: [(EitherAxis, Point2 (SpaceOf style), Point2 (SpaceOf style))]
-       cs = [ (Right Vertical,  Point2 0   0,   Point2 0   1  )
-            , (Left Horizontal, Point2 0   1,   Point2 1   1  )
-            , (Right Vertical,  Point2 1   1,   Point2 1   0  )
-            , (Left Horizontal, Point2 1   0,   Point2 0   0  )
-            , (Right Vertical,  Point2 0.5 0,   Point2 0.5 1  )
-            , (Left Horizontal, Point2 0 0.5,   Point2 1   0.5)
+       cs = [
+               (Right Vertical,  Point2 0   0,   Point2 0   1  )
+             , (Left Horizontal, Point2 0   1,   Point2 1   1  )
+             , (Right Vertical,  Point2 1   1,   Point2 1   0  )
+             , (Left Horizontal, Point2 1   0,   Point2 0   0  )
+             , (Right Vertical,  Point2 0.5 0,   Point2 0.5 1  )
+             , (Left Horizontal, Point2 0 0.5,   Point2 1   0.5)
+
+
             , (Right Vertical,  Point2 0.1 0.1, Point2 0.1 0.9)
             , (Left Horizontal, Point2 0.1 0.9, Point2 0.9 0.9)
             , (Right Vertical,  Point2 0.9 0.9, Point2 0.9 0.1)
             , (Left Horizontal, Point2 0.9 0.1, Point2 0.1 0.1)
+
+
+            , (Right Vertical,  Point2 0.25 0.25, Point2 0.25 0.75)
+            , (Left Horizontal, Point2 0.25 0.75, Point2 0.75 0.75)
+
+            , (Right Vertical,  Point2 0.75 0.75, Point2 0.75 0.25)
+            , (Left Horizontal, Point2 0.75 0.25, Point2 0.25 0.25)
 
             , (Right Vertical,  Point2 0 (-0.5),Point2 0   0  )
             , (Left  Horizontal,Point2 (-0.5) 0,Point2 0   0  )
@@ -119,43 +129,47 @@ crossTests bez =
 
        zs :: [(EitherAxis, Point2 (SpaceOf style), Point2 (SpaceOf style))]
        zs = map (overCs (^* s)) cs
-   in  overlap $ (withColor black . mask . stroke 0.1 $ makeOpenCurve [reBez]):
-                 map (\(e, start, end) ->
-                       withEitherAxis showCross showCross e start end reBez) zs
+   in  overlap $ (map (\(e, start, end) ->
+                       withEitherAxis showCross showCross e start end reBez) zs)
+                 ++ [ (withColor white . mask . stroke 0.5 $ makeOpenCurve [reBez])]
 
-revTests bez = rack $ map crossTests $ [bez, reverseBezier bez]
+revTests bez = crossTests bez --rack $ map crossTests $ [bez, reverseBezier bez]
+
+mkBez x0 y0 x1 y1 x2 y2 = Bez (Point2 x0 y0) (Point2 x1 y1) (Point2 x2 y2)
 
 runCrossTests :: Layout DefaultStyle
 runCrossTests =
-  let bez0 = Bez (Point2 0 0) (Point2 0.5 0.5) (Point2 1 1)
-      bez1 = Bez (Point2 0 1) (Point2 0.5 0.5) (Point2 1 0)
-      bez2 = Bez (Point2 0 0.5) (Point2 0.5 0.5) (Point2 1 0.5)
-      bez3 = Bez (Point2 0.5 0) (Point2 0.5 0.5) (Point2 0.5 1)
+  let diagonalLines = [ mkBez 0   0   0.5 0.5 1   1
+                      , mkBez 0   1   0.5 0.5 1   0
+                      ]
+      centerLines = [ mkBez 0   0.5 0.5 0.5 1   0.5
+                    , mkBez 0.5 0   0.5 0.5 0.5 1
+                    ]
 
-      bez4 = Bez (Point2 0 0) (Point2 0 1) (Point2 1 1)
-      bez5 = Bez (Point2 0 0) (Point2 1 0) (Point2 1 1)
-      bez6 = Bez (Point2 1 0) (Point2 1 1) (Point2 0 1)
-      bez7 = Bez (Point2 1 0) (Point2 0 0) (Point2 0 1)
+      diagonalCurves = [ mkBez 0 0 0 1 1 1
+                       , mkBez 0 0 1 0 1 1
+                       , mkBez 1 0 1 1 0 1
+                       , mkBez 1 0 0 0 0 1
+                       ]
 
-      bez8  = Bez (Point2 0 0) (Point2 0.5    1.5 ) (Point2 1 0)
-      bez9  = Bez (Point2 1 0) (Point2 (-0.5) 0.5 ) (Point2 1 1)
-      bez10 = Bez (Point2 0 0) (Point2 1.5    0.5 ) (Point2 0 1)
-      bez11 = Bez (Point2 0 1) (Point2 0.5  (-0.5)) (Point2 1 1)
-  in  rack [ stack $ map revTests [ bez0
-                                    , bez1
-                                    , bez2
-                                    , bez3
-                                    ]
-           , stack $ map revTests [ bez4
-                                  , bez5
-                                  , bez6
-                                  , bez7
-                                  ]
-           , stack $ map revTests [ bez8
-                                  , bez9
-                                  , bez10
-                                  , bez11
-                                  ]
+      alignedCurves = [ mkBez 0 0 0.5    1.5  1 0
+                      , mkBez 1 0 (-0.5) 0.5  1 1
+                      , mkBez 0 0 1.5    0.5  0 1
+                      , mkBez 0 1 0.5  (-0.5) 1 1
+                      ]
+
+      sideLines = [ mkBez 0 0 0 0.5   0 1
+                  , mkBez 0 1 0.5 1   1 1
+                  , mkBez 1 1 1   0.5 1 0
+                  , mkBez 1 0 0.5 0   0 0
+                  ]
+  in  rack . map (stack . map revTests) $
+           [
+             diagonalLines
+           ++ centerLines
+           , diagonalCurves
+           , alignedCurves
+           , sideLines
            ]
 {-
 randomCross ::

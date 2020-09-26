@@ -22,7 +22,7 @@ instance (Space s) => CanApplyTransformer (Facet_ s) where
   applyTransformer f = over facetSides (fmap (applyTransformer f))
 
 instance (Space s) => CanApplyTransformer (FacetSide s) where
-  applyTransformer f = over sceneSide (applyTransformer f)
+  applyTransformer f = over facetOutput (applyTransformer f)
 
 instance (Space s) => CanApplyTransformer (Bezier s) where
   applyTransformer f = execTransformer f

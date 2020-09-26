@@ -12,7 +12,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Figure.Primitive.Outline
+-- Module      :  Graphics.Gudni.Figure.Shape.Outline
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -22,7 +22,7 @@
 --
 -- Functions for defining Outlines which are closed bezier curves.
 
-module Graphics.Gudni.Figure.Primitive.Outline
+module Graphics.Gudni.Figure.Shape.Outline
   ( Outline(..)
   , Outline_(..)
   , outlineSegments
@@ -40,8 +40,8 @@ import Graphics.Gudni.Base.Loop
 import Graphics.Gudni.Figure.Primitive.Space
 import Graphics.Gudni.Figure.Primitive.Point
 import Graphics.Gudni.Figure.Primitive.Box
-import Graphics.Gudni.Figure.Primitive.Bezier
-import Graphics.Gudni.Figure.Primitive.OpenCurve
+import Graphics.Gudni.Figure.Bezier.Type
+import Graphics.Gudni.Figure.Shape.OpenCurve
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug

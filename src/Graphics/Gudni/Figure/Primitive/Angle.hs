@@ -36,14 +36,12 @@ module Graphics.Gudni.Figure.Primitive.Angle
   )
 where
 
-import Graphics.Gudni.Figure.Primitive.Space
 import Graphics.Gudni.Figure.Primitive.Point
 
 import Diagrams.Angle (Angle, cosA, sinA, tanA, (@@), deg, rad, turn, fullTurn, halfTurn, quarterTurn, normalizeAngle, angleBetween)
 import Data.Hashable
 import Control.DeepSeq
 import Control.Lens
-
 
 -- -----------------------------------------------------------------------------
 -- Simple rotation functions.

@@ -53,21 +53,6 @@ instance HasStyle FacetState where
 slantedLine :: Shape SubSpace
 slantedLine = segmentsToShape [[Seg (Point2 0 0) Nothing, Seg (Point2 0.25 0) Nothing, Seg (Point2 1.25 1) Nothing, Seg (Point2 1 1) Nothing]]
 
-hatch :: IsStyle style
-      => SpaceOf style
-      -> SpaceOf style
-      -> Point2 (SpaceOf style)
-      -> Layout style
-hatch thickness size point =
-  let s = size / 2
-  in
-  translateBy point .
-  withColor black $
-  overlap [ mask . stroke thickness . makeOpenCurve $ [line (Point2 (-s) (-s)) (Point2 s s)]
-          , mask . stroke thickness . makeOpenCurve $ [line (Point2 s (-s)) (Point2 (-s) s)]
-          ]
-
-
 instance Model FacetState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
@@ -87,12 +72,12 @@ instance Model FacetState where
            facets :: [Facet_ SubSpace]
            --facets = pure $ triangleToFacet triangle triangle
            facets = pure $ pairsToFacet pairTriangle triangle
-           potential :: [Facet_ SubSpace]
-           potential = join . fmap (traversePotentialFacet 0.5 point) $ facets
+           untilThreshold :: [Facet_ SubSpace]
+           untilThreshold = fmap (traverseFacetUntil 0.5 point) $ facets
            traversed :: [Facet_ SubSpace]
-           traversed = join . fmap (traverseFacet 0.5 point) $ facets
+           traversed = fmap (traverseFacet point) $ facets
            tesselatedFacets :: [Facet_ SubSpace]
-           tesselatedFacets = {-trP "tesselated" $-} join . fmap (subdivideFacetSteps 3) $ facets
+           tesselatedFacets = {-trP "tesselated" $-} join . fmap (subdivideFacetSteps 1) $ facets
            fullyTesselated :: [Facet_ SubSpace]
            fullyTesselated  = join . fmap (tesselateFacet 1) $ facets
 
@@ -101,9 +86,9 @@ instance Model FacetState where
                overlap $
                    [ hatch 0.1 20 point
                    , stack $
-                       [ -- , overlap . fmap (place . represent repDk) $ unFacetGroup tesselatedFacets
-                         overlap [ --overlap . fmap (place . represent repDk) $ potential
-                                   overlap . fmap (place . represent repDk) $ traversed
+                       [ --overlap . fmap (place . represent repDk) $ tesselatedFacets
+                         overlap [ overlap . fmap (place . represent repDk) $ untilThreshold
+                                 , overlap . fmap (place . represent repDk) $ traversed
                                  , overlap . fmap (place . represent repDk) $ facets
                                  ]
                        --, overlap . fmap (place . represent repDk) $ fullyTesselated

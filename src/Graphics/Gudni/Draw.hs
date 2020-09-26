@@ -1,6 +1,7 @@
 module Graphics.Gudni.Draw
   ( module Graphics.Gudni.Draw.ArrowHead
   , module Graphics.Gudni.Draw.Elipse
+  , module Graphics.Gudni.Draw.Symbols
   , module Graphics.Gudni.Draw.Fuzzy
   , module Graphics.Gudni.Draw.Plot
   , module Graphics.Gudni.Draw.Rectangle
@@ -12,6 +13,7 @@ where
 
 import Graphics.Gudni.Draw.ArrowHead
 import Graphics.Gudni.Draw.Elipse
+import Graphics.Gudni.Draw.Symbols
 import Graphics.Gudni.Draw.Fuzzy
 import Graphics.Gudni.Draw.Plot
 import Graphics.Gudni.Draw.Rectangle

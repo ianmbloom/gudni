@@ -2,22 +2,21 @@
 
 module Graphics.Gudni.Figure.Facet.Traverse
   ( traverseFacet
-  , traversePotentialFacet
+  , traverseFacetUntil
   )
 where
 
 import Graphics.Gudni.Base.Chain
 
 import Graphics.Gudni.Figure.Primitive
-import Graphics.Gudni.Figure.Facet.Facet
+import Graphics.Gudni.Figure.Facet.Triangle
+import Graphics.Gudni.Figure.Facet.BezierTriangle
+import Graphics.Gudni.Figure.Facet.Type
 import Graphics.Gudni.Figure.Facet.Subdivide
 
+import Linear.V3
 import Data.Foldable
-import qualified Data.Vector as V
-
 import Control.Lens
-import Control.Applicative
-import Text.PrettyPrint.GenericPretty
 
 insideBox :: Space s
           => Point2 s
@@ -40,23 +39,36 @@ sizeLimit facet =
   let box = boxOf facet
   in (box ^. heightBox > limit) || (box ^. widthBox > limit)
 
-insideFacet :: Space s => Point2 s -> Facet_ s -> Bool
-insideFacet point =
+insideBezierTri :: Space s => Point2 s -> BezTri s -> Bool
+insideBezierTri point =
   foldl1 (/=) .
   fmap (crossesAlong Vertical (point ^. pX) minBound (point ^. pY)) .
-  facetToBeziers
+  bezTriToBeziers
 
-traversePotentialFacet :: forall s . (Space s) => s -> Point2 s -> Facet_ s -> [Facet_ s]
-traversePotentialFacet threshold point =
+traverseFacetUntil :: forall s . (Space s) => s -> Point2 s -> Facet_ s -> Facet_ s
+traverseFacetUntil threshold point =
   go
   where
-  go :: Facet_ s -> [Facet_ s]
+  go :: Facet_ s -> Facet_ s
   go facet =
-    let potential = filter (insideFacet point) . subdivideFacetSteps 1 $ facet
-        (rest, done) = segregate (shouldSubdivideFacet threshold) potential
-    in  done <|> if null rest then [] else concatMap go rest
+    let potential = traverseFacet point facet
+    in  if shouldSubdivideFacet threshold potential
+        then go potential
+        else facet
 
+traverseFacet :: (Space s) => Point2 s -> Facet_ s -> Facet_ s
+traverseFacet point facet =
+  let output = facet ^. facetOutput
+      sideOut = sideBezTris output
+      centerOut = centerBezTri  sideOut
 
-traverseFacet :: (Space s) => s -> Point2 s -> Facet_ s -> [Facet_ s]
-traverseFacet threshold point =
-  traversePotentialFacet threshold point
+      input = facet ^. facetInput
+      sideIn = sideTris input
+      centerIn = centerTri input
+      isInside = fmap (insideBezierTri point) sideOut
+      next
+         | isInside ^. _x = (Facet (sideOut ^. _x) (sideIn ^. _x))
+         | isInside ^. _y = (Facet (sideOut ^. _y) (sideIn ^. _y))
+         | isInside ^. _z = (Facet (sideOut ^. _z) (sideIn ^. _z))
+         | otherwise      = (Facet  centerOut       centerIn     )
+  in  next

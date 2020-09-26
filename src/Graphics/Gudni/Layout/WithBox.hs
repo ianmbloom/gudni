@@ -46,6 +46,7 @@ makeLenses ''WithBox
 instance SimpleTransformable a => SimpleTransformable (WithBox a) where
   translateBy delta  (WithBox item box) = WithBox (translateBy delta item) (translateBox delta box)
   stretchBy   size   (WithBox item box) = WithBox (stretchBy size item) (stretchBox size box)
+  simpleTransformWith t (WithBox item box) = WithBox (simpleTransformWith t item) (applySimpleTransformer t box)
 
 instance HasSpace a => HasSpace (WithBox a) where
   type SpaceOf (WithBox a) = SpaceOf a

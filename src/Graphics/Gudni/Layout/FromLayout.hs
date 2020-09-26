@@ -172,6 +172,7 @@ type CollapseShapeTree token s = CollapseTree Overlap (SRep token NamedTexture (
 instance (HasSpace leaf) => SimpleTransformable (STree (SimpTree_ meld leaf)) where
     translateBy delta tree = if delta == zeroPoint then tree else addBranch (Translate delta) tree
     stretchBy size tree    = if size == Point2 1 1 then tree else addBranch (Stretch size) tree
+    simpleTransformWith t  = addBranch t
 
 keep :: a -> b -> (b, b)
 keep _ b = (b, b)

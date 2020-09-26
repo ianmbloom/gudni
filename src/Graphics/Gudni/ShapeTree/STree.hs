@@ -159,9 +159,11 @@ addBranch tag = SLeaf . SBranch tag
 instance (HasSpace leaf, tag~Transformer(SpaceOf leaf)) => SimpleTransformable (STree (BranchTree_ meld tag leaf)) where
   translateBy delta tree = if delta == zeroPoint then tree else addBranch (Simple $ Translate delta) tree
   stretchBy size tree    = if size == Point2 1 1 then tree else addBranch (Simple $ Stretch size) tree
+  simpleTransformWith t = addBranch (Simple t)
 
 instance (HasSpace leaf,tag~Transformer(SpaceOf leaf)) => Transformable (STree (BranchTree_ meld tag leaf)) where
   rotateBy angle tree = if angle == (0 @@ rad) then tree else addBranch (Rotate angle) tree
+  transformWith t = addBranch t
 
 instance (HasSpace leaf, tag~Transformer(SpaceOf leaf)) => Projectable (STree (BranchTree_ meld tag leaf)) where
   projectOnto path = addBranch (Project path)
@@ -169,9 +171,11 @@ instance (HasSpace leaf, tag~Transformer(SpaceOf leaf)) => Projectable (STree (B
 instance (Space s) => SimpleTransformable (ShapeTree token s) where
   translateBy p = overShapeTree (translateBy p)
   stretchBy   p = overShapeTree (stretchBy   p)
+  simpleTransformWith t = overShapeTree (simpleTransformWith t)
 
 instance (Space s) => Transformable (ShapeTree token s) where
   rotateBy   a = overShapeTree (rotateBy a)
+  transformWith t = overShapeTree (transformWith t)
 
 instance (Space s) => Projectable (ShapeTree token s) where
   projectOnto path = overShapeTree (projectOnto path)
@@ -179,9 +183,11 @@ instance (Space s) => Projectable (ShapeTree token s) where
 instance (Space s) => SimpleTransformable (CompoundTree s) where
   translateBy p = overCompoundTree (translateBy p)
   stretchBy   p = overCompoundTree (stretchBy   p)
+  simpleTransformWith t = overCompoundTree (simpleTransformWith t)
 
 instance (Space s) => Transformable (CompoundTree s) where
   rotateBy   a = overCompoundTree (rotateBy a)
+  transformWith t = overCompoundTree (transformWith t)
 
 instance (Space s) => Projectable (CompoundTree s) where
   projectOnto path = overCompoundTree (projectOnto path)

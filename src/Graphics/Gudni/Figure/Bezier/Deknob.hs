@@ -15,7 +15,7 @@ import Graphics.Gudni.Figure.Primitive.Space
 import Graphics.Gudni.Figure.Primitive.Axis
 import Graphics.Gudni.Figure.Primitive.Point
 import Graphics.Gudni.Figure.Primitive.Box
-import Graphics.Gudni.Figure.Primitive.Bezier
+import Graphics.Gudni.Figure.Bezier.Type
 import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.Deknob.Class
 import Graphics.Gudni.Util.Debug

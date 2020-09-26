@@ -39,7 +39,7 @@ import Data.Maybe (fromMaybe, fromJust)
 import Text.PrettyPrint.GenericPretty
 
 mapOverSceneBez :: Space s => (Bezier s -> Bezier s) -> Facet_ s -> Facet_ s
-mapOverSceneBez f = undefined -- over facetSides (fmap (over sceneSide f))
+mapOverSceneBez f = undefined -- over facetSides (fmap (over facetOutput f))
 
 instance Reversible (Facet_ s) where
     reverseItem = id

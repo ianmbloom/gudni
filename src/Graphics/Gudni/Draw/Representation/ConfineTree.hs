@@ -18,7 +18,9 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Raster.ItemInfo
-import Graphics.Gudni.Raster.ConfineTree.ConfineTree
+import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.ConfineTree.Traverse
+
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Rectangle
 import Graphics.Gudni.Draw.Text
@@ -111,7 +113,7 @@ constructConfine axis colorMap layers parentCut parentLine tree boundary =
         axisShape :: Layout style
         axisShape = withColor (transparent 0.2 aColor) . mask . stroke thickness . makeOpenCurve $ [aLine]
         overhangShape :: Layout style
-        overhangShape = withColor (transparent 0.1 aColor) . mask . boxToRectangle $ overhangBox
+        overhangShape = withColor (transparent 0.01 aColor) . mask . boxToRectangle $ overhangBox
         curve :: Layout style
         curve = bezierArrow $ (tree ^. confineCurve)
         text = blurb (show $ tree ^. confineCurveTag)
@@ -120,8 +122,9 @@ constructConfine axis colorMap layers parentCut parentLine tree boundary =
                 scaleBy 40 .
                 withColor (transparent 0.5 purple) $
                 text
+        corner :: Layout style
         corner = constructCorner axis colorMap layers parentCut parentLine tree
-    in  overlap $ [label, {-curve,-} axisShape, {-overhangShape,-} corner]
+    in  overlap $ [label{- , curve-}, axisShape, overhangShape, corner ]
 
 constructCorner  :: forall axis style
                  .  ( IsStyle style
@@ -138,11 +141,13 @@ constructCorner axis colorMap layers parentCut parentLine tree =
         let stopCut   = tree ^. confineCut
             start     = pointFromAxis axis parentCut parentLine
             end       = pointFromAxis axis stopCut   parentLine
+            pathLine :: Layout style
             pathLine  = withColor (transparent 0.1 white) . mask . stroke 10 . makeOpenCurve $ [line start end]
-            --cornerString = (show $ tree ^. confineCurveTag) ++ "->" ++ (show . map showTrace $ tree ^. confineTraceCross) ++ (show end)
-            --cornerText = translateBy end . rotateBy (45 @@ deg) . translateByXY 10 0 . scaleBy 20 . withColor blue . blurb $ cornerString
-        in  overlap [ pathLine
-                    , rectangleAround end
+            cornerString = (show $ tree ^. confineCurveTag) ++ "->" ++ (show $ tree ^. confineCrossedCurves) ++ (show end)
+            cornerText :: Layout style
+            cornerText = translateBy end . rotateBy (45 @@ deg) . translateByXY 10 0 . scaleBy 20 . withColor blue . blurb $ cornerString
+        in  overlap [ --pathLine
+                     rectangleAround end
                     , constructLayerStack colorMap end layers
                     --, cornerText
                     ]

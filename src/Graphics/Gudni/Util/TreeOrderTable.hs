@@ -12,7 +12,7 @@
 -- Functions for building a lookup table for reordering sequenced strands into
 -- binary trees based on their length.
 
-module Graphics.Gudni.Raster.ConfineTree.TreeOrderTable
+module Graphics.Gudni.Util.TreeOrderTable
   ( TreeOrderTable(..)
   , buildTreeOrderTable
   , treeOrderFold

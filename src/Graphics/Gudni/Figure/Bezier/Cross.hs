@@ -12,14 +12,13 @@ import Graphics.Gudni.Figure.Primitive.Space
 import Graphics.Gudni.Figure.Primitive.Axis
 import Graphics.Gudni.Figure.Primitive.Point
 import Graphics.Gudni.Figure.Primitive.Box
-import Graphics.Gudni.Figure.Primitive.Bezier
---import Graphics.Gudni.Figure.Split
+import Graphics.Gudni.Figure.Bezier.Type
 import Graphics.Gudni.Util.Debug
 
 import Control.Lens
 
 limit :: (Space s) => s
-limit = 1 / 32
+limit = 1 / 265
 
 foldBez :: (Point2 s -> a) -> (a -> a -> a) -> Bezier s -> a
 foldBez f g = foldl1 g . fmap f . unBezier
@@ -36,6 +35,8 @@ bezierSlopeLTEZero axis bez =
       ath = bez ^. bzEnd . athwart axis - bez ^. bzStart . athwart axis
   in  ((alo > 0) /= (ath > 0)) || (ath == 0 && alo /= 0)
 
+trDP depth = trDepth (depth + 1)
+
 crossesAlong :: (Axis axis, Space s) => axis -> s -> s -> s -> Bezier s -> Bool
 crossesAlong axis baseline start end bez =
   --tc ("crossesAlong " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
@@ -44,37 +45,46 @@ crossesAlong axis baseline start end bez =
   else
   if start > end
   then crossesAlong axis baseline end start bez
-  else go bez
+  else go {-1-} bez
   where
-  go bez =
-    --tc ("go " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
+  go {-depth-} bez =
+    -- tcDepth depth ("go " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
     let minAthwart = bezAthwart axis min bez
         maxAthwart = bezAthwart axis max bez
         minAlong   = bezAlong   axis min bez
         maxAlong   = bezAlong   axis max bez
         (lessBez, moreBez) = splitBezier 0.5 bez
-    in  if --tr "totally outside" $
-           baseline <  minAthwart ||
-           baseline >= maxAthwart ||
-           start >= maxAlong ||
-           end   <  minAlong
+    in  if --trDP depth "totally outside" $
+           baseline >  maxAthwart ||
+           baseline <= minAthwart ||
+           start >  maxAlong ||
+           end   <= minAlong
         then -- segment is totally outside the range of curve
              False
-        else let sizeAlong = maxAlong - minAlong
-                 barrier = if isHorizontal axis || bezierSlopeLTEZero axis bez then minAlong else maxAlong
+        else let size = (maxAlong - minAlong) -- `max` (maxAthwart - minAthwart)
+                 slopeLTEZero = bezierSlopeLTEZero axis bez
+                 -- barSide = isHorizontal axis || bezierSlopeLTEZero axis bez
+                 offBaseline = --trDP depth "offBaseLine" $
+                               baseline /= maxAthwart
                  --oppose  = if isHorizontal axis || bezierSlopeLTEZero axis bez then maxAlong else minAlong
                  isK = isKnobAbsolute axis bez
              in
-             if --tr "mustSplit" $
-                 (sizeAlong > limit &&
-                   -- curve size remains greater than the limit
-                 --(baseline /= oppose) &&
-                 (start >= minAlong || end < maxAlong) -- and the start or end points are somewhere inside curve limits
+             if --trDP depth "mustSplit" $
+                 (size > limit &&
+                 -- curve size remains greater than the limit
+                 offBaseline &&
+                 {-trDP depth "||"-} ({-trDP depth "start > minAlong"-} (start > minAlong)|| {-trDP depth "end <= maxAlong"-} (end <= maxAlong)) -- and the start or end points are somewhere inside curve limits
                 )
                 || isK -- or the curve creates a knob, meaning there could be more than one cross point
              then -- must split
-                  go lessBez /= go moreBez
-             else start < barrier && end >= barrier
+                  go {-(depth + 2)-} lessBez /= go {-(depth + 2)-} moreBez
+             else let barrierMin = {-trDP depth "barrierMin" $-} slopeLTEZero || (not slopeLTEZero && (offBaseline && not (isHorizontal axis)))
+                      barrier    = {-trDP depth "barrier"    $-} if barrierMin then minAlong else maxAlong
+                      startLTE   = {-trDP depth "startLTE"   $-} slopeLTEZero || (not slopeLTEZero && (not (isHorizontal axis)))
+                  in
+                  if startLTE
+                  then start <= barrier && end > barrier
+                  else start <  barrier && end >= barrier
 
 interimPoint :: Point2 s -> Point2 s -> Point2 s
 interimPoint start end = Point2 (start ^. pX) (end ^. pY)
