@@ -24,10 +24,14 @@ sweepConfineTree :: forall s m
                    , MonadIO m
                    )
                  => m ()
-                 -> (Int -> m ())
+                 -> ([Bezier s] -> m ())
+                 -> ([Bezier s] -> m ())
                  -> ConfineTree s
                  -> m (ConfineTree s)
-sweepConfineTree crossingOp stackOp mTree =
+sweepConfineTree crossingOp
+                 discardOp
+                 continueOp
+                 mTree =
    do (mTree', _) <- sweep Vertical
                            0
                            True
@@ -91,10 +95,11 @@ sweepConfineTree crossingOp stackOp mTree =
                    --mess $ "          forMore " ++ showOverhangs forMore
                    (mMore, fromMore) <- sweepMore forMore
                    --mess $ "         fromMore " ++ showOverhangs fromMore
-                   let continueOverhangs = filter (bezOverhangs axis boundary) (rest ++ fromMore)
+                   let (continueOverhangs, discarded) = segregate (bezOverhangs axis boundary) (rest ++ fromMore)
+                   discardOp (map (tBez. snd) discarded)
+                   continueOp (map (tBez. snd) continueOverhangs)
                    --mess $ "continueOverhangs " ++ showOverhangs continueOverhangs
                    --mess $ "fromLess " ++ show (length fromLess) ++ " fromMore " ++ show (length fromMore) ++ " continue " ++ show (length continueOverhangs)
-                   stackOp (length continueOverhangs)
                    childModified <- if not moreSide
                                     then do modified <- foldM (addCrossing crossingOp axis parentCut parentLine) parentModified continueOverhangs
                                             --mess $ "crossingsChild " ++ show (modified ^. confineCrossings)
@@ -116,32 +121,6 @@ sweepConfineTree crossingOp stackOp mTree =
                    (curveTag, TaggedBezier bez _) =
      let box = boxOf bez
      in  box ^. maxBox . athwart axis >= fromAxis axis cut
-
-   bezOverhangsAthwart :: Axis axis
-                       => axis
-                       -> Box s
-                       -> (CurveTag, TaggedBezier s)
-                       -> Bool
-   bezOverhangsAthwart axis
-                       boundary
-                       (curveTag, TaggedBezier bez _) =
-       let box = boxOf bez
-           maxAthwart = box ^. maxBox . athwart axis >= boundary ^. maxBox . athwart axis
-       in  maxAthwart
-
-   bezOverhangsAlong :: Axis axis
-                     => axis
-                     -> Box s
-                     -> (CurveTag, TaggedBezier s)
-                     -> Bool
-   bezOverhangsAlong axis
-                     boundary
-                     (curveTag, TaggedBezier bez _) =
-       let box = boxOf bez
-           maxAlong   = box ^. maxBox . along   axis >= boundary ^. maxBox . along   axis
-       in  maxAlong
-
-
 
    bezOverhangs :: Axis axis
                 => axis

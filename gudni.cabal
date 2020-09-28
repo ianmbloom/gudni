@@ -79,6 +79,7 @@ library
 
                      , Graphics.Gudni.Raster.ConfineTree.Type
                      , Graphics.Gudni.Raster.ConfineTree.TaggedBezier
+                     , Graphics.Gudni.Raster.ConfineTree.Add
                      , Graphics.Gudni.Raster.ConfineTree.Build
                      , Graphics.Gudni.Raster.ConfineTree.Decorate
                      , Graphics.Gudni.Raster.ConfineTree.Sweep

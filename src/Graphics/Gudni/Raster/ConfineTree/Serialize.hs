@@ -23,8 +23,8 @@ module Graphics.Gudni.Raster.ConfineTree.Serialize
   , ConfineState(..)
   , conTokenMap
   , conBackgroundColor
-  , conConfineTree
   , conColorMap
+  , conBezierPile
   , conFacetPile
   , conItemTagPile
   , conSubstanceTagPile
@@ -42,31 +42,22 @@ import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.ItemInfo
 import Graphics.Gudni.Raster.SubstanceInfo
 import Graphics.Gudni.Raster.TextureReference
-import Graphics.Gudni.Raster.Thresholds.Enclosure
-import Graphics.Gudni.Raster.Thresholds.ReorderTable
-import Graphics.Gudni.Raster.Thresholds.TileTree
 import Graphics.Gudni.Raster.OpenCL.Rasterizer
 
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
-import Graphics.Gudni.Raster.ConfineTree.Build
-import Graphics.Gudni.Raster.ConfineTree.Decorate
-import Graphics.Gudni.Raster.ConfineTree.Sweep
-import Graphics.Gudni.Raster.ConfineTree.Depth
 
-import Graphics.Gudni.Util.RandomField
+--import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Util.Pile
 import Graphics.Gudni.Util.Util
-import Graphics.Gudni.Util.Shuffle
 import Graphics.Gudni.Util.Debug
 
 import Control.Monad
 import Control.Monad.State
 import Control.Applicative
 import Control.Lens
-import Control.Loop
-import Foreign.Storable
 
+import Foreign.Storable
 import Control.DeepSeq
 
 import qualified Data.Map      as M
@@ -77,11 +68,6 @@ import Data.Word
 import Data.Maybe
 import Data.List
 
-import Control.Monad.ST
-import Control.Monad.Random
-import System.Random
-
-import Control.Parallel.Strategies
 
 -- | Return True if a BoundingBox is outside of the canvas.
 excludeBox :: Maybe (Point2 SubSpace)
@@ -105,10 +91,6 @@ data ConfineState token s = ConfineState
     , _conBackgroundColor  :: Color
       -- | Map from ItemId to color
     , _conColorMap         :: M.Map ItemTagId Color
-    --  -- | The tree of tiles collecting itemTagIds
-    --, _conTileTree         :: TileTree (Tile, Pile ItemTagId)
-      -- | The confine tree of all curves.
-    , _conConfineTree      :: ConfineTree s
       -- | A list of every bezier that defines the scene.
     , _conBezierPile       :: Pile (TaggedBezier s)
       -- | A list of texture facets collected from the scene.
@@ -124,8 +106,8 @@ data ConfineState token s = ConfineState
 makeLenses ''ConfineState
 
 instance (NFData token, NFData s) => NFData (ConfineState token s) where
-  rnf (ConfineState a b c d e f g h i j) =
-      a `deepseq` b `deepseq` c {-`deepseq` d `deepseq` e-} `deepseq` f `deepseq` g `deepseq` h `deepseq` i `deepseq` j `deepseq` ()
+  rnf (ConfineState a b c d e f g h i) =
+      a `deepseq` b `deepseq` c {-`deepseq` d `deepseq` e-} `deepseq` f `deepseq` g `deepseq` h `deepseq` i `deepseq` ()
 
 -- | A monad for serializing substance data from a scene.
 type ConfineMonad token s m = StateT (ConfineState token s) m
@@ -154,7 +136,6 @@ withConfinedScene canvasSize pictureMap scene code =
                       , _conBackgroundColor  = clearBlack
                       --, _conTileTree         = tileTree
                       , _conColorMap         = M.empty
-                      , _conConfineTree      = Nothing
                       , _conBezierPile       = bezierPile
                       , _conFacetPile        = facetPile
                       , _conItemTagPile      = itemTagPile
@@ -282,51 +263,8 @@ confineSubstance canvasSize fromTextureSpace tolerance Overlap (SRep mToken subs
                             -}
                             return ()
 
-indexVector :: Bool -> Int -> IO (V.Vector Int)
-indexVector doShuffle size =
-  do let indices = V.generate size id
-     if doShuffle
-     then return $ evalRand (shuffleImmutable indices) (mkStdGen 10000)
-     else return indices
-
-addPileToConfineTree :: ( Space s
-                        , Storable (TaggedBezier s)
-                        )
-                     => Bool
-                     -> Pile (TaggedBezier s)
-                     -> ConfineTree s
-                     -> IO (ConfineTree s)
-addPileToConfineTree doShuffle pile mTree =
-  do  indices <- indexVector doShuffle size
-      numLoopState 0 (size - 1) mTree (go indices)
-  where
-  size = fromIntegral . unBreadth . view pileBreadth $ pile
-  go indices mTree i =
-    do j <- V.indexM indices i
-       (TaggedBezier bez itemTagId) <- pileItem pile j
-       return $ addBezierToConfineTree itemTagId (CurveTag j) bez mTree
-
-decorateConfineTree :: forall s
-                    .  ( Space s
-                       , Storable (TaggedBezier s)
-                       )
-                     => Pile (TaggedBezier s)
-                     -> ConfineTree s
-                     -> IO (ConfineTree s)
-decorateConfineTree pile mTree =
-    do  (mTreeDecorate, maxCount) <- numLoopState 0 (size - 1) (mTree, 0) goDecorate
-        putStrLn $ "maxCount: " ++ show maxCount
-        return mTreeDecorate
-   where
-   size = fromIntegral . unBreadth . view pileBreadth $ pile
-   adder = modify (+1)
-   goDecorate :: (ConfineTree s, Int) -> Int -> IO (ConfineTree s, Int)
-   goDecorate (mTree, count) i =
-     do (TaggedBezier bez itemTagId) <- pileItem pile i
-        let (mTree', count') = runState (addCrossingToConfineTree adder itemTagId (CurveTag i) bez mTree) 0
-        return (mTree', count + count')
-
-confineOverScene :: (MonadIO m, Show token)
+confineOverScene :: forall m token
+                 . (MonadIO m, Show token)
                  => Maybe (Point2 SubSpace)
                  -> Scene (FinalTreePictureMemory token SubSpace)
                  -> ConfineMonad token SubSpace m ()
@@ -336,25 +274,6 @@ confineOverScene canvasSize scene =
        conBackgroundColor .= scene ^. sceneBackgroundColor
        -- Serialize the shape tree.
        traverseTree keepMeld (const3 ()) (confineSubstance canvasSize textureSpaceToSubspace (SubSpace $ realToFrac tAXICABfLATNESS)) Overlap (scene ^. sceneShapeTree)
-       bezPile <- use conBezierPile
-       tree <- use conConfineTree
-       treeBare <- liftIO $
-                   --trP "bareTree" .
-                   trWith (show . confineTreeCountOverlaps) "confineTreeCountOverlaps" .
-                   trWith (show . confineTreeDepth) "confineTreeDepth" .
-                   trWith (show . logBase 2 . (fromIntegral :: Int -> Float) . confineTreeSize) "confineTreeSizeLog" .
-                   trWith (show . confineTreeSize) "confineTreeSize" <$>
-                   addPileToConfineTree True bezPile tree
-       -- treeDecorated <- liftIO $ decorateConfineTree bezPile treeBare
-       (treeDecorated, sweepSteps) <- runStateT (sweepConfineTree (modify (over _1 (+1))) (\x -> modify (over _2 (max x))) treeBare) (0,0)
-       liftIO $ putStrLn $ "sweepSteps: " ++ show sweepSteps
-       --conConfineTree .= treeDecorated
-       let total = confineTreeTotalConsidered treeDecorated
-           count = confineTreeSize treeDecorated
-       conConfineTree .= --trP "treeDecorated"
-                         treeDecorated
-       liftIO $ putStrLn $ "steps per node    " ++ showFl' 12 (fromIntegral (fst sweepSteps)/fromIntegral count :: Double)
-       liftIO $ putStrLn $ "averageConsidered " ++ showFl' 12 (total/ fromIntegral count)
        liftIO $ putStrLn $ "===================== Serialize scene end ====================="
 
 outputConfineState :: (Show s, Show token, Storable (Facet_ s))

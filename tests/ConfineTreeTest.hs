@@ -21,6 +21,7 @@ import Graphics.Gudni.Util.Debug
 
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.Serialize
+import Graphics.Gudni.Raster.ConfineTree.Build
 
 import qualified Data.Map as M
 import Control.Lens
@@ -91,8 +92,8 @@ instance Model ConfineTreeState where
                 name = (fst $ getTest state)
             scene <- sceneFromLayout (light gray) testShape
             confineState <- liftIO $ withConfinedScene Nothing M.empty scene $ \ pictDataPile serialState -> return serialState
-            let tree            = confineState ^. conConfineTree
-                colorMap        = confineState ^. conColorMap
+            tree <- liftIO $ buildConfineTree (confineState ^. conBezierPile)
+            let colorMap        = confineState ^. conColorMap
                 constructed :: Layout DefaultStyle
                 constructed     = constructConfineTree colorMap tree
                 makePixel point = Box point (point + Point2 500 500)

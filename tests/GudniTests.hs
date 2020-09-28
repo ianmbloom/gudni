@@ -192,7 +192,7 @@ fuzzyGlyphs playhead step =
        len = length defaultGlyphs
    in  translateByXY 200 200 .
        overlap $
-       evalRand (sequence . replicate 1000 $ fuzzyGlyph defaultGlyphs (makePoint 512 512) 10 300) (mkStdGen $ (round $ playhead * 2000) + step)
+       evalRand (sequence . replicate 100 $ fuzzyGlyph defaultGlyphs (makePoint 512 512) 10 300) (mkStdGen $ (round $ playhead * 2000) + step)
 
 fuzzyGlyphs2 :: SubSpace -> Int -> Layout DefaultStyle
 fuzzyGlyphs2 playhead step =
