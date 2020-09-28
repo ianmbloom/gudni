@@ -8,6 +8,7 @@ module Graphics.Gudni.Raster.ConfineTree.Sweep
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
@@ -23,13 +24,13 @@ sweepConfineTree :: forall s m
                    , MonadIO m
                    )
                  => m ()
+                 -> (Int -> m ())
                  -> ConfineTree s
                  -> m (ConfineTree s)
-sweepConfineTree op mTree =
+sweepConfineTree crossingOp stackOp mTree =
    do (mTree', _) <- sweep Vertical
                            0
-                           (onAxis Vertical   True    )
-                           (onAxis Horizontal True    )
+                           True
                            (onAxis Vertical   minBound)
                            (onAxis Horizontal minBound)
                            ( makeBox minBound
@@ -44,8 +45,7 @@ sweepConfineTree op mTree =
          . (Axis axis, axis~NextAxis(NextAxis axis))
          => axis
          -> Int
-         -> With axis Bool
-         -> With (NextAxis axis) Bool
+         -> Bool
          -> With axis s
          -> With (NextAxis axis) s
          -> Box s
@@ -54,8 +54,7 @@ sweepConfineTree op mTree =
          -> m (Branch axis s, [(CurveTag, TaggedBezier s)])
    sweep axis
          depth
-         parallelIsMore
-         perpendIsMore
+         moreSide
          parentCut
          parentLine
          boundary
@@ -65,43 +64,91 @@ sweepConfineTree op mTree =
            Nothing -> do --liftIO . putStrLn $ concat (replicate depth "   ") ++ "sweep Nothing"
                          return (Nothing, parentOverhangs)
            Just tree ->
-               let bez = tree ^. confineCurve
+               let newBez = tree ^. confineCurve
+                   newBezBox = boxOf newBez
                    itemTagId = tree ^. confineItemTagId
                    cut = tree ^. confineCut
                    lessBox = set (maxBox . athwart axis) (fromAxis axis cut) boundary
                    moreBox = set (minBox . athwart axis) (fromAxis axis cut) boundary
-                   sweepLess = sweep (nextAxis axis) (depth + 1) perpendIsMore (onAxis axis False) parentLine cut lessBox (tree ^. confineLessCut)
-                   sweepMore = sweep (nextAxis axis) (depth + 1) perpendIsMore (onAxis axis True ) parentLine cut moreBox (tree ^. confineMoreCut)
-                   --mess x = liftIO $ putStrLn $ concat (replicate depth "   ") ++ "sweep tag " ++ show (tree ^. confineCurveTag) ++ x
+                   sweepLess = sweep (nextAxis axis) (depth + 1) False parentLine cut lessBox (tree ^. confineLessCut)
+                   sweepMore = sweep (nextAxis axis) (depth + 1) True  parentLine cut moreBox (tree ^. confineMoreCut)
+                   ---mess x = liftIO $ putStrLn $ concat (replicate depth "   ") ++ "sweep tag " ++ show (tree ^. confineCurveTag) ++ " " ++ x
+                   thisCurve = (tree ^. confineCurveTag, TaggedBezier newBez itemTagId)
                in
-               do  (mLess, lessOverhangs) <- sweepLess parentOverhangs
-                   -- mess $ " pCut " ++ show parentCut ++ " pLine " ++ show parentLine ++ " boundary " ++ show boundary
-                   -- mess $ " parent " ++ showOverhangs parentOverhangs
-                   let potentialOverhangs = (tree ^. confineCurveTag, TaggedBezier bez itemTagId):lessOverhangs
-                   -- mess $ " potential " ++ showOverhangs potentialOverhangs
-                   (mMore, moreOverhangs) <- sweepMore potentialOverhangs
-                   -- mess $ " moreOverhangs " ++ showOverhangs moreOverhangs
-                   modifiedNode <- foldM (addCrossing op axis parentCut parentLine) tree potentialOverhangs
-                   -- mess $ " crossingsLess " ++ show (modifiedNode ^. confineCrossings)
-                   let continueOverhangs = filter (bezOverhangs axis parallelIsMore perpendIsMore boundary) $ moreOverhangs
-                   -- mess $ " continue "      ++ showOverhangs continueOverhangs
+               do  --mess $ "pCut " ++ show parentCut ++ " pLine " ++ show parentLine ++ " boundary " ++ show boundary
+                   --mess $ "  parentOverhangs " ++ showOverhangs parentOverhangs
+                   parentModified <- if moreSide
+                                     then do modified <- foldM (addCrossing crossingOp axis parentCut parentLine) tree parentOverhangs
+                                             --mess $ "crossingsParent " ++ show (modified ^. confineCrossings)
+                                             return modified
+                                     else return tree
+                   (mLess, fromLess) <- sweepLess parentOverhangs
+                   --mess $ "         fromLess " ++ showOverhangs fromLess
+                   let (overhangsCut, rest) = segregate (bezOverhangsCut axis cut) fromLess
+                       forMore = thisCurve:overhangsCut
+                   --mess $ "     overhangsCut " ++ showOverhangs overhangsCut
+                   --mess $ "             rest " ++ showOverhangs rest
+                   --mess $ "          forMore " ++ showOverhangs forMore
+                   (mMore, fromMore) <- sweepMore forMore
+                   --mess $ "         fromMore " ++ showOverhangs fromMore
+                   let continueOverhangs = filter (bezOverhangs axis boundary) (rest ++ fromMore)
+                   --mess $ "continueOverhangs " ++ showOverhangs continueOverhangs
+                   --mess $ "fromLess " ++ show (length fromLess) ++ " fromMore " ++ show (length fromMore) ++ " continue " ++ show (length continueOverhangs)
+                   stackOp (length continueOverhangs)
+                   childModified <- if not moreSide
+                                    then do modified <- foldM (addCrossing crossingOp axis parentCut parentLine) parentModified continueOverhangs
+                                            --mess $ "crossingsChild " ++ show (modified ^. confineCrossings)
+                                            return modified
+                                    else return parentModified
                    return ( Just .
                             set confineMoreCut mMore .
                             set confineLessCut mLess $
-                            modifiedNode
+                            childModified
                           , continueOverhangs
                           )
+   bezOverhangsCut :: (Axis axis, Space s)
+                   => axis
+                   -> With axis s
+                   -> (CurveTag, TaggedBezier s)
+                   -> Bool
+   bezOverhangsCut  axis
+                   cut
+                   (curveTag, TaggedBezier bez _) =
+     let box = boxOf bez
+     in  box ^. maxBox . athwart axis >= fromAxis axis cut
+
+   bezOverhangsAthwart :: Axis axis
+                       => axis
+                       -> Box s
+                       -> (CurveTag, TaggedBezier s)
+                       -> Bool
+   bezOverhangsAthwart axis
+                       boundary
+                       (curveTag, TaggedBezier bez _) =
+       let box = boxOf bez
+           maxAthwart = box ^. maxBox . athwart axis >= boundary ^. maxBox . athwart axis
+       in  maxAthwart
+
+   bezOverhangsAlong :: Axis axis
+                     => axis
+                     -> Box s
+                     -> (CurveTag, TaggedBezier s)
+                     -> Bool
+   bezOverhangsAlong axis
+                     boundary
+                     (curveTag, TaggedBezier bez _) =
+       let box = boxOf bez
+           maxAlong   = box ^. maxBox . along   axis >= boundary ^. maxBox . along   axis
+       in  maxAlong
+
+
 
    bezOverhangs :: Axis axis
                 => axis
-                -> With axis Bool
-                -> With (NextAxis axis) Bool
                 -> Box s
                 -> (CurveTag, TaggedBezier s)
                 -> Bool
    bezOverhangs axis
-                parallelIsMore
-                perpendIsMore
                 boundary
                 (curveTag, TaggedBezier bez _) =
        let box = boxOf bez
@@ -130,10 +177,11 @@ addCrossing op axis parentCut parentLine tree (tag, TaggedBezier bez itemTagId) 
     --tcP ("-------- addCrossing from new tag: " ++ show tag ++ " over: " ++ show (tree ^. confineCurveTag)) $
     let start = parentCut
         end   = tree ^. confineCut
-        tree' = if --trWhen (tag == checkTag) ("+newTag: " ++ show tag ++ " treeCurveTag: " ++ show (tree ^. confineCurveTag) ++ "   pLine " ++ show parentLine ++ " start: " ++ show start ++ " end: " ++ show end) $
+        tree' = over confineConsidered (+1) $
+                if --trWhen (tag == checkTag) ("+newTag: " ++ show tag ++ " treeCurveTag: " ++ show (tree ^. confineCurveTag) ++ "   pLine " ++ show parentLine ++ " start: " ++ show start ++ " end: " ++ show end) $
                    crossesAlong (nextAxis axis) (unAxis parentLine) (unAxis start) (unAxis end) bez
                 then over confineCrossings (toggleCrossing itemTagId) $
-                     over confineCrossedCurves (tag:) $
+                     --over confineCrossedCurves (tag:) $
                      tree
                 else tree
     in  do op

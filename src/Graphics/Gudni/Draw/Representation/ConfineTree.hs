@@ -124,7 +124,16 @@ constructConfine axis colorMap layers parentCut parentLine tree boundary =
                 text
         corner :: Layout style
         corner = constructCorner axis colorMap layers parentCut parentLine tree
-    in  overlap $ [label{- , curve-}, axisShape, overhangShape, corner ]
+    in  overlap $ [
+                  --  label
+                  --,
+                  --curve
+                  --,
+                  -- axisShape
+                  {-,overhangShape-}
+                  --,
+                  corner
+                  ]
 
 constructCorner  :: forall axis style
                  .  ( IsStyle style
@@ -142,14 +151,14 @@ constructCorner axis colorMap layers parentCut parentLine tree =
             start     = pointFromAxis axis parentCut parentLine
             end       = pointFromAxis axis stopCut   parentLine
             pathLine :: Layout style
-            pathLine  = withColor (transparent 0.1 white) . mask . stroke 10 . makeOpenCurve $ [line start end]
-            cornerString = (show $ tree ^. confineCurveTag) ++ "->" ++ (show $ tree ^. confineCrossedCurves) ++ (show end)
+            pathLine  = withColor (transparent 0.2 black) . mask . stroke 1 . makeOpenCurve $ [line start end]
+            cornerString = (show $ tree ^. confineCurveTag) ++{- "->" ++ (show $ tree ^. confineCrossedCurves) ++-} " ?> " ++ (show $ tree ^. confineConsidered) -- (show end)
             cornerText :: Layout style
-            cornerText = translateBy end . rotateBy (45 @@ deg) . translateByXY 10 0 . scaleBy 20 . withColor blue . blurb $ cornerString
-        in  overlap [ --pathLine
-                     rectangleAround end
-                    , constructLayerStack colorMap end layers
+            cornerText = translateBy end . rotateBy (15 @@ deg) . translateByXY 10 0 . scaleBy 20 . withColor blue . blurb $ cornerString
+        in  overlap [ pathLine
+                    --  constructLayerStack colorMap end layers
                     --, cornerText
+                    --, rectangleAround end
                     ]
 
 

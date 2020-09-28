@@ -15,6 +15,8 @@ module Graphics.Gudni.Raster.ConfineTree.Depth
   ( confineTreeDepth
   , confineTreeSize
   , confineTreeCountOverlaps
+  , confineTreeMaxConsidered
+  , confineTreeTotalConsidered
   )
 where
 
@@ -58,3 +60,27 @@ confineTreeCountOverlaps = go Vertical
          x
          + (go (nextAxis axis) (tree ^. confineLessCut))
          + (go (nextAxis axis) (tree ^. confineMoreCut))
+
+confineTreeMaxConsidered :: forall s . Space s => ConfineTree s -> Int
+confineTreeMaxConsidered = go Vertical
+  where
+  go :: (Axis axis) => axis -> Maybe (Confine axis s) -> Int
+  go axis mTree =
+     case mTree of
+       Nothing -> 0
+       Just tree ->
+         max (tree ^. confineConsidered) $
+         max (go (nextAxis axis) (tree ^. confineLessCut))
+             (go (nextAxis axis) (tree ^. confineMoreCut))
+
+confineTreeTotalConsidered :: forall s . Space s => ConfineTree s -> Double
+confineTreeTotalConsidered = go Vertical
+  where
+  go :: (Axis axis) => axis -> Maybe (Confine axis s) -> Double
+  go axis mTree =
+     case mTree of
+       Nothing -> 0
+       Just tree ->
+         (fromIntegral $ tree ^. confineConsidered) +
+         (go (nextAxis axis) (tree ^. confineLessCut)) +
+         (go (nextAxis axis) (tree ^. confineMoreCut))

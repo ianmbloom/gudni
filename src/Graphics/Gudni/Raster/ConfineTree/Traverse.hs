@@ -63,8 +63,8 @@ lastOf3  (_, _, c) = c
 
 pointWinding :: forall s . (Space s) => ConfineTree s -> Point2 s -> (Point2 s, [ItemTagId],[CurveTag])
 pointWinding mTree point =
-    let (anchor, anchorStack) = {-trP "anchorStack" $ -} collectAnchorStack mTree point
-        curves = {-trP "curves" $-}  findCurves mTree anchor point
+    let (anchor, anchorStack) = {-trP "anchorStack" $-} collectAnchorStack mTree point
+        curves = findCurves mTree anchor point
         --crossedOverCurves = foldl (crossCurve anchor point) anchorStack $ map firstTwo curves
         crossedStack = traverseCurves mTree anchor point anchorStack
     in  (anchor, crossedStack, map lastOf3 curves)

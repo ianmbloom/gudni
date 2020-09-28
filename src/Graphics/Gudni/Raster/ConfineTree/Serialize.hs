@@ -339,17 +339,22 @@ confineOverScene canvasSize scene =
        bezPile <- use conBezierPile
        tree <- use conConfineTree
        treeBare <- liftIO $
-                   trP "bareTree" .
+                   --trP "bareTree" .
                    trWith (show . confineTreeCountOverlaps) "confineTreeCountOverlaps" .
                    trWith (show . confineTreeDepth) "confineTreeDepth" .
                    trWith (show . logBase 2 . (fromIntegral :: Int -> Float) . confineTreeSize) "confineTreeSizeLog" .
                    trWith (show . confineTreeSize) "confineTreeSize" <$>
-                   addPileToConfineTree False bezPile tree
+                   addPileToConfineTree True bezPile tree
        -- treeDecorated <- liftIO $ decorateConfineTree bezPile treeBare
-       (treeSwept, sweepSteps) <- runStateT (sweepConfineTree (modify (+1)) treeBare) 0
+       (treeDecorated, sweepSteps) <- runStateT (sweepConfineTree (modify (over _1 (+1))) (\x -> modify (over _2 (max x))) treeBare) (0,0)
        liftIO $ putStrLn $ "sweepSteps: " ++ show sweepSteps
        --conConfineTree .= treeDecorated
-       conConfineTree .= trP "treeSwept" treeSwept
+       let total = confineTreeTotalConsidered treeDecorated
+           count = confineTreeSize treeDecorated
+       conConfineTree .= --trP "treeDecorated"
+                         treeDecorated
+       liftIO $ putStrLn $ "steps per node    " ++ showFl' 12 (fromIntegral (fst sweepSteps)/fromIntegral count :: Double)
+       liftIO $ putStrLn $ "averageConsidered " ++ showFl' 12 (total/ fromIntegral count)
        liftIO $ putStrLn $ "===================== Serialize scene end ====================="
 
 outputConfineState :: (Show s, Show token, Storable (Facet_ s))

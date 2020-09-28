@@ -130,8 +130,8 @@ addCrossingToConfineTree op itemTagId tag initBez mTree =
             end   = tree ^. confineCut
             tree' = if --trWhen (tag == checkTag) ("+newTag: " ++ show tag ++ " treeCurveTag: " ++ show (tree ^. confineCurveTag) ++ "   pLine " ++ show parentLine ++ " start: " ++ show start ++ " end: " ++ show end) $
                        crossesAlong (nextAxis axis) (unAxis parentLine) (unAxis start) (unAxis end) bez
-                    then over confineCrossings (toggleCrossing itemTagId) .
-                         over confineCrossedCurves ({-trWhen (tag==checkTag) ("consTag " ++ show tag ++ " treeTag " ++ show (tree ^. confineCurveTag)) .-} (tag:)) $
+                    then over confineCrossings (toggleCrossing itemTagId) $
+                         ---over confineCrossedCurves ({-trWhen (tag==checkTag) ("consTag " ++ show tag ++ " treeTag " ++ show (tree ^. confineCurveTag)) .-} (tag:)) $
                          tree
                     else tree
         in  do op

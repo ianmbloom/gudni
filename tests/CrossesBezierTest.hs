@@ -163,6 +163,9 @@ runCrossTests =
                   , mkBez 1 1 1   0.5 1 0
                   , mkBez 1 0 0.5 0   0 0
                   ]
+      randoms = [ overBezier (applyTranslation (Point2 (-0.43118674) 0)) $ mkBez 0.43118674 0.63469476 0.15476434 0.78878772 0.88651923 0.29197949
+                , overBezier (applyTranslation (Point2 (-0.43118674) 0)) $ mkBez 0.88651923 0.29197949 0.93376459 0.37227292 0.13838916 0.37558884
+                ]
   in  rack . map (stack . map revTests) $
            [
              diagonalLines
@@ -170,6 +173,7 @@ runCrossTests =
            , diagonalCurves
            , alignedCurves
            , sideLines
+           , randoms
            ]
 {-
 randomCross ::

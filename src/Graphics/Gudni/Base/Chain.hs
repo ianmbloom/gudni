@@ -13,6 +13,7 @@ import Data.Functor.Classes
 import Control.Monad
 import Control.Applicative
 import qualified Data.Vector as V
+import qualified Data.List as L
 
 class HasElements t where
   type ElemOf t :: Type
@@ -50,7 +51,7 @@ instance Chain V.Vector where
                      else let len = V.length vector
                               half = len - (len `div` 2)
                           in (V.take half vector, V.drop half vector)
-  segregate = V.span
+  segregate = V.partition
   zipWithChain = V.zipWith
   scanlChain = V.scanl
   chainFromList = V.fromList
@@ -61,20 +62,20 @@ instance (Reversible t) => Reversible (V.Vector t) where
 
 
 instance Chain [] where
-  firstLink = head
-  rest      = tail
-  lastLink  = Prelude.last
-  notLast list = take (length list - 1) list
-  reverseChain = Prelude.reverse
+  firstLink = L.head
+  rest      = L.tail
+  lastLink  = L.last
+  notLast list = L.take (length list - 1) list
+  reverseChain = L.reverse
   halfSplit list = if (null list)
                      then (empty, empty)
-                     else let half = length list `div` 2
-                          in (take half list, drop half list)
-  segregate = span
-  zipWithChain = zipWith
-  scanlChain = scanl
+                     else let half = L.length list `div` 2
+                          in (L.take half list, L.drop half list)
+  segregate = L.partition
+  zipWithChain = L.zipWith
+  scanlChain = L.scanl
   chainFromList = id
-  concatChains = concat
+  concatChains = L.concat
 
 instance (Reversible t) => Reversible [t] where
   reverseItem = reverseChain . fmap reverseItem

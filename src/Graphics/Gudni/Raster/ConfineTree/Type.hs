@@ -10,6 +10,7 @@
 {-# LANGUAGE UndecidableSuperClasses    #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 module Graphics.Gudni.Raster.ConfineTree.Type
   ( ConfineTree (..)
@@ -20,7 +21,8 @@ module Graphics.Gudni.Raster.ConfineTree.Type
   , confineCurve
   , confineCut
   , confineCrossings
-  , confineCrossedCurves
+  --, confineCrossedCurves
+  , confineConsidered
   , confineOverhang
   , confineLessCut
   , confineMoreCut
@@ -87,7 +89,8 @@ data Confine axis s
      , _confineCurve     :: Bezier s
      , _confineItemTagId :: ItemTagId
      , _confineCrossings :: [ItemTagId]
-     , _confineCrossedCurves :: [CurveTag]
+     --, _confineCrossedCurves :: [CurveTag]
+     , _confineConsidered:: Int
      , _confineCut       :: With axis s
      , _confineOverhang  :: With axis s
      , _confineLessCut   :: Maybe (Confine (NextAxis axis) s)
@@ -98,7 +101,30 @@ makeLenses ''Confine
 
 deriving instance (Axis axis, Show s) => Show (Confine axis s)
 
-instance (Out s, Axis axis, Show s) => Out (Confine axis s)
+--instance (Out s, Axis axis, Show s) => Out (Confine axis s)
+
+instance (Space s, Axis axis, Out s, Out axis, Out (NextAxis axis), axis~NextAxis(NextAxis axis)) => Out (Confine axis s)
+   where
+    doc tree =
+        ( doc (tree ^. confineCurveTag) <+>
+          doc (tree ^. confineItemTagId) <+>
+          doc (tree ^. confineCut) <+>
+          doc (tree ^. confineOverhang) <+>
+          doc (tree ^. confineCrossings) <+>
+          --doc (tree ^. confineCrossedCurves) <+>
+          text "?>" <+>
+          doc (tree ^. confineConsidered)
+          --text (show (tree ^. confineCurve))
+         )
+         $$
+         nest 1 ( outMConfineTree (tree ^. confineLessCut) $$ outMConfineTree (tree ^. confineMoreCut))
+    docPrec _ = doc
+
+outMConfineTree mTree =
+        case mTree of
+          Nothing -> text "X"
+          Just tree -> doc tree
+
 
 type Branch axis s = Maybe (Confine axis s)
 type ConfineTree s = Branch Vertical s

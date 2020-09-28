@@ -28,47 +28,47 @@ import qualified Data.Vector as V
 import Control.Monad.Random
 import System.Random
 
-testList = [ ("openSquareOverlap3", openSquareOverlap3  ) --  0 -
-           , ("benchmark1"        , benchmark1          ) --  1 -
-           , ("fuzzy cookie"      , fuzzyDonut          ) --  2 -
-           , ("fuzzy basic"       , fuzzyBasic          ) --  3 -
-           , ("fuzzy circles"     , fuzzyCircles        ) --  4 -
-           , ("fuzzy squares"     , fuzzySquares        ) --  5 -
-           , ("fuzzy glyphs"      , fuzzyGlyphs         ) --  6 -
-           , ("fuzzy glyphs2"     , fuzzyGlyphs2        ) --  7 -
-           , ("testPict"          , testPict            ) --  8 -
-           , ("testRadialGradient", testRadialGradient  ) --  9 -
-           , ("testLinearGradient", testLinearGradient  ) -- 10 -
-           , ("rectGrid"          , rectGrid            ) -- 11 -
-           , ("solidGrid"         , solidGrid           ) -- 12 -
-           , ("checkerBoard"      , checkerBoard        ) -- 13 -
-           , ("openSquare"        , openSquare          ) -- 14 -
-           , ("openSquareOverlap2", openSquareOverlap2  ) -- 15 -
-           , ("stackOfSquares"    , stackOfSquares      ) -- 16 -
-           , ("concentricSquares2", concentricSquares2  ) -- 17 -
-           , ("concentricSquares3", concentricSquares3  ) -- 18 -
-           , ("subtractDiamond "  , subtractDiamond     ) -- 19 -
-           , ("subtractDiamond2"  , subtractDiamond2    ) -- 20 -
-           , ("simpleKnob"        , simpleKnob          ) -- 21 -
-           , ("hourGlass"         , hourGlass           ) -- 22 -
-           , ("simpleGlyph"       , simpleGlyph         ) -- 23 -
-           , ("triangle"          , triangle            ) -- 24 -
-           , ("sixPointRectangle" , sixPointRectangle   ) -- 25 -
-           , ("tinySquare"        , tinySquare          ) -- 26 -
-           , ("mediumSequare"     , mediumSquare        ) -- 27 -
-           , ("simpleRectangle"   , simpleRectangle     ) -- 28 -
-           , ("tallRectangle"     , tallRectangle       ) -- 29 -
-           , ("twoBrackets"       , twoBrackets         ) -- 30 -
-           , ("fuzzySquares2"     , fuzzySquares2       ) -- 31 -
-           , ("maxThresholdTest"  , maxThresholdTest    ) -- 32 -
-           , ("maxShapeTest"      , maxShapeTest        ) -- 33 -
-           , ("fuzzyCircles2"     , fuzzyCircles2       ) -- 34 -
-           , ("fuzzyCirclesGrad"  , fuzzyCirclesGrad    ) -- 35 -
-           , ("fullRectangle"     , fullRectangle       ) -- 36 -
-           , ("overlappingSquares", overlappingSquares  ) -- 37 -
-           , ("overlappingCircles", overlappingCircles  ) -- 38 -
-           , ("1 Million Circles" , millionFuzzyCircles ) -- 39 -
-           , ("bigGrid"           , bigGrid             )
+testList = [ ("openSquareOverlap3"  , openSquareOverlap3  ) --  0 -
+           , ("benchmark1"          , benchmark1          ) --  1 -
+           , ("fuzzyDonut"          , fuzzyDonut          ) --  2 -
+           , ("fuzzyBasic"          , fuzzyBasic          ) --  3 -
+           , ("fuzzyCircles"        , fuzzyCircles        ) --  4 -
+           , ("fuzzySquares"        , fuzzySquares        ) --  5 -
+           , ("fuzzyGlyphs"         , fuzzyGlyphs         ) --  6 -
+           , ("fuzzyGlyphs2"        , fuzzyGlyphs2        ) --  7 -
+           , ("testPict"            , testPict            ) --  8 -
+           , ("testRadialGradient"  , testRadialGradient  ) --  9 -
+           , ("testLinearGradient"  , testLinearGradient  ) -- 10 -
+           , ("rectGrid"            , rectGrid            ) -- 11 -
+           , ("solidGrid"           , solidGrid           ) -- 12 -
+           , ("checkerBoard"        , checkerBoard        ) -- 13 -
+           , ("openSquare"          , openSquare          ) -- 14 -
+           , ("openSquareOverlap2"  , openSquareOverlap2  ) -- 15 -
+           , ("stackOfSquares"      , stackOfSquares      ) -- 16 -
+           , ("concentricSquares2"  , concentricSquares2  ) -- 17 -
+           , ("concentricSquares3"  , concentricSquares3  ) -- 18 -
+           , ("subtractDiamond"     , subtractDiamond     ) -- 19 -
+           , ("subtractDiamond2"    , subtractDiamond2    ) -- 20 -
+           , ("simpleKnob"          , simpleKnob          ) -- 21 -
+           , ("hourGlass"           , hourGlass           ) -- 22 -
+           , ("simpleGlyph"         , simpleGlyph         ) -- 23 -
+           , ("triangle"            , triangle            ) -- 24 -
+           , ("sixPointRectangle"   , sixPointRectangle   ) -- 25 -
+           , ("tinySquare"          , tinySquare          ) -- 26 -
+           , ("mediumSquare"        , mediumSquare        ) -- 27 -
+           , ("simpleRectangle"     , simpleRectangle     ) -- 28 -
+           , ("tallRectangle"       , tallRectangle       ) -- 29 -
+           , ("twoBrackets"         , twoBrackets         ) -- 30 -
+           , ("fuzzySquares2"       , fuzzySquares2       ) -- 31 -
+           , ("maxThresholdTest"    , maxThresholdTest    ) -- 32 -
+           , ("maxShapeTest"        , maxShapeTest        ) -- 33 -
+           , ("fuzzyCircles2"       , fuzzyCircles2       ) -- 34 -
+           , ("fuzzyCirclesGrad"    , fuzzyCirclesGrad    ) -- 35 -
+           , ("fullRectangle"       , fullRectangle       ) -- 36 -
+           , ("overlappingSquares"  , overlappingSquares  ) -- 37 -
+           , ("overlappingCircles"  , overlappingCircles  ) -- 38 -
+           , ("millionFuzzyCircles" , millionFuzzyCircles ) -- 39 -
+           , ("bigGrid"             , bigGrid             )
            ]
 
 findTest :: String -> [(String, a)] -> Int
@@ -91,6 +91,7 @@ maxThresholdTest playhead step =
 -- subpixel geometry.
 maxShapeTest ::  SubSpace -> Int -> Layout DefaultStyle
 maxShapeTest playhead step =
+    rotateBy (playhead @@ deg) .
     overlap .
     gridOf 1 1 (step + 400 + 1) .
     concat .
@@ -142,7 +143,7 @@ fuzzyCircles playhead step =
          place .
          overlap $
          --evalRand (sequence . replicate 100000 $ fuzzyCircle (makePoint 200 200) 5 50) (mkStdGen $ (round $ playhead * 2000))
-         evalRand (sequence . replicate 10000 $ fuzzyCircle (makePoint 5760 3600) 5 50) (mkStdGen $ (round $ playhead * 2000))
+         evalRand (sequence . replicate 200 $ fuzzyCircle (makePoint 100 100) 5 50) (mkStdGen $ (round $ playhead * 2000))
 
 -- | A random field of transparent circles.
 fuzzyCirclesGrad :: SubSpace -> Int -> Layout DefaultStyle
@@ -216,7 +217,7 @@ benchmark1 playhead step =
         subtractor = scaleBy (dSize * 15) . overlap . gridOf 0.5 4 4 . cycle $ subtractorGlyphs
     in  translateByXY 0 0 .
         scaleBy 50 .
-        withColor (transparent 1.0 black) $
+        withColor (transparent 0.2 black) $
         {-subtractFrom subtractor-} textGrid
 
 -- | A grid of rectangles.
@@ -224,9 +225,10 @@ rectGrid :: SubSpace -> Int -> Layout DefaultStyle
 rectGrid playhead step =
     let grid :: CompoundTree SubSpace
         grid =  overlap . gridOf 1 256 256 . repeat . mask . rectangle $ Point2 0.5 0.5
-    in  place .
+    in  -- scaleBy 30 .
+        place .
         scaleBy 2 .
-        withColor (transparent 1.0 white) $
+        withColor (transparent 0.2 purple) $
         grid
 
 -- | A very big grid of rectangles.
@@ -235,7 +237,7 @@ bigGrid playhead step =
     let grid :: CompoundTree SubSpace
         grid =  overlap . gridOf 1 1600 1600 . repeat . mask . rectangle $ Point2 0.5 0.5
     in  place .
-        withColor (transparent 1.0 white) $
+        withColor (transparent 0.2 purple) $
         grid
 
 -- | A grid of rectangles in direct contact
@@ -244,15 +246,16 @@ solidGrid playhead step =
     let grid  :: CompoundTree SubSpace
         grid   = overlap . gridOf 1 600 600 . repeat . mask . rectangle $ Point2 1 1
     in  place .
-        withColor (transparent 1.0 white) $
+        withColor (transparent 0.2 purple) $
         grid
 
 -- | A grid of rectangles.
 checkerBoard :: SubSpace -> Int -> Layout DefaultStyle
 checkerBoard playhead step =
     let grid  :: CompoundTree SubSpace
-        grid = overlap .
-               gridOf 1 10 10 .
+        grid = scaleBy 4 .
+               overlap .
+               gridOf 1 600 600 .
                repeat .
                overlap $
                [ mask . rectangle $ Point2 0.5 0.5
@@ -371,6 +374,7 @@ concentricSquares2 playhead step =
 -- | Another test for shape edges that abut.
 concentricSquares3 :: SubSpace -> Int -> Layout DefaultStyle
 concentricSquares3 playhead step =
+    scaleBy 30 .
     place $
     overlap [ translateByXY 0 0 . withColor (transparent 1.0 red   ) $ subtractFrom (translateBy (Point2 2 2) $ (mask $ rectangle (Point2 6 6)) ) (mask $ rectangle (Point2 10 10))
             , translateByXY 2 2 . withColor (transparent 1.0 green ) $ subtractFrom (translateBy (Point2 2 2) $ (mask $ rectangle (Point2 2 2)) ) (mask $ rectangle (Point2  6  6))

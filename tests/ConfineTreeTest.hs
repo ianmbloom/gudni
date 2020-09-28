@@ -48,7 +48,7 @@ makeLenses ''ConfineTreeState
 initialModel =
     ConfineTreeState
     { _stateBase = BasicSceneState
-        { _stateScale       = 1
+        { _stateScale       = 3
         , _stateDelta       = Point2 0 0
         , _stateAngle       = 0 @@ deg
         , _statePaused      = True
@@ -56,17 +56,17 @@ initialModel =
         , _statePace        = 50
         , _stateLastTime    = 0
         , _stateDirection   = True
-        , _statePlayhead    = 164
+        , _statePlayhead    = 0
         , _stateFrameNumber = 0
-        , _stateStep        = 45
+        , _stateStep        = 20
         , _stateRepMode     = False
         , _stateRepDk       = False
         , _stateCursor      = Point2 0 0
         }
     --, _stateTree        = tree
-    , _stateShapeAngle = 0 @@ rad
+    , _stateShapeAngle = 0 @@ rad -- 0 @@ rad
     , _stateTraceStep = 0
-    , _stateCurrentTest = findTest "randomCurves" allTests
+    , _stateCurrentTest = 6 -- findTest {-"twoTriangles"-} "openSquareOverlap3" {- "randomCurves"-} allTests
     }
 
 allTests = testList ++ basicShapes
@@ -81,7 +81,7 @@ instance HasStyle ConfineTreeState where
 
 instance Model ConfineTreeState where
     screenSize state = --FullScreen
-                       Window $ Point2 512 512
+                       Window $ Point2 1024 512
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
@@ -97,19 +97,19 @@ instance Model ConfineTreeState where
                 constructed     = constructConfineTree colorMap tree
                 makePixel point = Box point (point + Point2 500 500)
                 setPoints :: [Layout DefaultStyle]
-                setPoints = map (checkPoint colorMap tree) [Point2 568.31372 201.80227]
+                setPoints = map (checkPoint colorMap tree) [Point2 195.10019 551.23938]
                 randomPoints :: [Layout DefaultStyle]
                 randomPoints    = map (checkPoint colorMap tree) $
-                                  evalRand (take 1000 <$> getRandomRs (Point2 (0) (0), Point2 2000 2000)) .
+                                  evalRand (take 200 <$> getRandomRs (Point2 0 0, Point2 2000 2000)) .
                                   mkStdGen $ round $
                                   state ^. stateBase . statePlayhead
-                testScene = overlap [ overlap randomPoints
-                                      ,
-                                      --overlap setPoints
+                testScene = overlap [ --overlap randomPoints
                                       --,
-                                      testShape
-                                      ,
-                                      constructed
+                                    -- overlap setPoints
+                                    -- ,
+                                    constructed
+                                    ,
+                                    testShape
                                     ]
                 statusTree = statusDisplay (state ^. stateBase) "Test ConfineTree" (lines status)
                 treeScene  = transformFromState (state ^. stateBase) testScene

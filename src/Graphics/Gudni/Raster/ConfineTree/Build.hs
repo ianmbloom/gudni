@@ -62,7 +62,8 @@ addBezierToConfineTree itemTagId tag bez =
                     , _confineCurve      = bez
                     , _confineItemTagId  = itemTagId
                     , _confineCrossings  = []
-                    , _confineCrossedCurves = []
+                    --, _confineCrossedCurves = []
+                    , _confineConsidered = 0
                     , _confineCut        = minCut
                     , _confineOverhang   = minCut
                     , _confineLessCut    = Nothing
@@ -70,7 +71,8 @@ addBezierToConfineTree itemTagId tag bez =
                     }
             Just tree ->
                 Just $
-                if tr ("minCut " ++ show minCut ++ " < tree ^. confineCut " ++ show (tree ^. confineCut)) $ minCut < tree ^. confineCut
+                if --tr ("minCut " ++ show minCut ++ " < tree ^. confineCut " ++ show (tree ^. confineCut)) $
+                   minCut < tree ^. confineCut
                 then over confineOverhang (max maxCut) .
                      set confineLessCut (goInsert (nextAxis axis) (tree ^. confineLessCut)) $
                      tree
