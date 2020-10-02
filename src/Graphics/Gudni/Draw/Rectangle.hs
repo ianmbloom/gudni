@@ -68,9 +68,17 @@ openRectangle thickness box =
       outer = boxToRectangle box
       inner = boxToRectangle (Box (box ^. minBox + offset) (box ^. maxBox - offset))
   in
-  if  box ^. widthBox > d && box ^. heightBox > d
+  if  box ^. widthBox > toAlong Horizontal d && box ^. heightBox > toAlong Vertical d
   then combineShape outer inner
   else outer
 
 rectangle :: (Space s, Chain f) => Point2 s -> Shape_ f s
 rectangle = Shape . pure . Outline . rectangleCurve
+
+{-
+
+boxCenter box = ((box ^. topLeftBox) + (box ^. bottomRightBox)) / 2
+
+squareAround :: forall s . Space s => s -> s -> CompoundTree s
+squareAround thickness size = translateBy (pure ((-size)/2)) . mask . strokeOffset 0 thickness $ (rectangle (pure size) :: Shape s)
+-}

@@ -76,7 +76,7 @@ showCross :: (Axis axis, IsStyle style)
           -> Bezier (SpaceOf style)
           -> Layout style
 showCross axis start end bez =
-    let doesCross = crossesAlong axis (start ^. athwart axis) (start ^. along axis) (end ^. along axis) bez
+    let doesCross = crossesAlong axis (start ^. along axis) (start ^. athwart axis) (end ^. along axis) bez
         color = if doesCross then red else green
     in  withColor color . mask . stroke 0.3 . makeOpenCurve $ [line start end]
 
@@ -92,18 +92,18 @@ crossTests bez =
        s = 50
        cs :: [(EitherAxis, Point2 (SpaceOf style), Point2 (SpaceOf style))]
        cs = [
-               (Right Vertical,  Point2 0   0,   Point2 0   1  )
-             , (Left Horizontal, Point2 0   1,   Point2 1   1  )
-             , (Right Vertical,  Point2 1   1,   Point2 1   0  )
-             , (Left Horizontal, Point2 1   0,   Point2 0   0  )
-             , (Right Vertical,  Point2 0.5 0,   Point2 0.5 1  )
-             , (Left Horizontal, Point2 0 0.5,   Point2 1   0.5)
+                (Right Vertical,  Point2 0   0,   Point2 0   1  )
+              , (Left Horizontal, Point2 0   1,   Point2 1   1  )
+              , (Right Vertical,  Point2 1   1,   Point2 1   0  )
+              , (Left Horizontal, Point2 1   0,   Point2 0   0  )
+              , (Right Vertical,  Point2 0.5 0,   Point2 0.5 1  )
+              , (Left Horizontal, Point2 0 0.5,   Point2 1   0.5)
 
 
-            , (Right Vertical,  Point2 0.1 0.1, Point2 0.1 0.9)
-            , (Left Horizontal, Point2 0.1 0.9, Point2 0.9 0.9)
-            , (Right Vertical,  Point2 0.9 0.9, Point2 0.9 0.1)
-            , (Left Horizontal, Point2 0.9 0.1, Point2 0.1 0.1)
+             , (Right Vertical,  Point2 0.1 0.1, Point2 0.1 0.9)
+             , (Left Horizontal, Point2 0.1 0.9, Point2 0.9 0.9)
+             , (Right Vertical,  Point2 0.9 0.9, Point2 0.9 0.1)
+             , (Left Horizontal, Point2 0.9 0.1, Point2 0.1 0.1)
 
 
             , (Right Vertical,  Point2 0.25 0.25, Point2 0.25 0.75)
@@ -163,17 +163,20 @@ runCrossTests =
                   , mkBez 1 1 1   0.5 1 0
                   , mkBez 1 0 0.5 0   0 0
                   ]
-      randoms = [ overBezier (applyTranslation (Point2 (-0.43118674) 0)) $ mkBez 0.43118674 0.63469476 0.15476434 0.78878772 0.88651923 0.29197949
-                , overBezier (applyTranslation (Point2 (-0.43118674) 0)) $ mkBez 0.88651923 0.29197949 0.93376459 0.37227292 0.13838916 0.37558884
+      randoms = [  overBezier (applyTranslation (Point2 (-0.43118674) 0)) $ mkBez 0.43118674 0.63469476 0.15476434 0.78878772 0.88651923 0.29197949
+                 , overBezier (applyTranslation (Point2 (-0.43118674) 0)) $ mkBez 0.88651923 0.29197949 0.93376459 0.37227292 0.13838916 0.37558884
+                 , overBezier (applyScale 1 . applyTranslation (negate $ Point2 0.12040964 0.84966302)) $ mkBez 0.17114418 0.54112964 (-0.09138076) 0.85783649 0.12288326 0.84959149
+                 , overBezier (applyScale 1 . applyTranslation (negate $ Point2 0.12040964 0.84966302)) $ mkBez 0.12288326 0.84959149 0.16324765    0.13756374 0.17952071 0.61213672
                 ]
   in  rack . map (stack . map revTests) $
            [
-             diagonalLines
-           ++ centerLines
-           , diagonalCurves
-           , alignedCurves
-           , sideLines
-           , randoms
+              diagonalLines
+            ++ centerLines
+            , diagonalCurves
+            , alignedCurves
+            , sideLines
+            ,
+            randoms
            ]
 {-
 randomCross ::
@@ -207,4 +210,5 @@ instance HandlesInput token CrossTestState where
 
 main :: IO ()
 main = do putStrLn "Started"
+          putStrLn . show $ crossesAlong Horizontal 134.448608398438 92.897171020508 145.160034179688 (Bez (Point2 141.676727294922  75.385391235352) (Point2 145.160034179688  83.794853210449) (Point2 145.160034179688  92.897178649902):: Bezier SubSpace)
           runApplication initialModel

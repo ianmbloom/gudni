@@ -77,15 +77,18 @@ library
                      , Graphics.Gudni.Util.Shuffle
                      , Graphics.Gudni.Util.TreeOrderTable
 
-                     , Graphics.Gudni.Raster.ConfineTree.Type
-                     , Graphics.Gudni.Raster.ConfineTree.TaggedBezier
                      , Graphics.Gudni.Raster.ConfineTree.Add
                      , Graphics.Gudni.Raster.ConfineTree.Build
                      , Graphics.Gudni.Raster.ConfineTree.Decorate
-                     , Graphics.Gudni.Raster.ConfineTree.Sweep
-                     , Graphics.Gudni.Raster.ConfineTree.Traverse
-                     , Graphics.Gudni.Raster.ConfineTree.Serialize
                      , Graphics.Gudni.Raster.ConfineTree.Depth
+                     , Graphics.Gudni.Raster.ConfineTree.ItemStack
+                     , Graphics.Gudni.Raster.ConfineTree.Query
+                     , Graphics.Gudni.Raster.ConfineTree.Serialize
+                     , Graphics.Gudni.Raster.ConfineTree.Sweep
+                     , Graphics.Gudni.Raster.ConfineTree.SweepTrace
+                     , Graphics.Gudni.Raster.ConfineTree.TaggedBezier
+                     , Graphics.Gudni.Raster.ConfineTree.Traverse
+                     , Graphics.Gudni.Raster.ConfineTree.Type
 
   -- Modules included in this library but not exported.
   other-modules:       Graphics.Gudni.Base.HasDefault
@@ -153,6 +156,7 @@ library
                      , Graphics.Gudni.Draw.Representation
                      , Graphics.Gudni.Draw.Representation.Class
                      , Graphics.Gudni.Draw.Representation.ConfineTree
+                     , Graphics.Gudni.Draw.Representation.DecorateTree
                      , Graphics.Gudni.Draw.Representation.ConfineQuery
 
                      , Graphics.Gudni.Draw.ArrowHead
@@ -445,6 +449,7 @@ executable paragraph-example
 executable confinetree
     other-modules:     GudniTests
                        BasicShapes
+                       DrawSweepTrace
   if flag(benchmarks)
     build-depends:   gudni
                    , base
@@ -456,6 +461,7 @@ executable confinetree
                    , GenericPretty
                    , MonadRandom >=0.5 && <0.6
                    , random >=1.1 && <1.2
+                   , colour
   else
     buildable: False
   hs-source-dirs: ./tests

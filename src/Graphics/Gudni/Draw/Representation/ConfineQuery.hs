@@ -16,7 +16,8 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.ItemInfo
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.Traverse
+import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
+import Graphics.Gudni.Raster.ConfineTree.Query
 
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Elipse
@@ -26,6 +27,8 @@ import Graphics.Gudni.Draw.Representation.Class
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
+import Graphics.Gudni.Util.Subdividable
+
 import GHC.Exts
 import Control.Lens
 import Control.Monad
@@ -62,7 +65,7 @@ constructLayerStack :: forall style
                        )
                     => M.Map ItemTagId Color
                     -> Point2 (SpaceOf style)
-                    -> [ItemTagId]
+                    -> ItemStack
                     -> Layout style
 constructLayerStack colorMap point stack =
   do  --let string = ((concat $ imap (\i a -> "(iT " ++ show (a ^. ancItemTagId) ++ " tg " ++ show (a ^. ancTag) ++ " c " ++ show (a ^. ancCornerWinding) ++ " w " ++ show (a ^. ancWinding) ++ ")" ) stack)) ++ "\n" ++
@@ -76,18 +79,50 @@ checkPoint :: forall style
               )
            => M.Map ItemTagId Color
            -> ConfineTree (SpaceOf style)
+           -> DecorateTree (SpaceOf style)
            -> Point2 (SpaceOf style)
            -> Layout style
-checkPoint colorMap tree point =
-  let (anchor, itemTagIds, curveTags) = {-tr "pointWinding" $-} pointWinding tree point
+checkPoint colorMap confineTree decoTree point =
+  let (anchor, anchorStack, stack, curveTags) = queryPointWithInfo confineTree decoTree point
+      makeList a = [a]
+      bezList :: [Bezier (SpaceOf style)]
+      bezList = concat $ map ({-subdivideBeziers 4 .-}  makeList . view tBez) $ curveTags
+      numCrossings = length . filter id . map (crosses anchor point) $ bezList
+      markBez bez = let ch  = crossesHorizontal anchor point bez
+                        cv  = crossesVertical   anchor point bez
+                        sl  = bezierSlopeLTEZero Vertical bez
+                    in  (ch, cv, sl, bez)
+      drawCurve :: (Bool, Bool, Bool, Bezier (SpaceOf style)) -> Layout style
+      drawCurve (ch, cv, sl, bez) =
+          let color = case (ch, cv, sl) of
+                         (True,  True,  True ) -> red
+                         (True,  True,  False) -> light (light red)
+                         (True,  False, True ) -> purple
+                         (True,  False, False) -> light (light purple)
+                         (False, True,  True ) -> blue
+                         (False, True,  False) -> light (light blue)
+                         (False, False, True ) -> green
+                         (False, False, False) -> yellow
+          in  withColor color . mask . stroke 0.1 . makeOpenCurve . makeList $ bez
+      curves = overlap $ map drawCurve $ {-tr "markBez" $-} map markBez bezList
       label :: Layout style
-      label = if length itemTagIds > 0
-              then translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show $ point
+      label = if length stack > 0
+              then translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show $ length bezList
               else emptyItem
-
-  in  overlap [ --label,
-               constructLayerStack colorMap point itemTagIds
-              --, withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line anchor point]
+  in  overlap [
+              -- label
+              --,
+              -- constructLayerStack colorMap anchor anchorTags
+              --,
+               constructLayerStack colorMap point stack
+              --,
+              -- curves
+              --,
+              -- withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line anchor  point]
+              -- ,
+              --  withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line anchor (interimPoint anchor point)]
+              -- ,
+              --  withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line (interimPoint anchor point) point]
               ]
 {-
 checkBox :: forall style

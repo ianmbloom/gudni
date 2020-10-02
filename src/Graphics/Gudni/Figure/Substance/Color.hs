@@ -38,6 +38,7 @@ module Graphics.Gudni.Figure.Substance.Color
 
   , redish, orangeish, yellowish, greenish, blueish, purpleish
   , colorToRGBA8
+  , colourToColor
   )
 where
 
@@ -96,6 +97,9 @@ purple = Color N.purple 1.0
 white  = Color N.white  1.0
 gray   = Color N.gray   1.0
 black  = Color C.black  1.0
+
+colourToColor :: C.Colour Float -> Color
+colourToColor colour = Color colour 1
 
 -- | Generate a 'Color' from hue saturation and lightness values.
 hslColor :: Float -> Float -> Float -> Color

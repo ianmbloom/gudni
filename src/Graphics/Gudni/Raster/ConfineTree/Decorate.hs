@@ -3,136 +3,116 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 
+
 module Graphics.Gudni.Raster.ConfineTree.Decorate
-  ( addCrossingToConfineTree
+  ( buildDecorateTree
+  , traverseDecorateTree
   )
 where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
+import Graphics.Gudni.Raster.ConfineTree.Traverse
+import Graphics.Gudni.Raster.ConfineTree.ItemStack
 import Graphics.Gudni.Raster.ItemInfo
 import Graphics.Gudni.Util.Debug
 
 import Control.Lens
 import Control.Monad
+import Control.Monad.State
 
-checkTag = 0
+modifyItemStackIfCrossedAlong :: ( Axis axis
+                                 , Space s
+                                 , Monad m
+                                 )
+                              => m ()
+                              -> axis
+                              -> Along axis s
+                              -> Athwart axis s
+                              -> Along axis s
+                              -> TaggedBezier s
+                              -> StateT ItemStack m ()
+modifyItemStackIfCrossedAlong crossOp lineAxis start baseline end curve =
+  do lift crossOp
+     if crossesAlong lineAxis start baseline end (curve ^. tBez)
+     then modify (toggleItem (curve ^. tBezItem))
+     else return ()
 
-addCrossingToConfineTree :: forall s m
-                         .  (Space s, Monad m)
-                         => m ()
-                         -> ItemTagId
-                         -> CurveTag
-                         -> Bezier s
-                         -> ConfineTree s
-                         -> m (ConfineTree s)
-addCrossingToConfineTree op itemTagId tag initBez mTree =
-    case mTree of
-        Nothing -> return Nothing
-        Just tree ->
-            fmap Just $ goChildren Vertical True (onAxis Vertical minBound) (onAxis Horizontal minBound) initBez tree
+buildDecorateTree :: forall s m
+                  .  ( Space s
+                     , Monad m
+                     )
+                  => m ()
+                  -> Int
+                  -> ConfineTree s
+                  -> m (DecorateTree s)
+buildDecorateTree crossOp limit mRoot =
+    fst <$> go Vertical (toAlong Horizontal minBound) (toAlong Vertical minBound) mRoot
     where
-    goChildren :: forall axis
-               .  ( Axis axis
-                  , SwitchAxis axis
-                  , SwitchAxis (NextAxis axis)
-                  , axis~NextAxis(NextAxis axis)
-                  )
-               => axis
-               -> Bool
-               -> With axis s
-               -> With (NextAxis axis) s
-               -> Bezier s
-               -> Confine axis s
-               -> m (Confine axis s)
-    goChildren axis moreSide parentCut parentLine bez tree =
-       let goNext :: Bool -> Maybe (Confine (NextAxis axis) s) -> m (Maybe (Confine (NextAxis axis) s))
-           goNext nextSide = goAdd (nextAxis axis) nextSide parentLine (tree ^. confineCut) bez
-           --message = "newTag: " ++ show tag ++ " treeCurveTag: " ++ show (tree ^. confineCurveTag) ++ "   pLine " ++ show parentLine ++ " pCut " ++ show parentCut ++ " "
-           pLine = fromAxis (nextAxis axis) parentLine
-           box = boxOf bez
-           cut = fromAxis axis (tree ^. confineCut)
-           maxAlo = box ^. maxBox . along axis
-           minAlo = box ^. minBox . along axis
-           maxAth = box ^. maxBox . athwart axis
-           minAth = box ^. minBox . athwart axis
-       in  if --trWhen (tag == checkTag) (" " ++ message ++ " both ") $
-              --(
-              -- trWhen (tag == checkTag) (" " ++ message ++ "    moreSide " ++ show (    moreSide) ++ " && (maxAth >= pLine)" ++ show (maxAth >= pLine)) $
-              --                                    moreSide                               && (maxAth >= pLine)) ||
-              --(
-              -- trWhen (tag == checkTag) (" " ++ message ++ "not moreSide " ++ show (not moreSide) ++ " && (minAth <  pLine)" ++ show (minAth <  pLine)) $
-              --                                not moreSide                               && (minAth <= pLine))
-              True
-           then (if (maxAth >= cut)
-                 then (\tree ->
-                         do moreTree <- goNext True  (tree ^. confineMoreCut)
-                            return $ set confineMoreCut moreTree tree
-                      )
-                 else return) <=<
-                (if (minAth <= cut)
-                 then (\tree ->
-                         do lessTree <- goNext False (tree ^. confineLessCut)
-                            return $ set confineLessCut lessTree tree
-                      )
-                 else return) $
-                tree
-           else return tree
-
-    goAdd :: forall axis
-          .  ( Axis axis
-             , SwitchAxis axis
-             , SwitchAxis (NextAxis axis)
-             , axis~NextAxis(NextAxis axis)
-             )
-          => axis
-          -> Bool
-          -> With axis s
-          -> With (NextAxis axis) s
-          -> Bezier s
-          -> Maybe (Confine axis s)
-          -> m (Maybe (Confine axis s))
-    goAdd axis moreSide parentCut parentLine bez mTree =
+    go :: (Axis axis, axis~PerpendicularTo(PerpendicularTo(axis)))
+       => axis
+       -> Athwart axis s
+       -> Along   axis s
+       -> Branch axis s
+       -> m (DecoTree axis s, Int)
+    go axis parentCut parentLine mTree =
         case mTree of
-            Nothing -> return Nothing
+            Nothing -> return (DecoLeaf, 0)
             Just tree ->
-                let box = boxOf bez
-                    maxAth = box ^. maxBox . athwart axis
-                    minAth = box ^. minBox . athwart axis
-                    cut    = fromAxis axis (tree ^. confineCut)
-                in
-                fmap Just $
-                if minAth < cut && maxAth > cut
-                then  let (less, more) = splitBezier 0.5 bez
-                      in  goChildren axis moreSide parentCut parentLine less <=<
-                          addCrossing axis parentCut parentLine less <=<
-                          goChildren axis moreSide parentCut parentLine more <=<
-                          addCrossing axis parentCut parentLine more $
-                          tree
-                else      goChildren axis moreSide parentCut parentLine bez <=<
-                          addCrossing axis parentCut parentLine bez $
-                          tree
+                     let parentAxis = perpendicularTo axis
+                         cut = tree ^. confineCut
+                         collector = modifyItemStackIfCrossedAlong crossOp parentAxis parentCut parentLine cut
+                     in
+                     do
+                         crossings <- execStateT (traverseCTAlong collector
+                                                                  parentAxis
+                                                                  parentCut
+                                                                  parentLine
+                                                                  cut
+                                                                  mRoot
+                                                 ) []
+                         (lessTree, lessDepth) <- go (perpendicularTo axis) parentLine (tree ^. confineCut) (tree ^. confineLessCut)
+                         (moreTree, moreDepth) <- go (perpendicularTo axis) parentLine (tree ^. confineCut) (tree ^. confineMoreCut)
+                         let depth = 1 + max lessDepth moreDepth
+                             this  = if depth <= limit
+                                     then DecoLeaf
+                                     else DecoBranch
+                                         { _decoCut       = tree ^. confineCut
+                                         , _decoCurveTag  = tree ^. confineCurve . tCurveTag
+                                         , _decoCrossings = crossings
+                                         , _decoLessCut      = lessTree
+                                         , _decoMoreCut      = moreTree
+                                         }
+                         return (this, depth)
 
-    addCrossing :: forall axis
-                .  ( Axis axis
-                   , SwitchAxis (NextAxis axis)
-                   , axis~NextAxis(NextAxis (axis))
-                   )
-                => axis
-                -> With axis s
-                -> With (NextAxis axis) s
-                -> Bezier s
-                ->    Confine axis s
-                -> m (Confine axis s)
-    addCrossing axis parentCut parentLine bez tree =
-        --tcP ("-------- addCrossing from new tag: " ++ show tag ++ " over: " ++ show (tree ^. confineCurveTag)) $
-        let start = parentCut
-            end   = tree ^. confineCut
-            tree' = if --trWhen (tag == checkTag) ("+newTag: " ++ show tag ++ " treeCurveTag: " ++ show (tree ^. confineCurveTag) ++ "   pLine " ++ show parentLine ++ " start: " ++ show start ++ " end: " ++ show end) $
-                       crossesAlong (nextAxis axis) (unAxis parentLine) (unAxis start) (unAxis end) bez
-                    then over confineCrossings (toggleCrossing itemTagId) $
-                         ---over confineCrossedCurves ({-trWhen (tag==checkTag) ("consTag " ++ show tag ++ " treeTag " ++ show (tree ^. confineCurveTag)) .-} (tag:)) $
-                         tree
-                    else tree
-        in  do op
-               return tree'
+traverseDecorateTree :: forall s m
+                     .  ( Space s
+                        , Monad m
+                        )
+                     => (ItemStack -> m ())
+                     -> (Point2 s -> m ())
+                     -> Point2 s
+                     -> DecorateTree s
+                     -> m ()
+traverseDecorateTree doBranch doLeaf point =
+  go Vertical (toAlong Horizontal minBound) (toAlong Vertical minBound)
+  where
+  go :: (Axis axis, axis~PerpendicularTo(PerpendicularTo axis))
+     => axis
+     -> Athwart axis s
+     -> Along   axis s
+     -> DecoTree axis s
+     -> m ()
+  go axis parentCut parentLine tree =
+      case tree of
+        DecoLeaf ->
+            let anchor = pointAlongAxis (perpendicularTo axis) parentCut parentLine
+            in  doLeaf anchor
+        DecoBranch {} ->
+            let cut = tree ^?! decoCut
+            in
+            do  doBranch (tree ^?! decoCrossings)
+                if point ^. athwart axis < cut
+                then go (perpendicularTo axis) parentLine cut (tree ^?! decoLessCut)
+                else go (perpendicularTo axis) parentLine cut (tree ^?! decoMoreCut)

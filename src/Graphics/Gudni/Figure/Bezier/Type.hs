@@ -102,7 +102,7 @@ isKnobThreshold threshold axis bz@(Bez v0 control v1) =
   let a = abs (v0 ^. athwart axis - control ^. athwart axis)
       b = abs (control ^. athwart axis  - v1 ^. athwart axis)
       c = abs (v0 ^. athwart axis - v1 ^. athwart axis)
-  in  abs ((a + b) - c) > threshold
+  in  abs ((a + b) - c) > (perpendicular $ toAlong axis threshold)
 
 shouldSubdivideBezier :: (Space s) => s -> Bezier s -> Bool
 shouldSubdivideBezier tolerance bez =

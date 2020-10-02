@@ -7,6 +7,7 @@
 
 module Graphics.Gudni.Util.Subdividable
   ( CanSubdivide(..)
+  , subdivideBeziers
   )
 where
 

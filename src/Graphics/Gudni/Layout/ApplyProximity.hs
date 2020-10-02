@@ -71,7 +71,7 @@ applyAlignWithSize :: ( IsStyle style
                    => style
                    -> axis
                    -> Alignment
-                   -> SpaceOf style
+                   -> Along axis (SpaceOf style)
                    -> Box (SpaceOf style)
                    -> Point2 (SpaceOf style)
 applyAlignWithSize style axis alignment size box =
@@ -80,7 +80,7 @@ applyAlignWithSize style axis alignment size box =
                     AlignMin    -> 0
                     AlignMax    -> size - boxSize
                     AlignCenter -> (size - boxSize) / 2
-    in  deltaOnAxis (nextAxis axis) offset
+    in  deltaOnAxis axis offset
 
 overBoth f (a, b) = (f a, f b)
 
@@ -108,7 +108,7 @@ applyNextTo :: ( IsStyle style
             -> (Point2 (SpaceOf style), Point2 (SpaceOf style))
 applyNextTo style axis (a, b) =
   let d = a ^. maxBox . along axis - b ^. minBox . along axis
-  in  (zeroPoint, deltaOnAxis (nextAxis axis) (d + styleGap axis style) )
+  in  (zeroPoint, deltaOnAxis axis (d + toAlong axis (styleGap axis style)) )
 
 applyProximity :: ( IsStyle style)
                => style

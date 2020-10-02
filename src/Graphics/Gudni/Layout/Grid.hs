@@ -29,26 +29,26 @@ import Control.Lens
 horizontallySpacedBy :: (HasSpace a)
                      => (Point2 (SpaceOf a) -> a -> a)
                      -> Point2 (SpaceOf a)
-                     -> SpaceOf a
+                     -> Ax Horizontal (SpaceOf a)
                      -> [a]
                      -> [a]
-horizontallySpacedBy f topLeft s = zipWith ($) (map f $ iterate (^+^ Point2 s 0) (Point2 (topLeft ^. pX) 0))
+horizontallySpacedBy f topLeft s = zipWith ($) (map f $ iterate (^+^ makePoint s 0) (makePoint (topLeft ^. pX) 0))
 
 verticallySpacedBy :: (HasSpace a)
                    => (Point2 (SpaceOf a) -> a -> a)
                    -> Point2 (SpaceOf a)
-                   -> SpaceOf a
+                   -> Ax Vertical (SpaceOf a)
                    -> [a]
                    -> [a]
-verticallySpacedBy f topLeft s = zipWith ($) (map f $ iterate (^+^ Point2 0 s) (Point2 0 (topLeft ^. pY)))
+verticallySpacedBy f topLeft s = zipWith ($) (map f $ iterate (^+^ makePoint 0 s) (makePoint 0 (topLeft ^. pY)))
 
 verticallySpacedListBy :: (HasSpace a)
                        => (Point2 (SpaceOf a) -> a -> a)
                        -> Point2 (SpaceOf a)
-                       -> SpaceOf a
+                       -> Ax Vertical (SpaceOf a)
                        -> [[a]]
                        -> [[a]]
-verticallySpacedListBy f topLeft s = zipWith ($) (map (\i -> map (f i)) $ iterate (^+^ Point2 0 s) (Point2 0 (topLeft ^. pY)))
+verticallySpacedListBy f topLeft s = zipWith ($) (map (\i -> map (f i)) $ iterate (^+^ makePoint 0 s) (makePoint 0 (topLeft ^. pY)))
 
 gridFrom :: (HasSpace a)
          => (Point2 (SpaceOf a) -> a -> a)
@@ -58,7 +58,7 @@ gridFrom :: (HasSpace a)
          -> Int
          -> [a]
          -> [a]
-gridFrom f topLeft s width height = concat . take height . verticallySpacedListBy f topLeft s . map (take width . horizontallySpacedBy f topLeft s) . breakList width
+gridFrom f topLeft s width height = concat . take height . verticallySpacedListBy f topLeft (toAlong Vertical s) . map (take width . horizontallySpacedBy f topLeft (toAlong Horizontal s)) . breakList width
 
 gridOf :: (HasSpace a, SimpleTransformable a)
        => SpaceOf a

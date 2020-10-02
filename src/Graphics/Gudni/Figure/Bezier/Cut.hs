@@ -25,13 +25,13 @@ import Control.Applicative
 import Text.PrettyPrint.GenericPretty
 
 -- | Find the t parameter that cuts a bezier at verticle line x
-findCutBezier :: (Space s, Axis axis) => axis -> s -> Bezier s -> s
+findCutBezier :: (Space s, Axis axis) => axis -> Athwart axis s -> Bezier s -> s
 findCutBezier axis cut bezier =
     if (bezier ^. bzStart . athwart axis <= bezier ^. bzEnd . athwart axis)
-    then findSplit (\t ->         cut - (view (bzControl . athwart axis) . insideBezier t $ bezier ))
-    else findSplit (\t -> negate (cut - (view (bzControl . athwart axis) . insideBezier t $ bezier)))
+    then findSplit (\t -> fromAthwart axis $         cut - (view (bzControl . athwart axis) . insideBezier t $ bezier ))
+    else findSplit (\t -> fromAthwart axis $ negate (cut - (view (bzControl . athwart axis) . insideBezier t $ bezier)))
 
-maybeCutPointBezier :: (Space s, Axis axis) => axis -> s -> Bezier s -> Maybe s
+maybeCutPointBezier :: (Space s, Axis axis) => axis -> Athwart axis s -> Bezier s -> Maybe s
 maybeCutPointBezier axis split bz =
   if canCut axis split bz
   then Just $ findCutBezier axis split bz
@@ -39,9 +39,9 @@ maybeCutPointBezier axis split bz =
 
 class (HasSpace t) => CanCut t where
    -- | Split item across horizontal or vertical line
-   splitAtCut :: Axis axis => axis -> SpaceOf t -> t -> (t, t)
+   splitAtCut :: Axis axis => axis -> Athwart axis (SpaceOf t) -> t -> (t, t)
    -- | Determine if horizontal or vertical line cuts item
-   canCut     :: Axis axis => axis -> SpaceOf t -> t -> Bool
+   canCut     :: Axis axis => axis -> Athwart axis (SpaceOf t) -> t -> Bool
 
 instance Space s => CanCut (Bezier s) where
    splitAtCut axis cut bezier =

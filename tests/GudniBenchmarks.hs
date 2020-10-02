@@ -70,7 +70,7 @@ initialModel pictureMap =
         }
     , _statePictureMap  = pictureMap
     , _stateTests       = testList
-    , _stateCurrentTest = 19
+    , _stateCurrentTest = 0
     }
 
 getTest :: BenchmarkState -> (String, SubSpace -> Int -> Layout DefaultStyle)

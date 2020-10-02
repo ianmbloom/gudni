@@ -13,7 +13,6 @@
 
 module Graphics.Gudni.Raster.ConfineTree.Build
   ( buildConfineTree
-  , SweepTrace(..)
   )
 where
 
@@ -27,6 +26,7 @@ import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
 import Graphics.Gudni.Raster.ConfineTree.Add
 import Graphics.Gudni.Raster.ConfineTree.Decorate
 import Graphics.Gudni.Raster.ConfineTree.Sweep
+import Graphics.Gudni.Raster.ConfineTree.SweepTrace
 import Graphics.Gudni.Raster.ConfineTree.Depth
 
 import Graphics.Gudni.Util.Debug
@@ -53,14 +53,6 @@ import Control.Monad.ST
 import Control.Monad.Random
 import System.Random
 
-data SweepTrace s = SweepTrace
-    { _sweepDiscarded :: [Bezier s]
-    , _sweepContinue  :: [Bezier s]
-    , _sweepSteps     :: Int
-    } deriving (Show, Eq, Ord)
-makeLenses ''SweepTrace
-
-
 indexVector :: Bool -> Int -> IO (V.Vector Int)
 indexVector doShuffle size =
   do let indices = V.generate size id
@@ -69,10 +61,10 @@ indexVector doShuffle size =
      else return indices
 
 addPileToConfineTree :: ( Space s
-                        , Storable (TaggedBezier s)
+                        , Storable (ItemBezier s)
                         )
                      => Bool
-                     -> Pile (TaggedBezier s)
+                     -> Pile (ItemBezier s)
                      -> ConfineTree s
                      -> IO (ConfineTree s)
 addPileToConfineTree doShuffle pile mTree =
@@ -82,55 +74,46 @@ addPileToConfineTree doShuffle pile mTree =
   size = fromIntegral . unBreadth . view pileBreadth $ pile
   go indices mTree i =
     do j <- V.indexM indices i
-       (TaggedBezier bez itemTagId) <- pileItem pile j
-       return $ addBezierToConfineTree itemTagId (CurveTag j) bez mTree
-
-decorateConfineTree :: forall s
-                    .  ( Space s
-                       , Storable (TaggedBezier s)
-                       )
-                     => Pile (TaggedBezier s)
-                     -> ConfineTree s
-                     -> IO (ConfineTree s)
-decorateConfineTree pile mTree =
-    do  (mTreeDecorate, maxCount) <- numLoopState 0 (size - 1) (mTree, 0) goDecorate
-        putStrLn $ "maxCount: " ++ show maxCount
-        return mTreeDecorate
-   where
-   size = fromIntegral . unBreadth . view pileBreadth $ pile
-   adder = modify (+1)
-   goDecorate :: (ConfineTree s, Int) -> Int -> IO (ConfineTree s, Int)
-   goDecorate (mTree, count) i =
-     do (TaggedBezier bez itemTagId) <- pileItem pile i
-        let (mTree', count') = runState (addCrossingToConfineTree adder itemTagId (CurveTag i) bez mTree) 0
-        return (mTree', count + count')
+       (ItemBezier bez itemTagId) <- pileItem pile j
+       return $ addBezierToConfineTree (TaggedBezier bez (CurveTag j) itemTagId) mTree
 
 buildConfineTree :: forall s
-                 .  ( Storable (TaggedBezier s)
+                 .  ( Storable (ItemBezier s)
                     , Space s )
-                 => Pile (TaggedBezier s)
-                 -> IO (ConfineTree s)
-buildConfineTree bezPile =
-  do   treeBare <- --trP "bareTree" .
+                 => Int
+                 -> Int
+                 -> Pile (ItemBezier s)
+                 -> IO (ConfineTree s, DecorateTree s, SweepTrace s)
+buildConfineTree traceLimit decorationLimit bezPile =
+  do   treeBare <- -- tcP "bareTree" .
                    trWith (show . confineTreeCountOverlaps) "confineTreeCountOverlaps" .
                    trWith (show . confineTreeDepth) "confineTreeDepth" .
                    trWith (show . logBase 2 . (fromIntegral :: Int -> Float) . confineTreeSize) "confineTreeSizeLog" .
                    trWith (show . confineTreeSize) "confineTreeSize" <$>
                    addPileToConfineTree True bezPile Nothing
        -- treeDecorated <- liftIO $ decorateConfineTree bezPile treeBare
-       let --tickStep = modify (over _1 (+1))
-           --stub   _ = return ()
-           tickStep = sweepSteps += 1
-           discardOp :: [Bezier s] -> StateT (SweepTrace s) IO ()
-           discardOp  list = do sweepDiscarded %= (list++)
-           continueOp :: [Bezier s] -> StateT (SweepTrace s) IO ()
-           continueOp list = sweepContinue .= list
-
-       (treeDecorated, trace) <- runStateT (sweepConfineTree tickStep discardOp continueOp treeBare) (SweepTrace [] [] 0)
-       putStrLn $ "trace: " ++ show trace
+       -- (treeDecorated, trace) <- runStateT (sweepConfineTree crossStep
+       --                                                       branchStep
+       --                                                       (discardOp    traceLimit)
+       --                                                       (keepOp       traceLimit)
+       --                                                       (nothingOp    traceLimit)
+       --                                                       (pushBypassOp traceLimit)
+       --                                                       (popBypassOp  traceLimit)
+       --                                                       (pushPath     traceLimit)
+       --                                                       (popPath      traceLimit)
+       --                                                       decorationLimit
+       --                                                       treeBare
+       --
+       --                                                     ) initialTrace
+       let trace = initialTrace
+       let (treeDecorated, decorationCount) = runState (buildDecorateTree (modify (+1)) decorationLimit treeBare) 0
        --conConfineTree .= treeDecorated
-       let total = confineTreeTotalConsidered treeDecorated
-           count = confineTreeSize treeDecorated
-       putStrLn $ "steps per node    " ++ showFl' 12 (fromIntegral (view sweepSteps trace)/fromIntegral count :: Double)
-       putStrLn $ "averageConsidered " ++ showFl' 12 (total/ fromIntegral count)
-       return treeDecorated
+       let total = decorationCount
+           count = confineTreeSize treeBare
+       putStrLn $ "steps per node    " ++ showFl' 12 (fromIntegral total/fromIntegral count :: Double)
+       -- putStrLn ""
+       -- putStrLn $ "sweepCrossSteps: " ++ show (trace ^. sweepCrossSteps)
+       -- putStrLn $ "averageConsidered " ++ showFl' 12 (total/ fromIntegral count)
+       -- putStrLn ""
+
+       return (treeBare, {-trP "treeDecorated\n"-} treeDecorated, trace)

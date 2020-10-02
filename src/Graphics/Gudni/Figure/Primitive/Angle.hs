@@ -36,6 +36,7 @@ module Graphics.Gudni.Figure.Primitive.Angle
   )
 where
 
+import Graphics.Gudni.Figure.Primitive.Axis
 import Graphics.Gudni.Figure.Primitive.Point
 
 import Diagrams.Angle (Angle, cosA, sinA, tanA, (@@), deg, rad, turn, fullTurn, halfTurn, quarterTurn, normalizeAngle, angleBetween)
@@ -52,7 +53,7 @@ rotate a (Point2 x y) = Point2 (x * cosA a - y * sinA a) (y * cosA a + x * sinA 
 
 -- | Fast 90 degree rotation around the origin.
 rotate90 :: (Num s) => Point2 s -> Point2 s
-rotate90 v = makePoint (v ^. pY) (negate $ v ^. pX)
+rotate90 v = makePoint (perpendicular $ v ^. pY) (perpendicular . negate $ v ^. pX)
 
 -- | Fast 180 degree rotation around the origin.
 rotate180 :: (Num s) => Point2 s -> Point2 s
@@ -60,7 +61,7 @@ rotate180 v = makePoint (negate $ v ^. pX) (negate $ v ^. pY )
 
 -- | Fast 270 degree rotation around the origin.
 rotate270 :: (Num s) => Point2 s -> Point2 s
-rotate270 v = makePoint (negate $ v ^. pY) (v ^. pX)
+rotate270 v = makePoint (perpendicular . negate $ v ^. pY) (perpendicular $ v ^. pX)
 
 -- -----------------------------------------------------------------------------
 -- Simple mirroring functions∘

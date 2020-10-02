@@ -28,8 +28,6 @@ module Graphics.Gudni.Figure.Shape.Outline
   , outlineSegments
   , makeOutline
   , closeOpenCurve
-  , windingIsClockwise
-  , windClockwise
   )
 where
 
@@ -96,40 +94,6 @@ closeOpenCurve curve =
                      -- else insert a line segment from the end to the beggining.
   in  Outline . connect . view curveSegments $ curve
 
-windBezierComponent :: Num s => Bezier s -> s
-windBezierComponent b = (b ^. bzEnd . pX - b ^. bzStart . pX) * ((b ^. bzEnd . pY) + (b ^. bzStart . pY))
-
-windingIsClockwise :: (Loop f, Space s) => Outline_ f s -> Bool
-windingIsClockwise = (<0) .
-                     sum .
-                     fmap windBezierComponent .
-                     view outlineSegments
-
-windClockwise :: (Loop f, Reversible (f (Bezier s)), Space s, Show (f (Bezier s))) => Outline_ f s -> Outline_ f s
-windClockwise outline = if (tr "windingIsClockWise" $ windingIsClockwise $ tr "outline" outline) then outline else reverseItem outline
-
-pointInsideOutline :: (Loop f) => Space s => Outline_ f s -> Point2 s -> Bool
-pointInsideOutline poly point =
-    foldl (/=) False .
-    fmap (
-        \ bez ->
-            let i = bez ^. bzStart
-                j = bez ^. bzEnd
-            in  (
-                   (
-                      (
-                        (i ^. pY <= point ^. pY) &&
-                        (point ^. pY < j ^. pY )
-                      ) ||
-                      ( (j ^. pY <= point ^. pY) &&
-                        (point ^. pY < i ^. pY)
-                      )
-                   ) &&
-                   (point ^. pX < (j ^. pX - i ^. pX) * (point ^. pY - i ^. pY) / (j ^. pY - i ^. pY) + i ^. pX)
-                )
-        ) .
-    view outlineSegments $
-    poly
 
 instance Chain f => Reversible (Outline_ f s) where
   reverseItem = over outlineSegments (fmap reverseItem . reverseChain)

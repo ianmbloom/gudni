@@ -75,7 +75,8 @@ curvePoint t (Bez v0 control v1) =
 splitDirection :: (Axis axis, Space s) => axis -> Bezier s -> s -> s
 splitDirection axis bz@(Bez v0 control v1) t =
     let (Bez mid0 onCurve mid1) = curvePoint t bz
-    in  (abs (onCurve ^. athwart axis - v0 ^. athwart axis) - (abs (onCurve ^. athwart axis - mid0 ^. athwart axis) + abs (mid0 ^. athwart axis - v0 ^. athwart axis))) -
+    in  fromAthwart axis $
+        (abs (onCurve ^. athwart axis - v0 ^. athwart axis) - (abs (onCurve ^. athwart axis - mid0 ^. athwart axis) + abs (mid0 ^. athwart axis - v0 ^. athwart axis))) -
         (abs (onCurve ^. athwart axis - v1 ^. athwart axis) - (abs (onCurve ^. athwart axis - mid1 ^. athwart axis) + abs (mid1 ^. athwart axis - v1 ^. athwart axis)))
 
 splitChain :: (Axis axis, Space s, Alternative f) => axis -> Bezier s -> s -> f (Bezier s)

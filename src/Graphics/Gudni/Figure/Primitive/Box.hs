@@ -51,6 +51,11 @@ module Graphics.Gudni.Figure.Primitive.Box
   , emptyBox
   , makeBox
   , boxAroundPoints
+  , excludesBox
+  , includesBox
+  , constrainBoundary
+  , constrainPoint
+  , constrainBox
   ) where
 
 import Graphics.Gudni.Figure.Primitive.Space
@@ -99,11 +104,11 @@ instance CanBox (Point2 s) where
 
 -- | Get the width of a box.
 widthOf :: (Num (SpaceOf a), CanBox a) => a -> SpaceOf a
-widthOf a = let box = boxOf a in box ^. rightSide - box ^. leftSide
+widthOf a = let box = boxOf a in fromAlong Horizontal $ box ^. rightSide - box ^. leftSide
 
 -- | Get the height of a box.
 heightOf :: (Num (SpaceOf a), CanBox a) => a -> SpaceOf a
-heightOf a = let box = boxOf a in box ^. bottomSide - box ^. topSide
+heightOf a = let box = boxOf a in fromAlong Vertical $ box ^. bottomSide - box ^. topSide
 
 -----------------------------------------------------------------------------
 -- Box optics.
@@ -129,34 +134,39 @@ bottomLeftBox :: Lens' (Box s) (Point2 s)
 bottomLeftBox elt_fn (Box (Point2 left top) (Point2 right bottom)) =
   (\(Point2 left' bottom') -> Box (Point2 left' top) (Point2 right bottom')) <$> elt_fn (Point2 left bottom)
 
-acrossBox :: (Num s, Axis axis) => axis -> Lens' (Box s) s
-acrossBox axis elt_fn box = (\across -> set (maxBox . along axis) (box ^. minBox . along axis + across) box)
-                     <$> elt_fn (box ^. maxBox . along axis - box ^. minBox . along axis)
+acrossBox :: (Num s, Axis axis) => axis -> Lens' (Box s) (Along axis s)
+acrossBox axis elt_fn box =
+    (\across -> set (maxBox . along axis) (box ^. minBox . along axis + across) box)
+    <$> elt_fn (box ^. maxBox . along axis - box ^. minBox . along axis)
 
-widthBox :: Num s => Lens' (Box s) s
+widthBox :: Num s => Lens' (Box s) (Ax Horizontal s)
 widthBox = acrossBox Horizontal
 
-heightBox :: Num s => Lens' (Box s) s
+heightBox :: Num s => Lens' (Box s) (Ax Vertical s)
 heightBox = acrossBox Vertical
 
 -- | 'Lens' for the left side of a box.
-leftSide       :: Lens' (Box s) s
+leftSide       :: Lens' (Box s) (Ax Horizontal s)
 leftSide = topLeftBox . pX
 -- | 'Lens' for the right side of a box.
-rightSide      :: Lens' (Box s) s
+rightSide      :: Lens' (Box s) (Ax Horizontal s)
 rightSide = bottomRightBox . pX
 -- | 'Lens' for the top of a box.
-topSide         :: Lens' (Box s) s
+topSide         :: Lens' (Box s) (Ax Vertical s)
 topSide  = topLeftBox . pY
 -- | 'Lens' for the bottom of a box.
-bottomSide      :: Lens' (Box s) s
+bottomSide      :: Lens' (Box s) (Ax Vertical s)
 bottomSide = bottomRightBox . pY
 
 -----------------------------------------------------------------------------
 -- Functions for creating and manipulating boxes∘
 
 -- | Make a box from its four sides.
-makeBox        :: s -> s -> s -> s -> Box s
+makeBox        :: Ax Horizontal s
+               -> Ax Vertical   s
+               -> Ax Horizontal s
+               -> Ax Vertical   s
+               -> Box s
 makeBox l t r b = Box (makePoint l t) (makePoint r b)
 
 boxAroundPoints :: Ord s => Point2 s -> Point2 s -> Box s
@@ -175,18 +185,18 @@ emptyBox = Box zeroPoint zeroPoint
 mapBox :: (Point2 t -> Point2 s) -> Box t -> Box s
 mapBox f (Box tl br) = Box (f tl) (f br)
 
-splitBox :: (Space s, Axis a) => a -> s -> Box s -> (Box s, Box s)
+splitBox :: (Space s, Axis axis) => axis -> Athwart axis s -> Box s -> (Box s, Box s)
 splitBox axis cutPoint box =
     ( set (maxBox . athwart axis) cutPoint box
     , set (minBox . athwart axis) cutPoint box
     )
 
 -- | True if the box has zero height and zero width.
-isZeroBox :: (CanBox (Box s), Num s, Eq s) => Box s -> Bool
+isZeroBox :: (Num s, Eq s) => Box s -> Bool
 isZeroBox b = (widthOf b == 0) && (heightOf b == 0)
 -- | Get a point that represents the height and width of the box.
-sizeBox :: (CanBox (Box s), Num s) => Box s -> Point2 s
-sizeBox   box = makePoint (widthOf box ) (heightOf box)
+sizeBox :: (Num s) => Box s -> Point2 s
+sizeBox   box = makePoint (box ^. widthBox) (box ^. heightBox)
 -- | Calculate the area of a box.
 areaBox :: (CanBox (Box s), Num s) => Box s -> s
 areaBox   box = widthOf box * heightOf box
@@ -232,3 +242,37 @@ instance Show s => Show (Box s) where
 
 instance {-# OVERLAPS #-} Show BoundingBox where
   show (Box (Point2 left top) (Point2 right bottom)) = "Bx l" ++ sd left ++ ", t" ++ sd top ++ ", r" ++ sd right ++ ", b" ++ sd bottom
+
+
+-- | Return True if a BoundingBox is outside of the canvas.
+excludesBox :: Ord s
+            => Box s
+            -> Box s
+            -> Bool
+excludesBox boundary box =
+       box ^. minBox . pX  >= boundary ^. maxBox . pX
+    || box ^. minBox . pY  >= boundary ^. maxBox . pY
+    || box ^. maxBox . pX  <= boundary ^. minBox . pX
+    || box ^. maxBox . pY  <= boundary ^. minBox . pY
+
+includesBox :: Ord s
+            => Box s
+            -> Box s
+            -> Bool
+includesBox boundary = not . excludesBox boundary
+
+constrainBoundary :: Space s => Box s
+constrainBoundary =
+    let highValue = 2 ^ 16
+        highPoint = pure highValue
+    in  Box (negate highPoint) highPoint
+
+constrainPoint p =
+    makePoint (min (constrainBoundary ^. rightSide  ) (max (constrainBoundary ^. leftSide) (p ^. pX   )))
+              (min (constrainBoundary ^. bottomSide ) (max (constrainBoundary ^. topSide ) (p ^. pY   )))
+
+constrainBox box =
+  makeBox (max (constrainBoundary ^. leftSide   ) (box ^. leftSide   ))
+          (max (constrainBoundary ^. topSide    ) (box ^. topSide    ))
+          (min (constrainBoundary ^. rightSide  ) (box ^. rightSide  ))
+          (min (constrainBoundary ^. bottomSide ) (box ^. bottomSide ))

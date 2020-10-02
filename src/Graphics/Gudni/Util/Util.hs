@@ -52,6 +52,8 @@ module Graphics.Gudni.Util.Util
   , secondMaybe
   , const2
   , const3
+  , nullTail
+  , nullHead
   )
 where
 
@@ -240,3 +242,6 @@ const2 a b c = c
 
 const3 :: a -> b -> c -> d -> d
 const3 a b c d = d
+
+nullTail x = if null x then x else tail x
+nullHead x = if null x then [] else [head x]

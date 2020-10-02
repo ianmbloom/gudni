@@ -54,7 +54,7 @@ import Control.Monad.State
 
 loaf :: ( IsLayout layout
         , Axis axis
-        , SwitchAxis axis
+        , ToEitherAxis axis
         , Foldable f
         )
         => axis

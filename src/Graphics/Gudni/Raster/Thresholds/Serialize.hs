@@ -87,16 +87,6 @@ appendEnclosure enclosure =
             adjustedRefs = fmap (StrandRef . fromIntegral . (`div` sizePair)) strandRefs
         return adjustedRefs
 
--- | Return True if a BoundingBox is outside of the canvas.
-excludeBox :: Point2 SubSpace
-           -> BoundingBox
-           -> Bool
-excludeBox canvasSize box =
-           box ^. leftSide   >= canvasSize ^. pX
-        || box ^. topSide    >= canvasSize ^. pY
-        || box ^. rightSide  <= 0
-        || box ^. bottomSide <= 0
-
 -- | Constructor for holding the state of serializing substance information from the scene.
 data SerialState token s = SerialState
     { -- | A map from tokens to substance id for later identification of shapes.
@@ -188,7 +178,7 @@ onShape :: MonadIO m
 onShape rasterizer canvasSize substanceTag combineType shape =
   do let transformedOutlines = view shapeOutlines . mapOverPoints (fmap clampReasonable) $  shape
          boundingBox = minMaxBoxes . fmap boxOf $ transformedOutlines
-     if excludeBox canvasSize boundingBox
+     if excludesBox (pointToBox canvasSize) boundingBox
      then return ()
      else do substanceTagId <- SubstanceTagId . sliceStart <$> addToPileState serSubstanceTagPile substanceTag
              strandRefs <-

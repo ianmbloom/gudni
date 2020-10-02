@@ -138,7 +138,7 @@ overlappingCircles playhead step =
 -- | A random field of transparent circles.
 fuzzyCircles :: SubSpace -> Int -> Layout DefaultStyle
 fuzzyCircles playhead step =
-        translateByXY (-4) (-3) .
+        --translateByXY (-4) (-3) .
          --scaleBy 0.5 .
          place .
          overlap $
@@ -192,7 +192,7 @@ fuzzyGlyphs playhead step =
        len = length defaultGlyphs
    in  translateByXY 200 200 .
        overlap $
-       evalRand (sequence . replicate 100 $ fuzzyGlyph defaultGlyphs (makePoint 512 512) 10 300) (mkStdGen $ (round $ playhead * 2000) + step)
+       evalRand (sequence . replicate 1000 $ fuzzyGlyph defaultGlyphs (makePoint 512 512) 10 300) (mkStdGen $ (round $ playhead * 2000) + step)
 
 fuzzyGlyphs2 :: SubSpace -> Int -> Layout DefaultStyle
 fuzzyGlyphs2 playhead step =
@@ -216,18 +216,18 @@ benchmark1 playhead step =
         subtractor:: CompoundLayout DefaultStyle
         subtractor = scaleBy (dSize * 15) . overlap . gridOf 0.5 4 4 . cycle $ subtractorGlyphs
     in  translateByXY 0 0 .
-        scaleBy 50 .
+        scaleBy 1 .
         withColor (transparent 0.2 black) $
-        {-subtractFrom subtractor-} textGrid
+        subtractFrom subtractor textGrid
 
 -- | A grid of rectangles.
 rectGrid :: SubSpace -> Int -> Layout DefaultStyle
 rectGrid playhead step =
     let grid :: CompoundTree SubSpace
-        grid =  overlap . gridOf 1 256 256 . repeat . mask . rectangle $ Point2 0.5 0.5
+        grid =  overlap . gridOf 1 8 8 {-256 256-} . repeat . mask . rectangle $ Point2 0.5 0.5
     in  -- scaleBy 30 .
         place .
-        scaleBy 2 .
+        scaleBy 20 .
         withColor (transparent 0.2 purple) $
         grid
 

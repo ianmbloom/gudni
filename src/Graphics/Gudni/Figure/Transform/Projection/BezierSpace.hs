@@ -39,9 +39,9 @@ import Data.Maybe (fromMaybe, fromJust)
 
 class (HasSpace t) => CanFit t where
     isForward :: t -> Bool
-    projectTangent :: SpaceOf t -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> t -> t
+    projectTangent :: Ax Horizontal (SpaceOf t) -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> t -> t
     fillGap :: (Chain f) => f t -> f t -> f t
-    projectDefaultCurve :: Bool -> Int -> Maybe (SpaceOf t) -> SpaceOf t -> Bezier (SpaceOf t) -> t -> t
+    projectDefaultCurve :: Bool -> Int -> Maybe (SpaceOf t) -> Ax Horizontal (SpaceOf t) -> Bezier (SpaceOf t) -> t -> t
 
 
 data BezierSpace s = BezierSpace
@@ -50,7 +50,7 @@ data BezierSpace s = BezierSpace
   , bsEnd         :: Point2 s
   , bsEndNormal   :: Diff Point2 s
   , bsTree        :: BezierTree s
-  , bsLength      :: s
+  , bsLength      :: Ax Horizontal s
   } deriving (Show)
 
 instance Space s => HasSpace (BezierSpace s) where
@@ -58,7 +58,7 @@ instance Space s => HasSpace (BezierSpace s) where
 
 data BezierTree s
   = BezierSplit
-         { bzTreeSplitX :: s
+         { bzTreeSplitX :: Ax Horizontal s
          , bzTreeSplitPoint  :: Point2 s
          , bzTreeLeftNormal  :: Diff Point2 s
          , bzTreeRightNormal :: Diff Point2 s
@@ -85,7 +85,7 @@ makeBezierSpace lengthFun chain =
   fromJust . go 0 $ fixedChain
   where
   fixedChain = join . fmap (subdivideAcuteBezier 3) $ view curveSegments $ chain
-  go :: s -> f (Bezier s) -> Maybe (BezierSpace s)
+  go :: Ax Horizontal s -> f (Bezier s) -> Maybe (BezierSpace s)
   go start vector =
     let (left, right) = halfSplit vector
     in if right `eq1` empty
@@ -121,7 +121,7 @@ makeBezierSpace lengthFun chain =
           normal1 = normalize (perp (v1 .-. vC))
           node :: BezierTree s
           node = BezierLeaf curveLength vC
-      in  Just $ BezierSpace v0 normal0 v1 normal1 node (start + curveLength)
+      in  Just $ BezierSpace v0 normal0 v1 normal1 node (start + toAlong Horizontal curveLength)
 
 traverseBezierSpace :: forall t f
                     .  ( Alternative f
@@ -143,7 +143,7 @@ traverseBezierSpace debug max_steps m_accuracy bSpace@(BezierSpace sPoint sNorma
   then go 0 sPoint sNormal len ePoint eNormal tree item
   else reverseChain . fmap (reverseItem) . go 0 sPoint sNormal len ePoint eNormal tree . reverseItem $ item
   where
-  go :: SpaceOf t -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> SpaceOf t -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> BezierTree (SpaceOf t) -> t -> f t
+  go :: Ax Horizontal (SpaceOf t) -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> Ax Horizontal (SpaceOf t) -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> BezierTree (SpaceOf t) -> t -> f t
   go start sPoint sNormal end ePoint eNormal tree bz =
      let box = boxOf bz
      in

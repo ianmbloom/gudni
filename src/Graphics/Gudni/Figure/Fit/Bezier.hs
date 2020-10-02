@@ -59,11 +59,11 @@ instance (Space s, Reversible (Bezier s))=> CanFit (Bezier s) where
     projectDefaultCurve debugFlag max_steps m_accuracy start sourceCurve targetCurve =
         let -- Transform an x value into a t-parameter for the source curve
             -- that corresponds to a point x arc-distance along the curve.
-            correctX x  = inverseArcLength max_steps m_accuracy sourceCurve (x - start)
+            correctX x  = toAlong Horizontal $ inverseArcLength max_steps m_accuracy sourceCurve (fromAlong Horizontal $ x - start)
             -- Transform the target curve so that each x value is a t-parameter.
             targetCurveCorrected = over bzPoints (fmap (over pX correctX)) $ targetCurve
             -- Define variables for all of the components of the transformed target curve.
-            (V3 t0 tC t1) = fmap (view pX) . view bzPoints $ targetCurveCorrected
+            (V3 t0 tC t1) = fmap (fromAlong Horizontal . view pX) . view bzPoints $ targetCurveCorrected
             (V3 y0 yC y1) = fmap (view pY) . view bzPoints $ targetCurveCorrected
             p0 = projPoint sourceCurve (targetCurveCorrected ^. bzStart)
             p1 = projPoint sourceCurve (targetCurveCorrected ^. bzEnd)
@@ -87,7 +87,7 @@ instance (Space s, Reversible (Bezier s))=> CanFit (Bezier s) where
                             (rbControl, rbProjected, rbDistance) = projectAndTest right bottom
                             midX = (left + right) / 2
                             midY = (top + bottom) / 2
-                        in  if (abs (right - left) > 0.00001) && (count > 0)
+                        in  if (abs (right - left) > 0.0000001) && (count > 0)
                             then let (left', right') = if (ltDistance <= rtDistance)
                                                         then (left, midX)
                                                         else (midX, right)
@@ -99,13 +99,13 @@ instance (Space s, Reversible (Bezier s))=> CanFit (Bezier s) where
                      finalControl = findControl (-10000) 20000 10000 (-20000) 16
                  in  Bez p0 finalControl p1
 
-projectTangentPoint :: Space s => s -> Point2 s -> Diff Point2 s -> Point2 s -> Point2 s
-projectTangentPoint offset v0 normal (Point2 x y) =
-  let t = x - offset
+projectTangentPoint :: Space s => Ax Horizontal s -> Point2 s -> Diff Point2 s -> Point2 s -> Point2 s
+projectTangentPoint offset v0 normal p =
+  let t = p ^. pX - offset
       tangent = negate $ perp normal
-  in  v0 .+^ (t *^ tangent) .+^ (y *^ normal)
+  in  v0 .+^ (fromAlong Horizontal t *^ tangent) .+^ (fromAlong Vertical (p ^. pY) *^ normal)
 
-projectTangentBezier :: Space s => s -> Point2 s -> Diff Point2 s -> Bezier s -> Bezier s
+projectTangentBezier :: Space s => Ax Horizontal s -> Point2 s -> Diff Point2 s -> Bezier s -> Bezier s
 projectTangentBezier offset v0 normal bz = overBezier (projectTangentPoint offset v0 normal) bz
 
 bezierPointAndNormal :: Space s => Bezier s -> s -> (Point2 s, Diff V2 s)
@@ -138,19 +138,19 @@ relativeToNormalVector source@(V2 sX sY) dest@(V2 dX dY) = (negate dX *^ perp so
 slopeOf :: Space s => Diff V2 s -> s
 slopeOf (V2 x y) = y / x
 
-yInterceptSlope :: Space s => Point2 s -> s -> s -> s
-yInterceptSlope v slope x = slope * (x - v^.pX) + v^.pY
+yInterceptSlope :: Space s => Point2 s -> s -> Ax Horizontal s -> Ax Vertical s
+yInterceptSlope v slope x = toAlong Vertical $ slope * (fromAlong Horizontal $ x - v ^. pX) + (fromAlong Vertical $ v ^. pY)
 
-xInterceptSlope :: Space s => Point2 s -> s -> s -> s
-xInterceptSlope v slope y = ((y - v^.pY) / slope) + v^.pX
+xInterceptSlope :: Space s => Point2 s -> s -> Ax Vertical s -> Ax Horizontal s
+xInterceptSlope v slope y = toAlong Horizontal $ (fromAlong Vertical (y - v^.pY) / slope) + fromAlong Horizontal (v ^. pX)
 
 arbitraryIntersection :: Space s => Point2 s -> s -> Point2 s -> s -> Point2 s
 arbitraryIntersection p0 slope0 p1 slope1 =
-  let x = ( slope1 * (p1^.pX) - slope0 * (p0^.pX) - (p1^.pY) + (p0^.pY) ) / ( slope1 - slope0 )
+  let x = toAlong Horizontal $ ( slope1 * (fromAlong Horizontal $ p1^.pX) - slope0 * (fromAlong Horizontal $ p0^.pX) - (fromAlong Vertical $ p1 ^. pY) + (fromAlong Vertical $ p0^.pY) ) / ( slope1 - slope0 )
       y = yInterceptSlope p0 slope0 x
-  in  Point2 x y
+  in  makePoint x y
 
 projPoint :: forall s . Space s => Bezier s -> Point2 s -> Point2 s
 projPoint curve toProject =
-    let (point, normal) = bezierPointAndNormal curve (toProject ^. pX)
-    in  point .+^ (((toProject ^. pY) *^ normal) :: Diff V2 s)
+    let (point, normal) = bezierPointAndNormal curve (fromAlong Horizontal $ toProject ^. pX)
+    in  point .+^ (((fromAlong Vertical $ toProject ^. pY) *^ normal) :: Diff V2 s)

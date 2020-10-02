@@ -82,6 +82,7 @@ main = runApplication $ PlotState
            , _stateStep        = 69
            , _stateRepMode     = False
            , _stateRepDk       = False
+           , _stateCursor      = Point2 0 0
            }
        ) 0.75
 

@@ -92,7 +92,7 @@ data ConfineState token s = ConfineState
       -- | Map from ItemId to color
     , _conColorMap         :: M.Map ItemTagId Color
       -- | A list of every bezier that defines the scene.
-    , _conBezierPile       :: Pile (TaggedBezier s)
+    , _conBezierPile       :: Pile (ItemBezier s)
       -- | A list of texture facets collected from the scene.
     , _conFacetPile        :: Pile (Facet_ s)
      -- | A pile of every item tag collected from the scene.
@@ -184,8 +184,8 @@ confineShape canvasSize color substanceTag combineType shape =
              let curves = V.concat .
                           map (view outlineSegments) $
                           transformedOutlines
-                 taggedBeziers = V.map (\curve -> TaggedBezier curve itemTagId) curves
-             addFoldableToPileState conBezierPile taggedBeziers
+                 itemBeziers = V.map (\curve -> (ItemBezier curve itemTagId)) curves
+             addFoldableToPileState conBezierPile itemBeziers
              return ()
      return $ Just boundingBox
 

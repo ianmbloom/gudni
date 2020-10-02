@@ -37,6 +37,7 @@ import System.Random
 
 import GudniTests
 import BasicShapes
+import DrawSweepTrace
 
 data ConfineTreeState = ConfineTreeState
   { _stateBase        :: BasicSceneState
@@ -49,17 +50,17 @@ makeLenses ''ConfineTreeState
 initialModel =
     ConfineTreeState
     { _stateBase = BasicSceneState
-        { _stateScale       = 3
+        { _stateScale       = 1
         , _stateDelta       = Point2 0 0
         , _stateAngle       = 0 @@ deg
-        , _statePaused      = True
+        , _statePaused      = False
         , _stateSpeed       = 0.1
         , _statePace        = 50
         , _stateLastTime    = 0
         , _stateDirection   = True
         , _statePlayhead    = 0
         , _stateFrameNumber = 0
-        , _stateStep        = 20
+        , _stateStep        = 21
         , _stateRepMode     = False
         , _stateRepDk       = False
         , _stateCursor      = Point2 0 0
@@ -67,7 +68,7 @@ initialModel =
     --, _stateTree        = tree
     , _stateShapeAngle = 0 @@ rad -- 0 @@ rad
     , _stateTraceStep = 0
-    , _stateCurrentTest = 6 -- findTest {-"twoTriangles"-} "openSquareOverlap3" {- "randomCurves"-} allTests
+    , _stateCurrentTest = {-4 -} findTest {-"fuzzyGlyphs" "millionFuzzyCircles"-}{- "randomCurves" -} "diamondBox" allTests
     }
 
 allTests = testList ++ basicShapes
@@ -85,32 +86,42 @@ instance Model ConfineTreeState where
                        Window $ Point2 1024 512
     shouldLoop _ = True
     fontFile _ = findDefaultFont
-    updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
+    updateModelState frame elapsedTime inputs state =
+        over stateBase (updateSceneState frame elapsedTime) $ foldl (flip processInput) state inputs
     ioTask = return
     constructScene state status =
-        do  let testShape = {-scaleBy 100 $-} (snd $ getTest state) (view deg $ state ^. stateShapeAngle) (state ^. stateBase . stateStep)
+        do  let testShape = {-scaleBy 100 $-} (snd $ getTest state) (view deg $ state ^. stateShapeAngle) (round (state ^. stateBase . statePlayhead)) --(state ^. stateBase . stateStep)
                 name = (fst $ getTest state)
+                decorationLimit = 0 --12
             scene <- sceneFromLayout (light gray) testShape
             confineState <- liftIO $ withConfinedScene Nothing M.empty scene $ \ pictDataPile serialState -> return serialState
-            tree <- liftIO $ buildConfineTree (confineState ^. conBezierPile)
+            liftIO $ putStrLn "confineState"
+            (tree, decoTree, sweepTrace) <- liftIO $ buildConfineTree (state ^. stateTraceStep) decorationLimit (confineState ^. conBezierPile)
             let colorMap        = confineState ^. conColorMap
-                constructed :: Layout DefaultStyle
-                constructed     = constructConfineTree colorMap tree
+                constructedTree :: Layout DefaultStyle
+                constructedTree = constructConfineTree colorMap tree
+                constructedDecoTree= constructDecorateTree colorMap decoTree
                 makePixel point = Box point (point + Point2 500 500)
                 setPoints :: [Layout DefaultStyle]
-                setPoints = map (checkPoint colorMap tree) [Point2 195.10019 551.23938]
+                setPoints = map (checkPoint colorMap tree decoTree) [{-Point2 120.40964 730,Point2 130 849.66302-} Point2 300 500]
                 randomPoints :: [Layout DefaultStyle]
-                randomPoints    = map (checkPoint colorMap tree) $
-                                  evalRand (take 200 <$> getRandomRs (Point2 0 0, Point2 2000 2000)) .
+                randomPoints    = map (checkPoint colorMap tree decoTree) $
+                                  evalRand (take 400 <$> getRandomRs (Point2 0 0, Point2 4000 4000)) .
                                   mkStdGen $ round $
                                   state ^. stateBase . statePlayhead
-                testScene = overlap [ --overlap randomPoints
+                --traceConstructed :: Layout DefaultStyle
+                --traceConstructed = constructSweepTrace sweepTrace
+                testScene = overlap [  overlap randomPoints
+                                       ,
+                                       -- overlap setPoints
+                                       -- ,
+                                       constructedDecoTree
+                                       ,
+                                       constructedTree
+                                       ,
+                                      --traceConstructed
                                       --,
-                                    -- overlap setPoints
-                                    -- ,
-                                    constructed
-                                    ,
-                                    testShape
+                                      testShape
                                     ]
                 statusTree = statusDisplay (state ^. stateBase) "Test ConfineTree" (lines status)
                 treeScene  = transformFromState (state ^. stateBase) testScene

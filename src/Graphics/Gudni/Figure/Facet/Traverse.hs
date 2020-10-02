@@ -37,12 +37,12 @@ limit = 1 / 16
 sizeLimit :: Space s => Facet_ s -> Bool
 sizeLimit facet =
   let box = boxOf facet
-  in (box ^. heightBox > limit) || (box ^. widthBox > limit)
+  in (box ^. heightBox > toAlong Vertical limit) || (box ^. widthBox > toAlong Horizontal limit)
 
 insideBezierTri :: Space s => Point2 s -> BezTri s -> Bool
 insideBezierTri point =
   foldl1 (/=) .
-  fmap (crossesAlong Vertical (point ^. pX) minBound (point ^. pY)) .
+  fmap (crossesAlong Vertical minBound (point ^. pX) (point ^. pY)) .
   bezTriToBeziers
 
 traverseFacetUntil :: forall s . (Space s) => s -> Point2 s -> Facet_ s -> Facet_ s

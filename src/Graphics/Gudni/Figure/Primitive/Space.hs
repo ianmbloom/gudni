@@ -145,10 +145,10 @@ instance Random TextureSpace where
 instance Show SubSpace where
   show x | x == minBound = "(minBound)"
          | x == maxBound = "maxBound"
-         | otherwise = (if x < 0 then \string -> "("++string++")" else id) . showFl' 5 . unSubSpace $ x
+         | otherwise = (if x < 0 then \string -> "("++string++")" else id) . showFl' 12 . unSubSpace $ x
 
 instance Show TextureSpace where
-  show (TSpace x) = showFl' 5 x
+  show (TSpace x) = showFl' 8 x
 
 instance Show PixelSpace where
   show (PSpace x) = show x

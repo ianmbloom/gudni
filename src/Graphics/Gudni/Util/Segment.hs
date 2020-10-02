@@ -62,14 +62,14 @@ makeLenses ''Segment
 -- | Pattern synonym for a segment with no control point.
 pattern Straight p = Seg p Nothing
 -- | Make a straiight segment from the component dimensions
-straightXY :: s -> s -> Segment s
+straightXY :: Ax Horizontal s -> Ax Vertical s -> Segment s
 straightXY x y = Seg (makePoint x y) Nothing
 
 -- | Pattern synonym for a segment with a control point.
 pattern Curved p c = Seg p (Just c)
 
 -- | Make a curved segment from the component dimensions.
-curvedXY :: s -> s -> s -> s -> Segment s
+curvedXY :: Ax Horizontal s -> Ax Vertical s -> Ax Horizontal s -> Ax Vertical s -> Segment s
 curvedXY x y cx cy = Seg (makePoint x y) (Just (makePoint cx cy))
 
 -- | Map over the points of a segment.

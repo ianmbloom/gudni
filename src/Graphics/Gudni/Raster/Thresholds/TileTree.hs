@@ -71,7 +71,7 @@ type TileTree leaf = VTree leaf
 -- | HTrees divide the space into two horiztonally adjacent partitions
 -- left and right of the cut line.
 data HTree leaf = HTree
-    { hCut        :: SubSpace
+    { hCut        :: Ax Horizontal SubSpace
     , leftBranch  :: VTree leaf
     , rightBranch :: VTree leaf
     }
@@ -80,7 +80,7 @@ data HTree leaf = HTree
 -- | VTrees divide the space into two vertically adjacent partitions
 -- above and below the cut line.
 data VTree leaf = VTree
-    { vCut         :: SubSpace
+    { vCut         :: Ax Vertical SubSpace
     , topBranch    :: HTree leaf
     , bottomBranch :: HTree leaf
     }
@@ -90,7 +90,7 @@ buildTileTree :: Point2 PixelSpace -> PixelSpace -> a -> TileTree (Tile, a)
 buildTileTree canvasSize tileSize emptyRep = goV canvasDepth box
     where
     -- Choose the largest dimension of the canvas as the square side dimension of the area covered by the tileTree.
-    maxCanvasDimension = max (canvasSize ^. pX) (canvasSize ^. pY)
+    maxCanvasDimension = max (fromAlong Horizontal $ canvasSize ^. pX) (fromAlong Vertical $ canvasSize ^. pY)
     -- Canvas depth is the adjusted log2 of the larges side of the canvas.
     canvasDepth = adjustedLog (fromIntegral maxCanvasDimension)
     -- Initial tile depth is the adjusted log of the max tileSize
@@ -120,7 +120,7 @@ buildTileTreeM :: Monad m => Point2 PixelSpace -> PixelSpace -> m a -> m (TileTr
 buildTileTreeM canvasSize tileSize emptyRep = goV canvasDepth box
     where
     -- Choose the largest dimension of the canvas as the square side dimension of the area covered by the tileTree.
-    maxCanvasDimension = max (canvasSize ^. pX) (canvasSize ^. pY)
+    maxCanvasDimension = max (fromAlong Horizontal $ canvasSize ^. pX) (fromAlong Vertical $ canvasSize ^. pY)
     -- Canvas depth is the adjusted log2 of the larges side of the canvas.
     canvasDepth = adjustedLog (fromIntegral maxCanvasDimension)
     -- Initial tile depth is the adjusted log of the max tileSize

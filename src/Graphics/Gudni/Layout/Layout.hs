@@ -102,7 +102,7 @@ instance (IsStyle style) => CanFill (Layout style) where
 class (HasStyle t, HasMeld t, HasEmpty t) => IsLayout t where
   type UnPlaced t :: *
   place   :: UnPlaced t -> t
-  nextTo  :: SwitchAxis axis => axis -> StyleOf t -> Maybe Alignment -> Meld t -> t -> t -> t
+  nextTo  :: ToEitherAxis axis => axis -> StyleOf t -> Maybe Alignment -> Meld t -> t -> t -> t
   onTopOf :: StyleOf t -> Maybe Alignment -> Maybe Alignment -> Meld t -> t -> t -> t
 
 overLayouts f (Layout a) (Layout b) = Layout (f a b)

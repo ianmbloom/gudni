@@ -15,8 +15,6 @@ module Graphics.Gudni.Raster.ConfineTree.Depth
   ( confineTreeDepth
   , confineTreeSize
   , confineTreeCountOverlaps
-  , confineTreeMaxConsidered
-  , confineTreeTotalConsidered
   )
 where
 
@@ -32,8 +30,8 @@ confineTreeDepth = go Vertical
      case mTree of
        Nothing -> 0
        Just tree ->
-         1 + max (go (nextAxis axis) (tree ^. confineLessCut))
-                 (go (nextAxis axis) (tree ^. confineMoreCut))
+         1 + max (go (perpendicularTo axis) (tree ^. confineLessCut))
+                 (go (perpendicularTo axis) (tree ^. confineMoreCut))
 
 confineTreeSize :: ConfineTree s -> Int
 confineTreeSize = go Vertical
@@ -44,8 +42,8 @@ confineTreeSize = go Vertical
        Nothing -> 0
        Just tree ->
          1
-         + (go (nextAxis axis) (tree ^. confineLessCut))
-         + (go (nextAxis axis) (tree ^. confineMoreCut))
+         + (go (perpendicularTo axis) (tree ^. confineLessCut))
+         + (go (perpendicularTo axis) (tree ^. confineMoreCut))
 
 confineTreeCountOverlaps :: forall s . Space s => ConfineTree s -> Int
 confineTreeCountOverlaps = go Vertical
@@ -58,29 +56,5 @@ confineTreeCountOverlaps = go Vertical
          let x = if tree ^. confineOverhang > tree ^. confineCut then 1 else 0
          in
          x
-         + (go (nextAxis axis) (tree ^. confineLessCut))
-         + (go (nextAxis axis) (tree ^. confineMoreCut))
-
-confineTreeMaxConsidered :: forall s . Space s => ConfineTree s -> Int
-confineTreeMaxConsidered = go Vertical
-  where
-  go :: (Axis axis) => axis -> Maybe (Confine axis s) -> Int
-  go axis mTree =
-     case mTree of
-       Nothing -> 0
-       Just tree ->
-         max (tree ^. confineConsidered) $
-         max (go (nextAxis axis) (tree ^. confineLessCut))
-             (go (nextAxis axis) (tree ^. confineMoreCut))
-
-confineTreeTotalConsidered :: forall s . Space s => ConfineTree s -> Double
-confineTreeTotalConsidered = go Vertical
-  where
-  go :: (Axis axis) => axis -> Maybe (Confine axis s) -> Double
-  go axis mTree =
-     case mTree of
-       Nothing -> 0
-       Just tree ->
-         (fromIntegral $ tree ^. confineConsidered) +
-         (go (nextAxis axis) (tree ^. confineLessCut)) +
-         (go (nextAxis axis) (tree ^. confineMoreCut))
+         + (go (perpendicularTo axis) (tree ^. confineLessCut))
+         + (go (perpendicularTo axis) (tree ^. confineMoreCut))

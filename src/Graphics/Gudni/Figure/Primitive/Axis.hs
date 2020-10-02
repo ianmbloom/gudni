@@ -1,74 +1,78 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE UndecidableSuperClasses #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE UndecidableSuperClasses    #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Graphics.Gudni.Figure.Primitive.Axis
   ( Vertical(..)
   , Horizontal(..)
-  , Axis(..)
-  , athwart
+  , IsAxis(..)
   , EitherAxis(..)
-  , SwitchAxis(..)
+  , ToEitherAxis(..)
   , fromEitherAxis
   , withEitherAxis
+  , Ax(..)
+  , toAlong
+  , fromAlong
+  , perpendicular
+  , toAthwart
+  , fromAthwart
+  , Along(..)
+  , Athwart(..)
   )
 where
 
 import Linear
-
-import Graphics.Gudni.Figure.Primitive.Space
-import Graphics.Gudni.Figure.Primitive.Point
 
 import Data.Kind
 
 import Control.Lens
 import Control.Applicative
 import Text.PrettyPrint.GenericPretty
+import Text.PrettyPrint hiding ((<>))
 
 data Vertical   = Vertical deriving (Show, Generic)
 instance Out Vertical
+
 data Horizontal = Horizontal deriving (Show, Generic)
 instance Out Horizontal
 
-class (Show a, Show (NextAxis a), Axis (NextAxis a)) => Axis a where
-  type NextAxis a :: Type
-  along :: a -> Lens' (Point2 s) s
-  nextAxis :: a -> NextAxis a
+class (Show a, Show (PerpendicularTo a), IsAxis (PerpendicularTo a)) => IsAxis a where
+  type PerpendicularTo a :: Type
+  perpendicularTo :: a -> PerpendicularTo a
   isVertical :: a -> Bool
   isHorizontal :: a -> Bool
   showSymbol :: a -> String
 
-athwart :: Axis a => a -> Lens' (Point2 s) s
-athwart = along . nextAxis
-
-instance Axis Vertical where
-  type NextAxis Vertical = Horizontal
-  along Vertical = pY
-  nextAxis Vertical = Horizontal
+instance IsAxis Vertical where
+  type PerpendicularTo Vertical = Horizontal
+  perpendicularTo Vertical = Horizontal
   isVertical   _ = True
   isHorizontal _ = False
   showSymbol _ = "V"
 
-instance Axis Horizontal where
-  type NextAxis Horizontal = Vertical
-  along Horizontal = pX
-  nextAxis Horizontal = Vertical
+
+instance IsAxis Horizontal where
+  type PerpendicularTo Horizontal = Vertical
+  perpendicularTo Horizontal = Vertical
   isVertical   _ = False
   isHorizontal _ = True
   showSymbol _ = "H"
 
 type EitherAxis = Either Horizontal Vertical
 
-class SwitchAxis axis where
+class ToEitherAxis axis where
   eitherAxis :: axis -> EitherAxis
 
-instance SwitchAxis Horizontal where
+instance ToEitherAxis Horizontal where
   eitherAxis axis = Left axis
 
-instance SwitchAxis Vertical where
+instance ToEitherAxis Vertical where
   eitherAxis axis = Right axis
 
 fromEitherAxis :: c -> c -> EitherAxis -> c
@@ -85,3 +89,41 @@ withEitherAxis hori vert axis =
   case axis of
     Left Horizontal -> hori Horizontal
     Right Vertical  -> vert Vertical
+
+newtype Ax axis s = Ax {unAxis :: s} deriving (Generic, Eq, Ord, Num, Bounded, Enum, Fractional, Floating, Real, Integral)
+
+-- deriving instance Num s => Num (Along axis s)
+-- deriving instance Bounded s => Bounded (Along axis s)
+-- deriving instance Enum s => Enum (Along axis s)
+
+
+instance (Show s, IsAxis axis) => Show (Ax axis s) where
+    show (Ax s) = showSymbol (undefined :: axis) ++ show s
+
+instance (Out s, IsAxis axis, Show s) => Out (Ax axis s) where
+    doc (Ax x) = text (showSymbol (undefined :: axis)) <> (text . show $ x)
+    docPrec _ = doc
+
+type Along   axis s = Ax axis s
+type Athwart axis s = Ax (PerpendicularTo axis) s
+
+toAx :: IsAxis axis => axis -> s -> Along axis s
+toAx axis s = Ax s
+
+fromAx :: IsAxis axis => axis -> Along axis s -> s
+fromAx axis (Ax s) = s
+
+toAlong :: IsAxis axis => axis -> s -> Along axis s
+toAlong = toAx
+
+fromAlong :: IsAxis axis => axis -> Along axis s -> s
+fromAlong = fromAx
+
+perpendicular :: IsAxis axis => Along axis s -> Athwart axis s
+perpendicular (Ax s) = Ax s
+
+toAthwart :: IsAxis axis => axis -> s -> Athwart axis s
+toAthwart axis = toAlong (perpendicularTo axis)
+
+fromAthwart :: IsAxis axis => axis -> Athwart axis s -> s
+fromAthwart axis = fromAlong (perpendicularTo axis)
