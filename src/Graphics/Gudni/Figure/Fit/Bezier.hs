@@ -17,7 +17,6 @@ where
 import Graphics.Gudni.Base
 
 import Graphics.Gudni.Figure.Primitive
-import Graphics.Gudni.Figure.Split
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Transform.Projection
 

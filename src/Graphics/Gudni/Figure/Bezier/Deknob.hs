@@ -16,7 +16,8 @@ import Graphics.Gudni.Figure.Primitive.Axis
 import Graphics.Gudni.Figure.Primitive.Point
 import Graphics.Gudni.Figure.Primitive.Box
 import Graphics.Gudni.Figure.Bezier.Type
-import Graphics.Gudni.Figure.Split
+import Graphics.Gudni.Figure.Bezier.Split
+import Graphics.Gudni.Figure.Bezier.Cut
 import Graphics.Gudni.Figure.Deknob.Class
 import Graphics.Gudni.Util.Debug
 import qualified Data.Vector as V

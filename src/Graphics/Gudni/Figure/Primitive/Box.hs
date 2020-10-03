@@ -178,6 +178,7 @@ boxAroundPoints a b = makeBox (min (a ^. pX) (b ^. pX))
 -- | Make a box from the origin to a point.
 pointToBox :: Num s => Point2 s -> Box s
 pointToBox p = Box zeroPoint p
+
 -- | Make an empty box at the origin.
 emptyBox       :: Num s => Box s
 emptyBox = Box zeroPoint zeroPoint

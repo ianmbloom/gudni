@@ -9,6 +9,9 @@ module Graphics.Gudni.Figure.Bezier.Cross
   , crossesVertical
   , interimPoint
   , bezierSlopeLTEZero
+  , crossSplitLimit
+  , bezAlong
+  , bezAthwart
   )
 where
 
@@ -21,8 +24,8 @@ import Graphics.Gudni.Util.Debug
 
 import Control.Lens
 
-limit :: (Space s) => s
-limit = 1 / 32
+crossSplitLimit :: (Space s) => s
+crossSplitLimit = 1 / 32
 
 foldBez :: (Point2 s -> a) -> (a -> a -> a) -> Bezier s -> a
 foldBez f g = foldl1 g . fmap f . unBezier
@@ -78,7 +81,7 @@ crossesAlong axis start baseline end bez =
                  offBaseline = baseline /= maxAthwart
                  isK = isKnobAbsolute axis bez || isKnobAbsolute (perpendicularTo axis) bez
              in
-             if  size >= limit &&
+             if  size >= crossSplitLimit &&
                 (
                  -- curve size remains greater than the limit
                  offBaseline &&
@@ -131,7 +134,7 @@ crossesAlongNoShort axis start baseline end bez =
                  slopeLTEZero = bezierSlopeLTEZero axis bez
                  isK = isKnobAbsolute axis bez || isKnobAbsolute (perpendicularTo axis) bez
              in
-             if  size >= limit &&
+             if  size >= crossSplitLimit &&
                 (
                  -- curve size remains greater than the limit
                  (start > minAlong || end <= maxAlong) -- and the start or end points are somewhere inside curve limits

@@ -13,7 +13,10 @@ where
 
 import Linear
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Primitive.Axis
+import Graphics.Gudni.Figure.Primitive.Space
+import Graphics.Gudni.Figure.Primitive.Point
+import Graphics.Gudni.Figure.Bezier.Type
 import Graphics.Gudni.Figure.Bezier.Split
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Base.Chain

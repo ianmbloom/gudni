@@ -38,8 +38,8 @@ import Graphics.Gudni.Figure.Primitive
 import Graphics.Gudni.Figure.Facet.Triangle
 import Graphics.Gudni.Figure.Facet.BezierTriangle
 --import Graphics.Gudni.Figure.Projection.BezierSpace
-import Graphics.Gudni.Figure.Deknob
-import Graphics.Gudni.Figure.Split
+import Graphics.Gudni.Figure.Bezier.Deknob
+import Graphics.Gudni.Figure.Bezier.Split
 import Graphics.Gudni.Figure.Bezier.Cut
 import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Util.Debug

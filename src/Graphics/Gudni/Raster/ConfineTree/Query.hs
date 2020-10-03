@@ -4,7 +4,8 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 
 module Graphics.Gudni.Raster.ConfineTree.Query
-  ( queryPointWithInfo
+  ( queryPoint
+  , queryPointWithInfo
   , queryBox
   )
 where
@@ -22,8 +23,8 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.State
 
-collectIfOverlapsBox :: Monad m => Box s -> TaggedBezier s -> StateT [TaggedBezier s] m ()
-collectIfOverlapsBox box curve =
+collectIfVisited :: Monad m => TaggedBezier s -> StateT [TaggedBezier s] m ()
+collectIfVisited curve =
   modify (curve:)
 
 collectIfCrossed :: (Space s, Monad m) => Point2 s -> Point2 s -> TaggedBezier s -> StateT [TaggedBezier s] m ()
@@ -55,14 +56,21 @@ queryPoint confineTree decoTree point =
 queryPointWithInfo :: forall s . (Space s) => ConfineTree s -> DecorateTree s -> Point2 s -> (Point2 s, ItemStack, ItemStack, [TaggedBezier s])
 queryPointWithInfo confineTree decoTree point =
     let (anchor, anchorStack) = execState (traverseDecorateTree buildStack holdAnchor point decoTree) (zeroPoint, [])
-        consideredCurves = execState (traverseCTBetweenPoints (collectIfOverlapsBox (boxAroundPoints anchor point)) anchor point confineTree) []
+        consideredCurves = execState (traverseCTBetweenPoints collectIfVisited anchor point confineTree) []
         stack = secondLeg anchor point confineTree anchorStack
     in  (anchor, anchorStack, stack, consideredCurves)
+
+retag :: TaggedBezier s -> Bezier s -> TaggedBezier s
+retag tagged bez = TaggedBezier bez (tagged ^. tCurveTag) (tagged ^. tBezItem)
+
+collectIfCurveWithinBox :: (Space s, Monad m) => Box s -> TaggedBezier s -> StateT [TaggedBezier s] m ()
+collectIfCurveWithinBox box curve =
+    modify (map (retag curve) (curveWithinBox box (curve ^. tBez)) ++)
 
 queryBox :: forall s . (Space s) => ConfineTree s -> DecorateTree s -> Box s -> (ItemStack, [TaggedBezier s])
 queryBox confineTree decoTree box =
   let point = box ^. minBox
       (anchor, anchorStack) = getAnchorStack point decoTree
       stack = secondLeg anchor point confineTree anchorStack
-      curvesInBox = execState (traverseCTBox (collectIfOverlapsBox box) box confineTree) []
-  in  undefined
+      curvesInBox = execState (traverseCTBox (collectIfCurveWithinBox box) box confineTree) []
+  in  (stack, curvesInBox)

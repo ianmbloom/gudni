@@ -63,7 +63,7 @@ initialModel =
         , _stateStep        = 21
         , _stateRepMode     = False
         , _stateRepDk       = False
-        , _stateCursor      = Point2 0 0
+        , _stateCursor      = Point2 448 474
         }
     --, _stateTree        = tree
     , _stateShapeAngle = 0 @@ rad -- 0 @@ rad
@@ -99,9 +99,11 @@ instance Model ConfineTreeState where
             (tree, decoTree, sweepTrace) <- liftIO $ buildConfineTree (state ^. stateTraceStep) decorationLimit (confineState ^. conBezierPile)
             let colorMap        = confineState ^. conColorMap
                 constructedTree :: Layout DefaultStyle
-                constructedTree = constructConfineTree colorMap tree
-                constructedDecoTree= constructDecorateTree colorMap decoTree
+                constructedTree     = constructConfineTree colorMap tree
+                constructedDecoTree = constructDecorateTree colorMap decoTree
                 makePixel point = Box point (point + Point2 500 500)
+                boxQ :: Layout DefaultStyle
+                boxQ = checkBox colorMap tree decoTree (state ^. stateBase . stateCursor)
                 setPoints :: [Layout DefaultStyle]
                 setPoints = map (checkPoint colorMap tree decoTree) [{-Point2 120.40964 730,Point2 130 849.66302-} Point2 300 500]
                 randomPoints :: [Layout DefaultStyle]
@@ -111,10 +113,12 @@ instance Model ConfineTreeState where
                                   state ^. stateBase . statePlayhead
                 --traceConstructed :: Layout DefaultStyle
                 --traceConstructed = constructSweepTrace sweepTrace
-                testScene = overlap [  overlap randomPoints
-                                       ,
+                testScene = overlap [  -- overlap randomPoints
+                                       -- ,
                                        -- overlap setPoints
                                        -- ,
+                                       boxQ
+                                       ,
                                        constructedDecoTree
                                        ,
                                        constructedTree

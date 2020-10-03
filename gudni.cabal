@@ -100,7 +100,6 @@ library
                      , Graphics.Gudni.Figure.Facet
                      , Graphics.Gudni.Figure.Fit
                      , Graphics.Gudni.Figure.Primitive
-                     , Graphics.Gudni.Figure.Split
                      , Graphics.Gudni.Figure.Substance
                      , Graphics.Gudni.Figure.Transform
 
@@ -131,6 +130,7 @@ library
                      , Graphics.Gudni.Figure.Bezier.Cut
                      , Graphics.Gudni.Figure.Bezier.Split
                      , Graphics.Gudni.Figure.Bezier.Deknob
+                     , Graphics.Gudni.Figure.Bezier.WithinBox
 
                      , Graphics.Gudni.Figure.Substance.Color
                      , Graphics.Gudni.Figure.Substance.Gradient
