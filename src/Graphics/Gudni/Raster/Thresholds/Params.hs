@@ -15,7 +15,7 @@ module Graphics.Gudni.Raster.Thresholds.Params
   ( RasterParams(..)
   , rpRasterizer
   , rpSerialState
-  , rpPictDataPile
+  , rpPixelPile
   , rpPointQueries
   , rpBitmapSize
   , rpDrawTarget
@@ -28,21 +28,24 @@ import Graphics.Gudni.Interface.Query
 import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Raster.Thresholds.Serialize
 import Graphics.Gudni.Raster.Thresholds.ReorderTable
+import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Raster.OpenCL.Rasterizer
 
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Slice
+import Graphics.Gudni.Raster.Serial.Pile
+
 import Foreign.C.Types(CInt, CUInt, CSize)
 import CLUtil
 import Control.Lens
 
 data RasterParams token = RasterParams
-  { _rpRasterizer      :: Rasterizer
-  , _rpSerialState     :: SerialState token SubSpace
-  , _rpPictDataPile    :: Pile Word8
-  , _rpPointQueries    :: [(PointQueryId, Point2 SubSpace)]
-  , _rpBitmapSize      :: Point2 PixelSpace
-  , _rpDrawTarget      :: DrawTarget
-  , _rpFrameCount      :: Int
+  { _rpRasterizer   :: Rasterizer
+  , _rpSerialState  :: SerialState token SubSpace
+  , _rpPixelPile    :: PixelPile
+  , _rpPointQueries :: [(PointQueryId, Point2 SubSpace)]
+  , _rpBitmapSize   :: Point2 PixelSpace
+  , _rpDrawTarget   :: DrawTarget
+  , _rpFrameCount   :: Int
   }
 makeLenses ''RasterParams

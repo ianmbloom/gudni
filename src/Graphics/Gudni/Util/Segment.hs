@@ -46,7 +46,6 @@ import Control.Lens
 
 import System.Random
 import Control.Monad.Random
-import Control.DeepSeq
 import Data.Hashable
 import qualified Data.Vector as V
 import qualified Data.Foldable as F
@@ -160,8 +159,6 @@ instance (Loop f, Space s) => HasFromSegments (Outline_ f s) where
 instance Space s => HasFromSegments (CompoundTree s) where
   fromSegments = mask . segmentsToShape . pure
 
-instance NFData s => NFData (Segment s) where
-  rnf (Seg o c) = o `deepseq` c `deepseq` ()
 instance Hashable s => Hashable (Segment s) where
   hashWithSalt s (Seg o c) = s `hashWithSalt` o `hashWithSalt` c
 instance Show s => Show (Segment s) where

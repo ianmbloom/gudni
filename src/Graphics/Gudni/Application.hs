@@ -30,7 +30,6 @@ import Linear
 
 import Debug.Trace
 import System.Environment
-import Control.DeepSeq
 
 import Data.Char
 import Data.Maybe(fromMaybe)
@@ -76,7 +75,8 @@ import Graphics.Gudni.Layout
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Pile
+
 import Graphics.Gudni.Util.RandomField
 
 import qualified Data.Vector.Storable as VS
@@ -85,7 +85,9 @@ import Data.Foldable
 import System.Info
 
 -- | The model typeclass is the primary interface to the application functions in Gudni
-class (HasStyle s) => Model s where
+class ( HasStyle s
+      )
+      => Model s where
   -- | Construct a Scene from the state of type `s`
   constructScene   :: s -> String -> FontMonad (StyleOf s) IO (Scene (Maybe (FinalTree (TokenOf (StyleOf s)) SubSpace)))
   -- | Update the state based on the elapsed time and a list of inputs
@@ -110,6 +112,8 @@ class (HasStyle s) => Model s where
   handleOutput state target = do
       presentTarget target
       return state
+  dumpState :: s -> [Input (TokenOf (StyleOf s))] -> IO ()
+  dumpState _ _ = return ()
 
 data ApplicationState s = AppState
     { -- | The state maintained specific to the interface type.
@@ -152,7 +156,13 @@ closeApplication :: ApplicationMonad s ()
 closeApplication = withIO appBackend closeInterface
 
 -- | Initialize the ApplicationMonad stack and enter the event loop.
-runApplication :: (Show s, Model s, HasStyle s, Show (TokenOf (StyleOf s))) => s -> IO ()
+runApplication :: ( Show s
+                  , Model s
+                  , HasStyle s
+                  , Show (TokenOf (StyleOf s))
+                  )
+               => s
+               -> IO ()
 runApplication state =
     do  -- Initialize the application and get the initial state.
         appState <- setupApplication state
@@ -216,9 +226,7 @@ processState elapsedTime inputs =
         let newState = updateModelState frame elapsedTime inputs state
         finalState <- liftIO (ioTask newState)
         appState .= finalState
-        if null inputs
-        then appMessage $ show finalState
-        else appMessage $ show finalState ++ show inputs
+        liftIO $ dumpState finalState inputs
         status <- use appStatus
         scene <- lift $ constructScene finalState status
         markAppTime "Build State"
@@ -278,7 +286,7 @@ endCycle elapsedTime =
 markAppTime :: String -> ApplicationMonad s ()
 markAppTime message =
     do  tk  <- use appTimeKeeper
-        tk' <- liftIO $ markTime tk message ()
+        tk' <- liftIO $ markTime message tk
         appTimeKeeper .= tk'
 
 -- | Determine if a particular input should quit the application.

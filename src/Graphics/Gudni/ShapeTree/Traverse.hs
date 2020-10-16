@@ -214,10 +214,10 @@ mapSLeaf f tree = go  tree
                   b = go below
               in  SMeld overlap a b
 
-mapSItem :: (Meld a ~ Meld b
-            ,Tag a ~ Tag b
-            ,Leaf a ~ SBranch a
-            ,Leaf b ~ SBranch b
+mapSItem :: ( Meld a ~ Meld b
+            , Tag a ~ Tag b
+            , Leaf a ~ SBranch a
+            , Leaf b ~ SBranch b
             )
          => (Item a -> Item b)
          -> STree a
@@ -274,7 +274,9 @@ mapMSLeaf f =
                  b <- go below
                  return $ SMeld overlap a b
 
-mapBranchMeld :: (a -> b) -> BranchTree a tag item -> BranchTree b tag item
+mapBranchMeld :: (a -> b)
+              -> BranchTree a tag item
+              -> BranchTree b tag item
 mapBranchMeld f =
   go
   where

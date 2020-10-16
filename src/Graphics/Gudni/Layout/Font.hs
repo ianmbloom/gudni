@@ -50,7 +50,6 @@ import Data.Char
 import qualified Data.Map as M
 import Control.Lens
 import Control.Monad.State
-import Control.DeepSeq
 import Data.Hashable
 
 import qualified Data.ByteString.Lazy as LB
@@ -63,9 +62,6 @@ import qualified Graphics.Text.TrueType.Internal as FI
 
 -- | Wrapper newtype for codepoint values.
 newtype CodePoint  = CodePoint  {unCodePoint  :: Int} deriving (Eq, Ord)
-
-instance NFData CodePoint where
-  rnf (CodePoint p) = rnf p
 
 instance Hashable CodePoint where
   hashWithSalt s (CodePoint p) = s `hashWithSalt` p

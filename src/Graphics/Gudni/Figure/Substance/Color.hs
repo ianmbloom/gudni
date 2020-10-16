@@ -4,6 +4,8 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE TypeSynonymInstances       #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -27,13 +29,14 @@ module Graphics.Gudni.Figure.Substance.Color
   , black, gray, white
   , clearBlack
 
+  , isOpaque
+  , composite
   , saturate
   , lighten
   , light
   , dark
   , veryDark
   , transparent
-  , clear
   , mixColor
 
   , redish, orangeish, yellowish, greenish, blueish, purpleish
@@ -42,13 +45,12 @@ module Graphics.Gudni.Figure.Substance.Color
   )
 where
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.StorableM
 
-import Control.DeepSeq
 import Control.Monad.Random
 
 import Data.Word
@@ -60,6 +62,7 @@ import qualified Data.Map.Strict as M
 import Foreign.C.Types
 import qualified Foreign as F
 import Linear.V4
+import Linear.Vector
 
 import System.Random
 import qualified Data.Colour as C
@@ -68,60 +71,77 @@ import qualified Data.Colour.RGBSpace as C
 import qualified Data.Colour.SRGB as C
 import qualified Data.Colour.Names as N
 
--- | Wrapper for 'Data.Colour.Colour' that adds simple alpha.
-data Color = Color
-    { unColor :: C.Colour Float
-    , unAlpha :: Float
-    }
+import Control.Lens
 
-instance Show Color where
-  show (Color s a) = show s ++ " " ++ show a
+-- | Wrapper for 'Data.Colour.Colour' that adds simple alpha.
+newtype Color = Color {_unColor :: V4 Float} deriving (Eq, Ord, Show)
+makeLenses ''Color
+
+instance HasSpace Color where
+  type SpaceOf Color = SubSpace
+
+cRed   :: Lens' Color Float
+cGreen :: Lens' Color Float
+cBlue  :: Lens' Color Float
+cAlpha :: Lens' Color Float
+cRed   = unColor . _x
+cGreen = unColor . _y
+cBlue  = unColor . _z
+cAlpha = unColor . _w
+
+colorToColour :: Color -> (C.Colour Float, Float)
+colorToColour color = (C.sRGB (color ^. cRed) (color ^. cGreen) (color ^. cBlue), color ^. cAlpha)
+
+colourToColor :: Float -> C.Colour Float -> Color
+colourToColor alpha colour = Color $ C.uncurryRGB V4 (C.toSRGB colour) alpha
+
+isOpaque color = color ^. cAlpha > 0.999
 
 -- | Red based on simple rgb values.
+pureRed :: Color
 pureRed   = rgbaColor 1 0 0 1
 -- | Green based on simple rgb values.
+pureGreen :: Color
 pureGreen = rgbaColor 0 1 0 1
 -- | Blue based on simple rgb values.
+pureBlue :: Color
 pureBlue  = rgbaColor 0 0 1 1
 
 -- | Transparent color with rgb values of zero.
+clearBlack :: Color
 clearBlack = rgbaColor 0 0 0 0
-
--- | Wrapped colors
-red    = Color N.red    1.0
-orange = Color N.orange 1.0
-yellow = Color N.yellow 1.0
-green  = Color N.green  1.0
-blue   = Color N.blue   1.0
-purple = Color N.purple 1.0
-white  = Color N.white  1.0
-gray   = Color N.gray   1.0
-black  = Color C.black  1.0
-
-colourToColor :: C.Colour Float -> Color
-colourToColor colour = Color colour 1
 
 -- | Generate a 'Color' from hue saturation and lightness values.
 hslColor :: Float -> Float -> Float -> Color
-hslColor hue saturation lightness = Color (C.uncurryRGB C.sRGB $ C.hsl hue saturation lightness) 1.0
+hslColor hue saturation lightness = colourToColor 1 (C.uncurryRGB C.sRGB $ C.hsl hue saturation lightness)
 
 -- | Generate a 'Color' from simple RGB and alpha values.
 rgbaColor :: Float -> Float -> Float -> Float -> Color
-rgbaColor r g b a = Color (C.sRGB r g b) a
+rgbaColor r g b a = Color $ V4 r g b a
+
+composite :: Color -> Color -> Color
+composite f b =
+  let alphaOut = f ^. cAlpha + b ^. cAlpha * (1 - f ^. cAlpha)
+  in
+  if alphaOut > 0
+  then Color $ (((f ^. unColor) ^* (f ^. cAlpha)) ^+^ ((b ^. unColor) ^* ((b ^. cAlpha) * (1 - (f ^. cAlpha))))) ^* (1 / alphaOut)
+  else clearBlack
 
 -- | Generate a 'Color' based on the input color by multiplying the saturation by a factor.
 saturate :: Float -> Color -> Color
-saturate sat (Color colour a) =
-    let (h, s, l) = C.hslView . C.toSRGB $ colour
+saturate sat color =
+    let (colour, alpha) = colorToColour color
+        (h, s, l) = C.hslView . C.toSRGB $ colour
         c = C.uncurryRGB C.sRGB $ C.hsl h (clamp 0 1.0 $ sat * s) l
-    in  Color c a
+    in  colourToColor alpha c
 
 -- | Generate a 'Color' based on the input color by multiplying the lightness by a factor.
 lighten :: Float -> Color ->  Color
-lighten light (Color colour a) =
-  let (h, s, l) = C.hslView . C.toSRGB $ colour
+lighten light color =
+  let (colour, alpha) = colorToColour color
+      (h, s, l) = C.hslView . C.toSRGB $ colour
       c = C.uncurryRGB C.sRGB $ C.hsl h s (clamp 0 1.0 $ light * l)
-  in  Color c a
+  in  colourToColor alpha c
 
 -- | Make a slightly lighter version of the color.
 light :: Color -> Color
@@ -135,21 +155,23 @@ dark  = saturate 1.25 . lighten 0.75
 veryDark :: Color -> Color
 veryDark  = saturate 1.25 . lighten 0.5
 
--- | Return the same color with zero alpha value.
-clear :: Color -> Color
-clear (Color colour a) = Color colour 0
-
 -- | Mix two colors and return the alpha value of the first color.
 mixColor :: Color -> Color -> Color
-mixColor (Color cA aA) (Color cB aB) = Color (C.blend 0.5 cA cB) aA
+mixColor a b =
+  let (colourA, alphaA) = colorToColour a
+      (colourB, alphaB) = colorToColour b
+      blended = C.blend 0.5 colourA colourB
+  in  colourToColor alphaA blended
 
 -- | Blend two colors by pushing the hue value toward the second color.
 influenceHue :: Float -> Color -> Color -> Color
-influenceHue amount (Color blender bA) (Color color cA) =
-  let blended = C.blend amount blender color
+influenceHue amount b a =
+  let (color,   alpha) = colorToColour a
+      (blender,    _ ) = colorToColour b
+      blended = C.blend amount blender color
       (h,s,_) = C.hslView . C.toSRGB $ blended
       (_,_,l) = C.hslView . C.toSRGB $ color
-  in  transparent cA $ hslColor h s l
+  in  transparent alpha (hslColor h s l)
 
 -- | The amount to mix in a color to ish it.
 ishAmount = 0.05
@@ -175,47 +197,29 @@ purpleish = influenceHue ishAmount purple
 
 -- | Replace the alpha value of a color.
 transparent :: Float -> Color -> Color
-transparent a (Color colour _) = Color colour a
+transparent a = set cAlpha a
 
-instance StorableM Color where
-  sizeOfM _ =
-    do sizeOfM (undefined :: CFloat)
-       sizeOfM (undefined :: CFloat)
-       sizeOfM (undefined :: CFloat)
-       sizeOfM (undefined :: CFloat)
-  alignmentM _ =
-    do alignmentM (undefined :: CFloat)
-       alignmentM (undefined :: CFloat)
-       alignmentM (undefined :: CFloat)
-       alignmentM (undefined :: CFloat)
-  peekM = do (red   :: Float) <- realToFrac <$> (peekM :: Offset CFloat)
-             (green :: Float) <- realToFrac <$> (peekM :: Offset CFloat)
-             (blue  :: Float) <- realToFrac <$> (peekM :: Offset CFloat)
-             (alpha :: Float) <- realToFrac <$> (peekM :: Offset CFloat)
-             return (Color (C.sRGB red green blue) alpha)
-  pokeM (Color colour a) =
-      do let rgb = C.toSRGB colour
-         pokeM (realToFrac . C.channelRed   $ rgb :: CFloat)
-         pokeM (realToFrac . C.channelGreen $ rgb :: CFloat)
-         pokeM (realToFrac . C.channelBlue  $ rgb :: CFloat)
-         pokeM (realToFrac                    a   :: CFloat)
 
 instance Storable Color where
-  sizeOf = sizeOfV
-  alignment = alignmentV
-  peek = peekV
-  poke = pokeV
+    sizeOf _    = sizeOf (undefined :: V4 CFloat)
+    alignment _ = alignment (undefined :: V4 CFloat)
+    peek ptr = Color . fmap (realToFrac :: CFloat -> Float) <$> peek (F.castPtr ptr)
+    poke ptr = poke (F.castPtr ptr) . fmap (realToFrac :: Float -> CFloat) . view unColor
 
-instance NFData Color where
-  rnf color = ()
 
 mAXcHANNELfLOAT :: Float
 mAXcHANNELfLOAT = 255.0
 
 colorToRGBA8 :: Color -> V4 Word8
-colorToRGBA8 (Color colour a) =
-    let rgb = C.toSRGB colour
-    in V4 (round (C.channelRed   rgb * mAXcHANNELfLOAT) :: Word8)
-          (round (C.channelGreen rgb * mAXcHANNELfLOAT) :: Word8)
-          (round (C.channelBlue  rgb * mAXcHANNELfLOAT) :: Word8)
-          (round (               a   * mAXcHANNELfLOAT) :: Word8)
+colorToRGBA8 = fmap (round . (* mAXcHANNELfLOAT)) . view unColor
+
+-- | Wrapped colors
+red    = colourToColor 1 N.red
+orange = colourToColor 1 N.orange
+yellow = colourToColor 1 N.yellow
+green  = colourToColor 1 N.green
+blue   = colourToColor 1 N.blue
+purple = colourToColor 1 N.purple
+white  = colourToColor 1 N.white
+gray   = colourToColor 1 N.gray
+black  = colourToColor 1 C.black

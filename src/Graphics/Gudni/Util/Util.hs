@@ -44,7 +44,6 @@ module Graphics.Gudni.Util.Util
   , lpad
   , putStrList
   , orNothing
-  , opMaybe
   , titleLine
   , infoLine
   , eitherMaybe
@@ -54,18 +53,21 @@ module Graphics.Gudni.Util.Util
   , const3
   , nullTail
   , nullHead
+  , partitionM
+  , showAsLetters
+  , overStateT
   )
 where
 
 import Graphics.Gudni.Util.Debug
 
-import Control.DeepSeq
 import Control.Monad.State
 import Control.Lens
 import Control.Applicative
 
 import qualified Data.Vector as V
 import Data.Time.Clock
+import Data.Char
 
 data TimeKeeper = TimeKeeper
   { tKStartTime :: UTCTime
@@ -78,9 +80,10 @@ startTimeKeeper =
     startTime <- getCurrentTime
     return TimeKeeper {tKStartTime = startTime, tKLastTime = startTime, tKMarkers = []}
 
-markTime tk name var =
+markTime :: String -> TimeKeeper -> IO TimeKeeper
+markTime name tk =
   do
-    currentTime <- var `deepseq` getCurrentTime
+    currentTime <- getCurrentTime
     let interval = diffUTCTime currentTime (tKLastTime tk)
     let newMarkers = (name, interval) : tKMarkers tk
     return tk {tKLastTime = currentTime, tKMarkers = newMarkers}
@@ -207,24 +210,6 @@ putStrList ls =
 orNothing :: Bool -> b -> Maybe b
 orNothing cond val = if cond then Just val else Nothing
 
-opMaybe :: (a -> a -> a) -> Maybe a -> Maybe a -> Maybe a
-opMaybe f (Just x) Nothing  = Just x
-opMaybe f Nothing  (Just y) = Just y
-opMaybe f Nothing  Nothing  = Nothing
-opMaybe f (Just x) (Just y) = Just (f x y)
-
-{-
-
-liftIOState :: IO a -> StateT (Job) IO a
-liftIOState = lift
-
-
-
-fromMaybeM :: Monad m => Maybe a -> m a -> m a
-fromMaybeM (Just a) b = return a
-fromMaybeM Nothing  b = b
--}
-
 -- | Show a title line
 titleLine :: String -> String
 titleLine title = "======================== " ++ title ++ " ========================\n"
@@ -245,3 +230,38 @@ const3 a b c d = d
 
 nullTail x = if null x then x else tail x
 nullHead x = if null x then [] else [head x]
+{-
+mapAccumM :: (Monad m, Traversable t) => (a -> b -> m (a, c)) -> a -> t b -> m (a, t c)
+mapAccumM f a l = swap <$> runStateT (mapM go l) a
+    where
+        go i = do
+            s <- get
+            (s', r) <- lift $ f s i
+            put s'
+            return r
+-}
+
+partitionM ::  Monad m => (a -> m Bool) -> [a] -> m ([a],[a])
+partitionM p xs = foldM (selectM p) ([],[]) xs
+
+selectM :: Monad m => (a -> m Bool) -> ([a], [a]) -> a -> m ([a], [a])
+selectM p  ~(ts,fs) x =
+         do px <- p x
+            if px
+            then return (x:ts,fs)
+            else return (ts, x:fs)
+
+showAsLetters :: (Num i, Integral i) => i -> String
+showAsLetters i =
+  let rem = i `mod` 26
+      den = i `div` 26
+      pre = if den > 0 then showAsLetters den else ""
+  in
+  pre ++ (pure $ chr $ fromIntegral $ rem + (fromIntegral . ord $ 'A'))
+
+overStateT :: (MonadState g m) => Lens' g a -> (StateT a m b) -> m b
+overStateT lens code =
+  do  state <- use lens
+      (b, state') <- runStateT code state
+      lens .= state'
+      return b

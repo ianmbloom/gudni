@@ -48,8 +48,8 @@ instance (Alternative f, Monad f, Space s) => CanSubdivide (Shape_ f s) where
 instance (CanSubdivide (Leaf i)) => CanSubdivide (STree i) where
     subdivide steps = mapSLeaf (subdivide steps)
 
-instance (CanSubdivide rep) => CanSubdivide (SRep token label rep) where
-    subdivide steps = over sRep (subdivide steps)
+instance (CanSubdivide rep) => CanSubdivide (SMask token label rep) where
+    subdivide steps = over sMask (subdivide steps)
 
 instance IsStyle style => CanSubdivide (Layout style) where
     subdivide steps (Layout tree) = Layout $ mapSItem (fmap (subdivide steps)) tree
@@ -67,7 +67,7 @@ instance (Space s, Space t, s~t) => CanSubdivide (FacetSide s t) where
     represent dk facetSide@(FacetSide facetOutput facetInput) =
         overlap [represent dk facetOutput, withColor green . mask . stroke 0.25 . mkLine $ facetInput]
 
-instance (Space s, Space t, s~t) => HasRepresentation (Facet_ s t) where
+instance (Space s, Space t, s~t) => HasRepresentation (Facet s t) where
     represent dk facet@(Facet sides) = overlap . fmap (represent dk) $ sides
 
 

@@ -8,21 +8,20 @@ where
 
 import Graphics.Gudni.Raster.Thresholds.Enclosure
 
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Reference
+import Graphics.Gudni.Raster.Serial.Slice
+import Graphics.Gudni.Raster.Serial.Pile
+
 import Graphics.Gudni.Util.StorableM
 
 import Foreign.C.Types(CChar)
 import Control.Lens
-import Control.DeepSeq
 
 -- | A GeoReference is not a slice, it points to the first piece of data in memory and gives the number of strands
 -- the header of the strand gives the actual size of geometric data in memory.
 type StrandReference_ = Reference CChar
 newtype StrandReference = StrandRef { _unStrandRef :: StrandReference_}
 makeLenses ''StrandReference
-
-instance NFData StrandReference where
-  rnf (StrandRef s) = s `deepseq` ()
 
 instance Show StrandReference where
   show (StrandRef s) = "StrRef[" ++ show s ++ "]"

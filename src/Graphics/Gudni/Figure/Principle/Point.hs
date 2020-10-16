@@ -13,7 +13,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Figure.Primitive.Point
+-- Module      :  Graphics.Gudni.Figure.Principle.Point
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -23,7 +23,7 @@
 --
 -- Defines a point structure which has orthoganal components.
 
-module Graphics.Gudni.Figure.Primitive.Point
+module Graphics.Gudni.Figure.Principle.Point
   ( PointContainer(..)
   , Point2 (..)
   , Axis(..)
@@ -54,8 +54,8 @@ module Graphics.Gudni.Figure.Primitive.Point
 )
 where
 
-import Graphics.Gudni.Figure.Primitive.Space
-import Graphics.Gudni.Figure.Primitive.Axis
+import Graphics.Gudni.Figure.Principle.Space
+import Graphics.Gudni.Figure.Principle.Axis
 import Graphics.Gudni.Base.Chain
 
 import Data.Hashable
@@ -63,10 +63,6 @@ import Data.Hashable
 import Linear
 import Linear.Affine
 
-import Foreign.Storable
-import Foreign.Ptr
-
-import Control.DeepSeq
 import Control.Lens
 import Data.Kind
 import Text.PrettyPrint

@@ -71,7 +71,7 @@ instance Model StrokeState where
         projected =
             projectOnto path .
             translateByXY 0 (-2.5) .
-            translateByXY (state ^. stateOffset) 0 .
+            translateByXY (toAlong Horizontal $ state ^. stateOffset) 0 .
             withColor (transparent 0.8 red) .
             overlap .
             horizontallySpacedBy translateBy zeroPoint 12 .

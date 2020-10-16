@@ -1,19 +1,24 @@
 # Welcome to Gudni
 
-Gudni is a fast 2d rasterizer built specifically for the Haskell ecosystem.
+Gudni is a fast 2d curve rasterizer and compositing engine built specifically for the Haskell ecosystem.
 
 It is named for the late Icelandic painter Georg Guðni Hauksson.
 
+After the first more brute forced implementation the engine has been entirely rewritten to embrace an approach to rasterization and compositing that
+echoes modern 3d raycasting engines. As such it can even use hardware specifically dedicated to raycasting including NVidia's RTX. The system aims to be both an extremely fast vector rasterizer and a very powerful image compositing platform, as such images can be seamlessly integrated with vector geometry and image manipulation functions including convolutions can be applied to vector geometry.
+
+Guðni blurs the line between vector and raster image creation *literally*. Haha do you get it!?
+
 Here are some of the features of the system:
 
-* GPU accelerated rasterization.
-* High quality anti-aliasing of objects with large amount of subpixel detail.
-* Stochastic anti-aliasing (experimental) is an attempt to add a random factor to mask spatial aliasing and "naturalize" an image.
-* Support for transparency.
-* Support for additive and subtractive shape geometry on the fly.
-* Rudimentary image texturing support.
+* A simple domain specific language for describing scenes with pure Haskell combinators.
+* GPU accelerated rasterization and compositing.
+* Cumulative Monte-Carlo based rasterization allowing interaction with partial rendering of a complex scene as rendering passes accumulate.
+* Complex transformations of sub-scenes, such as distorting shapes to follow a curved path, which occur on the fly, on the GPU, and can be apply seamlessly to vector shapes and images.
+* Convolutions, such as blurring, which occur on the fly and can apply to anything.
 
-The goal is to create an engine that can create a realtime output for figures with the complexity of a normal interface (~10,000 shapes) and slower but perfect outputs for highly complex images  with the complexity of artwork. (1M+ shapes). Getting there will require moving more of the current shape pipeline onto the GPU, which is in the roadmap.
+
+The goal is to create an engine that can create a realtime output for figures with the complexity of a normal interface (~10,000 curves) and slower, interactive and eventually perfect outputs for highly complex images. (1M+ curves).
 
 ## Code Guide
 

@@ -55,10 +55,10 @@ withLinearGradient start startColor end endColor =
 
 instance (Space s) => CanFill (ShapeTree token s) where
     type UnFilled (ShapeTree token s) = CompoundTree s
-    withFill substance = ShapeTree . SLeaf . SItem . Just . SRep defaultValue substance
+    withFill substance = ShapeTree . SLeaf . SItem . Just . SMask defaultValue substance
 
 instance Show token => HasToken (ShapeTree token s) where
   type TokenOf (ShapeTree token s) = token
 
 instance Show token => Tokenized (ShapeTree token s) where
-  overToken fToken = overShapeTree (mapSItem (fmap (over sRepToken fToken)))
+  overToken fToken = overShapeTree (mapSItem (fmap (over sMaskToken fToken)))

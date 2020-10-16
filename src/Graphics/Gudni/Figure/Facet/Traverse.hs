@@ -8,7 +8,7 @@ where
 
 import Graphics.Gudni.Base.Chain
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Facet.Triangle
 import Graphics.Gudni.Figure.Facet.BezierTriangle
 import Graphics.Gudni.Figure.Facet.Type
@@ -28,13 +28,13 @@ insideBox p box =
     && box ^. rightSide  >  p ^. pX
     && box ^. bottomSide >  p ^. pY
 
-couldContain :: Space s => Point2 s -> Facet_ s -> Bool
+couldContain :: Space s => Point2 s -> Facet s -> Bool
 couldContain p facet = insideBox p . boxOf $ facet
 
 limit :: Space s => s
 limit = 1 / 16
 
-sizeLimit :: Space s => Facet_ s -> Bool
+sizeLimit :: Space s => Facet s -> Bool
 sizeLimit facet =
   let box = boxOf facet
   in (box ^. heightBox > toAlong Vertical limit) || (box ^. widthBox > toAlong Horizontal limit)
@@ -45,18 +45,18 @@ insideBezierTri point =
   fmap (crossesAlong Vertical minBound (point ^. pX) (point ^. pY)) .
   bezTriToBeziers
 
-traverseFacetUntil :: forall s . (Space s) => s -> Point2 s -> Facet_ s -> Facet_ s
+traverseFacetUntil :: forall s . (Space s) => s -> Point2 s -> Facet s -> Facet s
 traverseFacetUntil threshold point =
   go
   where
-  go :: Facet_ s -> Facet_ s
+  go :: Facet s -> Facet s
   go facet =
     let potential = traverseFacet point facet
     in  if shouldSubdivideFacet threshold potential
         then go potential
         else facet
 
-traverseFacet :: (Space s) => Point2 s -> Facet_ s -> Facet_ s
+traverseFacet :: (Space s) => Point2 s -> Facet s -> Facet s
 traverseFacet point facet =
   let output = facet ^. facetOutput
       sideOut = sideBezTris output

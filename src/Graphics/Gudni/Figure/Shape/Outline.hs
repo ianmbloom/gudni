@@ -35,9 +35,9 @@ import Graphics.Gudni.Base.Reversible
 import Graphics.Gudni.Base.Chain
 import Graphics.Gudni.Base.Loop
 
-import Graphics.Gudni.Figure.Primitive.Space
-import Graphics.Gudni.Figure.Primitive.Point
-import Graphics.Gudni.Figure.Primitive.Box
+import Graphics.Gudni.Figure.Principle.Space
+import Graphics.Gudni.Figure.Principle.Point
+import Graphics.Gudni.Figure.Principle.Box
 import Graphics.Gudni.Figure.Bezier.Type
 import Graphics.Gudni.Figure.Shape.OpenCurve
 
@@ -50,7 +50,6 @@ import qualified Data.Vector as V
 
 import Control.Applicative
 import Data.Hashable
-import Control.DeepSeq
 import Control.Monad
 
 -- | An shape is just a wrapper for a list of beziers. It represents one curve loop∘
@@ -104,9 +103,6 @@ instance Space s => HasSpace (Outline_ f s) where
 
 instance (Chain f, Space s) => CanBox (Outline_ f s) where
   boxOf = minMaxBoxes . fmap boxOf . view outlineSegments
-
-instance (NFData s, NFData (t (Bezier s))) => NFData (Outline_ t s) where
-  rnf (Outline ps) = ps `deepseq` ()
 
 instance Hashable a => Hashable (V.Vector a) where
   hashWithSalt s vector = V.foldl hashWithSalt s vector

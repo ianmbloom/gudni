@@ -20,22 +20,20 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
 import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ItemInfo
+import Graphics.Gudni.Raster.Dag.TagTypes
 
 import Graphics.Gudni.Util.Debug
 import Control.Lens
 
 addBezierToConfineTree :: forall s
                        . (Space s)
-                       => TaggedBezier s
+                       => Box s
+                       -> PrimTagId
                        -> ConfineTree s
                        -> ConfineTree s
-addBezierToConfineTree taggedBezier =
+addBezierToConfineTree box primTagId =
     go Vertical
     where
-    box :: Box s
-    box = boxOf (taggedBezier ^. tBez)
-
     go :: (Axis axis)
        => axis
        -> Maybe (Confine axis s)
@@ -49,7 +47,7 @@ addBezierToConfineTree taggedBezier =
             Nothing ->
                 Just $
                 Confine
-                    { _confineCurve      = taggedBezier
+                    { _confinePrimTagId      = primTagId
                     , _confineCut        = minCut
                     , _confineOverhang   = minCut
                     , _confineLessCut    = Nothing

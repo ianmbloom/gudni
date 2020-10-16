@@ -21,9 +21,9 @@ module Graphics.Gudni.Figure.Deknob.Class
 where
 
 import Linear
-import Graphics.Gudni.Figure.Primitive.Space
-import Graphics.Gudni.Figure.Primitive.Axis
-import Graphics.Gudni.Figure.Primitive.Point
+import Graphics.Gudni.Figure.Principle.Space
+import Graphics.Gudni.Figure.Principle.Axis
+import Graphics.Gudni.Figure.Principle.Point
 import Graphics.Gudni.Util.Debug
 import qualified Data.Vector as V
 import Data.Maybe

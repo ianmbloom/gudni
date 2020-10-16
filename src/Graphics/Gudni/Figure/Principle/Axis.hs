@@ -8,7 +8,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Graphics.Gudni.Figure.Primitive.Axis
+module Graphics.Gudni.Figure.Principle.Axis
   ( Vertical(..)
   , Horizontal(..)
   , IsAxis(..)
@@ -55,7 +55,6 @@ instance IsAxis Vertical where
   isVertical   _ = True
   isHorizontal _ = False
   showSymbol _ = "V"
-
 
 instance IsAxis Horizontal where
   type PerpendicularTo Horizontal = Vertical

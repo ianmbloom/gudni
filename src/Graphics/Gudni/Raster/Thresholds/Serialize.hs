@@ -38,16 +38,19 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Raster.Constants
-import Graphics.Gudni.Raster.ItemInfo
-import Graphics.Gudni.Raster.SubstanceInfo
+import Graphics.Gudni.Raster.Thresholds.SubstanceInfo
 import Graphics.Gudni.Raster.TextureReference
+import Graphics.Gudni.Raster.Thresholds.ItemInfo
 import Graphics.Gudni.Raster.Thresholds.Strand
 import Graphics.Gudni.Raster.Thresholds.Enclosure
 import Graphics.Gudni.Raster.Thresholds.ReorderTable
 import Graphics.Gudni.Raster.Thresholds.TileTree
 
 import Graphics.Gudni.Util.RandomField
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Slice
+import Graphics.Gudni.Raster.Serial.Pile
+import Graphics.Gudni.Raster.Serial.BytePile
+
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
 
@@ -59,7 +62,6 @@ import Control.Monad.State
 import Control.Applicative
 import Control.Lens
 import Foreign.Storable
-import Control.DeepSeq
 
 import qualified Data.Map      as M
 import qualified Data.Vector   as V
@@ -78,7 +80,7 @@ appendEnclosure :: Enclosure
 appendEnclosure enclosure =
     do  strandRefs <- forM (enclosureStrands enclosure) ( \strand ->
            do  geometryPile <- get
-               (geometryPile', Slice ref breadth) <- liftIO $ addToPile geometryPile (asBytes strand)
+               (geometryPile', ref) <- liftIO $ addToPile geometryPile (asBytes strand)
                put geometryPile'
                return ref
            )
@@ -99,19 +101,15 @@ data SerialState token s = SerialState
       -- | The pile of geometry strands
     , _serGeometryPile     :: GeometryPile
       -- | A list of texture facets collected from the scene.
-    , _serFacetPile        :: Pile (Facet_ s)
+    , _serFacetPile        :: Pile (Facet s)
      -- | A pile of every item tag collected from the scene.
-    , _serItemTagPile      :: Pile ItemTag
+    , _serItemTagPile      :: Pile PrimTag
       -- | A pile of every substance collected from the scene.
     , _serSubstanceTagPile :: Pile SubstanceTag
       -- | A heap of all substance descriptions
     , _serDescriptionPile  :: BytePile
     }
 makeLenses ''SerialState
-
-instance (NFData token, NFData s) => NFData (SerialState token s) where
-  rnf (SerialState a b c d e f g h) =
-      a `deepseq` b {-`deepseq` c -} `deepseq` d `deepseq` e `deepseq` f `deepseq` g `deepseq` h `deepseq` ()
 
 -- | A monad for serializing substance data from a scene.
 type SerialMonad token s m = StateT (SerialState token s) m
@@ -129,7 +127,7 @@ withSerializedScene :: ( MonadIO m
 withSerializedScene rasterizer canvasSize pictureMap scene code =
     withScenePictureMemory pictureMap scene $
        \ sceneWithPictMem pictDataPile ->
-           do geometryPile     <- liftIO (newPileSize iNITgEOMETRYpILEsIZE :: IO BytePile)
+           do geometryPile     <- liftIO (newPileSize (fromIntegral iNITgEOMETRYpILEsIZE) :: IO BytePile)
               facetPile        <- liftIO $ newPile
               itemTagPile      <- liftIO $ newPile
               substanceTagPile <- liftIO $ newPile
@@ -157,12 +155,12 @@ withSerializedScene rasterizer canvasSize pictureMap scene code =
               return result
 
 addItem :: MonadIO m
-        => BoundingBox
-        -> [ItemTag]
+        => Box SubSpace
+        -> [PrimTag]
         -> SerialMonad token s m ()
 addItem boundingBox itemTags =
   forM_ itemTags $ \itemTag ->
-     do itemTagId <- ItemTagId . sliceStart <$> addToPileState serItemTagPile itemTag
+     do itemTagId <- ItemTagId <$> addToPileS serItemTagPile itemTag
         tileTree <- use serTileTree
         tileTree' <- addItemTagIdToTreePile tileTree boundingBox itemTagId -- the maximum strands a facet can create is 3
         serTileTree .= tileTree'
@@ -174,13 +172,13 @@ onShape :: MonadIO m
         -> SubstanceTag
         -> Compound
         -> Shape SubSpace
-        -> SerialMonad token s m (Maybe BoundingBox)
-onShape rasterizer canvasSize substanceTag combineType shape =
+        -> SerialMonad token s m (Maybe (Box SubSpace))
+onShape rasterizer canvasSize substanceTag compound shape =
   do let transformedOutlines = view shapeOutlines . mapOverPoints (fmap clampReasonable) $  shape
          boundingBox = minMaxBoxes . fmap boxOf $ transformedOutlines
-     if excludesBox (pointToBox canvasSize) boundingBox
+     if excludesBox (sizeToBox canvasSize) boundingBox
      then return ()
-     else do substanceTagId <- SubstanceTagId . sliceStart <$> addToPileState serSubstanceTagPile substanceTag
+     else do substanceTagId <- SubstanceTagId <$> addToPileS serSubstanceTagPile substanceTag
              strandRefs <-
                  do -- Build an enclosure from the outlines.
                     let -- Table used to convert strands of coordinates to trees.
@@ -196,16 +194,16 @@ onShape rasterizer canvasSize substanceTag combineType shape =
                     -- Put the geometry pile back in the monad.
                     serGeometryPile .= geometryPile'
                     return strandRefs
-             let itemTags = map (strandInfoTag combineType substanceTagId) strandRefs
+             let itemTags = map (strandInfoTag compound substanceTagId) strandRefs
              addItem boundingBox itemTags
      return (Just boundingBox)
 
 addFacet :: MonadIO m
          => SubstanceTagId
-         -> Facet_ SubSpace
+         -> Facet SubSpace
          -> SerialMonad token SubSpace m ()
 addFacet substanceTagId facet =
-  do facetId <- FacetId . sliceStart <$> addToPileState serFacetPile facet
+  do facetId <- FacetId <$> addToPileS serFacetPile facet
      let facetTag = facetInfoTag facetId substanceTagId
          boundingBox = boxOf facet
      addItem boundingBox [facetTag]
@@ -222,16 +220,14 @@ onSubstance :: forall m item token .
              , MonadIO m)
             => Rasterizer
             -> Point2 SubSpace
-            -> (TextureSpace -> SpaceOf item)
             -> (SpaceOf item)
             -> Overlap
-            -> SRep token PictureMemoryReference (Tree Compound item)
+            -> SMask token PictureMemoryReference (Tree Compound item)
             -> SerialMonad token (SpaceOf item) m ()
-onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap (SRep mToken substance subTree) =
+onSubstance rasterizer canvasSize tolerance Overlap (SMask mToken substance subTree) =
     do  -- Depending on the substance of the shape take appropriate actions.
-        let (subTransform, baseSubstance) = breakdownSubstance substance
-        descriptionReference <- sliceStart <$> addToPileState serDescriptionPile (asBytes baseSubstance)
-        let substanceTag = substanceAndRefToTag baseSubstance descriptionReference
+        descriptionReference <- addToPileS serDescriptionPile (asBytes substance)
+        let substanceTag = substanceAndRefToTag substance descriptionReference
         mShapeBox <- traverseTree traverseCompound combineBoxes (onShape rasterizer canvasSize substanceTag) defaultValue subTree
         case mToken of
              Nothing -> return ()
@@ -240,7 +236,7 @@ onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap (SRep mToke
                     -- Store the token in the map.
                     serTokenMap .= M.insert substanceTag token tokenMap
         -- if the substance is constant (a solid color) we don't need to create facets for it.
-        if substanceIsConstant baseSubstance
+        if substanceIsConstant substance
         then return ()
         else
            do  -- likewise if there is no bounding box for the shape we don't need to create facets for it.
@@ -251,22 +247,22 @@ onSubstance rasterizer canvasSize fromTextureSpace tolerance Overlap (SRep mToke
                          {-
                          do let -- Transformation information is transfered to the texture here.
                                 -- First create two facets that cover the entire bounding box of the shape.
-                                facets :: [Facet_ (SpaceOf item)]
+                                facets :: [Facet (SpaceOf item)]
                                 facets = rectangleToFacets shapeBox
                                 -- combine the overall transformation with the substances transformations
                                 combined :: Transformer (SpaceOf item)
                                 combined = CombineTransform transformer subTransform
                                 -- apply all transformations to the facets
-                                transformedFacets :: [Facet_ (SpaceOf item)]
+                                transformedFacets :: [Facet (SpaceOf item)]
                                 transformedFacets = undefined --fmap (applyTransformer combined) facets
                                 -- tesselate the facets
-                                tesselatedFacets :: [[Facet_ (SpaceOf item)]]
+                                tesselatedFacets :: [[Facet (SpaceOf item)]]
                                 tesselatedFacets = fmap (tesselateFacet tolerance) transformedFacets
                                 -- convert the tesselated facets into hard triangles
                                 hardFacets :: [HardFacet_ (SpaceOf item)]
                                 hardFacets = fmap (hardenFacet) . join $ tesselatedFacets
                             -- Add a new substanceTag to the pile for this group of f
-                            Slice substanceTagId _ <- addToPileState serSubstanceTagPile substanceTag
+                            Slice substanceTagId _ <- addToPileS serSubstanceTagPile substanceTag
                             -- Add all hard facets with the new substance tag id.
                             mapM (addHardFacet $ SubstanceTagId substanceTagId) hardFacets
                             return ()
@@ -282,10 +278,10 @@ buildOverScene rasterizer canvasSize scene =
        liftIO $ putStrLn "===================== Serialize scene start ====================="
        serBackgroundColor .= scene ^. sceneBackgroundColor
        -- Serialize the shape tree.
-       traverseTree keepMeld (const3 ()) (onSubstance rasterizer canvasSize textureSpaceToSubspace (SubSpace $ realToFrac tAXICABfLATNESS)) Overlap (scene ^. sceneShapeTree)
+       traverseTree keepMeld (const3 ()) (onSubstance rasterizer canvasSize (SubSpace $ realToFrac tAXICABfLATNESS)) Overlap (scene ^. sceneShapeTree)
        liftIO $ putStrLn "===================== Serialize scene end   ====================="
 
-outputSerialState :: (Show s, Show token, Storable (Facet_ s))
+outputSerialState :: (Show s, Show token, Storable (Facet s))
                      => SerialState token s -> IO ()
 outputSerialState state =
   do  putStrLn $ "serTokenMap         " ++ (show . view serTokenMap            $ state)

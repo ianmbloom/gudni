@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveGeneric         #-}
 
 module Graphics.Gudni.Interface.BasicSceneState
   ( BasicSceneState(..)
@@ -37,6 +38,7 @@ import Control.Lens
 import Control.Monad.State
 import Control.Monad.IfElse
 
+import Text.PrettyPrint.GenericPretty
 import System.Info
 
 data BasicSceneState = BasicSceneState
@@ -54,8 +56,10 @@ data BasicSceneState = BasicSceneState
   , _stateRepMode     :: Bool
   , _stateRepDk       :: Bool
   , _stateCursor      :: Point2 SubSpace
-  } deriving (Show)
+  } deriving (Generic, Show)
 makeLenses ''BasicSceneState
+
+instance Out BasicSceneState
 
 simpleTransformFromState :: (SimpleTransformable t, SpaceOf t ~ SubSpace) => BasicSceneState -> t -> t
 simpleTransformFromState state constructed =

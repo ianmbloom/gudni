@@ -6,10 +6,17 @@ module Graphics.Gudni.Figure.Facet.BezierTriangle
   , centerBezTri
   , bezTriToBeziers
   , shouldSubdivideBezTri
+  , p0
+  , c0
+  , p1
+  , c1
+  , p2
+  , c2
+  , triToBezTri
   )
 where
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Facet.Triangle
 
 import Graphics.Gudni.Util.Debug
@@ -111,3 +118,6 @@ bezTriToBeziers bezTri =
 
 shouldSubdivideBezTri :: (Space s) => s -> BezTri s -> Bool
 shouldSubdivideBezTri tolerance = or . fmap (shouldSubdivideBezier tolerance) . bezTriToBeziers
+
+triToBezTri :: Space s => Tri s -> BezTri s
+triToBezTri (V3 a b c) = V3 (V2 a (mid a b)) (V2 b (mid b c)) (V2 c (mid c a))

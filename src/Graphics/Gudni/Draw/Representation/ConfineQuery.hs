@@ -14,11 +14,15 @@ module Graphics.Gudni.Draw.Representation.ConfineQuery
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Raster.ItemInfo
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
 import Graphics.Gudni.Raster.ConfineTree.Query
+
+import Graphics.Gudni.Raster.Dag.Query
+import Graphics.Gudni.Raster.Dag.PrimColorQuery
+import Graphics.Gudni.Raster.Dag.TagTypes
+import Graphics.Gudni.Raster.Dag.State
 
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Elipse
@@ -31,9 +35,11 @@ import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Subdividable
 
+import Foreign.Storable
 import GHC.Exts
 import Control.Lens
 import Control.Monad
+import Control.Monad.IO.Class
 import Data.Maybe
 import Data.List
 import qualified Data.Map as M
@@ -52,124 +58,142 @@ ring r layer color =
     else withColor color $ (scaleBy ((l + 1) * r) . mask $ circle)
 
 layerRing :: forall token style
-           .  (IsStyle style)
-           => M.Map ItemTagId Color
+           .  ( IsStyle style
+              , Storable (SpaceOf style)
+              )
+           => M.Map PrimTagId Color
            -> Point2 (SpaceOf style)
            -> Int
-           -> ItemTagId
+           -> PrimTagId
            -> Layout style
-layerRing colorMap point depth itemTagId =
-  let color = transparent 1 $ (M.!) colorMap itemTagId
+layerRing colorMap point depth primTagId =
+  let color = transparent 1 $ (M.!) colorMap primTagId
   in  translateBy point $ ring 4 (depth + 1) color
 
 makeList a = [a]
 
-constructLayerStack :: forall style
-                    .  ( IsStyle style
-                       )
-                    => M.Map ItemTagId Color
-                    -> Point2 (SpaceOf style)
-                    -> ItemStack
-                    -> Layout style
-constructLayerStack colorMap point stack =
-  do  --let string = ((concat $ imap (\i a -> "(iT " ++ show (a ^. ancItemTagId) ++ " tg " ++ show (a ^. ancTag) ++ " c " ++ show (a ^. ancCornerWinding) ++ " w " ++ show (a ^. ancWinding) ++ ")" ) stack)) ++ "\n" ++
-      --             intercalate "\n" (map show steps)
-      --let string = show . sum . map (length . view layTags) $ stack -- intercalate "\n" $ map (show . view layTags) stack
-      --text <- fromGlyph <$> paragraph 0.1 0.1 AlignMin AlignMin string :: FontMonad m (CompoundTree SubSpace)
-      overlap $ hatch 1 8 point:(imap (layerRing colorMap point) $ stack) -- ++ [withColor black . translateBy point . translateByXY 4 (-7.5) . scaleBy 15 $ text]
+makeColorMap :: ( MonadIO m
+                , Space s
+                , Storable s
+                )
+             => PrimStack
+             -> FabricMonad s m (M.Map PrimTagId Color)
+makeColorMap primStack =
+  do primColors <- mapM loadPrimColorS primStack
+     return $ M.fromList $ zip primStack primColors
 
-checkPoint :: forall style
+constructLayerStack :: forall style m
+                    .  ( IsStyle style
+                       , Storable (SpaceOf style)
+                       , MonadIO m
+                       )
+                    => Point2 (SpaceOf style)
+                    -> PrimStack
+                    -> FabricMonad (SpaceOf style) m (Layout style)
+constructLayerStack point stack =
+  do  colorMap <- makeColorMap stack
+      return $ overlap $ (withColor black . translateBy point $ hatch 1 8):(imap (layerRing colorMap point) $ stack) -- ++ [withColor black . translateBy point . translateByXY 4 (-7.5) . scaleBy 15 $ text]
+
+checkPoint :: forall style m
            .  ( IsStyle style
+              , Storable (SpaceOf style)
+              , MonadIO m
               )
-           => M.Map ItemTagId Color
+           => M.Map PrimTagId Color
            -> ConfineTree (SpaceOf style)
            -> DecorateTree (SpaceOf style)
            -> Point2 (SpaceOf style)
-           -> Layout style
+           -> FabricMonad (SpaceOf style) m (Layout style)
 checkPoint colorMap confineTree decoTree point =
-  let (anchor, anchorStack, stack, curveTags) = queryPointWithInfo confineTree decoTree point
-      bezList :: [Bezier (SpaceOf style)]
-      bezList = concat $ map ({-subdivideBeziers 4 .-}  makeList . view tBez) $ curveTags
-      numCrossings = length . filter id . map (crosses anchor point) $ bezList
-      markBez anchor point bez = let ch  = crossesHorizontal anchor point bez
-                                     cv  = crossesVertical   anchor point bez
-                                     sl  = bezierSlopeLTEZero Vertical bez
-                                 in  (ch, cv, sl, bez)
+  do  (anchor, anchorStack, stack, curveTags) <- queryConfineTreePointWithInfo loadCurveS confineTree decoTree point
+      let bezList :: [Bezier (SpaceOf style)]
+          bezList = concat $ map ({-subdivideBeziers 4 .-}  makeList . view tBez) $ curveTags
+          numCrossings = length . filter id . map (crosses anchor point) $ bezList
+          markBez anchor point bez = let ch  = crossesHorizontal anchor point bez
+                                         cv  = crossesVertical   anchor point bez
+                                         sl  = bezierSlopeLTEZero Vertical bez
+                                     in  (ch, cv, sl, bez)
 
-      colorBez :: IsStyle style =>
-                  (Bool, Bool, Bool, Bezier (SpaceOf style))
-                  -> Layout style
-      colorBez (ch, cv, sl, bez) =
-          let color = case (ch, cv, sl) of
-                         (True,  True,  True ) -> red
-                         (True,  True,  False) -> light (light red)
-                         (True,  False, True ) -> purple
-                         (True,  False, False) -> light (light purple)
-                         (False, True,  True ) -> blue
-                         (False, True,  False) -> light (light blue)
-                         (False, False, True ) -> green
-                         (False, False, False) -> yellow
-          in  withColor color . mask . stroke 0.1 . makeOpenCurve . makeList $ bez
+          colorBez :: IsStyle style =>
+                      (Bool, Bool, Bool, Bezier (SpaceOf style))
+                      -> Layout style
+          colorBez (ch, cv, sl, bez) =
+              let color = case (ch, cv, sl) of
+                             (True,  True,  True ) -> red
+                             (True,  True,  False) -> light (light red)
+                             (True,  False, True ) -> purple
+                             (True,  False, False) -> light (light purple)
+                             (False, True,  True ) -> blue
+                             (False, True,  False) -> light (light blue)
+                             (False, False, True ) -> green
+                             (False, False, False) -> yellow
+              in  withColor color . mask . stroke 0.1 . makeOpenCurve . makeList $ bez
 
-      drawCurve :: IsStyle style
-                => Point2 (SpaceOf style)
-                -> Point2 (SpaceOf style)
-                -> Bezier (SpaceOf style)
-                -> Layout style
-      drawCurve anchor point = colorBez . markBez anchor point
+          drawCurve :: IsStyle style
+                    => Point2 (SpaceOf style)
+                    -> Point2 (SpaceOf style)
+                    -> Bezier (SpaceOf style)
+                    -> Layout style
+          drawCurve anchor point = colorBez . markBez anchor point
 
-      curvesLayout :: Layout style
-      curvesLayout = overlap $ map (drawCurve anchor point) bezList
-      label :: Layout style
-      label = if length stack > 0
-              then translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show $ length bezList
-              else emptyItem
-  in  overlap [
-              -- label
-              --,
-              -- constructLayerStack colorMap anchor anchorTags
-              --,
-               constructLayerStack colorMap point stack
-              --,
-              -- curvesLayout
-              --,
-              -- withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line anchor  point]
-              -- ,
-              --  withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line anchor (interimPoint anchor point)]
-              -- ,
-              --  withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line (interimPoint anchor point) point]
-              ]
+          curvesLayout :: Layout style
+          curvesLayout = overlap $ map (drawCurve anchor point) bezList
+          label :: Layout style
+          label = if length stack > 0
+                  then translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show $ length bezList
+                  else emptyItem
+      layerStack <- constructLayerStack point stack
+      return $
+          overlap [
+                  -- label
+                  --,
+                  -- constructLayerStack colorMap anchor anchorTags
+                  --,
+                  layerStack
+                  --,
+                  -- curvesLayout
+                  --,
+                  -- withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line anchor  point]
+                  -- ,
+                  --  withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line anchor (interimPoint anchor point)]
+                  -- ,
+                  --  withColor (transparent 0.5 white) . mask . stroke 1 . makeOpenCurve $ [line (interimPoint anchor point) point]
+                  ]
 
-checkBox :: forall style
-         .  (IsStyle style)
-         => M.Map ItemTagId Color
+checkBox :: forall style m
+         .  ( IsStyle style
+            , Storable (SpaceOf style)
+            , MonadIO m)
+         => M.Map PrimTagId Color
          -> ConfineTree (SpaceOf style)
          -> DecorateTree (SpaceOf style)
          -> Point2 (SpaceOf style)
-         -> Layout style
+         -> FabricMonad (SpaceOf style) m (Layout style)
 checkBox colorMap confineTree decoTree point =
-  let end = point + Point2 50 50
-      box = Box point end
-      (stack, curves) = queryBox confineTree decoTree box
+  do  let end = point + Point2 50 50
+          box = Box point end
+      (stack, curves) <- queryConfineTreeBox loadCurveS confineTree decoTree box
 
-      markBez bez = let sl  = bezierSlopeLTEZero Vertical bez
-                    in  (sl, bez)
+      let markBez bez = let sl  = bezierSlopeLTEZero Vertical bez
+                        in  (sl, bez)
 
-      colorBez :: IsStyle style =>
-                  (Bool, Bezier (SpaceOf style))
-                  -> Layout style
-      colorBez (sl, bez) =
-          let color = case sl of
-                         (True ) -> light green
-                         (False) -> light blue
-          in  withColor color . mask . stroke 2 . makeOpenCurve . makeList $ bez
+          colorBez :: IsStyle style =>
+                      (Bool, Bezier (SpaceOf style))
+                      -> Layout style
+          colorBez (sl, bez) =
+              let color = case sl of
+                             (True ) -> dark green
+                             (False) -> dark blue
+              in  withColor color . mask . stroke 2 . makeOpenCurve . makeList $ bez
 
-      drawCurve :: IsStyle style
-                => Bezier (SpaceOf style)
-                -> Layout style
-      drawCurve = colorBez . markBez
-
-  in  overlap [ constructLayerStack colorMap point stack
-              , withColor black . mask . openRectangle 1 $ box
-              , overlap $ map (drawCurve . view tBez) curves
-              ]
+          drawCurve :: IsStyle style
+                    => Bezier (SpaceOf style)
+                    -> Layout style
+          drawCurve = colorBez . markBez
+      return $
+          overlap [ -- constructLayerStack colorMap point stack
+                    -- ,
+                    withColor black . mask . openRectangle 1 $ box
+                    ,
+                    overlap $ map (drawCurve . view tBez) curves
+                  ]

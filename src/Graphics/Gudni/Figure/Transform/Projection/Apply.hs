@@ -14,7 +14,7 @@ where
 import Graphics.Gudni.Base.Chain
 import Graphics.Gudni.Base.Loop
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Transform.Projection.BezierSpace
 import Graphics.Gudni.Figure.Bezier.Split
 import Graphics.Gudni.Figure.Bezier.Cut

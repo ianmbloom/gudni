@@ -30,6 +30,7 @@ where
 
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Figure.StorableInstances
 
 import Graphics.Gudni.Layout.Token
 import Graphics.Gudni.Layout.Proximity
@@ -45,13 +46,17 @@ import Data.Maybe
 import Control.Lens
 import Control.Applicative
 
+import Foreign.Storable
+
 class HasStyle a where
     type StyleOf a :: *
 
 class ( HasToken style
       , HasSpace style
       , HasDefault style
-      , Show style)
+      , Storable (SpaceOf style)
+      , Show style
+      )
       => IsStyle style where
     styleTextAlignX :: style -> Maybe Alignment
     styleTextAlignY :: style -> Maybe Alignment

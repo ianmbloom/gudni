@@ -9,6 +9,9 @@
 
 module Graphics.Gudni.Draw.Representation.ConfineTree
   ( constructConfineTree
+  , constructConfineTreeBound
+  , constructConfineTreeBoxed
+  , confineTreeBox
   , constructConfine
   , reasonableBoundaries
   )
@@ -17,10 +20,12 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.ShapeTree
-import Graphics.Gudni.Raster.ItemInfo
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
 import Graphics.Gudni.Raster.ConfineTree.Traverse
+import Graphics.Gudni.Raster.Dag.TagTypes
+import Graphics.Gudni.Raster.Dag.Query
+import Graphics.Gudni.Raster.Dag.State
 
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Rectangle
@@ -29,10 +34,13 @@ import Graphics.Gudni.Draw.ArrowHead
 import Graphics.Gudni.Draw.Representation.Class
 import Graphics.Gudni.Draw.Representation.ConfineQuery
 import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Util.Util
 
+import Foreign.Storable
 import GHC.Exts
 import Control.Lens
 import Control.Monad
+import Control.Monad.IO.Class
 import Data.Maybe
 import Data.List
 import Text.PrettyPrint.GenericPretty
@@ -75,16 +83,17 @@ bezierArrow bz@(Bez v0 c v1) =
              , withColor black . mask . stroke 1 $ makeOpenCurve [bz]
              ]
 
-constructConfine :: forall axis style
+constructConfine :: forall axis style m
                  .  ( IsStyle style
                     , AxisColor axis
+                    , Storable (SpaceOf style)
+                    , MonadIO m
                     )
                  => axis
-                 -> M.Map ItemTagId Color
                  -> Confine axis (SpaceOf style)
                  -> Box (SpaceOf style)
-                 -> Layout style
-constructConfine axis colorMap tree boundary =
+                 -> FabricMonad (SpaceOf style) m (Layout style)
+constructConfine axis tree boundary =
     let thickness :: SpaceOf style
         thickness = 1
         cut       = tree ^. confineCut
@@ -98,31 +107,36 @@ constructConfine axis colorMap tree boundary =
         overhangBox = overlapBlock axis cut overhang boundary
         overhangLayout :: Layout style
         overhangLayout = withColor (transparent 0.01 aColor) . mask . boxToRectangle $ overhangBox
-        curve :: Layout style
-        curve = bezierArrow $ (tree ^. confineCurve . tBez)
-        text = blurb (show $ tree ^. confineCurve . tCurveTag)
-        label :: Layout style
-        label = translateBy (eval 0.5 (tree ^. confineCurve . tBez)) .
-                scaleBy 40 .
-                withColor (transparent 0.5 purple) $
-                text
-    in  overlap $ [
-                  -- label
-                  -- ,
-                  -- curve
-                  -- ,
-                  axisLayout
-                  -- ,
-                  -- overhangLayout
-                  ]
+    in
+    do  bez <- loadCurveS (tree ^. confinePrimTagId)
+        let curve :: Layout style
+            curve = bezierArrow bez
+            text = blurb (show $ tree ^. confinePrimTagId)
+            label :: Layout style
+            label = translateBy (eval 0.5 bez) .
+                    scaleBy 40 .
+                    withColor (transparent 0.5 purple) $
+                    text
+        return $
+            overlap $ [
+                      -- label
+                      -- ,
+                      -- curve
+                      -- ,
+                      axisLayout
+                      -- ,
+                      -- overhangLayout
+                      ]
 
-constructConfineTree :: forall style
-                     .  (IsStyle style)
-                     => M.Map ItemTagId Color
-                     -> ConfineTree (SpaceOf style)
-                     -> Layout style
-constructConfineTree colorMap =
-  go Vertical 0 reasonableBoundaries
+constructConfineTreeBound :: forall style m
+                          .  ( IsStyle style
+                             , Storable (SpaceOf style)
+                             , MonadIO m )
+                          => Box (SpaceOf style)
+                          -> ConfineTree (SpaceOf style)
+                          -> FabricMonad (SpaceOf style) m (Layout style)
+constructConfineTreeBound startBoundary =
+  go Vertical 0 startBoundary
   where
   go :: ( Axis axis
         , AxisColor axis
@@ -132,16 +146,60 @@ constructConfineTree colorMap =
      -> Int
      -> Box (SpaceOf style)
      -> Branch axis (SpaceOf style)
-     -> Layout style
+     -> FabricMonad (SpaceOf style) m (Layout style)
   go axis depth boundary mTree =
         if widthOf boundary > 0 && heightOf boundary > 0
         then case mTree of
-               Nothing   -> emptyItem
+               Nothing   -> return emptyItem
                Just tree ->
-                      let confine = constructConfine axis colorMap tree boundary
-                          cut     = tree ^. confineCut
+                   do confine <- constructConfine axis tree boundary
+                      let cut     = tree ^. confineCut
                           (lessBound, moreBound) = splitBox axis cut boundary
-                          lessBranch = go (perpendicularTo axis) (depth + 1) lessBound (tree ^. confineLessCut)
-                          moreBranch = go (perpendicularTo axis) (depth + 1) moreBound (tree ^. confineMoreCut)
-                      in  overlap [confine, lessBranch, moreBranch]
-        else emptyItem
+                      lessBranch <- go (perpendicularTo axis) (depth + 1) lessBound (tree ^. confineLessCut)
+                      moreBranch <- go (perpendicularTo axis) (depth + 1) moreBound (tree ^. confineMoreCut)
+                      return $ overlap [confine, lessBranch, moreBranch]
+        else return emptyItem
+
+constructConfineTree :: forall style m
+                     .  ( IsStyle style
+                        , Storable (SpaceOf style)
+                        , MonadIO m )
+                     => ConfineTree (SpaceOf style)
+                     -> FabricMonad (SpaceOf style) m (Layout style)
+constructConfineTree =
+     constructConfineTreeBound reasonableBoundaries
+
+constructConfineTreeBoxed :: forall style m
+                          .  ( IsStyle style
+                             , Storable (SpaceOf style)
+                             , MonadIO m )
+                          => ConfineTree (SpaceOf style)
+                          -> FabricMonad (SpaceOf style) m (Layout style)
+constructConfineTreeBoxed confineTree =
+    do mBox <- confineTreeBox confineTree
+       case mBox of
+           Just box -> constructConfineTreeBound box confineTree
+           Nothing  -> return emptyItem
+
+confineTreeBox :: forall m s
+               .  ( MonadIO m
+                  , Space s
+                  , Storable s
+                  )
+               => ConfineTree s
+               -> FabricMonad s m (Maybe (Box s))
+confineTreeBox =
+  go Vertical
+  where
+  go :: ( Axis axis )
+     => axis
+     -> Branch axis s
+     -> FabricMonad s m (Maybe (Box s))
+  go axis mTree =
+      case mTree of
+          Nothing -> return Nothing
+          Just tree ->
+              do box <- boxOf <$> loadCurveS (tree ^. confinePrimTagId)
+                 mLBox <- go (perpendicularTo axis) (tree ^. confineLessCut)
+                 mGBox <- go (perpendicularTo axis) (tree ^. confineMoreCut)
+                 return $ eitherMaybe minMaxBox (Just box) $ eitherMaybe minMaxBox mLBox mGBox

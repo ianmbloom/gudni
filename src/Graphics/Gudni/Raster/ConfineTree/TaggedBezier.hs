@@ -4,78 +4,51 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Graphics.Gudni.Raster.ConfineTree.TaggedBezier
-  ( CurveTag(..)
-  , TaggedBezier(..)
+  ( TBezier(..)
   , tBez
-  , tCurveTag
-  , tBezItem
-  , ItemBezier(..)
-  , iBez    
-  , iBezItem
+  , tPrimTagId
   )
 where
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Bezier.Type
-import Graphics.Gudni.Raster.ItemInfo
+import Graphics.Gudni.Raster.Dag.TagTypes
+import Graphics.Gudni.Raster.Dag.PrimTag
 
 import Graphics.Gudni.Util.StorableM
+import Graphics.Gudni.Util.Util
 
-import Data.Char
 import Control.Lens
 
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint hiding ((<>))
 
-newtype CurveTag = CurveTag Int deriving (Num, Eq, Ord)
-
-instance Show CurveTag where
-  show (CurveTag i) =
-    let rem = i `mod` 26
-        den = i `div` 26
-        pre = if den > 0 then show (CurveTag den) else ""
-    in
-    pre ++ (pure $ chr $ rem + (ord 'A'))
-
-instance Out CurveTag where
-  doc x = text (show x)
-  docPrec _ = doc
-
-data TaggedBezier s =
-    TaggedBezier
-    { _tBez      :: Bezier s
-    , _tCurveTag :: CurveTag
-    , _tBezItem  :: ItemTagId
+data TBezier s =
+    TBezier
+    { _tPrimTagId :: PrimTagId
+    , _tBez       :: Bezier s
     } deriving (Generic)
-makeLenses ''TaggedBezier
+makeLenses ''TBezier
 
-instance Show s => Show (TaggedBezier s) where
-  show tb = show (tb ^. tCurveTag, tb ^. tBezItem, tb ^. tBez)
+instance Show s => Show (TBezier s) where
+  show tb = show (tb ^. tPrimTagId, tb ^. tBez)
 
-data ItemBezier s =
-    ItemBezier
-    { _iBez      :: Bezier s
-    , _iBezItem  :: ItemTagId
-    } deriving (Generic)
-makeLenses ''ItemBezier
-
-instance Show s => Show (ItemBezier s) where
-  show ib = show (ib ^. iBezItem, ib ^. iBez)
-
-
-instance StorableM (ItemBezier SubSpace) where
+instance Out s => Out (TBezier s)
+{-
+instance StorableM (TBezier SubSpace) where
     sizeOfM _ = do sizeOfM (undefined :: Bezier SubSpace)
-                   sizeOfM (undefined :: ItemTagId )
+                   sizeOfM (undefined :: PrimTagId )
     alignmentM _ = do alignmentM (undefined :: Bezier SubSpace)
-                      alignmentM (undefined :: ItemTagId)
+                      alignmentM (undefined :: PrimTagId)
     peekM = do bez       <- peekM
-               itemTagId <- peekM
-               return $ ItemBezier bez itemTagId
-    pokeM (ItemBezier bez itemTagId) = do pokeM bez
-                                          pokeM itemTagId
+               primTagId <- peekM
+               return $ TBezier bez primTagId
+    pokeM (TBezier bez primTagId) = do pokeM bez
+                                       pokeM primTagId
 
-instance Storable (ItemBezier SubSpace) where
+instance Storable (TBezier SubSpace) where
     sizeOf = sizeOfV
     alignment = alignmentV
     peek = peekV
     poke = pokeV
+-}

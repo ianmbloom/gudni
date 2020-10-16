@@ -23,6 +23,8 @@
 
 module Graphics.Gudni.Layout.Proximity
   ( Proximity(..)
+  , noProximity
+  , proximityWillTransform
   , ProximityMeld(..)
   , proxStyle
   , proxType
@@ -57,6 +59,9 @@ instance HasDefault Proximity where
 
 noProximity :: Proximity
 noProximity = defaultValue
+
+proximityWillTransform (OnTopOf Nothing Nothing) = False
+proximityWillTransform _ = True
 
 data ProximityMeld style meld
     = ProximityMeld

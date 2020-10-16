@@ -36,15 +36,16 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.Thresholds.StrandReference
-import Graphics.Gudni.Raster.ItemInfo
+import Graphics.Gudni.Raster.Thresholds.ItemInfo
 import Graphics.Gudni.Raster.Thresholds.Enclosure
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Slice
+import Graphics.Gudni.Raster.Serial.Pile
+
 import Graphics.Gudni.Util.StorableM
 
 import Control.Lens hiding ((|>),(<|))
-import Control.DeepSeq
 import Control.Monad.State
 
 import Data.Tree
@@ -98,7 +99,7 @@ buildTileTree canvasSize tileSize emptyRep = goV canvasDepth box
     -- The dimensions of the area covered by the tree will be a square with dimensions the smallest power of two
     -- the contains both sides of the canvas. This is not a problem because the incoming shapes will still be excluded
     -- based on the dimensions of the canvas and empty tiles will just have their threads inactive.
-    box = pointToBox $ makePoint (2 ^ canvasDepth) (2 ^ canvasDepth)
+    box = sizeToBox $ makePoint (2 ^ canvasDepth) (2 ^ canvasDepth)
     -- split the tile by dividing into a vertical stack
     goV depth box =
       let vIntCut = box ^. topSide + (2 ^ (depth - 1))
@@ -128,7 +129,7 @@ buildTileTreeM canvasSize tileSize emptyRep = goV canvasDepth box
     -- The dimensions of the area covered by the tree will be a square with dimensions the smallest power of two
     -- the contains both sides of the canvas. This is not a problem because the incoming shapes will still be excluded
     -- based on the dimensions of the canvas and empty tiles will just have their threads inactive.
-    box = pointToBox $ makePoint (2 ^ canvasDepth) (2 ^ canvasDepth)
+    box = sizeToBox $ makePoint (2 ^ canvasDepth) (2 ^ canvasDepth)
     -- split the tile by dividing into a vertical stack
     goV depth box =
       let vIntCut = box ^. topSide + (2 ^ (depth - 1))
@@ -152,15 +153,15 @@ buildTileTreeM canvasSize tileSize emptyRep = goV canvasDepth box
 insertItemTagId :: ItemTagId -> (Tile, S.Seq ItemTagId) -> (Tile, S.Seq ItemTagId)
 insertItemTagId itemEntry (tile, items) = (tile, items |> itemEntry)
 
-addItemTagIdToTree :: TileTree (Tile, S.Seq ItemTagId) -> BoundingBox -> ItemTagId -> TileTree (Tile, S.Seq ItemTagId)
+addItemTagIdToTree :: TileTree (Tile, S.Seq ItemTagId) -> Box SubSpace -> ItemTagId -> TileTree (Tile, S.Seq ItemTagId)
 addItemTagIdToTree tree box itemTagId = addItemToTree (insertItemTagId itemTagId) tree box
 
 -- | Add an itemEntry to a tile tree.
-addItemToTree :: (a -> a) -> TileTree a -> BoundingBox -> TileTree a
+addItemToTree :: (a -> a) -> TileTree a -> Box SubSpace -> TileTree a
 addItemToTree f tree = insertItemV f tree
 
 -- | Add a shape to an HTree
-insertItemH :: (a -> a) -> HTree a -> BoundingBox -> HTree a
+insertItemH :: (a -> a) -> HTree a -> Box SubSpace -> HTree a
 insertItemH f (HTree cut left right) box =
     let left'  = -- if the left side of the shape is left of the cut add it to the left branch
                  if box ^. leftSide < cut
@@ -174,7 +175,7 @@ insertItemH f (HTree cut left right) box =
 insertItemH f (HLeaf leaf) box =
     HLeaf $ f leaf
 
-insertItemV :: (a -> a) -> VTree a -> BoundingBox -> VTree a
+insertItemV :: (a -> a) -> VTree a -> Box SubSpace -> VTree a
 insertItemV f (VTree cut top bottom) box =
     let top'    = if box ^. topSide < cut
                   then insertItemH f top box
@@ -192,15 +193,15 @@ insertItemTagIdPile itemEntry (tile, items) =
   do (items', _) <- liftIO $ addToPile items itemEntry
      return (tile, items')
 
-addItemTagIdToTreePile :: MonadIO m => TileTree (Tile, Pile ItemTagId) -> BoundingBox -> ItemTagId -> m (TileTree (Tile, Pile ItemTagId))
+addItemTagIdToTreePile :: MonadIO m => TileTree (Tile, Pile ItemTagId) -> Box SubSpace -> ItemTagId -> m (TileTree (Tile, Pile ItemTagId))
 addItemTagIdToTreePile tree box itemTagId = addItemToTreeM (insertItemTagIdPile itemTagId) tree box
 
 -- | Add an itemEntry to a tile tree.
-addItemToTreeM :: Monad m => (a -> m a) -> TileTree a -> BoundingBox -> m (TileTree a)
+addItemToTreeM :: Monad m => (a -> m a) -> TileTree a -> Box SubSpace -> m (TileTree a)
 addItemToTreeM f tree = insertItemVM f tree
 
 -- | Add a shape to an HTree
-insertItemHM :: Monad m => (a -> m a) -> HTree a -> BoundingBox -> m (HTree a)
+insertItemHM :: Monad m => (a -> m a) -> HTree a -> Box SubSpace -> m (HTree a)
 insertItemHM f (HTree cut left right) box =
     let left'  = -- if the left side of the shape is left of the cut add it to the left branch
                  if box ^. leftSide < cut
@@ -214,7 +215,7 @@ insertItemHM f (HTree cut left right) box =
 insertItemHM f (HLeaf leaf) box =
     HLeaf <$> f leaf
 
-insertItemVM :: Monad m => (a -> m a) -> VTree a -> BoundingBox -> m (VTree a)
+insertItemVM :: Monad m => (a -> m a) -> VTree a -> Box SubSpace -> m (VTree a)
 insertItemVM f (VTree cut top bottom) box =
     let top'    = if box ^. topSide < cut
                   then insertItemHM f top box
@@ -314,9 +315,3 @@ instance Storable TileId where
   alignment (TileId a) = alignment a
   peek i = TileId <$> peek (castPtr i)
   poke i (TileId a) = poke (castPtr i) a
-
-instance NFData Tile where
-  rnf (Tile a) = a `deepseq` ()
-
-instance NFData (TileId) where
-  rnf (TileId a) = a `deepseq`  ()

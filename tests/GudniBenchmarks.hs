@@ -1,7 +1,7 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module GudniBenchmarks
@@ -34,21 +34,15 @@ import GudniTests
 import System.IO.Silently
 
 import System.Info
+
 import Data.Maybe
 
 data BenchmarkState = BenchmarkState
   { _stateBase        :: BasicSceneState
   , _statePictureMap  :: PictureMap
-  , _stateTests       :: [(String, SubSpace -> Int -> Layout DefaultStyle )]
   , _stateCurrentTest :: Int
-  }
+  } deriving (Show)
 makeLenses ''BenchmarkState
-
-instance Show BenchmarkState where
-  show state =
-     "BenchmarkState { " ++
-     show (state ^. stateBase       ) ++ ", " ++
-     show (state ^. stateCurrentTest) ++  " }"
 
 initialModel pictureMap =
     BenchmarkState
@@ -69,12 +63,11 @@ initialModel pictureMap =
         , _stateCursor      = Point2 0 0
         }
     , _statePictureMap  = pictureMap
-    , _stateTests       = testList
     , _stateCurrentTest = 0
     }
 
 getTest :: BenchmarkState -> (String, SubSpace -> Int -> Layout DefaultStyle)
-getTest state = (state ^. stateTests) !! (state ^. stateCurrentTest)
+getTest state = testList !! (state ^. stateCurrentTest)
 
 instance HasStyle BenchmarkState where
   type StyleOf BenchmarkState = DefaultStyle
@@ -98,6 +91,10 @@ instance Model BenchmarkState where
                withStatus = if False then overlap [statusTree, tree] else tree
            sceneFromLayout (light gray) $ withStatus
     providePictureMap state = return $ state ^. statePictureMap
+    dumpState state inputs =
+        do putStrLn $ show state
+           when (not . null $ inputs) $ putStrLn $ show inputs
+
 
 instance HandlesInput Int BenchmarkState where
    processInput input =
@@ -105,9 +102,8 @@ instance HandlesInput Int BenchmarkState where
           execState $
           case input ^. inputType of
               (InputKey Pressed _ inputKeyboard) ->
-                  do  tests <- use stateTests
-                      case inputKeyboard of
-                          Key ArrowRight -> whenM (uses stateCurrentTest (< (length tests - 1))) $ stateCurrentTest += 1
+                  do  case inputKeyboard of
+                          Key ArrowRight -> whenM (uses stateCurrentTest (< (length testList - 1))) $ stateCurrentTest += 1
                           Key ArrowLeft  -> whenM (uses stateCurrentTest (> 0)) $ stateCurrentTest -= 1
                           _ -> return ()
               _ -> return ()

@@ -26,8 +26,10 @@ import Control.Monad.Random
 
 data CrossTestState = CrossTestState
   { _stateBase        :: BasicSceneState
-  } deriving (Show)
+  } deriving (Show, Generic)
 makeLenses ''CrossTestState
+
+instance Out CrossTestState
 
 initialModel =
     CrossTestState
@@ -68,6 +70,9 @@ instance Model CrossTestState where
     providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target
                                     return state
+    dumpState state inputs =
+         do putStrLn $ pretty state
+            when (not . null $ inputs) $ putStrLn $  pretty inputs
 
 showCross :: (Axis axis, IsStyle style)
           => axis
@@ -92,37 +97,35 @@ crossTests bez =
        s = 50
        cs :: [(EitherAxis, Point2 (SpaceOf style), Point2 (SpaceOf style))]
        cs = [
-                (Right Vertical,  Point2 0   0,   Point2 0   1  )
-              , (Left Horizontal, Point2 0   1,   Point2 1   1  )
-              , (Right Vertical,  Point2 1   1,   Point2 1   0  )
-              , (Left Horizontal, Point2 1   0,   Point2 0   0  )
-              , (Right Vertical,  Point2 0.5 0,   Point2 0.5 1  )
-              , (Left Horizontal, Point2 0 0.5,   Point2 1   0.5)
-
+               (Right Vertical,  Point2 0   0,   Point2 0   1  )
+             , (Left Horizontal, Point2 0   1,   Point2 1   1  )
+             , (Right Vertical,  Point2 1   1,   Point2 1   0  )
+             , (Left Horizontal, Point2 1   0,   Point2 0   0  )
+             , (Right Vertical,  Point2 0.5 0,   Point2 0.5 1  )
+             , (Left Horizontal, Point2 0 0.5,   Point2 1   0.5)
 
              , (Right Vertical,  Point2 0.1 0.1, Point2 0.1 0.9)
              , (Left Horizontal, Point2 0.1 0.9, Point2 0.9 0.9)
              , (Right Vertical,  Point2 0.9 0.9, Point2 0.9 0.1)
              , (Left Horizontal, Point2 0.9 0.1, Point2 0.1 0.1)
 
+             , (Right Vertical,  Point2 0.25 0.25, Point2 0.25 0.75)
+             , (Left Horizontal, Point2 0.25 0.75, Point2 0.75 0.75)
 
-            , (Right Vertical,  Point2 0.25 0.25, Point2 0.25 0.75)
-            , (Left Horizontal, Point2 0.25 0.75, Point2 0.75 0.75)
+             , (Right Vertical,  Point2 0.75 0.75, Point2 0.75 0.25)
+             , (Left Horizontal, Point2 0.75 0.25, Point2 0.25 0.25)
 
-            , (Right Vertical,  Point2 0.75 0.75, Point2 0.75 0.25)
-            , (Left Horizontal, Point2 0.75 0.25, Point2 0.25 0.25)
+             , (Right Vertical,  Point2 0 (-0.5),Point2 0   0  )
+             , (Left  Horizontal,Point2 (-0.5) 0,Point2 0   0  )
 
-            , (Right Vertical,  Point2 0 (-0.5),Point2 0   0  )
-            , (Left  Horizontal,Point2 (-0.5) 0,Point2 0   0  )
+             , (Right Vertical,   Point2 0 1, Point2 0      1.5)
+             , (Left  Horizontal, Point2 0 1, Point2 (-0.5) 1  )
 
-            , (Right Vertical,   Point2 0 1, Point2 0      1.5)
-            , (Left  Horizontal, Point2 0 1, Point2 (-0.5) 1  )
+             , (Right Vertical,   Point2 1 1, Point2 1 1.5)
+             , (Left  Horizontal, Point2 1 1, Point2 1.5 1)
 
-            , (Right Vertical,   Point2 1 1, Point2 1 1.5)
-            , (Left  Horizontal, Point2 1 1, Point2 1.5 1)
-
-            , (Right Vertical,   Point2 1 0, Point2 1 (-0.5))
-            , (Left  Horizontal, Point2 1 0, Point2 (1.5) 0)
+             , (Right Vertical,   Point2 1 0, Point2 1 (-0.5))
+             , (Left  Horizontal, Point2 1 0, Point2 (1.5) 0)
             ]
        reBez :: Bezier (SpaceOf style)
        reBez = overBezier (^* s) bez

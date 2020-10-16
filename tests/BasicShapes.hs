@@ -20,7 +20,7 @@ basicShapes =
     [ ("randomCurves",
       \ playhead step ->
       let range = makePoint 2 2
-          randomCurves = evalRand (sequence . replicate 5 $ fuzzyCurve range 100) (mkStdGen $ step) :: [ShapeTree Int SubSpace]
+          randomCurves = evalRand (sequence . replicate 5 $ fuzzyCurve range 20) (mkStdGen $ step) :: [ShapeTree Int SubSpace]
       in  place .
           scaleBy 500 .
           rotateBy  (playhead @@ deg) .

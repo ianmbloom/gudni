@@ -13,18 +13,17 @@
 {-# LANGUAGE UndecidableInstances       #-}
 
 module Graphics.Gudni.Raster.ConfineTree.Type
-  ( ItemStack(..)
+  ( PrimStack(..)
   , ConfineTree (..)
   , Confine(..)
   , Branch(..)
-  , confineCurve
+  , confinePrimTagId
   , confineCut
   , confineOverhang
   , confineLessCut
   , confineMoreCut
-  , DecoTree(..)
   , DecorateTree(..)
-  , decoCurveTag
+  , DecoTree(..)
   , decoCut
   , decoCrossings
   , decoLessCut
@@ -34,7 +33,7 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
-import Graphics.Gudni.Raster.ItemInfo
+import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
 
 import Graphics.Gudni.Util.Debug
@@ -47,11 +46,11 @@ import Data.Kind
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint hiding ((<>))
 
-type ItemStack = [ItemTagId]
+type PrimStack = [PrimTagId]
 
 data Confine axis s
     = Confine
-    { _confineCurve     :: TaggedBezier s
+    { _confinePrimTagId :: PrimTagId
     , _confineCut       :: Athwart axis s
     , _confineOverhang  :: Athwart axis s
     , _confineLessCut   :: Maybe (Confine (PerpendicularTo axis) s)
@@ -59,7 +58,6 @@ data Confine axis s
     }
     deriving (Generic)
 makeLenses ''Confine
-
 
 deriving instance (Axis axis, Show s) => Show (Confine axis s)
 
@@ -69,7 +67,7 @@ type ConfineTree s = Branch Vertical s
 instance (Space s, Axis axis, Out s, Out axis, Out (PerpendicularTo axis), axis~PerpendicularTo(PerpendicularTo axis)) => Out (Confine axis s)
    where
     doc tree =
-        ( text (show (tree ^. confineCurve)) <+>
+        ( text (show (tree ^. confinePrimTagId)) <+>
           text "--" <+>
           doc (tree ^. confineCut) <+>
           doc (tree ^. confineOverhang)
@@ -85,13 +83,12 @@ outMConfineTree mTree =
 
 data DecoTree axis s
     = DecoBranch
-      { _decoCurveTag  :: CurveTag
-      , _decoCut       :: Athwart axis s
-      , _decoCrossings :: ItemStack
+      { _decoCut       :: Athwart axis s
+      , _decoCrossings :: PrimStack
       , _decoLessCut   :: DecoTree (PerpendicularTo axis) s
       , _decoMoreCut   :: DecoTree (PerpendicularTo axis) s
       }
-    | DecoLeaf
+    | DecoLeaf deriving (Eq)
 makeLenses ''DecoTree
 
 type DecorateTree s = DecoTree Vertical s
@@ -107,8 +104,7 @@ instance ( Space s
     doc tree =
         case tree of
             DecoBranch {} ->
-                ( doc (tree ^?! decoCurveTag) <+>
-                  doc (tree ^?! decoCut     ) <+>
+                ( doc (tree ^?! decoCut     ) <+>
                   doc (tree ^?! decoCrossings)
                 )
                 $$

@@ -41,7 +41,6 @@ import Data.Hashable
 import qualified Data.Map as M
 
 import Control.Monad.State
-import Control.DeepSeq
 import Control.Applicative
 import Control.Lens
 

@@ -77,7 +77,7 @@ deriving instance ( Show style
 
 data Layout style =
      Layout {
-        _layout :: TransTree (ProximityMeld style Overlap) (Maybe (SRep (TokenOf style) NamedTexture (CompoundLayout style)))
+        _layout :: TransTree (ProximityMeld style Overlap) (Maybe (SMask (TokenOf style) NamedTexture (CompoundLayout style)))
      }
 makeLenses ''Layout
 
@@ -97,7 +97,7 @@ instance (IsStyle style) => HasSpace (CompoundLayout style) where
 
 instance (IsStyle style) => CanFill (Layout style) where
   type UnFilled (Layout style) = CompoundLayout style
-  withFill substance = Layout . SLeaf . SItem . Just . SRep Nothing substance
+  withFill substance = Layout . SLeaf . SItem . Just . SMask Nothing substance
 
 class (HasStyle t, HasMeld t, HasEmpty t) => IsLayout t where
   type UnPlaced t :: *
@@ -125,7 +125,7 @@ instance IsStyle style => HasToken (Layout style) where
   type TokenOf (Layout style) = TokenOf style
 
 instance (IsStyle style, Show (TokenOf style)) => Tokenized (Layout style) where
-  overToken fToken (Layout tree) = Layout . mapSItem (fmap (over sRepToken fToken)) $ tree
+  overToken fToken (Layout tree) = Layout . mapSItem (fmap (over sMaskToken fToken)) $ tree
 
 instance (IsStyle style) => IsLayout (Layout style) where
   type UnPlaced (Layout style) = ShapeTree (TokenOf style) (SpaceOf style)

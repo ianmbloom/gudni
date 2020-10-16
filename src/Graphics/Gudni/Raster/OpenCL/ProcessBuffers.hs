@@ -28,15 +28,18 @@ import Graphics.Gudni.Raster.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.OpenCL.PrepareBuffers
 import Graphics.Gudni.Raster.OpenCL.CallKernels
 
-import Graphics.Gudni.Raster.ItemInfo
-import Graphics.Gudni.Raster.SubstanceInfo
+import Graphics.Gudni.Raster.Thresholds.ItemInfo
+import Graphics.Gudni.Raster.Thresholds.SubstanceInfo
 import Graphics.Gudni.Raster.Thresholds.Params
 import Graphics.Gudni.Raster.Thresholds.Serialize
 import Graphics.Gudni.Raster.Thresholds.TileTree
 import Graphics.Gudni.Raster.Thresholds.Enclosure(NumStrands(..))
 
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Reference
+import Graphics.Gudni.Raster.Serial.Slice
+import Graphics.Gudni.Raster.Serial.Pile
+
 import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Util.CTypeConversion
 import Graphics.Gudni.Util.Util
@@ -70,7 +73,7 @@ import Foreign.Ptr
 import Foreign.C.Types
 import Data.Filtrable
 
-mkSlice start len = Slice (Ref (fromIntegral start)) (Breadth (fromIntegral len))
+mkSlice start len = Slice (Ref (fromIntegral start)) (Ref (fromIntegral len))
 
 collectTileBlocks :: S.Seq (Tile, S.Seq BlockId) -> State (S.Seq Tile, S.Seq (Slice BlockId), S.Seq BlockId, Int) ()
 collectTileBlocks = mapM_ go
@@ -316,7 +319,7 @@ generateLoop params buffersInCommon tree target =
              processTile (tile, itemTagIdPile) = --announceStack ("tile: " ++ show tile) $
                  do  genProgress .= 0
                      itemTagIds <- lift $ bufferFromPile "itemTagIds" itemTagIdPile
-                     let numItems = fromIntegral $ itemTagIdPile ^. pileBreadth
+                     let numItems = fromIntegral $ itemTagIdPile ^. pileCursor
                      sectionLoop tile itemTagIds numItems
                      stack <- use genData
                      --lift $ showSections params "generated" stack

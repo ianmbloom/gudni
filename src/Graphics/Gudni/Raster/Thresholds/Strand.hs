@@ -43,7 +43,6 @@ import qualified Data.Vector as V
 import Data.Maybe (fromMaybe, maybeToList)
 import Data.List (sortBy)
 
-import Control.DeepSeq
 import Control.Lens hiding (Index)
 import Control.Loop
 import Control.Monad.State
@@ -190,6 +189,3 @@ instance Storable Strand where
   alignment = alignmentV
   peek      = peekV
   poke      = pokeV
-
-instance NFData Strand where
-  rnf strand = ()

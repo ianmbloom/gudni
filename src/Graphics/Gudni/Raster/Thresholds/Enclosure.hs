@@ -34,7 +34,6 @@ import Graphics.Gudni.Util.Debug
 import Foreign.Ptr
 import Foreign.C.Types
 import Foreign.Storable
-import Control.DeepSeq
 import Control.Monad
 import qualified Data.Vector as V
 import qualified Data.Vector.Storable as VS
@@ -73,15 +72,8 @@ enclose curveTable maxSectionSize outlines =
                 }
 
 ------------------ Instances --------------------------
-
-instance NFData NumStrands where
-  rnf (NumStrands i) = i `deepseq` ()
-
 instance Storable NumStrands where
   sizeOf    _ = sizeOf    (undefined::NumStrands_)
   alignment _ = alignment (undefined::NumStrands_)
   poke ptr  i = poke (castPtr ptr) . unNumStrands $ i
   peek ptr    = NumStrands <$> peek (castPtr ptr)
-
-instance NFData Enclosure where
-  rnf (Enclosure n ss) = n `deepseq` ss `deepseq` ()

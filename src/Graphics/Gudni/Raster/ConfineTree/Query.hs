@@ -4,9 +4,9 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 
 module Graphics.Gudni.Raster.ConfineTree.Query
-  ( queryPoint
-  , queryPointWithInfo
-  , queryBox
+  ( queryConfineTreePoint
+  , queryConfineTreePointWithInfo
+  , queryConfineTreeBox
   )
 where
 
@@ -14,63 +14,63 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.Decorate
 import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
-import Graphics.Gudni.Raster.ConfineTree.ItemStack
+import Graphics.Gudni.Raster.Dag.PrimStack
+import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.ConfineTree.Traverse
-import Graphics.Gudni.Raster.ItemInfo
 import Graphics.Gudni.Util.Debug
 
 import Control.Lens
 import Control.Monad
 import Control.Monad.State
 
-collectIfVisited :: Monad m => TaggedBezier s -> StateT [TaggedBezier s] m ()
-collectIfVisited curve =
-  modify (curve:)
+collectIfVisited :: Monad m => (PrimTagId -> m (Bezier s)) -> PrimTagId -> StateT [TBezier s] m ()
+collectIfVisited getCurve primTagId =
+  do curve <- lift $ getCurve primTagId
+     modify (TBezier primTagId curve:)
 
-collectIfCrossed :: (Space s, Monad m) => Point2 s -> Point2 s -> TaggedBezier s -> StateT [TaggedBezier s] m ()
+collectIfCrossed :: (Space s, Monad m) => Point2 s -> Point2 s -> TBezier s -> StateT [TBezier s] m ()
 collectIfCrossed start end curve =
   when (crosses start end (curve ^. tBez)) $ modify (curve:)
 
-modifyItemStackIfCrossed :: (Space s, Monad m) => Point2 s -> Point2 s -> TaggedBezier s -> StateT ItemStack m ()
-modifyItemStackIfCrossed start end curve =
-  when (crosses start end (curve ^. tBez)) $ modify (toggleItem (curve ^. tBezItem))
+modifyItemStackIfCrossed :: (Space s, Monad m) => (PrimTagId -> m (Bezier s)) -> Point2 s -> Point2 s -> PrimTagId -> StateT PrimStack m ()
+modifyItemStackIfCrossed getCurve start end primTagId =
+  do bez <- lift $ getCurve primTagId
+     when (crosses start end bez) $ modify (toggleItem primTagId)
 
-buildStack :: (Monad m) => ItemStack -> StateT (Point2 s, ItemStack) m ()
+buildStack :: (Monad m) => PrimStack -> StateT (Point2 s, PrimStack) m ()
 buildStack branchItemStack = modify (over _2 (combineItemStacks branchItemStack))
 
-holdAnchor :: (Monad m) => Point2 s -> StateT (Point2 s, ItemStack) m ()
+holdAnchor :: (Monad m) => Point2 s -> StateT (Point2 s, PrimStack) m ()
 holdAnchor anchor = modify (set _1 anchor)
 
-getAnchorStack :: (Space s) => Point2 s -> DecorateTree s -> (Point2 s, ItemStack)
+getAnchorStack :: (Space s) => Point2 s -> DecorateTree s -> (Point2 s, PrimStack)
 getAnchorStack point decoTree = execState (traverseDecorateTree buildStack holdAnchor point decoTree) (zeroPoint, [])
 
-secondLeg :: (Space s) => Point2 s -> Point2 s -> ConfineTree s -> ItemStack -> ItemStack
-secondLeg anchor point confineTree anchorStack = execState (traverseCTBetweenPoints (modifyItemStackIfCrossed anchor point) anchor point confineTree) anchorStack
+secondLeg :: (Space s, Monad m) => (PrimTagId -> m (Bezier s)) -> Point2 s -> Point2 s -> ConfineTree s -> PrimStack -> m PrimStack
+secondLeg getCurve anchor point confineTree anchorStack = execStateT (traverseCTBetweenPoints (modifyItemStackIfCrossed getCurve anchor point) anchor point confineTree) anchorStack
 
-queryPoint :: forall s . (Space s) => ConfineTree s -> DecorateTree s -> Point2 s -> ItemStack
-queryPoint confineTree decoTree point =
-    let (anchor, anchorStack) = getAnchorStack point decoTree
-        stack = secondLeg anchor point confineTree anchorStack
-    in  stack
+queryConfineTreePoint :: forall s m . (Space s, Monad m) => (PrimTagId -> m (Bezier s)) -> ConfineTree s -> DecorateTree s -> Point2 s -> m PrimStack
+queryConfineTreePoint getCurve confineTree decoTree point =
+    do  let (anchor, anchorStack) = getAnchorStack point decoTree
+        stack <- secondLeg getCurve anchor point confineTree anchorStack
+        return stack
 
-queryPointWithInfo :: forall s . (Space s) => ConfineTree s -> DecorateTree s -> Point2 s -> (Point2 s, ItemStack, ItemStack, [TaggedBezier s])
-queryPointWithInfo confineTree decoTree point =
-    let (anchor, anchorStack) = execState (traverseDecorateTree buildStack holdAnchor point decoTree) (zeroPoint, [])
-        consideredCurves = execState (traverseCTBetweenPoints collectIfVisited anchor point confineTree) []
-        stack = secondLeg anchor point confineTree anchorStack
-    in  (anchor, anchorStack, stack, consideredCurves)
+queryConfineTreePointWithInfo :: forall s m . (Space s, Monad m) => (PrimTagId -> m (Bezier s)) -> ConfineTree s -> DecorateTree s -> Point2 s -> m (Point2 s, PrimStack, PrimStack, [TBezier s])
+queryConfineTreePointWithInfo getCurve confineTree decoTree point =
+    do let (anchor, anchorStack) = execState (traverseDecorateTree buildStack holdAnchor point decoTree) (zeroPoint, [])
+       consideredCurves <- execStateT (traverseCTBetweenPoints (collectIfVisited getCurve) anchor point confineTree) []
+       stack <- secondLeg getCurve anchor point confineTree anchorStack
+       return (anchor, anchorStack, stack, consideredCurves)
 
-retag :: TaggedBezier s -> Bezier s -> TaggedBezier s
-retag tagged bez = TaggedBezier bez (tagged ^. tCurveTag) (tagged ^. tBezItem)
+collectIfCurveWithinBox :: (Space s, Monad m) => (PrimTagId -> m (Bezier s)) -> Box s -> PrimTagId -> StateT [TBezier s] m ()
+collectIfCurveWithinBox getCurve box primTagId =
+    do curve <- lift $ getCurve primTagId
+       modify (map (TBezier primTagId) (curveWithinBox box curve) ++)
 
-collectIfCurveWithinBox :: (Space s, Monad m) => Box s -> TaggedBezier s -> StateT [TaggedBezier s] m ()
-collectIfCurveWithinBox box curve =
-    modify (map (retag curve) (curveWithinBox box (curve ^. tBez)) ++)
-
-queryBox :: forall s . (Space s) => ConfineTree s -> DecorateTree s -> Box s -> (ItemStack, [TaggedBezier s])
-queryBox confineTree decoTree box =
-  let point = box ^. minBox
-      (anchor, anchorStack) = getAnchorStack point decoTree
-      stack = secondLeg anchor point confineTree anchorStack
-      curvesInBox = execState (traverseCTBox (collectIfCurveWithinBox box) box confineTree) []
-  in  (stack, curvesInBox)
+queryConfineTreeBox :: forall s m . (Space s, Monad m) => (PrimTagId -> m (Bezier s)) -> ConfineTree s -> DecorateTree s -> Box s -> m (PrimStack, [TBezier s])
+queryConfineTreeBox getCurve confineTree decoTree box =
+  do  let point = box ^. minBox
+          (anchor, anchorStack) = getAnchorStack point decoTree
+      stack <- secondLeg getCurve anchor point confineTree anchorStack
+      curvesInBox <- execStateT (traverseCTBox (collectIfCurveWithinBox getCurve box) box confineTree) []
+      return (stack, curvesInBox)

@@ -14,8 +14,9 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
 import Graphics.Gudni.Raster.ConfineTree.Traverse
-import Graphics.Gudni.Raster.ConfineTree.ItemStack
-import Graphics.Gudni.Raster.ItemInfo
+import Graphics.Gudni.Raster.Dag.PrimStack
+import Graphics.Gudni.Raster.Dag.Primitive
+import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Util.Debug
 
 import Control.Lens
@@ -31,23 +32,25 @@ modifyItemStackIfCrossedAlong :: ( Axis axis
                               -> Along axis s
                               -> Athwart axis s
                               -> Along axis s
-                              -> TaggedBezier s
-                              -> StateT ItemStack m ()
-modifyItemStackIfCrossedAlong crossOp lineAxis start baseline end curve =
+                              -> PrimTagId
+                              -> Bezier s
+                              -> StateT PrimStack m ()
+modifyItemStackIfCrossedAlong crossOp lineAxis start baseline end primTagId curve =
   do lift crossOp
-     if crossesAlong lineAxis start baseline end (curve ^. tBez)
-     then modify (toggleItem (curve ^. tBezItem))
+     if crossesAlong lineAxis start baseline end curve
+     then modify (toggleItem primTagId)
      else return ()
 
 buildDecorateTree :: forall s m
                   .  ( Space s
                      , Monad m
                      )
-                  => m ()
+                  => (PrimTagId -> m (Bezier s))
+                  -> m ()
                   -> Int
                   -> ConfineTree s
                   -> m (DecorateTree s)
-buildDecorateTree crossOp limit mRoot =
+buildDecorateTree getCurve crossOp limit mRoot =
     fst <$> go Vertical (toAlong Horizontal minBound) (toAlong Vertical minBound) mRoot
     where
     go :: (Axis axis, axis~PerpendicularTo(PerpendicularTo(axis)))
@@ -62,7 +65,9 @@ buildDecorateTree crossOp limit mRoot =
             Just tree ->
                      let parentAxis = perpendicularTo axis
                          cut = tree ^. confineCut
-                         collector = modifyItemStackIfCrossedAlong crossOp parentAxis parentCut parentLine cut
+                         collector primTagId =
+                              do curve <- lift $ getCurve primTagId
+                                 modifyItemStackIfCrossedAlong crossOp parentAxis parentCut parentLine cut primTagId curve
                      in
                      do
                          crossings <- execStateT (traverseCTAlong collector
@@ -78,19 +83,18 @@ buildDecorateTree crossOp limit mRoot =
                              this  = if depth <= limit
                                      then DecoLeaf
                                      else DecoBranch
-                                         { _decoCut       = tree ^. confineCut
-                                         , _decoCurveTag  = tree ^. confineCurve . tCurveTag
-                                         , _decoCrossings = crossings
-                                         , _decoLessCut      = lessTree
-                                         , _decoMoreCut      = moreTree
-                                         }
+                                              { _decoCut       = tree ^. confineCut
+                                              , _decoCrossings = crossings
+                                              , _decoLessCut   = lessTree
+                                              , _decoMoreCut   = moreTree
+                                              }
                          return (this, depth)
 
 traverseDecorateTree :: forall s m
                      .  ( Space s
                         , Monad m
                         )
-                     => (ItemStack -> m ())
+                     => (PrimStack -> m ())
                      -> (Point2 s -> m ())
                      -> Point2 s
                      -> DecorateTree s

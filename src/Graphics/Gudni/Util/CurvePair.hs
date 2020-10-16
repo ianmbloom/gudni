@@ -14,12 +14,11 @@ module Graphics.Gudni.Util.CurvePair
   )
 where
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Base.Loop
 
 import Control.Lens
 import Linear.V2
-import Control.DeepSeq
 import Data.Hashable
 import qualified Data.Vector as V
 
@@ -71,7 +70,5 @@ instance Space s => HasSpace (CurvePair s) where
 instance (Space s) => CanBox (CurvePair s) where
   boxOf (CurvePair c o) = minMaxBox (boxOf c) (boxOf o)
 
-instance NFData s => NFData (CurvePair s) where
-  rnf (Cp v2) = v2 `deepseq` ()
 instance Hashable p => Hashable (CurvePair p) where
   hashWithSalt s (Cp v2) = s `hashWithSalt` v2

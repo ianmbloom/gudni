@@ -1,10 +1,11 @@
-module Graphics.Gudni.Figure.Primitive
-  ( module Graphics.Gudni.Figure.Primitive.Angle
-  , module Graphics.Gudni.Figure.Primitive.ArcLength
-  , module Graphics.Gudni.Figure.Primitive.Axis
-  , module Graphics.Gudni.Figure.Primitive.Box
-  , module Graphics.Gudni.Figure.Primitive.Point
-  , module Graphics.Gudni.Figure.Primitive.Space
+module Graphics.Gudni.Figure.Principle
+  ( module Graphics.Gudni.Figure.Principle.Affine
+  , module Graphics.Gudni.Figure.Principle.Angle
+  , module Graphics.Gudni.Figure.Principle.ArcLength
+  , module Graphics.Gudni.Figure.Principle.Axis
+  , module Graphics.Gudni.Figure.Principle.Box
+  , module Graphics.Gudni.Figure.Principle.Point
+  , module Graphics.Gudni.Figure.Principle.Space
 
   , module Graphics.Gudni.Figure.Bezier.Cross
   , module Graphics.Gudni.Figure.Bezier.Cut
@@ -19,12 +20,13 @@ module Graphics.Gudni.Figure.Primitive
   )
 where
 
-import Graphics.Gudni.Figure.Primitive.Angle
-import Graphics.Gudni.Figure.Primitive.ArcLength
-import Graphics.Gudni.Figure.Primitive.Axis
-import Graphics.Gudni.Figure.Primitive.Box
-import Graphics.Gudni.Figure.Primitive.Point
-import Graphics.Gudni.Figure.Primitive.Space
+import Graphics.Gudni.Figure.Principle.Affine
+import Graphics.Gudni.Figure.Principle.Angle
+import Graphics.Gudni.Figure.Principle.ArcLength
+import Graphics.Gudni.Figure.Principle.Axis
+import Graphics.Gudni.Figure.Principle.Box
+import Graphics.Gudni.Figure.Principle.Point
+import Graphics.Gudni.Figure.Principle.Space
 
 import Graphics.Gudni.Figure.Bezier.Cross
 import Graphics.Gudni.Figure.Bezier.Cut

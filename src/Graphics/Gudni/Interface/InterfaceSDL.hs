@@ -38,7 +38,6 @@ import qualified Data.Text as Text
 
 import Control.Monad.State
 import Control.Lens
-import Control.DeepSeq
 
 import Foreign (Ptr, castPtr, nullPtr)
 import Foreign.C.Types (CInt, CUInt)

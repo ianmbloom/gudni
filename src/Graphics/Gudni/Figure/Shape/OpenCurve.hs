@@ -35,10 +35,10 @@ import Prelude hiding (reverse)
 import Graphics.Gudni.Base.Chain
 import Graphics.Gudni.Base.Reversible
 
-import Graphics.Gudni.Figure.Primitive.Space
-import Graphics.Gudni.Figure.Primitive.Point
+import Graphics.Gudni.Figure.Principle.Space
+import Graphics.Gudni.Figure.Principle.Point
 import Graphics.Gudni.Figure.Bezier.Type
-import Graphics.Gudni.Figure.Primitive.ArcLength
+import Graphics.Gudni.Figure.Principle.ArcLength
 
 import Graphics.Gudni.Util.Debug
 
@@ -51,7 +51,6 @@ import qualified Data.Map as M
 import qualified Data.Vector as V
 
 import Control.Monad.State
-import Control.DeepSeq
 import Control.Applicative
 import Control.Lens
 import Data.Traversable
@@ -111,6 +110,3 @@ instance (Chain t) => Reversible (OpenCurve_ t s) where
 
 instance (Hashable s, Hashable (t (Bezier s))) => Hashable (OpenCurve_ t s) where
     hashWithSalt s (OpenCurve segs) = s `hashWithSalt` segs
-
-instance (NFData s, NFData (t (Bezier s))) => NFData (OpenCurve_ t s) where
-    rnf (OpenCurve a ) = a `deepseq` ()

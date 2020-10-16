@@ -17,13 +17,18 @@
 -----------------------------------------------------------------------------
 
 module Graphics.Gudni.Layout.FromLayout
-  ( SimpTree(..)
+  ( FullProximityTree(..)
+  , FullProximityCompoundTree(..)
+  , SimpTree(..)
   , CollapseTree(..)
   , CollapseCompoundTree(..)
   , CollapseShapeTree(..)
   , FinalTree(..)
   , fromLayout
   , sceneFromLayout
+  , toFullProximityTree
+  , traverseFullProximityCompoundTree
+  , traverseFullProximityTree
   )
 where
 
@@ -44,9 +49,9 @@ import Graphics.Gudni.Util.Util
 import Control.Lens
 import Control.Monad
 
-type ProximityTree token style = TransTree (ProximityMeld style Overlap) (Maybe (SRep token NamedTexture (ProximityCompoundTree style)))
+type ProximityTree token style = TransTree (ProximityMeld style Overlap) (Maybe (SMask token NamedTexture (ProximityCompoundTree style)))
 
-traverseSRep f (SRep token tex x) = SRep token tex <$> f x
+traverseSRep f (SMask token tex x) = SMask token tex <$> f x
 
 joinItems :: TransTree meld (Maybe (TransTree meld (Maybe a))) -> TransTree meld (Maybe a)
 joinItems = go
@@ -99,12 +104,21 @@ onLayoutRep rep =
              in  return . SLeaf . SItem . Just $ WithBox shape box
 
 type FullProximityCompoundTree style = TransTree (ProximityMeld style Compound) (WithBox (Shape (SpaceOf style)))
-type FullProximityTree token style = TransTree (ProximityMeld style Overlap) (SRep token NamedTexture (FullProximityCompoundTree style))
+type FullProximityTree token style = TransTree (ProximityMeld style Overlap) (SMask token NamedTexture (FullProximityCompoundTree style))
 
-overSRepMaybe f (SRep token tex rep) =
+overSRepMaybe f (SMask token tex rep) =
   case f rep of
     Nothing -> Nothing
-    Just x -> Just (SRep token tex x)
+    Just x -> Just (SMask token tex x)
+
+proximityTreeToFullProximityTree :: ProximityTree (TokenOf style) style -> Maybe (FullProximityTree (TokenOf style) style)
+proximityTreeToFullProximityTree = fullSTree . mapSItem (join . fmapMaybe (overSRepMaybe fullSTree))
+
+toFullProximityTree :: (IsStyle style, Monad m) => Layout style -> FontMonad style m (Maybe (FullProximityTree (TokenOf style) style))
+toFullProximityTree layout =
+  do proximityTree <- toProximityTree layout
+     return $ proximityTreeToFullProximityTree proximityTree
+
 
 fromWithItem (WithBox item _) = item
 fromLayout :: forall style token m
@@ -114,10 +128,8 @@ fromLayout :: forall style token m
            => Layout style
            -> FontMonad style m (Maybe (FinalTree (TokenOf style) (SpaceOf style)))
 fromLayout layout =
-  do proximityTree <- toProximityTree layout
-     let full :: Maybe (FullProximityTree (TokenOf style) style)
-         full = fullSTree $ mapSItem (join . fmapMaybe (overSRepMaybe fullSTree)) proximityTree
-         collapsed :: Maybe (SimpTree Overlap (Tree Overlap (SRep (TokenOf style) NamedTexture (Tree Compound (Shape (SpaceOf style))))))
+  do full <- toFullProximityTree layout
+     let collapsed :: Maybe (SimpTree Overlap (Tree Overlap (SMask (TokenOf style) NamedTexture (Tree Compound (Shape (SpaceOf style))))))
          collapsed = fmap (fromWithItem . collapseProximityTree) full
      return $ fmap (joinLeaves . collapseSimpTree) collapsed
 
@@ -167,7 +179,7 @@ instance CanApplySimpleTransformer leaf => CanApplySimpleTransformer (Tree meld 
 type CollapseTree meld item = WithBox (SimpTree meld (Tree meld item))
 
 type CollapseCompoundTree s = CollapseTree Compound (Shape s)
-type CollapseShapeTree token s = CollapseTree Overlap (SRep token NamedTexture (Tree Compound (Shape s)))
+type CollapseShapeTree token s = CollapseTree Overlap (SMask token NamedTexture (Tree Compound (Shape s)))
 
 instance (HasSpace leaf) => SimpleTransformable (STree (SimpTree_ meld leaf)) where
     translateBy delta tree = if delta == zeroPoint then tree else addBranch (Translate delta) tree
@@ -212,14 +224,14 @@ remeldCollapseTree proximity a b =
 
 overWithItem f (WithBox item box) = WithBox (f item) box
 
-instance PointContainer a => PointContainer (SRep token tex a) where
+instance PointContainer a => PointContainer (SMask token tex a) where
     mapOverPoints f = overSRep (mapOverPoints f)
 
-instance CanApplyProjection a => CanApplyProjection (SRep token tex a) where
+instance CanApplyProjection a => CanApplyProjection (SMask token tex a) where
     projectionWithStepsAccuracy debug max_steps m_accuracy path =
       overSRep (projectionWithStepsAccuracy debug max_steps m_accuracy path)
 
-instance CanApplySimpleTransformer a => CanApplySimpleTransformer (SRep token NamedTexture a) where
+instance CanApplySimpleTransformer a => CanApplySimpleTransformer (SMask token NamedTexture a) where
     applySimpleTransformer trans = overSRep (applySimpleTransformer trans)
 
 collapseProximityTree :: forall token style .
@@ -235,11 +247,11 @@ collapseProximityTree = go
         case tree of
           SMeld meld a b -> remeldCollapseTree meld (go a) (go b)
           SLeaf (SBranch trans child) -> transformCollapseTree trans $ go child
-          SLeaf (SItem (SRep token tex rep)) ->
+          SLeaf (SItem (SMask token tex rep)) ->
               let collapsed = collapseProximityCompoundTree $ rep
                   f :: SimpTree Compound (Tree Compound (Shape (SpaceOf style)))
-                    -> SimpTree Overlap  (Tree Overlap  (SRep token NamedTexture (Tree Compound (Shape (SpaceOf style)))))
-                  f = SLeaf . SItem . SLeaf . SRep token tex . joinLeaves . collapseSimpTree
+                    -> SimpTree Overlap  (Tree Overlap  (SMask token NamedTexture (Tree Compound (Shape (SpaceOf style)))))
+                  f = SLeaf . SItem . SLeaf . SMask token tex . joinLeaves . collapseSimpTree
               in  overWithItem f collapsed
 
 collapseProximityCompoundTree :: ( IsStyle style
@@ -285,3 +297,51 @@ transformCollapseTree trans (WithBox tree box) =
              newTree = mapSLeaf SItem transformed
              newBox  = boxOf transformed
          in WithBox newTree newBox
+
+-- For Fabric
+traverseProximityCompound :: ProximityMeld style Compound
+                          -> ProximityMeld style Compound
+                          -> (ProximityMeld style Compound, ProximityMeld style Compound)
+traverseProximityCompound (ProximityMeld proxA styleA CompoundAdd)
+                          (ProximityMeld proxB styleB current) = ( ProximityMeld proxA styleA current
+                                                                 , ProximityMeld proxB styleB current)
+traverseProximityCompound (ProximityMeld proxA styleA CompoundSubtract)
+                          (ProximityMeld proxB styleB current) = ( ProximityMeld proxA styleA (invertCompound current)
+                                                                 , ProximityMeld proxB styleB current)
+
+traverseFullProximityCompoundTree :: forall  m i value style
+                                  .  ( Monad m
+                                     , SpaceOf (Item i) ~ SpaceOf style
+                                     , HasDefault style
+                                     , Meld i ~ ProximityMeld style Compound
+                                     , Tag  i ~ Transformer (SpaceOf (Item i))
+                                     , Leaf i ~ SBranch i
+                                     )
+                                  => ( Meld i -> value -> value -> value)
+                                     -- onItem
+                                  -> ( Meld i -> Tag i -> Item i -> m value )
+                                  -> Tag i
+                                  -> STree i
+                                  -> m value
+traverseFullProximityCompoundTree meldValues onItem parentTrans tree =
+  let trTree   = traverseSTree traverseProximityCompound meldValues
+      trBranch = traverseSBranch noPostTrans CombineTransform onItem
+  in  trTree trBranch defaultValue parentTrans tree
+
+-- | Traverse an overlap shape tree
+traverseFullProximityTree :: forall  m i value style
+                          .  ( Monad m
+                             , SpaceOf (Item i) ~ SpaceOf style
+                             , HasDefault style
+                             , Meld i ~ ProximityMeld style Overlap
+                             , Tag  i ~ Transformer (SpaceOf (Item i))
+                             , Leaf i ~ SBranch i
+                             )
+                          => (Meld i -> value -> value -> value)
+                          -> (Meld i -> Tag i -> Item i -> m value)
+                          -> STree i
+                          -> m value
+traverseFullProximityTree meldValues onItem tree =
+  let trTree   = traverseSTree keepMeld meldValues
+      trBranch = traverseSBranch noPostTrans CombineTransform onItem
+  in  trTree trBranch (defaultValue :: Meld i) (Simple IdentityTransform) tree

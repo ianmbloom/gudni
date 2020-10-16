@@ -76,7 +76,7 @@ instance (Space s, Show token) => HasRepresentation (FinalTree token s) where
 
 
 
-instance (Space s) => HasRepresentation (Facet_ s) where
+instance (Space s) => HasRepresentation (Facet s) where
     represent dk = overlap . fmap (represent dk) . facetToBeziers
 
 

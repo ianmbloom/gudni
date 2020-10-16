@@ -32,9 +32,9 @@ module Graphics.Gudni.Figure.Shape.Type
   )
 where
 
-import Graphics.Gudni.Figure.Primitive.Space
-import Graphics.Gudni.Figure.Primitive.Point
-import Graphics.Gudni.Figure.Primitive.Box
+import Graphics.Gudni.Figure.Principle.Space
+import Graphics.Gudni.Figure.Principle.Point
+import Graphics.Gudni.Figure.Principle.Box
 import Graphics.Gudni.Figure.Bezier.Type
 import Graphics.Gudni.Figure.Shape.Outline
 import Graphics.Gudni.Base.Chain

@@ -22,7 +22,9 @@ where
 import Graphics.Gudni.Figure
 import CLUtil
 import CLUtil.KernelArgs
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Slice
+import Graphics.Gudni.Raster.Serial.Pile
+
 import Graphics.Gudni.Interface.DrawTarget(TextureObject(..))
 import Graphics.Gudni.Interface.GLInterop
 import Graphics.Rendering.OpenGL(GLuint)
@@ -39,7 +41,7 @@ import Control.Monad (void)
 -- | Convert a pile to an OpenCL memory buffer.
 pileToBuffer :: forall t . (Storable t) => CLContext -> Pile t -> IO (CLBuffer t)
 pileToBuffer context (Pile cursor _ startPtr) =
-    let vecSize = cursor * sizeOf (undefined :: t)
+    let vecSize = fromIntegral cursor * sizeOf (undefined :: t)
         adjustedVecSize = max 1 vecSize -- OpenCL will reject a memory buffer with size 0 so the minimum size is 1.
     in  CLBuffer vecSize <$> clCreateBuffer context [CL_MEM_READ_ONLY, CL_MEM_COPY_HOST_PTR] (adjustedVecSize, castPtr startPtr)
 

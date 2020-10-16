@@ -15,10 +15,10 @@ module Graphics.Gudni.Figure.Bezier.Cross
   )
 where
 
-import Graphics.Gudni.Figure.Primitive.Space
-import Graphics.Gudni.Figure.Primitive.Axis
-import Graphics.Gudni.Figure.Primitive.Point
-import Graphics.Gudni.Figure.Primitive.Box
+import Graphics.Gudni.Figure.Principle.Space
+import Graphics.Gudni.Figure.Principle.Axis
+import Graphics.Gudni.Figure.Principle.Point
+import Graphics.Gudni.Figure.Principle.Box
 import Graphics.Gudni.Figure.Bezier.Type
 import Graphics.Gudni.Util.Debug
 

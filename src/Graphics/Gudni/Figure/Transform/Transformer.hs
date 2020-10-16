@@ -36,7 +36,7 @@ module Graphics.Gudni.Figure.Transform.Transformer
 where
 
 import Graphics.Gudni.Base.HasDefault
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Transform.Projection
 import Graphics.Gudni.Figure.Facet
 import Graphics.Gudni.Figure.Fit.Bezier
@@ -47,7 +47,6 @@ import Graphics.Gudni.Util.Debug
 import Control.Monad.Random
 import Control.Applicative
 import Control.Lens
-import Control.DeepSeq
 
 import Data.Traversable
 import Data.Hashable
@@ -179,17 +178,6 @@ instance ( Space s
 
 
 -- * Instances
-
-instance NFData s => NFData (SimpleTransformer s) where
-  rnf (Translate a) = a `deepseq` ()
-  rnf (Stretch   a) = a `deepseq` ()
-  rnf (CombineSimple a b) = rnf a `deepseq` rnf b `deepseq` ()
-
-instance NFData s => NFData (Transformer s) where
-  rnf (Simple a) = rnf a
-  rnf (Rotate a) = a `deepseq` ()
-  rnf (Project path        ) = path `deepseq` ()
-  rnf (CombineTransform a b) = a `deepseq` b `deepseq` ()
 
 instance (Floating s, Num s, Random s) => Random (Transformer s) where
   random = runRand $

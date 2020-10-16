@@ -3,6 +3,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveGeneric         #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -38,14 +39,17 @@ import Linear.Affine
 import qualified Data.Vector as V
 import Control.Applicative
 import Data.Maybe
+import Text.PrettyPrint.GenericPretty
 
 data FacetState = FacetState
    {_stateBase        :: BasicSceneState
    ,_stateOffset      :: SubSpace
    ,_stateInsideAngle :: Angle SubSpace
    }
-   deriving (Show)
+   deriving (Show, Generic)
 makeLenses ''FacetState
+
+instance Out FacetState
 
 instance HasStyle FacetState where
   type StyleOf FacetState = DefaultStyle
@@ -69,16 +73,16 @@ instance Model FacetState where
            pairTriangle = V3 (V2 (Point2 0 0)   (Point2 400 0  ))
                              (V2 (Point2 800 0) (Point2 800 800))
                              (V2 (Point2 0 800) (Point2 0 400))
-           facets :: [Facet_ SubSpace]
+           facets :: [Facet SubSpace]
            --facets = pure $ triangleToFacet triangle triangle
            facets = pure $ pairsToFacet pairTriangle triangle
-           untilThreshold :: [Facet_ SubSpace]
+           untilThreshold :: [Facet SubSpace]
            untilThreshold = fmap (traverseFacetUntil 0.5 point) $ facets
-           traversed :: [Facet_ SubSpace]
+           traversed :: [Facet SubSpace]
            traversed = fmap (traverseFacet point) $ facets
-           tesselatedFacets :: [Facet_ SubSpace]
+           tesselatedFacets :: [Facet SubSpace]
            tesselatedFacets = {-trP "tesselated" $-} join . fmap (subdivideFacetSteps 1) $ facets
-           fullyTesselated :: [Facet_ SubSpace]
+           fullyTesselated :: [Facet SubSpace]
            fullyTesselated  = join . fmap (tesselateFacet 1) $ facets
 
         in sceneFromLayout gray .
@@ -99,6 +103,10 @@ instance Model FacetState where
     handleOutput state target = do
         presentTarget target
         return state
+    dumpState state input =
+        do  putStrLn $ pretty state
+            when (not . null $ inputs) $ putStrLn $  pretty inputs
+
 
 instance HandlesInput token FacetState where
    processInput input =

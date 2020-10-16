@@ -7,7 +7,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Graphics.Gudni.Figure.Transform.Projection.BezierSpace
-  ( CanFit(..)
+  ( GoesForward(..)
+  , CanFillGap(..)
+  , CanFit(..)
   , BezierSpace(..)
   , makeBezierSpace
   , traverseBezierSpace
@@ -19,7 +21,7 @@ import Graphics.Gudni.Base.Chain
 import Graphics.Gudni.Base.Loop
 import Graphics.Gudni.Base.Reversible
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Bezier.Split
 import Graphics.Gudni.Figure.Bezier.Deknob
 
@@ -37,11 +39,15 @@ import Control.Monad
 import Data.Functor.Classes
 import Data.Maybe (fromMaybe, fromJust)
 
-class (HasSpace t) => CanFit t where
+class GoesForward t where
     isForward :: t -> Bool
-    projectTangent :: Ax Horizontal (SpaceOf t) -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> t -> t
-    fillGap :: (Chain f) => f t -> f t -> f t
-    projectDefaultCurve :: Bool -> Int -> Maybe (SpaceOf t) -> Ax Horizontal (SpaceOf t) -> Bezier (SpaceOf t) -> t -> t
+
+class CanFillGap k where
+    fillGap :: (Chain f) => f k -> f k -> f k
+
+class (HasSpace t, HasSpace k, GoesForward t, CanFillGap k) => CanFit t k where
+    projectTangent :: Ax Horizontal (SpaceOf t) -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> t -> k
+    projectDefaultCurve :: Bool -> Int -> Maybe (SpaceOf t) -> Ax Horizontal (SpaceOf t) -> Bezier (SpaceOf t) -> t -> k
 
 
 data BezierSpace s = BezierSpace
@@ -123,13 +129,16 @@ makeBezierSpace lengthFun chain =
           node = BezierLeaf curveLength vC
       in  Just $ BezierSpace v0 normal0 v1 normal1 node (start + toAlong Horizontal curveLength)
 
-traverseBezierSpace :: forall t f
+traverseBezierSpace :: forall f t k
                     .  ( Alternative f
                        , Chain f
                        , HasSpace t
                        , CanCut t
-                       , CanFit t
+                       , GoesForward t
+                       , CanFit t k
                        , Reversible t
+                       , Reversible k
+                       , CanFillGap k
                        , CanBox t
                        )
                     => Bool
@@ -137,13 +146,13 @@ traverseBezierSpace :: forall t f
                     -> Maybe (SpaceOf t)
                     -> BezierSpace (SpaceOf t)
                     -> t
-                    -> f t
+                    -> f k
 traverseBezierSpace debug max_steps m_accuracy bSpace@(BezierSpace sPoint sNormal ePoint eNormal tree len) item =
   if isForward item
   then go 0 sPoint sNormal len ePoint eNormal tree item
   else reverseChain . fmap (reverseItem) . go 0 sPoint sNormal len ePoint eNormal tree . reverseItem $ item
   where
-  go :: Ax Horizontal (SpaceOf t) -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> Ax Horizontal (SpaceOf t) -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> BezierTree (SpaceOf t) -> t -> f t
+  go :: Ax Horizontal (SpaceOf t) -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> Ax Horizontal (SpaceOf t) -> Point2 (SpaceOf t) -> Diff Point2 (SpaceOf t) -> BezierTree (SpaceOf t) -> t -> f k
   go start sPoint sNormal end ePoint eNormal tree bz =
      let box = boxOf bz
      in

@@ -18,4 +18,4 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree.STree
 
-type FinalTree token s = Tree Overlap (SRep token NamedTexture (Tree Compound (Shape s)))
+type FinalTree token s = Tree Overlap (SMask token NamedTexture (Tree Compound (Shape s)))

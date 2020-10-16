@@ -216,7 +216,7 @@ benchmark1 playhead step =
         subtractor:: CompoundLayout DefaultStyle
         subtractor = scaleBy (dSize * 15) . overlap . gridOf 0.5 4 4 . cycle $ subtractorGlyphs
     in  translateByXY 0 0 .
-        scaleBy 1 .
+        scaleBy 10 .
         withColor (transparent 0.2 black) $
         subtractFrom subtractor textGrid
 
@@ -227,7 +227,7 @@ rectGrid playhead step =
         grid =  overlap . gridOf 1 8 8 {-256 256-} . repeat . mask . rectangle $ Point2 0.5 0.5
     in  -- scaleBy 30 .
         place .
-        scaleBy 20 .
+        scaleBy 50 .
         withColor (transparent 0.2 purple) $
         grid
 

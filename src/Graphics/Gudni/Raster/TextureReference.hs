@@ -1,7 +1,8 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -17,27 +18,35 @@
 
 
 module Graphics.Gudni.Raster.TextureReference
-  ( PictMemId(..)
+  ( PixelPile(..)
+  , PictMemId(..)
   , PictUsageId(..)
   , PictureMap(..)
   , PictureMemoryReference(..)
+  , PictureMemoryMap(..)
   , ShapeTreePictureMemory(..)
   , FinalTreePictureMemory
   , makePictureMap
   , namePicturesInShapeTree
   , pictureTextureSize
   , substanceBoundaries
-  --, makePictData
   , collectPictureMemory
   , withScenePictureMemory
+  , getPixelColor
   )
 where
 
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Figure.StorableInstances
 import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Layout.FromLayout
 
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Reference
+import Graphics.Gudni.Raster.Serial.Slice
+import Graphics.Gudni.Raster.Serial.Pile
+import Graphics.Gudni.Raster.Serial.BytePile
+import Graphics.Gudni.Raster.Serial.CopyPile
+
 import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Util.Debug
 
@@ -53,12 +62,15 @@ import qualified Data.Map as M
 import qualified Data.Foldable as Foldable
 import Data.Traversable
 
-import Control.DeepSeq
 import Control.Lens
 import Control.Monad.State
+import Control.Monad.IO.Class
 import Control.Lens.Tuple
 import Control.Monad.ListM
+import Linear.V4
+import Data.Word
 
+type PixelPile = Pile Word8
 type PictMemId = CUInt
 type PictUsageId = CUInt
 type MemOffset_ = Reference Word8
@@ -74,23 +86,31 @@ data PictureMemoryReference = PictureMemory
   , pictMemOffset :: MemOffset_
   } deriving (Show)
 
-pictureTextureSize :: PictureMemoryReference -> Point2 TextureSpace
-pictureTextureSize = fmap pixelSpaceToTextureSpace . pictSize
+instance (Storable a) => CanLoad Word8 (AsBytes a) where
+    fromPile pile index = AsBytes    <$> (liftIO $ peek (castPtr $ ptrFromIndex pile index (undefined :: Word8)))
+    toPile   pile index  (AsBytes item) = liftIO $ poke (castPtr $ ptrFromIndex pile index (undefined :: Word8)) item
 
-substanceBoundaries :: Substance PictureMemoryReference s -> Maybe BoundingBox
-substanceBoundaries (Texture pictMemReference) = Just (pointToBox . fmap textureSpaceToSubspace . pictureTextureSize $ pictMemReference)
+
+getPixelColor :: MonadIO m => PixelPile -> PictureMemoryReference -> Point2 PixelSpace -> m Color
+getPixelColor pixelPile (PictureMemory (Point2 w h) offset) (Point2 x y) =
+    do  let pos = Ref ((fromIntegral $ unPSpace (y * w + x)) * (fromIntegral $ sizeOf (undefined :: V4 Word8))) :: Reference Word8
+        (AsBytes (colorWord8 :: V4 Word8)) <- liftIO $ fromPile pixelPile pos
+        return . Color . fmap realToFrac $ colorWord8
+
+pictureTextureSize :: PictureMemoryReference -> Point2 SubSpace
+pictureTextureSize = fmap pixelSpaceToSubSpace . pictSize
+
+substanceBoundaries :: Substance PictureMemoryReference s -> Maybe (Box SubSpace)
+substanceBoundaries (Texture pictMemReference) = Just (sizeToBox . pictureTextureSize $ pictMemReference)
 substanceBoundaries _ = Nothing
 
-instance NFData PictureMemoryReference where
-  rnf (PictureMemory a b) = a `deepseq` b `deepseq` ()
+type ShapeTreeNamed token s = TransTree Overlap (SMask token PictureName (FullCompoundTree s))
+type ShapeTreePictureMemory token s = TransTree Overlap (SMask token PictureMemoryReference (FullCompoundTree s))
 
-type ShapeTreeNamed token s = TransTree Overlap (SRep token PictureName (FullCompoundTree s))
-type ShapeTreePictureMemory token s = TransTree Overlap (SRep token PictureMemoryReference (FullCompoundTree s))
-
-overRepSubstanceM :: Monad m => (a -> m b) -> SRep token a rep -> m (SRep token b rep)
-overRepSubstanceM f (SRep token a rep) =
+overRepSubstanceM :: Monad m => (a -> m b) -> SMask token a rep -> m (SMask token b rep)
+overRepSubstanceM f (SMask token a rep) =
   do b <- mapMSubstanceTexture f a
-     return (SRep token b rep)
+     return (SMask token b rep)
 
 nameTexture :: NamedTexture -> State PictureMap PictureName
 nameTexture namedTexture =
@@ -105,33 +125,33 @@ namePicturesInShapeTree :: FinalTree token style
 namePicturesInShapeTree tree = mapMSLeaf (overRepSubstanceM nameTexture) tree
 
 accumulatePicture :: Picture
-                  -> StateT (Pile Word8) IO PictureMemoryReference
+                  -> StateT PixelPile IO PictureMemoryReference
 accumulatePicture picture =
   do pictPile <- get
      let size = pictureSize picture
          memory = PictureMemory size (pictPile ^. pileCursor)
          pVector = pictureData picture
-     (pictPile', _) <- liftIO $ addToPile pictPile pVector
+     (pictPile', _) <- liftIO $ copyIntoPile pictPile pVector
      put pictPile'
      return memory
 
-collectPictureMemory :: PictureMap -> IO (PictureMemoryMap, Pile Word8)
+collectPictureMemory :: PictureMap -> IO (PictureMemoryMap, PixelPile)
 collectPictureMemory mapping =
   do pictPile <- newPile
      runStateT (mapM accumulatePicture mapping) pictPile
 
-assignPictUsage :: PictureMemoryMap -> SRep token PictureName rep -> SRep token PictureMemoryReference rep
-assignPictUsage mapping (SRep token substance rep) =
+assignPictUsage :: PictureMemoryMap -> SMask token PictureName rep -> SMask token PictureMemoryReference rep
+assignPictUsage mapping (SMask token substance rep) =
      let substance' =
              case substance of
                  Texture name -> Texture ((M.!) mapping name)
                  Solid color  -> Solid color
                  Linear linearGradient -> Linear linearGradient
                  Radial radialGradient -> Radial radialGradient
-     in  SRep token substance' rep
+     in  SMask token substance' rep
 
-type FinalTreeNamed token s = Tree Overlap (SRep token PictureName (Tree Compound (Shape s)))
-type FinalTreePictureMemory token s = Tree Overlap (SRep token PictureMemoryReference (Tree Compound (Shape s)))
+type FinalTreeNamed token s = Tree Overlap (SMask token PictureName (Tree Compound (Shape s)))
+type FinalTreePictureMemory token s = Tree Overlap (SMask token PictureMemoryReference (Tree Compound (Shape s)))
 
 
 withScenePictureMemory :: forall token s m a
@@ -139,7 +159,7 @@ withScenePictureMemory :: forall token s m a
                           )
                        => PictureMap
                        -> Scene (Maybe (FinalTree token s))
-                       -> (Scene (FinalTreePictureMemory token s) -> Pile Word8 -> m a)
+                       -> (Scene (FinalTreePictureMemory token s) -> PixelPile -> m a)
                        -> m a
 withScenePictureMemory pictureMap scene code =
   case scene ^. sceneShapeTree of
@@ -157,11 +177,11 @@ withScenePictureMemory pictureMap scene code =
 instance StorableM PictureMemoryReference where
   sizeOfM _ =
     do sizeOfM (undefined :: Point2 PixelSpace)
-       sizeOfM (undefined :: MemOffset_     )
+       sizeOfM (undefined :: MemOffset_)
        sizeOfM (undefined :: CUInt     ) -- padding
   alignmentM _ =
     do alignmentM (undefined :: Point2 PixelSpace)
-       alignmentM (undefined :: MemOffset_     )
+       alignmentM (undefined :: MemOffset_)
        alignmentM (undefined :: CUInt     ) -- padding
   peekM = do size      <- peekM
              memOffset <- peekM

@@ -30,7 +30,7 @@ module Graphics.Gudni.Figure.Transform.Transformable
 )
 where
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Transform.Transformer
 
 import Graphics.Gudni.Util.Debug
@@ -38,7 +38,6 @@ import Graphics.Gudni.Util.Debug
 import Control.Monad.Random
 import Control.Applicative
 import Control.Lens
-import Control.DeepSeq
 
 import Data.Traversable
 import Data.Hashable

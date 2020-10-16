@@ -25,8 +25,7 @@ module Graphics.Gudni.Raster.ConfineTree.SweepTrace
   , initialTrace
   , crossStep
   , branchStep
-  , keepOp
-  , discardOp
+  , overhangOp
   , nothingOp
   , pushBypassOp
   , nullTail
@@ -39,8 +38,8 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
 
-import Graphics.Gudni.Raster.ItemInfo
-
+import Graphics.Gudni.Raster.Dag.Primitive
+import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
 import Graphics.Gudni.Raster.ConfineTree.Add
@@ -49,7 +48,9 @@ import Graphics.Gudni.Raster.ConfineTree.Sweep
 import Graphics.Gudni.Raster.ConfineTree.Depth
 
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Slice
+import Graphics.Gudni.Raster.Serial.Pile
+
 import Graphics.Gudni.Util.Shuffle
 import Graphics.Gudni.Util.Util
 
@@ -70,10 +71,10 @@ import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint hiding ((<>))
 
 data SweepTrace s = SweepTrace
-    { _sweepDiscarded   :: [TaggedBezier s]
-    , _sweepContinue    :: [TaggedBezier s]
+    { _sweepDiscarded   :: [PrimTagId]
+    , _sweepContinue    :: [PrimTagId]
     , _sweepStores      :: [SweepStored s]
-    , _sweepBypasses    :: [[TaggedBezier s]]
+    , _sweepBypasses    :: [[PrimTagId]]
     , _sweepVisited     :: [Box s]
     , _sweepPath        :: [(Point2 s, Point2 s)]
     , _sweepBranchSteps :: Int
@@ -84,45 +85,40 @@ makeLenses ''SweepTrace
 initialTrace :: SweepTrace s
 initialTrace = SweepTrace [] [] [] [] [] [] 0 0
 
-crossStep :: StateT (SweepTrace s) IO ()
+crossStep :: (Monad m) => StateT (SweepTrace s) m ()
 crossStep = sweepCrossSteps += 1
 
-branchStep :: StateT (SweepTrace s) IO ()
+branchStep :: (Monad m) => StateT (SweepTrace s) m ()
 branchStep = sweepBranchSteps += 1
 
-keepOp :: Int -> [TaggedBezier s] -> StateT (SweepTrace s) IO ()
-keepOp limit list =
+overhangOp :: (Monad m) => Int -> [PrimTagId] -> [PrimTagId] -> StateT (SweepTrace s) m ()
+overhangOp limit keep discard =
   do currentSteps <- use sweepBranchSteps
-     when (currentSteps < limit) (sweepContinue .= list)
+     when (currentSteps < limit) $ do sweepContinue .= keep
+                                      sweepDiscarded %= (discard++)
 
-discardOp :: Int -> [TaggedBezier s] -> StateT (SweepTrace s) IO ()
-discardOp limit list =
-  do currentSteps <- use sweepBranchSteps
-     when (currentSteps < limit) (sweepDiscarded %= (list++))
-
-nothingOp :: Int -> Box s -> StateT (SweepTrace s ) IO ()
+nothingOp :: (Monad m) => Int -> Box s -> StateT (SweepTrace s ) m ()
 nothingOp limit boundary =
    do currentSteps <- use sweepBranchSteps
       when (currentSteps < limit) (sweepVisited %= (boundary:))
 
-pushBypassOp :: Int -> [TaggedBezier s] -> StateT (SweepTrace s ) IO ()
+pushBypassOp :: (Monad m) => Int -> [PrimTagId] -> StateT (SweepTrace s ) m ()
 pushBypassOp limit bypasses =
    do currentSteps <- use sweepBranchSteps
       when (currentSteps < limit) (sweepBypasses %= (bypasses:))
 
-popBypassOp :: Int -> StateT (SweepTrace s ) IO ()
+popBypassOp :: (Monad m) => Int -> StateT (SweepTrace s ) m ()
 popBypassOp limit =
    do currentSteps <- use sweepBranchSteps
       when (currentSteps < limit) (sweepBypasses %= nullTail)
 
-
-pushPath :: Int -> (Point2 s, Point2 s) -> StateT (SweepTrace s ) IO ()
+pushPath :: (Monad m) => Int -> (Point2 s, Point2 s) -> StateT (SweepTrace s ) m ()
 pushPath limit path =
    do currentSteps <- use sweepBranchSteps
       when (currentSteps < limit) (sweepPath %= (path:))
       sweepBranchSteps += 1
 
-popPath :: Int ->StateT (SweepTrace s ) IO ()
+popPath :: (Monad m) => Int ->StateT (SweepTrace s ) m ()
 popPath limit =
    do currentSteps <- use sweepBranchSteps
       when (currentSteps < limit) (sweepPath %= nullTail)

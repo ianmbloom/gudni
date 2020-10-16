@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveGeneric         #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -38,6 +39,8 @@ import Graphics.Gudni.Figure
 import Control.Lens
 import Control.Monad.State
 
+import Text.PrettyPrint.GenericPretty
+import Text.PrettyPrint hiding ((<>))
 
 -- | Window Events
 data InputWindow
@@ -47,10 +50,14 @@ data InputWindow
   | WindowGainedFocus
   | WindowMouseEntered
   | WindowMouseLeft
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
+
+instance Out InputWindow
 
 -- | Types of mouse input.
-data InputDetection = Pressed | Released | Motion deriving (Eq, Show)
+data InputDetection = Pressed | Released | Motion deriving (Eq, Show, Generic)
+
+instance Out InputDetection
 
 -- | Keyboard Modifiers
 data InputKeyModifier = KeyModifier
@@ -58,8 +65,10 @@ data InputKeyModifier = KeyModifier
   , _keyModCtrl     :: Bool
   , _keyModShift    :: Bool
   , _keyModSys      :: Bool
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 makeLenses ''InputKeyModifier
+
+instance Out InputKeyModifier
 
 -- | Make a keystroke with no modifiers.
 noModifier = KeyModifier False False False False
@@ -73,8 +82,9 @@ data InputKeyboard
   | KeyCommand InputCommand
   | KeyMod InputModifier
   | KeyUnsupported
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
+instance Out InputKeyboard
 
 data InputKey
   = LetterA
@@ -149,7 +159,9 @@ data InputKey
   | ArrowDown
   | ArrowLeft
   | ArrowRight
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
+
+instance Out InputKey
 
 -- | Keyboard Modifiers
 data InputModifier
@@ -161,7 +173,9 @@ data InputModifier
   | ModifierRShift
   | ModifierRAlt
   | ModifierRSystem
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
+
+instance Out InputModifier
 
 -- | Keyboard Commands
 data InputCommand
@@ -181,7 +195,9 @@ data InputCommand
   | CommandInsert
   | CommandDelete
   | CommandQuit
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
+
+instance Out InputCommand
 
 -- | General input types
 data InputType
@@ -189,14 +205,18 @@ data InputType
   | InputText String
   | InputKey   InputDetection InputKeyModifier InputKeyboard
   | InputMouse InputDetection InputKeyModifier Int (Point2 PixelSpace)
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
+
+instance Out InputType
 
 -- | Input
 data Input token = Input
   { _inputToken :: Maybe token
   , _inputType  :: InputType
-  } deriving (Show)
+  } deriving (Show, Generic)
 makeLenses ''Input
+
+instance Out token => Out (Input token)
 
 -- | Convert an input to a displayable string.
 inputToString :: Input token -> String

@@ -7,7 +7,7 @@ module Graphics.Gudni.Figure.Facet.Subdivide
   )
 where
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Facet.Triangle
 import Graphics.Gudni.Figure.Facet.BezierTriangle
 import Graphics.Gudni.Figure.Facet.Type
@@ -33,12 +33,12 @@ instance (Out a) => Out (V4 a)
 subdivideFacetSteps :: forall s
                     .  (Space s)
                     => Int
-                    -> Facet_ s
-                    -> [Facet_ s]
+                    -> Facet s
+                    -> [Facet s]
 subdivideFacetSteps steps =
   go steps
   where
-  go :: Int -> Facet_ s -> [Facet_ s]
+  go :: Int -> Facet s -> [Facet s]
   go steps facet =
      if steps > 0
      then join . fmap (go (steps - 1)) . toList . subdivideFacet $ facet
@@ -47,18 +47,18 @@ subdivideFacetSteps steps =
 tesselateFacet :: forall s
                .  (Space s)
                => s
-               -> Facet_ s
-               -> [Facet_ s]
+               -> Facet s
+               -> [Facet s]
 tesselateFacet tolerance =
   go
   where
-  go :: Facet_ s -> [Facet_ s]
+  go :: Facet s -> [Facet s]
   go facet =
       let subFacets = subdivideFacetSteps 1 facet
           (continued, done) = segregate (shouldSubdivideFacet tolerance) subFacets
       in  done <|> if null continued then []  else join . fmap go $ continued
 
-subdivideFacet :: (Space s) => Facet_ s -> V4 (Facet_ s)
+subdivideFacet :: (Space s) => Facet s -> V4 (Facet s)
 subdivideFacet facet =
   let output = facet ^. facetOutput
       sideOuts = sideBezTris output

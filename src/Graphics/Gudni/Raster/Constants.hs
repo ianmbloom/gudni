@@ -33,8 +33,8 @@ module Graphics.Gudni.Raster.Constants
     , iTEMtAGpERSISTbITMASK
     , iTEMtAGpERSISTANT
     , iTEMtAGnONPERSISTANT
-    , iTEMtAGiSfACETbITMASK
-    , iTEMtAGiSsHAPE
+    , iTEMtAGtYPEbITMASK
+    , iTEMtAGiSbEZIER
     , iTEMtAGiSfACET
     , iTEMtAGcOMPOUNDbITMASK
     , iTEMtAGcOMPOUNDaDD
@@ -107,9 +107,11 @@ iTEMtAGpERSISTANT            = 0x4000000000000000 :: CULong
 iTEMtAGnONPERSISTANT         = 0x0000000000000000 :: CULong
 
 -- Bit 61
-iTEMtAGiSfACETbITMASK        = 0x2000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
-iTEMtAGiSsHAPE               = 0x0000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
+iTEMtAGtYPEbITMASK           = 0x2000000000000000 :: CULong -- & with this to determine the itemTag type.
+iTEMtAGiSbEZIER              = 0x0000000000000000 :: CULong -- & with this to determine if the itemTage is a bezier.
 iTEMtAGiSfACET               = 0x2000000000000000 :: CULong -- & with this to determine if the shapetag is for a facet.
+
+
 
 -- Bit 60
 iTEMtAGcOMPOUNDbITMASK       = 0x1000000000000000 :: CULong -- & with this to isolate the compound type bit.

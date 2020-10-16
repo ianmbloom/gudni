@@ -17,7 +17,6 @@ where
 
 import Graphics.Gudni.Figure
 
-
 data ScreenMode
   -- | Constructor for windows of a particular size.
   = Window (Point2 PixelSpace)

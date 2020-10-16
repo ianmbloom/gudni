@@ -32,13 +32,10 @@ import Graphics.Gudni.Draw.Stroke
 hatch :: IsStyle style
       => SpaceOf style
       -> SpaceOf style
-      -> Point2 (SpaceOf style)
-      -> Layout style
-hatch thickness size point =
+      -> CompoundLayout style
+hatch thickness size =
   let s = size / 2
   in
-  translateBy point .
-  withColor black $
   overlap [ mask . stroke thickness . makeOpenCurve $ [line (Point2 (-s) (-s)) (Point2 s s)]
           , mask . stroke thickness . makeOpenCurve $ [line (Point2 s (-s)) (Point2 (-s) s)]
           ]

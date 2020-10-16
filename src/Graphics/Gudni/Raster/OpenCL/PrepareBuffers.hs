@@ -63,8 +63,8 @@ import Graphics.Gudni.Interface
 import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Raster.Constants
-import Graphics.Gudni.Raster.ItemInfo
-import Graphics.Gudni.Raster.SubstanceInfo
+import Graphics.Gudni.Raster.Thresholds.ItemInfo
+import Graphics.Gudni.Raster.Thresholds.SubstanceInfo
 import Graphics.Gudni.Raster.TextureReference
 
 import Graphics.Gudni.Raster.Thresholds.Enclosure
@@ -77,7 +77,9 @@ import Graphics.Gudni.Raster.OpenCL.DeviceQuery
 import Graphics.Gudni.Raster.OpenCL.Instances
 
 import Graphics.Gudni.Util.Util
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Slice
+import Graphics.Gudni.Raster.Serial.Pile
+
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Util.StorableM
@@ -106,7 +108,6 @@ import CLUtil
 import Control.Concurrent.ParallelIO.Global
 
 import Control.Monad.Morph
-import Control.DeepSeq
 import qualified Data.Sequence as S
 
 
@@ -116,8 +117,8 @@ import GHC.Exts
 
 data BuffersInCommon = BuffersInCommon
   { _bicGeometryHeap   :: CLBuffer CChar
-  , _bicFacetHeap      :: CLBuffer Facet
-  , _bicItemTagHeap    :: CLBuffer ItemTag
+  , _bicFacetHeap      :: CLBuffer (Facet SubSpace)
+  , _bicItemTagHeap    :: CLBuffer PrimTag
   , _bicSubTagHeap     :: CLBuffer SubstanceTag
   , _bicDescriptions   :: CLBuffer CChar
   , _bicPictHeap       :: CLBuffer Word8
@@ -174,7 +175,7 @@ createBuffersInCommon params =
         itemTagBuffer   <- bufferFromPile   "itemTagBuffer    " (params ^. rpSerialState . serItemTagPile     )
         subTagBuffer    <- bufferFromPile   "subTagBuffer     " (params ^. rpSerialState . serSubstanceTagPile)
         descriptionBuffer <- bufferFromPile "descriptionBuffer" (params ^. rpSerialState . serDescriptionPile  )
-        pictDataBuffer  <- bufferFromPile   "pictDataBuffer   " (params ^. rpPictDataPile)
+        pixelPileBuffer  <- bufferFromPile   "pixelPileBuffer   " (params ^. rpPixelPile)
         randoms         <- bufferFromVector "randoms          " (params ^. rpRasterizer  . rasterRandomField  )
         return $  BuffersInCommon
                   { _bicGeometryHeap   = geoBuffer
@@ -182,7 +183,7 @@ createBuffersInCommon params =
                   , _bicItemTagHeap    = itemTagBuffer
                   , _bicSubTagHeap     = subTagBuffer
                   , _bicDescriptions   = descriptionBuffer
-                  , _bicPictHeap       = pictDataBuffer
+                  , _bicPictHeap       = pixelPileBuffer
                   , _bicRandoms        = randoms
                   }
 
@@ -272,9 +273,6 @@ data PointQuery = PointQuery
     , pqQueryId :: PointQueryId
     , pqLocation :: (Point2 SubSpace)
     } deriving (Show)
-
-instance NFData PointQuery where
-    rnf (PointQuery a b c) = a `deepseq` b `deepseq` c `deepseq` ()
 
 instance StorableM PointQuery where
     sizeOfM _ = do sizeOfM (undefined :: Point2 SubSpace)

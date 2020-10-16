@@ -18,7 +18,7 @@ module Graphics.Gudni.Raster.ConfineTree.Depth
   )
 where
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Control.Lens
 

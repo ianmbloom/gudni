@@ -29,7 +29,6 @@ import Foreign.Storable
 import Foreign.C.Types
 import Foreign.Ptr
 
-import Control.DeepSeq
 import qualified Data.Sequence as S
 import qualified Data.Map      as M
 import Data.List.Lens
@@ -46,9 +45,6 @@ instance Storable PointQueryId where
   alignment (PointQueryId a) = alignment a
   peek i = PointQueryId <$> peek (castPtr i)
   poke i (PointQueryId a) = poke (castPtr i) a
-
-instance NFData PointQueryId where
-  rnf (PointQueryId a) = a `deepseq` ()
 
 makeQuery :: Int -> Input token -> Maybe (PointQueryId, Point2 SubSpace)
 makeQuery i input =

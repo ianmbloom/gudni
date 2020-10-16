@@ -11,7 +11,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Figure.Primitive.Box
+-- Module      :  Graphics.Gudni.Figure.Principle.Box
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -21,9 +21,8 @@
 --
 -- A simple box type for bounding boxes.
 
-module Graphics.Gudni.Figure.Primitive.Box
+module Graphics.Gudni.Figure.Principle.Box
   ( Box (..)
-  , BoundingBox(..)
   , CanBox(..)
   , widthOf
   , heightOf
@@ -47,10 +46,12 @@ module Graphics.Gudni.Figure.Primitive.Box
   , areaBox
   , minMaxBox
   , minMaxBoxes
-  , pointToBox
+  , sizeToBox
   , emptyBox
   , makeBox
   , boxAroundPoints
+  , boxToV4Points
+  , addMarginsBox
   , excludesBox
   , includesBox
   , constrainBoundary
@@ -58,27 +59,23 @@ module Graphics.Gudni.Figure.Primitive.Box
   , constrainBox
   ) where
 
-import Graphics.Gudni.Figure.Primitive.Space
-import Graphics.Gudni.Figure.Primitive.Axis
-import Graphics.Gudni.Figure.Primitive.Point
-import Graphics.Gudni.Figure.Primitive.ArcLength
+import Graphics.Gudni.Figure.Principle.Space
+import Graphics.Gudni.Figure.Principle.Axis
+import Graphics.Gudni.Figure.Principle.Point
+import Graphics.Gudni.Figure.Principle.ArcLength
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.StorableM
-
-import Control.DeepSeq
-import Foreign.C.Types
 
 import Control.Lens
 import Control.Applicative
 
---import Data.ItemInfo.SIMD
 import Data.Traversable
 import Data.Hashable
-import Control.DeepSeq
 import qualified Data.Vector.Storable as VS
 import Linear.V2
+import Linear.V3
+import Linear.V4
 import Text.PrettyPrint.GenericPretty
 
 -- | Newtype wrapper for box types.
@@ -90,9 +87,6 @@ instance (Out s) => Out (Box s)
 instance (Space s) => HasSpace (Box s) where
   type SpaceOf (Box s) = s
 
--- | Type synonym for bounding boxes
-type BoundingBox = Box SubSpace
-
 class CanBox t where
   boxOf :: t -> Box (SpaceOf t)
 
@@ -101,6 +95,15 @@ instance CanBox (Box s) where
 
 instance CanBox (Point2 s) where
   boxOf p = Box p p
+
+instance (HasSpace t, CanBox t) => CanBox (V2 t) where
+  boxOf = minMaxBoxes . fmap boxOf
+
+instance (HasSpace t, CanBox t) => CanBox (V3 t) where
+  boxOf = minMaxBoxes . fmap boxOf
+
+instance (HasSpace t, CanBox t) => CanBox (V4 t) where
+  boxOf = minMaxBoxes . fmap boxOf
 
 -- | Get the width of a box.
 widthOf :: (Num (SpaceOf a), CanBox a) => a -> SpaceOf a
@@ -175,9 +178,11 @@ boxAroundPoints a b = makeBox (min (a ^. pX) (b ^. pX))
                               (max (a ^. pX) (b ^. pX))
                               (max (a ^. pY) (b ^. pY))
 
+boxAroundPoint :: Point2 s -> Box s
+boxAroundPoint p = Box p p
 -- | Make a box from the origin to a point.
-pointToBox :: Num s => Point2 s -> Box s
-pointToBox p = Box zeroPoint p
+sizeToBox :: Num s => Point2 s -> Box s
+sizeToBox p = Box zeroPoint p
 
 -- | Make an empty box at the origin.
 emptyBox       :: Num s => Box s
@@ -214,38 +219,23 @@ minMaxBoxes = foldl minMaxBox (Box maxPoint minPoint)
 instance (Hashable s) => Hashable (Box s) where
     hashWithSalt s (Box tl br) = s `hashWithSalt` tl `hashWithSalt` br
 
-instance NFData s => NFData (Box s) where
-  rnf (Box a b) = a `deepseq` b `deepseq` ()
 
-instance (Storable s) => StorableM (Box s) where
-  sizeOfM _ = do sizeOfM (undefined :: Point2 s)
-                 sizeOfM (undefined :: Point2 s)
-  alignmentM _ = do alignmentM (undefined :: Point2 s)
-                    alignmentM (undefined :: Point2 s)
-  peekM =
-    do topLeft     <- peekM
-       bottomRight <- peekM
-       return (Box topLeft bottomRight)
-  pokeM (Box topLeft bottomRight) =
-    do pokeM topLeft
-       pokeM bottomRight
-
-instance (Storable s) => Storable (Box s) where
-  sizeOf = sizeOfV
-  alignment = alignmentV
-  peek = peekV
-  poke = pokeV
 
 sd = showFl . realToFrac
 
 instance Show s => Show (Box s) where
   show (Box (Point2 left top) (Point2 right bottom)) = "Bx l" ++ show left ++ ", t" ++ show top ++ ", r" ++ show right ++ ", b" ++ show bottom
 
-instance {-# OVERLAPS #-} Show BoundingBox where
+instance {-# OVERLAPS #-} Show (Box SubSpace) where
   show (Box (Point2 left top) (Point2 right bottom)) = "Bx l" ++ sd left ++ ", t" ++ sd top ++ ", r" ++ sd right ++ ", b" ++ sd bottom
 
+boxToV4Points :: Box s -> V4 (Point2 s)
+boxToV4Points box = V4 (box ^. topLeftBox) (box ^. topRightBox) (box ^. bottomRightBox) (box ^. bottomLeftBox)
 
--- | Return True if a BoundingBox is outside of the canvas.
+addMarginsBox :: Space s => s -> Box s -> Box s
+addMarginsBox scale = let margin =  Point2 scale scale
+                      in  over minBox (`subtract` margin) . over maxBox (+ margin)
+
 excludesBox :: Ord s
             => Box s
             -> Box s

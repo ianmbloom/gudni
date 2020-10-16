@@ -49,7 +49,9 @@ import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Raster.Thresholds.ReorderTable
 import Graphics.Gudni.Util.RandomField
 
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Slice
+import Graphics.Gudni.Raster.Serial.Pile
+
 import Foreign.C.Types(CInt, CUInt, CSize)
 import CLUtil
 import Control.Lens

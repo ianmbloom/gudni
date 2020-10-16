@@ -32,8 +32,8 @@ import Graphics.Gudni.Interface
 import Graphics.Gudni.Raster.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.OpenCL.PrepareBuffers
 
-import Graphics.Gudni.Raster.ItemInfo
-import Graphics.Gudni.Raster.SubstanceInfo
+import Graphics.Gudni.Raster.Thresholds.ItemInfo
+import Graphics.Gudni.Raster.Thresholds.SubstanceInfo
 
 import Graphics.Gudni.Raster.Thresholds.Serialize
 import Graphics.Gudni.Raster.Thresholds.Params
@@ -41,7 +41,10 @@ import Graphics.Gudni.Raster.Thresholds.TileTree
 import Graphics.Gudni.Raster.Thresholds.Enclosure(NumStrands(..))
 
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Reference
+import Graphics.Gudni.Raster.Serial.Slice
+import Graphics.Gudni.Raster.Serial.Pile
+
 import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Util.CTypeConversion
 import Graphics.Gudni.Util.Util
@@ -123,7 +126,7 @@ dumpSelectedTiles message size blockSize blockIdBuffer tileBuffer sliceBuffer to
      liftIO . putStrLn . concat . map (lpad 8 . show . view (tileBox . rightSide )) . VS.toList $ tiles
      liftIO . putStrLn . concat . map (lpad 8 . show . view (tileBox . topSide   )) . VS.toList $ tiles
      liftIO . putStrLn . concat . map (lpad 8 . show . view (tileBox . bottomSide)) . VS.toList $ tiles
-     --liftIO . putStrLn . concat . map (lpad 5 . show . unBreadth . sliceLength) . VS.toList $ slices
+     --liftIO . putStrLn . concat . map (lpad 5 . show . unRef . sliceLength) . VS.toList $ slices
      liftIO . putStrLn . concat . map (lpad 8 . show) . take size . VS.toList $ totals
 
 showSections :: RasterParams token -> String -> S.Seq BlockSection -> CL ()

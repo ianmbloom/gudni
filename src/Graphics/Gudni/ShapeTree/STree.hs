@@ -30,10 +30,10 @@ module Graphics.Gudni.ShapeTree.STree
   , TagTreeType(..)
   , STree(..)
   , SBranch(..)
-  , SRep(..)
-  , sRepToken
-  , sRepSubstance
-  , sRep
+  , SMask(..)
+  , sMaskToken
+  , sMaskSubstance
+  , sMask
   , overSRep
   , addBranch
   , liftShapeTree
@@ -63,14 +63,13 @@ module Graphics.Gudni.ShapeTree.STree
 where
 
 import Graphics.Gudni.Base
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Substance
 import Graphics.Gudni.Figure.Transform
 
 import Graphics.Gudni.Base.Chain
 
 import Control.Lens
-import Control.DeepSeq
 
 import Data.Vector as V
 
@@ -86,7 +85,7 @@ class (HasSpace (Item i), TreeType i) => TagTreeType i where
 
 -- | Polymorphic data structure for trees of shapes. The meld type is the operations for combining two subtrees,
 -- the trans type defines transformations that can be applied across to subtree and the leaf type the component elements of
--- a tree. The ShapeTree type is an STree that melds with Overlap whose component type is an SRep which itself contains
+-- a tree. The ShapeTree type is an STree that melds with Overlap whose component type is an SMask which itself contains
 -- an STree that melds with Compound, and whose component type is RawShape.
 data STree i where
      SMeld :: Meld i -> STree i -> STree i -> STree i
@@ -119,7 +118,7 @@ instance (HasSpace item) => TagTreeType (BranchTree_ meld tag item) where
 type TransTree_ meld item = BranchTree_ meld (Transformer (SpaceOf item)) item
 
 type CompoundTree_ s = TransTree_ Compound (Maybe (Shape s))
-type ShapeTree_ token tex s = TransTree_ Overlap (Maybe (SRep token tex (CompoundTree s)))
+type ShapeTree_ token tex s = TransTree_ Overlap (Maybe (SMask token tex (CompoundTree s)))
 
 newtype CompoundTree s = CompoundTree (STree (CompoundTree_ s))
 overCompoundTree f (CompoundTree x) = CompoundTree (f x)
@@ -132,7 +131,7 @@ type TransTree meld item = STree (TransTree_ meld item)
 type BranchTree meld tag item = STree (BranchTree_ meld tag item)
 
 type FullCompoundTree s = TransTree Compound (Shape s)
-type FullShapeTree token tex s = TransTree Overlap (SRep token tex (FullCompoundTree s))
+type FullShapeTree token tex s = TransTree Overlap (SMask token tex (FullCompoundTree s))
 
 
 data Tree_ meld leaf
@@ -151,7 +150,7 @@ instance Space s => HasSpace (ShapeTree token s) where
 instance Space s => HasSpace (CompoundTree s) where
   type SpaceOf (CompoundTree s) = s
 
-overSRep f (SRep token tex rep) = SRep token tex (f rep)
+overSRep f (SMask token tex rep) = SMask token tex (f rep)
 
 addBranch :: (Leaf i~SBranch i) => Tag i -> STree i -> STree i
 addBranch tag = SLeaf . SBranch tag
@@ -206,13 +205,10 @@ data Compound
 
 -- Invert a compound type
 invertCompound :: Compound -> Compound
-invertCompound combineType =
-    case combineType of
+invertCompound compound =
+    case compound of
         CompoundAdd      -> CompoundSubtract
         CompoundSubtract -> CompoundAdd
-
-instance NFData Compound where
-  rnf _ = ()
 
 -- | Type of overlapping two seperate shapes.
 data Overlap = Overlap deriving (Show, Eq)
@@ -223,21 +219,21 @@ instance HasDefault Compound where
 instance HasDefault Overlap where
   defaultValue = Overlap
 
--- | An SRep defines an individual shape and it's metadata.
-data SRep token tex rep = SRep
-  { _sRepToken     :: Maybe token
-  , _sRepSubstance :: Substance tex (SpaceOf rep)
-  , _sRep          :: rep
+-- | An SMask defines an individual shape and it's metadata.
+data SMask token tex rep = SMask
+  { _sMaskToken     :: Maybe token
+  , _sMaskSubstance :: Substance tex (SpaceOf rep)  -- rep
+  , _sMask          :: rep
   }
-makeLenses ''SRep
+makeLenses ''SMask
 
-instance CanBox rep => CanBox (SRep token tex rep) where
-  boxOf = boxOf . view sRep
+instance CanBox rep => CanBox (SMask token tex rep) where
+  boxOf = boxOf . view sMask
 
-deriving instance (Space (SpaceOf rep), Show token, Show rep, Show tex) => Show (SRep token tex rep)
+deriving instance (Space (SpaceOf rep), Show token, Show rep, Show tex) => Show (SMask token tex rep)
 
-instance HasSpace rep => HasSpace (SRep token tex rep) where
-  type SpaceOf (SRep token tex rep) = SpaceOf rep
+instance HasSpace rep => HasSpace (SMask token tex rep) where
+  type SpaceOf (SMask token tex rep) = SpaceOf rep
 
 -- | A container for a ShapeTree that indicates the background color.
 data Scene t = Scene

@@ -35,9 +35,9 @@ instance CanFlatten (Leaf i) => CanFlatten (STree i) where
                 in  a' <|> b'
             SLeaf x -> flatten x
 
-instance CanFlatten t => CanFlatten (SRep token sub t) where
-    type ToFlatten (SRep token sub t) = ToFlatten t
-    flatten (SRep token sub t) = flatten t
+instance CanFlatten t => CanFlatten (SMask token sub t) where
+    type ToFlatten (SMask token sub t) = ToFlatten t
+    flatten (SMask token sub t) = flatten t
 
 instance CanFlatten (Shape s) where
     type ToFlatten (Shape s) = Shape s

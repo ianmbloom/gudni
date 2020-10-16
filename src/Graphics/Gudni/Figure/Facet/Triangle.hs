@@ -7,10 +7,13 @@ module Graphics.Gudni.Figure.Facet.Triangle
   , rotateTri2
   , sideTris
   , centerTri
+  , t0
+  , t1
+  , t2
   )
 where
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
 
 import Graphics.Gudni.Util.Debug
 
@@ -22,12 +25,12 @@ import Control.Lens
 
 type Tri s = V3 (Point2 s)
 
-u0 :: V3 a -> a
-u0 = view _x
-u1 :: V3 a -> a
-u1 = view _y
-u2 :: V3 a -> a
-u2 = view _z
+t0 :: V3 a -> a
+t0 = view _x
+t1 :: V3 a -> a
+t1 = view _y
+t2 :: V3 a -> a
+t2 = view _z
 
 rotateTri1 :: V3 a -> V3 a
 rotateTri1 (V3 a0 a1 a2) = (V3 a1 a2 a0)
@@ -40,7 +43,7 @@ reverseParts (V3 a b c) = V3 a c b
 
 sideTri :: Space s => V3 (Point2 s) -> V3 (Point2 s)
 sideTri i =
-   fmap (0.5 *^) (pure (u0 i) + i)
+   fmap (0.5 *^) (pure (t0 i) + i)
 
 sideTris :: Space s => V3 (Point2 s) -> V3 (V3 (Point2 s))
 sideTris tri =

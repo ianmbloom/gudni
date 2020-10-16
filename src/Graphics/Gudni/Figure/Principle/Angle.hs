@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE DeriveGeneric     #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -13,7 +14,7 @@
 --
 -- Mainly a wrapper around Diagrams.Angle with some additional functions.
 
-module Graphics.Gudni.Figure.Primitive.Angle
+module Graphics.Gudni.Figure.Principle.Angle
   ( Angle
   , cosA
   , sinA
@@ -36,14 +37,19 @@ module Graphics.Gudni.Figure.Primitive.Angle
   )
 where
 
-import Graphics.Gudni.Figure.Primitive.Axis
-import Graphics.Gudni.Figure.Primitive.Point
+import Graphics.Gudni.Figure.Principle.Axis
+import Graphics.Gudni.Figure.Principle.Point
 
 import Diagrams.Angle (Angle, cosA, sinA, tanA, (@@), deg, rad, turn, fullTurn, halfTurn, quarterTurn, normalizeAngle, angleBetween)
 import Data.Hashable
-import Control.DeepSeq
 import Control.Lens
 
+import Text.PrettyPrint.GenericPretty
+import Text.PrettyPrint hiding ((<>))
+
+instance Show s => Out (Angle s) where
+    doc a = (text . show $ a)
+    docPrec _ = doc
 -- -----------------------------------------------------------------------------
 -- Simple rotation functions.
 
@@ -77,6 +83,3 @@ flipV = over pY negate
 
 instance Hashable s => Hashable (Angle s) where
   hashWithSalt s = hashWithSalt s . view rad
-
-instance NFData s => NFData (Angle s) where
-  rnf = rnf . view rad

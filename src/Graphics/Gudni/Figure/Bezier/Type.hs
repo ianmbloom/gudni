@@ -37,15 +37,12 @@ where
 import Graphics.Gudni.Base.Reversible
 import Graphics.Gudni.Base.Chain
 
-import Graphics.Gudni.Figure.Primitive.Space
-import Graphics.Gudni.Figure.Primitive.Axis
-import Graphics.Gudni.Figure.Primitive.Point
-import Graphics.Gudni.Figure.Primitive.Box
-import Graphics.Gudni.Figure.Primitive.ArcLength
+import Graphics.Gudni.Figure.Principle.Space
+import Graphics.Gudni.Figure.Principle.Axis
+import Graphics.Gudni.Figure.Principle.Point
+import Graphics.Gudni.Figure.Principle.Box
+import Graphics.Gudni.Figure.Principle.ArcLength
 
-import Graphics.Gudni.Util.StorableM
-
-import Foreign.Storable
 import Data.Kind
 import Numeric.Interval
 import Linear
@@ -53,7 +50,6 @@ import Linear.Affine
 import Linear
 import qualified Data.Vector as V
 import Data.Hashable
-import Control.DeepSeq
 import Control.Lens hiding ((...))
 import Control.Applicative
 import Text.PrettyPrint.GenericPretty
@@ -259,21 +255,5 @@ instance (Space s) => CanBox (Bezier s) where
 instance Hashable s => Hashable (Bezier s) where
     hashWithSalt s (Bezier v3) = s `hashWithSalt` v3
 
-instance NFData s => NFData (Bezier s) where
-    rnf (Bezier v3) = v3 `deepseq` ()
-
 fixBezierNeighbor :: Bezier s -> Bezier s -> Bezier s
 fixBezierNeighbor bz0 bz1 = set bzEnd (view bzStart bz1) bz0
-
-instance StorableM (Bezier SubSpace) where
-    sizeOfM _ = do sizeOfM (undefined :: V3 (Point2 SubSpace))
-    alignmentM _ = do alignmentM (undefined :: V3 (Point2 SubSpace))
-    peekM = do v3 <- peekM
-               return $ Bezier v3
-    pokeM (Bezier v3) = do pokeM v3
-
-instance Storable (Bezier SubSpace) where
-    sizeOf = sizeOfV
-    alignment = alignmentV
-    peek = peekV
-    poke = pokeV

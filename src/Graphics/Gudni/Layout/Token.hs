@@ -19,17 +19,17 @@
 -- Typeclass for identifying shapes with tokens.
 
 module Graphics.Gudni.Layout.Token
-  ( HasToken(..)
-  , Tokenized(..)
-  , setToken
-  )
+    ( HasToken(..)
+    , Tokenized(..)
+    , setToken
+    )
 where
 
 class Show (TokenOf a) => HasToken a where
-  type TokenOf a
+    type TokenOf a
 
 class HasToken a => Tokenized a where
-  overToken :: (Maybe (TokenOf a) -> Maybe (TokenOf a)) -> a -> a
+    overToken :: (Maybe (TokenOf a) -> Maybe (TokenOf a)) -> a -> a
 
 setToken :: Tokenized a => TokenOf a -> a -> a
 setToken = overToken . const . Just

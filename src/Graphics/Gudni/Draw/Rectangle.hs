@@ -74,11 +74,3 @@ openRectangle thickness box =
 
 rectangle :: (Space s, Chain f) => Point2 s -> Shape_ f s
 rectangle = Shape . pure . Outline . rectangleCurve
-
-{-
-
-boxCenter box = ((box ^. topLeftBox) + (box ^. bottomRightBox)) / 2
-
-squareAround :: forall s . Space s => s -> s -> CompoundTree s
-squareAround thickness size = translateBy (pure ((-size)/2)) . mask . strokeOffset 0 thickness $ (rectangle (pure size) :: Shape s)
--}

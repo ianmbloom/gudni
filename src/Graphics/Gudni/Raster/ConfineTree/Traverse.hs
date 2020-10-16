@@ -20,19 +20,21 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
 
 import Graphics.Gudni.Util.Debug
 
 import Control.Lens
 import Control.Monad
+import Control.Monad.State
 
 traverseCTAlong :: forall lineAxis s m
                 .  ( Axis lineAxis
                    , Space s
                    , Monad m
                    )
-                => ( TaggedBezier s -> m ())
+                => (PrimTagId -> m ())
                 -> lineAxis
                 -> Along   lineAxis s
                 -> Athwart lineAxis s
@@ -54,7 +56,7 @@ traverseCTBetweenPoints :: forall s a m
                         .  ( Space s
                            , Monad m
                            )
-                        => (TaggedBezier s -> m ())
+                        => (PrimTagId -> m ())
                         -> Point2 s
                         -> Point2 s
                         -> ConfineTree s
@@ -69,7 +71,7 @@ traverseCTBox :: forall s m
               .  ( Space s
                  , Monad m
                  )
-              => (TaggedBezier s -> m ())
+              => (PrimTagId -> m ())
               -> Box s
               -> ConfineTree s
               -> m ()
@@ -86,7 +88,7 @@ traverseCTBox f box mTree =
         Just tree ->
             do moreCut      axis (box ^. maxBox . athwart axis) tree (go (perpendicularTo axis))
                lessOverhang axis (box ^. minBox . athwart axis) tree (go (perpendicularTo axis))
-               f (tree ^. confineCurve)
+               f (tree ^. confinePrimTagId)
 
     moreCut :: ( Axis axis
                , Space s

@@ -16,7 +16,8 @@ where
 
 import Graphics.Gudni.Base
 
-import Graphics.Gudni.Figure.Primitive
+import Graphics.Gudni.Figure.Principle
+import Graphics.Gudni.Figure.Bezier.Math
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Transform.Projection
 
@@ -38,10 +39,10 @@ projectBezierWithStepsAccuracy debug max_steps m_accuracy bSpace bezier =
     let fixed = replaceKnob Vertical bezier
     in  join . fmap (traverseBezierSpace debug max_steps m_accuracy bSpace) $ fixed
 
-
-instance (Space s, Reversible (Bezier s))=> CanFit (Bezier s) where
+instance (Space s) => GoesForward (Bezier s) where
     isForward (Bez v0 _ v1) = v0 ^. pX <= v1 ^. pX
-    projectTangent = projectTangentBezier
+
+instance (Space s) => CanFillGap (Bezier s) where
     fillGap leftResult rightResult =
         let leftEnd  = (lastLink leftResult  ) ^. bzEnd
             rightStart = (firstLink rightResult) ^. bzStart
@@ -49,6 +50,10 @@ instance (Space s, Reversible (Bezier s))=> CanFit (Bezier s) where
                      then pure (line leftEnd rightStart)
                      else empty
         in leftResult <|> filler <|> rightResult
+
+instance (Space s, Reversible (Bezier s))=> CanFit (Bezier s) (Bezier s) where
+    projectTangent = projectTangentBezier
+
     -- Given a target curve and a source curve, return a new target curve that approximates projecting every point in the target curve
     -- onto the source curve, such that the original x-axis corresponds to arclength along the source curve and the y-axis corresponds
     -- to distance from source curve along a normal.
@@ -97,59 +102,3 @@ instance (Space s, Reversible (Bezier s))=> CanFit (Bezier s) where
                             else ltControl
                      finalControl = findControl (-10000) 20000 10000 (-20000) 16
                  in  Bez p0 finalControl p1
-
-projectTangentPoint :: Space s => Ax Horizontal s -> Point2 s -> Diff Point2 s -> Point2 s -> Point2 s
-projectTangentPoint offset v0 normal p =
-  let t = p ^. pX - offset
-      tangent = negate $ perp normal
-  in  v0 .+^ (fromAlong Horizontal t *^ tangent) .+^ (fromAlong Vertical (p ^. pY) *^ normal)
-
-projectTangentBezier :: Space s => Ax Horizontal s -> Point2 s -> Diff Point2 s -> Bezier s -> Bezier s
-projectTangentBezier offset v0 normal bz = overBezier (projectTangentPoint offset v0 normal) bz
-
-bezierPointAndNormal :: Space s => Bezier s -> s -> (Point2 s, Diff V2 s)
-bezierPointAndNormal sourceCurve t =
-  if t < 0.5
-  then let (Bez s0 sC s1) = dropBezier t sourceCurve
-           tangent = bezierStartTangent (Bez s0 sC s1)
-           n0 = perp tangent
-       in  (s0, n0)
-  else let (Bez s0 sC s1) = takeBezier t sourceCurve
-           tangent = bezierEndTangent (Bez s0 sC s1)
-           n0 = perp tangent
-       in  (s1, n0)
-
-bezierStartTangent :: Space s => Bezier s -> Diff V2 s
-bezierStartTangent (Bez s0 sC s1) = normalize (sC .-. s0)
-
-bezierStartNormal :: Space s => Bezier s -> Diff V2 s
-bezierStartNormal bz = perp (bezierStartTangent bz)
-
-bezierEndTangent :: Space s => Bezier s -> Diff V2 s
-bezierEndTangent (Bez s0 sC s1) = normalize (s1 .-. sC)
-
-bezierEndNormal :: Space s => Bezier s -> Diff V2 s
-bezierEndNormal bz = perp (bezierEndTangent bz)
-
-relativeToNormalVector :: Space s => Diff V2 s -> Diff V2 s -> Diff V2 s
-relativeToNormalVector source@(V2 sX sY) dest@(V2 dX dY) = (negate dX *^ perp source) ^+^ (dY *^ source)
-
-slopeOf :: Space s => Diff V2 s -> s
-slopeOf (V2 x y) = y / x
-
-yInterceptSlope :: Space s => Point2 s -> s -> Ax Horizontal s -> Ax Vertical s
-yInterceptSlope v slope x = toAlong Vertical $ slope * (fromAlong Horizontal $ x - v ^. pX) + (fromAlong Vertical $ v ^. pY)
-
-xInterceptSlope :: Space s => Point2 s -> s -> Ax Vertical s -> Ax Horizontal s
-xInterceptSlope v slope y = toAlong Horizontal $ (fromAlong Vertical (y - v^.pY) / slope) + fromAlong Horizontal (v ^. pX)
-
-arbitraryIntersection :: Space s => Point2 s -> s -> Point2 s -> s -> Point2 s
-arbitraryIntersection p0 slope0 p1 slope1 =
-  let x = toAlong Horizontal $ ( slope1 * (fromAlong Horizontal $ p1^.pX) - slope0 * (fromAlong Horizontal $ p0^.pX) - (fromAlong Vertical $ p1 ^. pY) + (fromAlong Vertical $ p0^.pY) ) / ( slope1 - slope0 )
-      y = yInterceptSlope p0 slope0 x
-  in  makePoint x y
-
-projPoint :: forall s . Space s => Bezier s -> Point2 s -> Point2 s
-projPoint curve toProject =
-    let (point, normal) = bezierPointAndNormal curve (fromAlong Horizontal $ toProject ^. pX)
-    in  point .+^ (((fromAlong Vertical $ toProject ^. pY) *^ normal) :: Diff V2 s)

@@ -13,9 +13,10 @@ where
 
 import Linear
 
-import Graphics.Gudni.Figure.Primitive.Axis
-import Graphics.Gudni.Figure.Primitive.Space
-import Graphics.Gudni.Figure.Primitive.Point
+import Graphics.Gudni.Figure.Principle.Axis
+import Graphics.Gudni.Figure.Principle.Space
+import Graphics.Gudni.Figure.Principle.Point
+import Graphics.Gudni.Figure.Principle.Box
 import Graphics.Gudni.Figure.Bezier.Type
 import Graphics.Gudni.Figure.Bezier.Split
 import Graphics.Gudni.Util.Debug
@@ -45,6 +46,10 @@ class (HasSpace t) => CanCut t where
    splitAtCut :: Axis axis => axis -> Athwart axis (SpaceOf t) -> t -> (t, t)
    -- | Determine if horizontal or vertical line cuts item
    canCut     :: Axis axis => axis -> Athwart axis (SpaceOf t) -> t -> Bool
+
+instance Space s => CanCut (Box s) where
+   splitAtCut = splitBox
+   canCut axis splitPoint box = splitPoint > box ^. minBox . athwart axis && splitPoint < box ^. maxBox . athwart axis
 
 instance Space s => CanCut (Bezier s) where
    splitAtCut axis cut bezier =

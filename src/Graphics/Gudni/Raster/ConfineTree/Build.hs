@@ -19,7 +19,8 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
 
-import Graphics.Gudni.Raster.ItemInfo
+import Graphics.Gudni.Raster.Dag.Primitive
+import Graphics.Gudni.Raster.Dag.TagTypes
 
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
@@ -30,7 +31,10 @@ import Graphics.Gudni.Raster.ConfineTree.SweepTrace
 import Graphics.Gudni.Raster.ConfineTree.Depth
 
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.Pile
+import Graphics.Gudni.Raster.Serial.Reference
+import Graphics.Gudni.Raster.Serial.Slice
+import Graphics.Gudni.Raster.Serial.Pile
+
 import Graphics.Gudni.Util.Shuffle
 
 import GHC.Exts
@@ -53,67 +57,85 @@ import Control.Monad.ST
 import Control.Monad.Random
 import System.Random
 
-indexVector :: Bool -> Int -> IO (V.Vector Int)
-indexVector doShuffle size =
-  do let indices = V.generate size id
-     if doShuffle
-     then return $ evalRand (shuffleImmutable indices) (mkStdGen 10000)
-     else return indices
-
-addPileToConfineTree :: ( Space s
-                        , Storable (ItemBezier s)
+addPileToConfineTree :: forall s m
+                     .  ( Space s
+                        , MonadIO m
                         )
-                     => Bool
-                     -> Pile (ItemBezier s)
+                     => (PrimTagId -> m (Box s))
+                     -> Bool
+                     -> Slice PrimTagId
+                     -> Pile PrimTagId
                      -> ConfineTree s
-                     -> IO (ConfineTree s)
-addPileToConfineTree doShuffle pile mTree =
-  do  indices <- indexVector doShuffle size
-      numLoopState 0 (size - 1) mTree (go indices)
-  where
-  size = fromIntegral . unBreadth . view pileBreadth $ pile
-  go indices mTree i =
-    do j <- V.indexM indices i
-       (ItemBezier bez itemTagId) <- pileItem pile j
-       return $ addBezierToConfineTree (TaggedBezier bez (CurveTag j) itemTagId) mTree
+                     -> m (ConfineTree s)
+addPileToConfineTree getBox enableShuffle slice pile mTree =
+    flip evalRandT (mkStdGen 10000) $
+        numLoopState 0 (size - 1) mTree go
+        where
+        size = sliceLength slice
+        go :: RandomGen g => ConfineTree s -> Reference PrimTagId -> RandT g m (ConfineTree s)
+        go mTree i =
+            do  primTagId <- if enableShuffle
+                             then do -- Swap the next tagId for a random on in the remaining slice.
+                                     j <- Ref <$> getRandomR (unRef i, unRef size - 1)
+                                     liftIO $ do (hold :: PrimTagId) <- fromPile pile i
+                                                 primTagId <- fromPile pile j
+                                                 toPile pile j hold
+                                                 toPile pile i primTagId
+                                                 return primTagId
+                             else    liftIO $ fromPile pile i
+                -- Add the primitive to the tree.
+                box <- lift $ getBox primTagId
+                return $ addBezierToConfineTree box primTagId mTree
 
-buildConfineTree :: forall s
-                 .  ( Storable (ItemBezier s)
-                    , Space s )
-                 => Int
+buildConfineTree :: forall s m
+                 .  ( Space s
+                    , MonadIO m
+                    )
+                 => (PrimTagId -> m (Box s))
+                 -> (PrimTagId -> m (Bezier s))
+                 -> Bool
                  -> Int
-                 -> Pile (ItemBezier s)
-                 -> IO (ConfineTree s, DecorateTree s, SweepTrace s)
-buildConfineTree traceLimit decorationLimit bezPile =
+                 -> Int
+                 -> Slice PrimTagId
+                 -> Pile PrimTagId
+                 -> m (ConfineTree s, DecorateTree s, SweepTrace s)
+buildConfineTree getBox getCurve decorateType traceLimit decorationLimit slice primTagIdPile =
   do   treeBare <- -- tcP "bareTree" .
                    trWith (show . confineTreeCountOverlaps) "confineTreeCountOverlaps" .
                    trWith (show . confineTreeDepth) "confineTreeDepth" .
                    trWith (show . logBase 2 . (fromIntegral :: Int -> Float) . confineTreeSize) "confineTreeSizeLog" .
                    trWith (show . confineTreeSize) "confineTreeSize" <$>
-                   addPileToConfineTree True bezPile Nothing
-       -- treeDecorated <- liftIO $ decorateConfineTree bezPile treeBare
-       -- (treeDecorated, trace) <- runStateT (sweepConfineTree crossStep
-       --                                                       branchStep
-       --                                                       (discardOp    traceLimit)
-       --                                                       (keepOp       traceLimit)
-       --                                                       (nothingOp    traceLimit)
-       --                                                       (pushBypassOp traceLimit)
-       --                                                       (popBypassOp  traceLimit)
-       --                                                       (pushPath     traceLimit)
-       --                                                       (popPath      traceLimit)
-       --                                                       decorationLimit
-       --                                                       treeBare
-       --
-       --                                                     ) initialTrace
-       let trace = initialTrace
-       let (treeDecorated, decorationCount) = runState (buildDecorateTree (modify (+1)) decorationLimit treeBare) 0
+                   addPileToConfineTree getBox True slice primTagIdPile Nothing
+       let numItems = confineTreeSize treeBare
+       liftIO $ putStrLn $ "decorateType " ++ show decorateType ++ " limit " ++ show decorationLimit
+       (treeDecorated2, trace) <- runStateT (sweepConfineTree (lift . getBox  )
+                                                              (lift . getCurve)
+                                                              crossStep
+                                                              branchStep
+                                                              (overhangOp   traceLimit)
+                                                              (nothingOp    traceLimit)
+                                                              (pushBypassOp traceLimit)
+                                                              (popBypassOp  traceLimit)
+                                                              (pushPath     traceLimit)
+                                                              (popPath      traceLimit)
+                                                              decorationLimit
+                                                              treeBare
+                                                            ) initialTrace
+
+       liftIO $ putStrLn $ "sweepCrossSteps: " ++ show (trace ^. sweepCrossSteps)
+       liftIO $ putStrLn $ "averageConsidered " ++ showFl' 4 (fromIntegral (trace ^. sweepCrossSteps) / fromIntegral numItems :: Double)
+       liftIO $ putStrLn ""
+
+       (treeDecorated, decorationCount) <- runStateT (buildDecorateTree (lift . getCurve) (modify (+1)) decorationLimit treeBare) 0
        --conConfineTree .= treeDecorated
        let total = decorationCount
-           count = confineTreeSize treeBare
-       putStrLn $ "steps per node    " ++ showFl' 12 (fromIntegral total/fromIntegral count :: Double)
-       -- putStrLn ""
-       -- putStrLn $ "sweepCrossSteps: " ++ show (trace ^. sweepCrossSteps)
-       -- putStrLn $ "averageConsidered " ++ showFl' 12 (total/ fromIntegral count)
-       -- putStrLn ""
-
-       return (treeBare, {-trP "treeDecorated\n"-} treeDecorated, trace)
+       liftIO $ putStrLn $ "steps per node    " ++ showFl' 4 (fromIntegral decorationCount / fromIntegral numItems :: Double)
+       liftIO $ putStrLn ""
+       let treesEqual = treeDecorated == treeDecorated2
+       liftIO $ putStrLn $ "trees equal " ++ show treesEqual
+       if treesEqual then return () else error "trees not equal."
+       let dTree = {-trP "treeDecorated\n" $ -}
+                   if decorateType
+                   then treeDecorated
+                   else treeDecorated2
+       return (treeBare, dTree, trace)
