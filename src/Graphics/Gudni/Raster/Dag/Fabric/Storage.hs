@@ -3,7 +3,7 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Graphics.Gudni.Raster.Dag.FabricStorage
+module Graphics.Gudni.Raster.Dag.Fabric.Storage
   ( FabricStorage(..)
   , fabricTagPile
   , fabricParentPile
@@ -26,17 +26,17 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree.STree
-import Graphics.Gudni.Raster.Dag.Fabric
 
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
 import Graphics.Gudni.Raster.Serial.BytePile
-import Graphics.Gudni.Raster.Dag.Primitive
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.PrimTag
+import Graphics.Gudni.Raster.Dag.Primitive.Type
+import Graphics.Gudni.Raster.Dag.Primitive.Tag
 import Graphics.Gudni.Raster.Dag.SubstanceTag
-import Graphics.Gudni.Raster.Dag.FabricTag
+import Graphics.Gudni.Raster.Dag.Fabric.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Tag
 import Graphics.Gudni.Raster.TextureReference
 
 import Foreign.Storable

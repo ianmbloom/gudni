@@ -15,13 +15,16 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
-import Graphics.Gudni.Raster.ConfineTree.Query
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.Primitive.Type
+import Graphics.Gudni.Raster.Dag.Primitive.WithTag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Query
 
 import Graphics.Gudni.Raster.Dag.Query
 import Graphics.Gudni.Raster.Dag.PrimColorQuery
 import Graphics.Gudni.Raster.Dag.TagTypes
+import Graphics.Gudni.Raster.Dag.Primitive.Type
+import Graphics.Gudni.Raster.Dag.Primitive.Cross
 import Graphics.Gudni.Raster.Dag.State
 
 import Graphics.Gudni.Draw.Stroke
@@ -30,6 +33,7 @@ import Graphics.Gudni.Draw.Rectangle
 import Graphics.Gudni.Draw.Symbols
 import Graphics.Gudni.Draw.Text
 import Graphics.Gudni.Draw.Representation.Class
+import Graphics.Gudni.Draw.Representation.Primitive
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
@@ -42,6 +46,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Data.Maybe
 import Data.List
+import Linear.V3
 import qualified Data.Map as M
 import Text.PrettyPrint.GenericPretty
 
@@ -94,6 +99,13 @@ constructLayerStack point stack =
   do  colorMap <- makeColorMap stack
       return $ overlap $ (withColor black . translateBy point $ hatch 1 8):(imap (layerRing colorMap point) $ stack) -- ++ [withColor black . translateBy point . translateByXY 4 (-7.5) . scaleBy 15 $ text]
 
+
+slopedPrim :: Space s => Primitive s -> Bool
+slopedPrim (Prim fabricTagId ty) =
+    case ty of
+        PrimBezier bez -> bezierSlopeLTEZero Vertical bez
+        _ -> False
+
 checkPoint :: forall style m
            .  ( IsStyle style
               , Storable (SpaceOf style)
@@ -105,19 +117,25 @@ checkPoint :: forall style m
            -> Point2 (SpaceOf style)
            -> FabricMonad (SpaceOf style) m (Layout style)
 checkPoint colorMap confineTree decoTree point =
-  do  (anchor, anchorStack, stack, curveTags) <- queryConfineTreePointWithInfo loadCurveS confineTree decoTree point
-      let bezList :: [Bezier (SpaceOf style)]
-          bezList = concat $ map ({-subdivideBeziers 4 .-}  makeList . view tBez) $ curveTags
-          numCrossings = length . filter id . map (crosses anchor point) $ bezList
-          markBez anchor point bez = let ch  = crossesHorizontal anchor point bez
-                                         cv  = crossesVertical   anchor point bez
-                                         sl  = bezierSlopeLTEZero Vertical bez
-                                     in  (ch, cv, sl, bez)
+  do  (anchor, anchorStack, stack, primTags) <- queryConfineTreePointWithInfo loadPrimS confineTree decoTree point
+      let primList :: [Primitive (SpaceOf style)]
+          primList = concat $ map ({-subdivideBeziers 4 .-}  makeList . view tPrim) $ primTags
+          numCrossings = length . filter id . map (crossesPrim anchor point) $ primList
 
-          colorBez :: IsStyle style =>
-                      (Bool, Bool, Bool, Bezier (SpaceOf style))
-                      -> Layout style
-          colorBez (ch, cv, sl, bez) =
+          markPrim :: Space s
+                   => Point2 s
+                   -> Point2 s
+                   -> Primitive s
+                   -> (Bool, Bool, Bool, Primitive s)
+          markPrim anchor point prim = let ch = crossesPrimHorizontal anchor point prim
+                                           cv = crossesPrimVertical   anchor point prim
+                                           sl = slopedPrim prim
+                                       in  (ch, cv, sl, prim)
+
+          colorPrim :: IsStyle style
+                    => (Bool, Bool, Bool, Primitive (SpaceOf style))
+                    -> Layout style
+          colorPrim (ch, cv, sl, prim) =
               let color = case (ch, cv, sl) of
                              (True,  True,  True ) -> red
                              (True,  True,  False) -> light (light red)
@@ -127,20 +145,20 @@ checkPoint colorMap confineTree decoTree point =
                              (False, True,  False) -> light (light blue)
                              (False, False, True ) -> green
                              (False, False, False) -> yellow
-              in  withColor color . mask . stroke 0.1 . makeOpenCurve . makeList $ bez
+              in  withColor color . drawPrim $ prim
 
-          drawCurve :: IsStyle style
-                    => Point2 (SpaceOf style)
-                    -> Point2 (SpaceOf style)
-                    -> Bezier (SpaceOf style)
-                    -> Layout style
-          drawCurve anchor point = colorBez . markBez anchor point
+          drawMarkedPrim :: IsStyle style
+                         => Point2 (SpaceOf style)
+                         -> Point2 (SpaceOf style)
+                         -> Primitive (SpaceOf style)
+                         -> Layout style
+          drawMarkedPrim anchor point prim = colorPrim . markPrim anchor point $ prim
 
-          curvesLayout :: Layout style
-          curvesLayout = overlap $ map (drawCurve anchor point) bezList
+          primLayout :: Layout style
+          primLayout = overlap $ map (drawMarkedPrim anchor point) primList
           label :: Layout style
           label = if length stack > 0
-                  then translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show $ length bezList
+                  then translateBy point . translateByXY 10 0 . scaleBy 12 . withColor black . blurb . show $ length primList
                   else emptyItem
       layerStack <- constructLayerStack point stack
       return $
@@ -172,8 +190,7 @@ checkBox :: forall style m
 checkBox colorMap confineTree decoTree point =
   do  let end = point + Point2 50 50
           box = Box point end
-      (stack, curves) <- queryConfineTreeBox loadCurveS confineTree decoTree box
-
+      (stack, prims) <- queryConfineTreeBox loadPrimS confineTree decoTree box
       let markBez bez = let sl  = bezierSlopeLTEZero Vertical bez
                         in  (sl, bez)
 
@@ -186,14 +203,17 @@ checkBox colorMap confineTree decoTree point =
                              (False) -> dark blue
               in  withColor color . mask . stroke 2 . makeOpenCurve . makeList $ bez
 
-          drawCurve :: IsStyle style
-                    => Bezier (SpaceOf style)
+          drawPrim :: IsStyle style
+                    => Primitive (SpaceOf style)
                     -> Layout style
-          drawCurve = colorBez . markBez
+          drawPrim (Prim fabricTagId ty) =
+              case ty of
+                  PrimBezier bez -> colorBez . markBez $ bez
+                  _ -> error $ "not implemented primitive type " ++ show ty
       return $
           overlap [ -- constructLayerStack colorMap point stack
                     -- ,
                     withColor black . mask . openRectangle 1 $ box
                     ,
-                    overlap $ map (drawCurve . view tBez) curves
+                    overlap $ map (drawPrim . view tPrim) prims
                   ]

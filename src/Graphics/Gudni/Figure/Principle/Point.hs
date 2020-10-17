@@ -29,6 +29,7 @@ module Graphics.Gudni.Figure.Principle.Point
   , Axis(..)
   , athwart
   , pointAlongAxis
+  , interimPoint
   , pattern Point2
   , pattern P
   , pX
@@ -98,6 +99,9 @@ pointAlongAxis axis parentLine parentCut =
     set (along   axis) parentLine .
     set (athwart axis) parentCut  $
     zeroPoint
+
+interimPoint :: Point2 s -> Point2 s -> Point2 s
+interimPoint start end = makePoint (start ^. pX) (end ^. pY)
 
 -- | Lens for the x element of a point.
 pX :: Lens' (Point2 s) (Ax Horizontal s)

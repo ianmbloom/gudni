@@ -17,6 +17,7 @@ module Graphics.Gudni.Figure.Facet.BezierTriangle
 where
 
 import Graphics.Gudni.Figure.Principle
+import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Facet.Triangle
 
 import Graphics.Gudni.Util.Debug

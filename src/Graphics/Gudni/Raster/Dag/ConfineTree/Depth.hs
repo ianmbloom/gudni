@@ -11,7 +11,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 
-module Graphics.Gudni.Raster.ConfineTree.Depth
+module Graphics.Gudni.Raster.Dag.ConfineTree.Depth
   ( confineTreeDepth
   , confineTreeSize
   , confineTreeCountOverlaps
@@ -19,7 +19,7 @@ module Graphics.Gudni.Raster.ConfineTree.Depth
 where
 
 import Graphics.Gudni.Figure.Principle
-import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Control.Lens
 
 confineTreeDepth :: ConfineTree s -> Int

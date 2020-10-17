@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 
-module Graphics.Gudni.Raster.ConfineTree.Sweep
+module Graphics.Gudni.Raster.Dag.ConfineTree.Sweep
   ( sweepConfineTree
   , SweepStored(..)
   )
@@ -11,10 +11,10 @@ where
 
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
-import Graphics.Gudni.Raster.Dag.PrimStack
-import Graphics.Gudni.Raster.Dag.Primitive
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.Primitive.WithTag
+import Graphics.Gudni.Raster.Dag.Primitive.Stack
+import Graphics.Gudni.Raster.Dag.Primitive.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
@@ -26,11 +26,11 @@ import Control.Monad.IO.Class
 
 data SweepStored s = SweepStored
     { ssBox    :: Box s
-    , ssCurves :: [TBezier s]
+    , ssPrims :: [TPrim s]
     }
 
 instance Show s => Show (SweepStored s) where
-  show ss = "sto " ++ show (ssCurves ss)
+  show ss = "sto " ++ show (ssPrims ss)
 
 addCrossingM :: forall axis s m
              .  ( Axis axis
@@ -39,7 +39,7 @@ addCrossingM :: forall axis s m
                 , Monad m
                 , Space s
                 )
-             => (PrimTagId -> m (Bezier s))
+             => (PrimTagId -> m (Primitive s))
              -> m ()
              -> axis
              -> Athwart axis s
@@ -48,17 +48,17 @@ addCrossingM :: forall axis s m
              -> PrimStack
              -> PrimTagId
              -> m PrimStack
-addCrossingM getCurve op axis parentCut parentLine tree stack primTagId =
+addCrossingM getPrim op axis parentCut parentLine tree stack primTagId =
     do op
-       curve <- getCurve primTagId
-       return $ crossCurveAlong (perpendicularTo axis) parentCut parentLine (tree ^. confineCut) primTagId curve stack
+       prim <- getPrim primTagId
+       return $ crossPrimAlong (perpendicularTo axis) parentCut parentLine (tree ^. confineCut) primTagId prim stack
 
 sweepConfineTree :: forall s m
                  . ( Space s
                    , MonadIO m
                    )
                  => (PrimTagId -> m (Box s))
-                 -> (PrimTagId -> m (Bezier s))
+                 -> (PrimTagId -> m (Primitive s))
                  -> m ()
                  -> m ()
                  -> (PrimStack -> PrimStack -> m ())
@@ -71,7 +71,7 @@ sweepConfineTree :: forall s m
                  -> ConfineTree s
                  -> m (DecorateTree s)
 sweepConfineTree getBox
-                 getCurve
+                 getPrim
                  crossingOp
                  branchStep
                  overhangOp
@@ -117,7 +117,7 @@ sweepConfineTree getBox
        let lessSide = not moreSide
            ind x = return () -- liftIO $ putStrLn $ concat (replicate depth "      ") ++ "sweep " ++ x
 
-           addCrossings overhangs tree primStack = foldM (addCrossingM getCurve crossingOp axis parentCut parentLine tree) primStack overhangs
+           addCrossings overhangs tree primStack = foldM (addCrossingM getPrim crossingOp axis parentCut parentLine tree) primStack overhangs
            handleOverhangs :: String -> [PrimTagId] -> m [PrimTagId]
            handleOverhangs mess primStack =
                do  (keep, discard) <- partitionM (overhangs axis boundary) primStack

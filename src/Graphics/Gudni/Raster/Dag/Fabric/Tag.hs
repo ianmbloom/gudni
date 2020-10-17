@@ -16,7 +16,7 @@
 --
 -- Constructors for attaching metadata to shapes∘
 
-module Graphics.Gudni.Raster.Dag.FabricTag
+module Graphics.Gudni.Raster.Dag.Fabric.Tag
     ( makeFabHigh
     , makeFabLow
     , fromFabHigh

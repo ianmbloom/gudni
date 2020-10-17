@@ -35,13 +35,14 @@ module Graphics.Gudni.Figure.Transform.Transformer
 )
 where
 
-import Graphics.Gudni.Base.HasDefault
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure.Principle
-import Graphics.Gudni.Figure.Transform.Projection
+import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Facet
+import Graphics.Gudni.Figure.Shape
 import Graphics.Gudni.Figure.Fit.Bezier
+import Graphics.Gudni.Figure.Transform.Projection
 
-import Graphics.Gudni.Base.Chain
 import Graphics.Gudni.Util.Debug
 
 import Control.Monad.Random

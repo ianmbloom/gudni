@@ -11,7 +11,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 
-module Graphics.Gudni.Raster.ConfineTree.SweepTrace
+module Graphics.Gudni.Raster.Dag.ConfineTree.SweepTrace
   ( SweepTrace(..)
   , sweepDiscarded
   , sweepContinue
@@ -38,14 +38,14 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
 
-import Graphics.Gudni.Raster.Dag.Primitive
+import Graphics.Gudni.Raster.Dag.Primitive.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
-import Graphics.Gudni.Raster.ConfineTree.Add
-import Graphics.Gudni.Raster.ConfineTree.Decorate
-import Graphics.Gudni.Raster.ConfineTree.Sweep
-import Graphics.Gudni.Raster.ConfineTree.Depth
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.Primitive.WithTag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Add
+import Graphics.Gudni.Raster.Dag.ConfineTree.Decorate
+import Graphics.Gudni.Raster.Dag.ConfineTree.Sweep
+import Graphics.Gudni.Raster.Dag.ConfineTree.Depth
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Raster.Serial.Slice

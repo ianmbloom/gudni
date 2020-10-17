@@ -12,7 +12,7 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
-module Graphics.Gudni.Raster.ConfineTree.Type
+module Graphics.Gudni.Raster.Dag.ConfineTree.Type
   ( PrimStack(..)
   , ConfineTree (..)
   , Confine(..)
@@ -34,7 +34,7 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
+import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 
 import Graphics.Gudni.Util.Debug
 

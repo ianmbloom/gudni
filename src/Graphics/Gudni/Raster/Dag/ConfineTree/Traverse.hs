@@ -11,7 +11,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 
-module Graphics.Gudni.Raster.ConfineTree.Traverse
+module Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
   ( traverseCTAlong
   , traverseCTBetweenPoints
   , traverseCTBox
@@ -19,9 +19,9 @@ module Graphics.Gudni.Raster.ConfineTree.Traverse
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
+import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 
 import Graphics.Gudni.Util.Debug
 

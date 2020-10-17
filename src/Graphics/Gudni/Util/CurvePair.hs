@@ -15,6 +15,7 @@ module Graphics.Gudni.Util.CurvePair
 where
 
 import Graphics.Gudni.Figure.Principle
+import Graphics.Gudni.Figure.Bezier.Type
 import Graphics.Gudni.Base.Loop
 
 import Control.Lens

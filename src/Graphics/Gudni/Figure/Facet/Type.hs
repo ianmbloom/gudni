@@ -34,11 +34,9 @@ module Graphics.Gudni.Figure.Facet.Type
 where
 
 import Graphics.Gudni.Figure.Principle
+import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Facet.Triangle
 import Graphics.Gudni.Figure.Facet.BezierTriangle
-import Graphics.Gudni.Figure.Bezier.Deknob
-import Graphics.Gudni.Figure.Bezier.Split
-import Graphics.Gudni.Figure.Bezier.Cut
 import Graphics.Gudni.Util.Debug
 
 import Linear.V2

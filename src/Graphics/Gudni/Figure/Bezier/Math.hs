@@ -20,6 +20,8 @@ module Graphics.Gudni.Figure.Bezier.Math
 where
 
 import Graphics.Gudni.Figure.Principle
+import Graphics.Gudni.Figure.Bezier.Type
+import Graphics.Gudni.Figure.Bezier.Cut
 
 import Linear.Vector
 import Linear.Affine

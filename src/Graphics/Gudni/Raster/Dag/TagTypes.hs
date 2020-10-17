@@ -8,6 +8,7 @@ module Graphics.Gudni.Raster.Dag.TagTypes
     , FabricTag(..)
     , BezierId(..)
     , FacetId(..)
+    , BoxId(..)
     , ConfineTreeId(..)
     , TransformId(..)
     , SubstanceTag(..)
@@ -30,22 +31,20 @@ import GHC.Ptr
 
 newtype PrimTagId     = PrimTagId     {unPrimTagId     :: Reference PrimTag     } deriving (Eq, Ord, Generic       )
 newtype PrimTag       = PrimTag       {unPrimTag       :: PrimTag_              } deriving (Eq, Ord, Generic       )
-newtype FabricTagId   = FabricTagId   {unFabricTagId   :: Reference FabricTag   } deriving (Eq, Ord, Generic, Show )
+newtype FabricTagId   = FabricTagId   {unFabricTagId   :: Reference FabricTag   } deriving (Eq, Ord, Generic       )
 newtype FabricTag     = FabricTag     {unFabricTag     :: FabricTag_            } deriving (Eq, Ord, Generic       )
-newtype BezierId s    = BezierId      {unBezierId      :: Reference (Bezier s)  } deriving (Eq, Ord, Generic       )
-newtype FacetId s     = FacetId       {unFacetId       :: Reference (Facet s)   } deriving (Eq, Ord, Generic       )
-newtype ConfineTreeId = ConfineTreeId {unConfineTreeId :: StorageId_            } deriving (Num, Eq, Ord, Generic, Show )
+newtype BezierId s    = BezierId      {unBezierId      :: Reference (Bezier s)  } deriving (Eq, Ord, Generic, Show )
+newtype FacetId s     = FacetId       {unFacetId       :: Reference (Facet s)   } deriving (Eq, Ord, Generic, Show )
+newtype BoxId s       = BoxId         {unBoxId         :: Reference (Box s)     } deriving (Eq, Ord, Generic, Show )
+newtype ConfineTreeId = ConfineTreeId {unConfineTreeId :: StorageId_            } deriving (Eq, Ord, Generic, Show , Num)
 newtype TransformId   = TransformId   {unTransformId   :: StorageId_            } deriving (Eq, Ord, Generic, Show )
 newtype SubstanceTag  = SubstanceTag  {unSubstanceTag  :: FabricTag_            } deriving (Eq, Ord, Generic       )
 
 nullFabricTagId :: FabricTagId
 nullFabricTagId = FabricTagId (Ref $ nULLfABRICtAGiD)
 
-instance Show (BezierId s) where
-    show (BezierId i) = show i ++ "bid"
-
-instance Show (FacetId s) where
-    show (FacetId i) = show i ++ "fid"
+instance Show FabricTagId where
+  show = show . unRef . unFabricTagId
 
 instance Show PrimTagId where
   show = show . unRef . unPrimTagId
@@ -56,6 +55,7 @@ instance Out FabricTagId
 instance Out FabricTag
 instance Out s => Out (BezierId s)
 instance Out s => Out (FacetId  s)
+instance Out s => Out (BoxId  s)
 instance Out ConfineTreeId
 instance Out TransformId
 instance Out SubstanceTag
@@ -95,6 +95,12 @@ instance Storable s => Storable (FacetId  s) where
   alignment (FacetId i) = alignment (undefined :: Reference (Facet s) )
   peek ptr = FacetId <$>  peek (castPtr ptr)
   poke ptr  (FacetId i) = poke (castPtr ptr) i
+
+instance Storable s => Storable (BoxId  s) where
+  sizeOf    (BoxId i) = sizeOf    (undefined :: Reference (Box s) )
+  alignment (BoxId i) = alignment (undefined :: Reference (Box s) )
+  peek ptr = BoxId <$>  peek (castPtr ptr)
+  poke ptr  (BoxId i) = poke (castPtr ptr) i
 
 instance Storable ConfineTreeId where
   sizeOf    (ConfineTreeId i) = sizeOf    (undefined :: StorageId_ )

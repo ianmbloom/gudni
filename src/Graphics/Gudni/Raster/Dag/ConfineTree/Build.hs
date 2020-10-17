@@ -11,7 +11,7 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 
-module Graphics.Gudni.Raster.ConfineTree.Build
+module Graphics.Gudni.Raster.Dag.ConfineTree.Build
   ( buildConfineTree
   )
 where
@@ -19,16 +19,16 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
 
-import Graphics.Gudni.Raster.Dag.Primitive
+import Graphics.Gudni.Raster.Dag.Primitive.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
 
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
-import Graphics.Gudni.Raster.ConfineTree.Add
-import Graphics.Gudni.Raster.ConfineTree.Decorate
-import Graphics.Gudni.Raster.ConfineTree.Sweep
-import Graphics.Gudni.Raster.ConfineTree.SweepTrace
-import Graphics.Gudni.Raster.ConfineTree.Depth
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.Primitive.WithTag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Add
+import Graphics.Gudni.Raster.Dag.ConfineTree.Decorate
+import Graphics.Gudni.Raster.Dag.ConfineTree.Sweep
+import Graphics.Gudni.Raster.Dag.ConfineTree.SweepTrace
+import Graphics.Gudni.Raster.Dag.ConfineTree.Depth
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Raster.Serial.Reference
@@ -92,14 +92,14 @@ buildConfineTree :: forall s m
                     , MonadIO m
                     )
                  => (PrimTagId -> m (Box s))
-                 -> (PrimTagId -> m (Bezier s))
+                 -> (PrimTagId -> m (Primitive s))
                  -> Bool
                  -> Int
                  -> Int
                  -> Slice PrimTagId
                  -> Pile PrimTagId
                  -> m (ConfineTree s, DecorateTree s, SweepTrace s)
-buildConfineTree getBox getCurve decorateType traceLimit decorationLimit slice primTagIdPile =
+buildConfineTree getBox getPrim decorateType traceLimit decorationLimit slice primTagIdPile =
   do   treeBare <- -- tcP "bareTree" .
                    trWith (show . confineTreeCountOverlaps) "confineTreeCountOverlaps" .
                    trWith (show . confineTreeDepth) "confineTreeDepth" .
@@ -109,7 +109,7 @@ buildConfineTree getBox getCurve decorateType traceLimit decorationLimit slice p
        let numItems = confineTreeSize treeBare
        liftIO $ putStrLn $ "decorateType " ++ show decorateType ++ " limit " ++ show decorationLimit
        (treeDecorated2, trace) <- runStateT (sweepConfineTree (lift . getBox  )
-                                                              (lift . getCurve)
+                                                              (lift . getPrim )
                                                               crossStep
                                                               branchStep
                                                               (overhangOp   traceLimit)
@@ -126,7 +126,7 @@ buildConfineTree getBox getCurve decorateType traceLimit decorationLimit slice p
        liftIO $ putStrLn $ "averageConsidered " ++ showFl' 4 (fromIntegral (trace ^. sweepCrossSteps) / fromIntegral numItems :: Double)
        liftIO $ putStrLn ""
 
-       (treeDecorated, decorationCount) <- runStateT (buildDecorateTree (lift . getCurve) (modify (+1)) decorationLimit treeBare) 0
+       (treeDecorated, decorationCount) <- runStateT (buildDecorateTree (lift . getPrim) (modify (+1)) decorationLimit treeBare) 0
        --conConfineTree .= treeDecorated
        let total = decorationCount
        liftIO $ putStrLn $ "steps per node    " ++ showFl' 4 (fromIntegral decorationCount / fromIntegral numItems :: Double)

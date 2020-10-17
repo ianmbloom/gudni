@@ -76,31 +76,36 @@ library
                      , Graphics.Gudni.Util.Shuffle
                      , Graphics.Gudni.Util.TreeOrderTable
 
-                     , Graphics.Gudni.Raster.ConfineTree.Add
-                     , Graphics.Gudni.Raster.ConfineTree.Build
-                     , Graphics.Gudni.Raster.ConfineTree.Decorate
-                     , Graphics.Gudni.Raster.ConfineTree.Depth
-                     , Graphics.Gudni.Raster.ConfineTree.Query
-                     , Graphics.Gudni.Raster.ConfineTree.Sweep
-                     , Graphics.Gudni.Raster.ConfineTree.SweepTrace
-                     , Graphics.Gudni.Raster.ConfineTree.TaggedBezier
-                     , Graphics.Gudni.Raster.ConfineTree.Traverse
-                     , Graphics.Gudni.Raster.ConfineTree.Type
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Add
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Build
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Decorate
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Depth
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Query
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Sweep
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.SweepTrace
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Type
 
                      , Graphics.Gudni.Raster.Dag.Constants
-                     , Graphics.Gudni.Raster.Dag.Fabric
-                     , Graphics.Gudni.Raster.Dag.FabricTag
-                     , Graphics.Gudni.Raster.Dag.FabricStorage
+                     , Graphics.Gudni.Raster.Dag.Fabric.Type
+                     , Graphics.Gudni.Raster.Dag.Fabric.Tag
+                     , Graphics.Gudni.Raster.Dag.Fabric.Storage
                      , Graphics.Gudni.Raster.Dag.FromLayout
                      , Graphics.Gudni.Raster.Dag.SubstanceTag
-                     , Graphics.Gudni.Raster.Dag.PrimStack
-                     , Graphics.Gudni.Raster.Dag.PrimTag
+
+                     , Graphics.Gudni.Raster.Dag.Primitive.Cross
+                     , Graphics.Gudni.Raster.Dag.Primitive.Stack
+                     , Graphics.Gudni.Raster.Dag.Primitive.Storage
+                     , Graphics.Gudni.Raster.Dag.Primitive.Tag
+                     , Graphics.Gudni.Raster.Dag.Primitive.Type
+                     , Graphics.Gudni.Raster.Dag.Primitive.WithinBox
+                     , Graphics.Gudni.Raster.Dag.Primitive.WithTag
+
                      , Graphics.Gudni.Raster.Dag.Query
                      , Graphics.Gudni.Raster.Dag.PrimColorQuery
-                     , Graphics.Gudni.Raster.Dag.PrimStorage
-                     , Graphics.Gudni.Raster.Dag.TreeStorage
+
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Storage
                      , Graphics.Gudni.Raster.Dag.TagTypes
-                     , Graphics.Gudni.Raster.Dag.Primitive
                      , Graphics.Gudni.Raster.Dag.State
                      , Graphics.Gudni.Raster.Dag.Serialize.ExtractPrimPass
                      , Graphics.Gudni.Raster.Dag.Serialize
@@ -112,36 +117,23 @@ library
                      , Graphics.Gudni.Base.Chain
                      , Graphics.Gudni.Base.Loop
 
+                     , Graphics.Gudni.Figure.Bezier
                      , Graphics.Gudni.Figure.Deknob
                      , Graphics.Gudni.Figure.Facet
                      , Graphics.Gudni.Figure.Fit
                      , Graphics.Gudni.Figure.Principle
+                     , Graphics.Gudni.Figure.Shape
                      , Graphics.Gudni.Figure.Substance
                      , Graphics.Gudni.Figure.Transform
-
-                     , Graphics.Gudni.Figure.Deknob.Class
-
-                     , Graphics.Gudni.Figure.Facet.Triangle
-                     , Graphics.Gudni.Figure.Facet.BezierTriangle
-                     , Graphics.Gudni.Figure.Facet.Type
-                     , Graphics.Gudni.Figure.Facet.Subdivide
-                     , Graphics.Gudni.Figure.Facet.Traverse
-                     , Graphics.Gudni.Figure.Facet.Barycentric
-
-                     , Graphics.Gudni.Figure.Fit.Bezier
-                     , Graphics.Gudni.Figure.Fit.Box
 
                      , Graphics.Gudni.Figure.Principle.Affine
                      , Graphics.Gudni.Figure.Principle.Angle
                      , Graphics.Gudni.Figure.Principle.ArcLength
                      , Graphics.Gudni.Figure.Principle.Axis
                      , Graphics.Gudni.Figure.Principle.Box
+                     , Graphics.Gudni.Figure.Principle.Cut
                      , Graphics.Gudni.Figure.Principle.Point
                      , Graphics.Gudni.Figure.Principle.Space
-
-                     , Graphics.Gudni.Figure.Shape.Type
-                     , Graphics.Gudni.Figure.Shape.Outline
-                     , Graphics.Gudni.Figure.Shape.OpenCurve
 
                      , Graphics.Gudni.Figure.Bezier.Type
                      , Graphics.Gudni.Figure.Bezier.Cross
@@ -150,6 +142,25 @@ library
                      , Graphics.Gudni.Figure.Bezier.Deknob
                      , Graphics.Gudni.Figure.Bezier.Math
                      , Graphics.Gudni.Figure.Bezier.WithinBox
+
+                     , Graphics.Gudni.Figure.Deknob.Class
+
+                     , Graphics.Gudni.Figure.Facet.Cross
+                     , Graphics.Gudni.Figure.Facet.Triangle
+                     , Graphics.Gudni.Figure.Facet.BezierTriangle
+                     , Graphics.Gudni.Figure.Facet.Type
+                     , Graphics.Gudni.Figure.Facet.Subdivide
+                     , Graphics.Gudni.Figure.Facet.Traverse
+                     , Graphics.Gudni.Figure.Facet.Barycentric
+                     , Graphics.Gudni.Figure.Facet.WithinBox
+
+                     , Graphics.Gudni.Figure.Fit.Bezier
+                     , Graphics.Gudni.Figure.Fit.Box
+
+
+                     , Graphics.Gudni.Figure.Shape.Type
+                     , Graphics.Gudni.Figure.Shape.Outline
+                     , Graphics.Gudni.Figure.Shape.OpenCurve
 
                      , Graphics.Gudni.Figure.Substance.Color
                      , Graphics.Gudni.Figure.Substance.Gradient
@@ -176,6 +187,7 @@ library
 
                      , Graphics.Gudni.Draw.Representation
                      , Graphics.Gudni.Draw.Representation.Class
+                     , Graphics.Gudni.Draw.Representation.Primitive
                      , Graphics.Gudni.Draw.Representation.ConfineTree
                      , Graphics.Gudni.Draw.Representation.DecorateTree
                      , Graphics.Gudni.Draw.Representation.ConfineQuery

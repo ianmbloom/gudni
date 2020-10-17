@@ -16,8 +16,7 @@ import Graphics.Gudni.Base.Loop
 
 import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Transform.Projection.BezierSpace
-import Graphics.Gudni.Figure.Bezier.Split
-import Graphics.Gudni.Figure.Bezier.Cut
+import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Deknob
 
 import Graphics.Gudni.Util.Debug

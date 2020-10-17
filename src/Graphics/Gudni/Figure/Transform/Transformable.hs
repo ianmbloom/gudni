@@ -31,6 +31,7 @@ module Graphics.Gudni.Figure.Transform.Transformable
 where
 
 import Graphics.Gudni.Figure.Principle
+import Graphics.Gudni.Figure.Shape
 import Graphics.Gudni.Figure.Transform.Transformer
 
 import Graphics.Gudni.Util.Debug

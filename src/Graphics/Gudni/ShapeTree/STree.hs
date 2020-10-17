@@ -64,6 +64,7 @@ where
 
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure.Principle
+import Graphics.Gudni.Figure.Shape
 import Graphics.Gudni.Figure.Substance
 import Graphics.Gudni.Figure.Transform
 

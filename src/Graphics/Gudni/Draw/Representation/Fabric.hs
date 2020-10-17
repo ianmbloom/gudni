@@ -15,8 +15,8 @@ import Graphics.Gudni.Layout
 import Graphics.Gudni.Raster.Dag.Query
 import Graphics.Gudni.Raster.Dag.PrimColorQuery
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.FabricStorage
-import Graphics.Gudni.Raster.Dag.Fabric
+import Graphics.Gudni.Raster.Dag.Fabric.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Storage
 import Graphics.Gudni.Raster.Dag.State
 
 import Graphics.Gudni.Draw.Stroke

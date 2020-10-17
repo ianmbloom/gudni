@@ -17,7 +17,7 @@ where
 import Graphics.Gudni.Base
 
 import Graphics.Gudni.Figure.Principle
-import Graphics.Gudni.Figure.Bezier.Math
+import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Deknob
 import Graphics.Gudni.Figure.Transform.Projection
 

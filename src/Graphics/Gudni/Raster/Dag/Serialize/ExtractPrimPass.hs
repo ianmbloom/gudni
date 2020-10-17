@@ -24,7 +24,7 @@ module Graphics.Gudni.Raster.Dag.Serialize.ExtractPrimPass
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Raster.Dag.Fabric
+import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.FromLayout
 import Graphics.Gudni.Layout.Layout
 import Graphics.Gudni.Layout.Style
@@ -36,13 +36,13 @@ import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.TextureReference
 
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Primitive
-import Graphics.Gudni.Raster.Dag.PrimStorage
-import Graphics.Gudni.Raster.Dag.PrimTag
-import Graphics.Gudni.Raster.Dag.FabricStorage
-import Graphics.Gudni.Raster.Dag.FabricTag
+import Graphics.Gudni.Raster.Dag.Primitive.Type
+import Graphics.Gudni.Raster.Dag.Primitive.Storage
+import Graphics.Gudni.Raster.Dag.Primitive.Tag
+import Graphics.Gudni.Raster.Dag.Fabric.Storage
+import Graphics.Gudni.Raster.Dag.Fabric.Tag
 import Graphics.Gudni.Raster.Dag.State
-import Graphics.Gudni.Raster.Dag.TreeStorage
+import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
 
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice
@@ -161,7 +161,7 @@ buildLeaf parent leaf =
             do let outlines = view shapeOutlines . mapOverPoints (fmap clampReasonable) $ shape
                    boundingBox = minMaxBoxes . fmap boxOf $ outlines
                    prims = V.concat .
-                           map (V.map (PrimBezier parent) .
+                           map (V.map (Prim parent . PrimBezier) .
                                        view outlineSegments
                                        ) $
                                        outlines

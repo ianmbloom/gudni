@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances #-} -- Show (SpaceOf leaf)
+{-# LANGUAGE UndecidableInstances  #-} -- Show (SpaceOf leaf)
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE Rank2Types            #-}
@@ -22,7 +22,7 @@
 -- A ShapeTree is the main input data structure for the Gudni Rasterizer. A client program
 -- generates a Scene which contains a ShapeTree for each frame that they wish to render.
 
-module Graphics.Gudni.Raster.Dag.Fabric
+module Graphics.Gudni.Raster.Dag.Fabric.Type
   ( FabricType(..)
   , Fabric(..)
   , FCombineType(..)

@@ -14,9 +14,10 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.ShapeTree
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
-import Graphics.Gudni.Raster.ConfineTree.SweepTrace
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.Primitive.Type
+import Graphics.Gudni.Raster.Dag.Primitive.WithTag
+import Graphics.Gudni.Raster.Dag.ConfineTree.SweepTrace
 import Graphics.Gudni.Raster.Dag.Query
 import Graphics.Gudni.Raster.Dag.State
 
@@ -59,13 +60,13 @@ pathLine  color (start, end) = withColor (transparent 0.5 color) . mask . stroke
 constructSweepStored :: IsStyle style
                      => Bool
                      -> Int
-                     -> [Bezier (SpaceOf style)]
+                     -> [Primitive (SpaceOf style)]
                      -> Layout style
-constructSweepStored bypassed i curves =
+constructSweepStored bypassed i prims =
   let sat = if bypassed then saturate 0.25 else id
       color = sat $ colorList !! (i `mod` numColors)
   in
-  overlap $ map (simpleBezier color) curves
+  overlap $ map (withColor color . drawPrim) prims
 
 constructSweepTrace :: forall style m
                     . ( IsStyle style
@@ -75,15 +76,15 @@ constructSweepTrace :: forall style m
                     => SweepTrace (SpaceOf style)
                     -> FabricMonad (SpaceOf style) m (Layout style)
 constructSweepTrace trace =
-   do discarded <- mapM loadCurveS (trace ^. sweepDiscarded)
-      continue  <- mapM loadCurveS (trace ^. sweepContinue)
-      bypass    <- mapM (mapM loadCurveS) (trace ^. sweepBypasses)
+   do discarded <- mapM loadPrimS (trace ^. sweepDiscarded)
+      continue  <- mapM loadPrimS (trace ^. sweepContinue)
+      bypass    <- mapM (mapM loadPrimS) (trace ^. sweepBypasses)
       return $
           overlap
-              [ overlap $ map (pathLine blue) (nullTail $ trace ^. sweepPath)
+              [ overlap $ map (pathLine blue  ) (nullTail $ trace ^. sweepPath)
               , overlap $ map (pathLine purple) (nullHead $ trace ^. sweepPath)
-              , overlap $ map (simpleBezier black) discarded
-              , overlap $ map (simpleBezier yellow) continue
+              , overlap $ map (withColor black  . drawPrim) discarded
+              , overlap $ map (withColor yellow . drawPrim) continue
               , overlap $ imap (constructSweepStored True) $ bypass
               , overlap $ map (withColor (transparent 0.5 $ light gray) . mask . boxToRectangle . constrainBox) (trace ^. sweepVisited)
               ]

@@ -20,9 +20,9 @@ import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Util.Debug
 
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.Build
-import Graphics.Gudni.Raster.Dag.PrimStorage
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Build
+import Graphics.Gudni.Raster.Dag.Primitive.Storage
 import Graphics.Gudni.Raster.Dag.FromLayout
 import Graphics.Gudni.Raster.Dag.Serialize
 import Graphics.Gudni.Raster.TextureReference
@@ -124,7 +124,7 @@ instance Model ConfineTreeState where
                     --                     state ^. stateBase . statePlayhead
                     -- traceConstructed :: Layout DefaultStyle
                     -- traceConstructed <- constructSweepTrace sweepTrace
-                    liftIO $ putStrLn "about to contructDag" 
+                    liftIO $ putStrLn "about to contructDag"
                     dag <- constructDag fabricTagId
                     return $
                         overlap [  -- overlap randomPoints

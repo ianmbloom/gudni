@@ -14,13 +14,13 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.ShapeTree
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.PrimStack
+import Graphics.Gudni.Raster.Dag.Primitive.Stack
 import Graphics.Gudni.Raster.Dag.Query
 import Graphics.Gudni.Raster.Dag.State
-import Graphics.Gudni.Raster.ConfineTree.Traverse
+import Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
 
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Rectangle

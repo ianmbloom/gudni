@@ -17,21 +17,21 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree.STree
 
-import Graphics.Gudni.Raster.Dag.Primitive
+import Graphics.Gudni.Raster.Dag.Primitive.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.PrimTag
-import Graphics.Gudni.Raster.Dag.PrimStorage
+import Graphics.Gudni.Raster.Dag.Primitive.Tag
+import Graphics.Gudni.Raster.Dag.Primitive.Storage
 import Graphics.Gudni.Raster.Dag.SubstanceTag
-import Graphics.Gudni.Raster.Dag.FabricTag
-import Graphics.Gudni.Raster.Dag.FabricStorage
-import Graphics.Gudni.Raster.Dag.TreeStorage
+import Graphics.Gudni.Raster.Dag.Fabric.Tag
+import Graphics.Gudni.Raster.Dag.Fabric.Storage
+import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
 import Graphics.Gudni.Raster.Dag.State
-import Graphics.Gudni.Raster.Dag.Fabric
-import Graphics.Gudni.Raster.ConfineTree.Query
+import Graphics.Gudni.Raster.Dag.Fabric.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Query
 
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.Dag.Serialize
-import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Util.Util
 
 import Control.Monad.State
@@ -89,7 +89,7 @@ class ( HasSpace r
 
 instance (Space s, Storable s) => Ray (Point2 s) where
     rayToPoint           ray = ray
-    overTree cTree dTree ray = queryConfineTreePoint loadCurveS cTree dTree (rayToPoint ray)
+    overTree cTree dTree ray = queryConfineTreePoint loadPrimS cTree dTree (rayToPoint ray)
     overTransform trans  ray = transformPoint trans ray
     overFacet     facet  ray = inverseFacet facet ray
 
@@ -177,10 +177,10 @@ queryPrim :: ( MonadIO m
           -> PrimTagId
           -> FabricMonad (SpaceOf ray) m q
 queryPrim ray primTagId =
-  do prim <- loadPrimS primTagId
-     case prim of
-       PrimBezier fabricTagId _ ->
+  do (Prim fabricTagId ty) <- loadPrimS primTagId
+     case ty of
+       PrimBezier _ ->
            queryFabric ray fabricTagId
-       PrimFacet fabricTagId facet ->
+       PrimFacet facet ->
            let ray' = overFacet facet ray
            in  queryFabric ray' fabricTagId

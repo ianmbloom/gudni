@@ -15,16 +15,16 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree.STree
 
-import Graphics.Gudni.Raster.Dag.Primitive
-import Graphics.Gudni.Raster.Dag.Fabric
+import Graphics.Gudni.Raster.Dag.Primitive.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.Query
 import Graphics.Gudni.Raster.Dag.State
-import Graphics.Gudni.Raster.ConfineTree.Query
+import Graphics.Gudni.Raster.Dag.ConfineTree.Query
 
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.Dag.Serialize
-import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 
 import Control.Monad.State
 import Control.Monad.IO.Class
@@ -58,4 +58,4 @@ loadFabricColorS fabricTagId =
 
 loadPrimColorS primTagId =
   do prim <- loadPrimS primTagId
-     loadFabricColorS (primToFabricTagId prim)
+     loadFabricColorS (view primFabricTagId prim)

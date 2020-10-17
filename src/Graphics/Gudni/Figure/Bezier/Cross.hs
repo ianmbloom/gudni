@@ -3,10 +3,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Graphics.Gudni.Figure.Bezier.Cross
-  ( crossesAlong
-  , crosses
-  , crossesHorizontal
-  , crossesVertical
+  ( crossesBezierAlong
+  , crossesBezier
+  , crossesBezierHorizontal
+  , crossesBezierVertical
   , interimPoint
   , bezierSlopeLTEZero
   , crossSplitLimit
@@ -15,10 +15,7 @@ module Graphics.Gudni.Figure.Bezier.Cross
   )
 where
 
-import Graphics.Gudni.Figure.Principle.Space
-import Graphics.Gudni.Figure.Principle.Axis
-import Graphics.Gudni.Figure.Principle.Point
-import Graphics.Gudni.Figure.Principle.Box
+import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Bezier.Type
 import Graphics.Gudni.Util.Debug
 
@@ -45,21 +42,21 @@ bezierSlopeLTEZero axis bez =
 trDP depth message = id -- trDepth (depth + 1) message
 tcDP depth message = id -- tcDepth (depth + 1) message
 
-crossesAlong :: forall axis s
-             . (Axis axis, Space s)
-             => axis
-             -> Along axis s
-             -> Athwart axis s
-             -> Along axis s
-             -> Bezier s
-             -> Bool
-crossesAlong axis start baseline end bez =
-  --tc ("crossesAlong " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
+crossesBezierAlong :: forall axis s
+                   . (Axis axis, Space s)
+                   => axis
+                   -> Along axis s
+                   -> Athwart axis s
+                   -> Along axis s
+                   -> Bezier s
+                   -> Bool
+crossesBezierAlong axis start baseline end bez =
+  --tc ("crossesBezierAlong " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
   if start == end
   then False
   else
   if start > end
-  then crossesAlong axis end baseline start bez
+  then crossesBezierAlong axis end baseline start bez
   else go bez
   where
   go :: Bezier s -> Bool
@@ -98,22 +95,22 @@ crossesAlong axis start baseline end bez =
                       then start <= barrier && end > barrier
                       else start < barrier  && end >= barrier
 
--- This is an implementation of crosses along that doesn't short circuit if the maximum side of the curve is on the baseline.
-crossesAlongNoShort :: forall axis s
-                    . (Axis axis, Space s)
-                    => axis
-                    -> Along axis s
-                    -> Athwart axis s
-                    -> Along axis s
-                    -> Bezier s
-                    -> Bool
-crossesAlongNoShort axis start baseline end bez =
-  --tc ("crossesAlong " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
+-- This is an implementation of crossesBezierAlong that doesn't short circuit if the maximum side of the curve is on the baseline.
+crossesBezierAlongNoShort :: forall axis s
+                          . (Axis axis, Space s)
+                          => axis
+                          -> Along axis s
+                          -> Athwart axis s
+                          -> Along axis s
+                          -> Bezier s
+                          -> Bool
+crossesBezierAlongNoShort axis start baseline end bez =
+  --tc ("crossesBezierAlong " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
   if start == end
   then False
   else
   if start > end
-  then crossesAlong axis end baseline start bez
+  then crossesBezierAlong axis end baseline start bez
   else go bez
   where
   go :: Bezier s -> Bool
@@ -147,21 +144,17 @@ crossesAlongNoShort axis start baseline end bez =
                       barrier    = if barrierMin then minAlong else maxAlong
                   in  start <= barrier && end > barrier
 
-
-interimPoint :: Point2 s -> Point2 s -> Point2 s
-interimPoint start end = makePoint (start ^. pX) (end ^. pY)
-
-crosses :: (Space s) => Point2 s -> Point2 s -> Bezier s -> Bool
-crosses start end bez =
+crossesBezier :: (Space s) => Point2 s -> Point2 s -> Bezier s -> Bool
+crossesBezier start end bez =
     let iP = interimPoint start end
     in
-    crossesAlong Vertical   (start ^. pY) (start ^. pX) (iP  ^. pY) bez /=
-    crossesAlong Horizontal (iP    ^. pX) (iP    ^. pY) (end ^. pX) bez
+    crossesBezierAlong Vertical   (start ^. pY) (start ^. pX) (iP  ^. pY) bez /=
+    crossesBezierAlong Horizontal (iP    ^. pX) (iP    ^. pY) (end ^. pX) bez
 
-crossesHorizontal :: (Space s) => Point2 s -> Point2 s -> Bezier s -> Bool
-crossesHorizontal start end bez =
-    crossesAlong Horizontal (start ^. pX) (end ^. pY) (end ^. pX) bez
+crossesBezierHorizontal :: (Space s) => Point2 s -> Point2 s -> Bezier s -> Bool
+crossesBezierHorizontal start end bez =
+    crossesBezierAlong Horizontal (start ^. pX) (end ^. pY) (end ^. pX) bez
 
-crossesVertical :: (Space s) => Point2 s -> Point2 s -> Bezier s -> Bool
-crossesVertical start end bez =
-    crossesAlong Vertical   (start ^. pY) (start ^. pX) (end  ^. pY) bez
+crossesBezierVertical :: (Space s) => Point2 s -> Point2 s -> Bezier s -> Bool
+crossesBezierVertical start end bez =
+    crossesBezierAlong Vertical   (start ^. pY) (start ^. pX) (end  ^. pY) bez

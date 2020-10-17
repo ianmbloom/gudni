@@ -6,7 +6,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.ConfineTree.PrimTag
+-- Module      :  Graphics.Gudni.Raster.Dag.ConfineTree.PrimTag
 -- Copyright   :  (c) Ian Bloom 2020
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -16,7 +16,7 @@
 --
 -- Constructors for attaching metadata to shapes∘
 
-module Graphics.Gudni.Raster.Dag.PrimTag
+module Graphics.Gudni.Raster.Dag.Primitive.Tag
     ( makeFacetPrimTag
     , makeBezierPrimTag
     , makeRectPrimTag
@@ -25,10 +25,11 @@ module Graphics.Gudni.Raster.Dag.PrimTag
     , primTagType
     , primTagIsBezier
     , primTagIsFacet
-    , primTagIsRectangle
+    , primTagIsRect
     , primTagIsElipse
     , primTagBezierId
     , primTagFacetId
+    , primTagBoxId
     , primTagFabricTagId
     )
 where
@@ -89,18 +90,18 @@ assignFabricTagToPrimTag tag fabricTagId = PrimTag $ ((pRIMtAGtYPEbITMASK .|. pR
 makeBezierPrimTag :: BezierId s -> FabricTagId -> PrimTag
 makeBezierPrimTag bezId fabricTagId =  makeBasicPrim (unRef . unBezierId $ bezId) fabricTagId pRIMtAGiSbEZIER
 
-makeRectPrimTag :: StorageId_ -> FabricTagId -> PrimTag
-makeRectPrimTag rectId fabricTagId =  makeBasicPrim rectId fabricTagId pRIMtAGiSrECTANGLE
+makeRectPrimTag :: BoxId s -> FabricTagId -> PrimTag
+makeRectPrimTag rectId fabricTagId =  makeBasicPrim (unRef . unBoxId $ rectId) fabricTagId pRIMtAGiSrECTANGLE
 
-makeElipsePrimTag :: StorageId_ -> FabricTagId -> PrimTag
-makeElipsePrimTag rectId fabricTagId = makeBasicPrim rectId fabricTagId pRIMtAGiSeLIPSE
+makeElipsePrimTag :: BoxId s -> FabricTagId -> PrimTag
+makeElipsePrimTag rectId fabricTagId = makeBasicPrim (unRef . unBoxId $ rectId) fabricTagId pRIMtAGiSeLIPSE
 
 primTagIsBezier :: PrimTag -> Bool
 primTagIsBezier    tag = primTagType tag == pRIMtAGiSbEZIER
 primTagIsFacet  :: PrimTag -> Bool
 primTagIsFacet     tag = primTagType tag == pRIMtAGiSfACET
-primTagIsRectangle :: PrimTag -> Bool
-primTagIsRectangle tag = primTagType tag == pRIMtAGiSrECTANGLE
+primTagIsRect :: PrimTag -> Bool
+primTagIsRect tag = primTagType tag == pRIMtAGiSrECTANGLE
 primTagIsElipse :: PrimTag -> Bool
 primTagIsElipse    tag = primTagType tag == pRIMtAGiSeLIPSE
 
@@ -109,6 +110,10 @@ primTagBezierId = BezierId . Ref . fromPrimStorage . unPrimTag
 
 primTagFacetId :: PrimTag -> FacetId s
 primTagFacetId = FacetId . Ref . fromPrimStorage . unPrimTag
+
+primTagBoxId :: PrimTag -> BoxId s
+primTagBoxId = BoxId . Ref . fromPrimStorage . unPrimTag
+
 
 primTagFabricTagId :: PrimTag -> FabricTagId
 primTagFabricTagId = FabricTagId . Ref . fromPrimFabric . unPrimTag

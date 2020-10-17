@@ -20,9 +20,9 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.ShapeTree
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
-import Graphics.Gudni.Raster.ConfineTree.Traverse
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.Primitive.WithTag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.Query
 import Graphics.Gudni.Raster.Dag.State
@@ -32,6 +32,7 @@ import Graphics.Gudni.Draw.Rectangle
 import Graphics.Gudni.Draw.Text
 import Graphics.Gudni.Draw.ArrowHead
 import Graphics.Gudni.Draw.Representation.Class
+import Graphics.Gudni.Draw.Representation.Primitive
 import Graphics.Gudni.Draw.Representation.ConfineQuery
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
@@ -108,15 +109,11 @@ constructConfine axis tree boundary =
         overhangLayout :: Layout style
         overhangLayout = withColor (transparent 0.01 aColor) . mask . boxToRectangle $ overhangBox
     in
-    do  bez <- loadCurveS (tree ^. confinePrimTagId)
-        let curve :: Layout style
-            curve = bezierArrow bez
-            text = blurb (show $ tree ^. confinePrimTagId)
+    do  prim <- loadPrimS (tree ^. confinePrimTagId)
+        let primLayout :: Layout style
+            primLayout = withColor blue . drawPrim $ prim
             label :: Layout style
-            label = translateBy (eval 0.5 bez) .
-                    scaleBy 40 .
-                    withColor (transparent 0.5 purple) $
-                    text
+            label = withColor (transparent 0.5 purple) . labelPrim (tree ^. confinePrimTagId) $ prim
         return $
             overlap $ [
                       -- label
@@ -199,7 +196,7 @@ confineTreeBox =
       case mTree of
           Nothing -> return Nothing
           Just tree ->
-              do box <- boxOf <$> loadCurveS (tree ^. confinePrimTagId)
+              do box <- boxOf <$> loadPrimS (tree ^. confinePrimTagId)
                  mLBox <- go (perpendicularTo axis) (tree ^. confineLessCut)
                  mGBox <- go (perpendicularTo axis) (tree ^. confineMoreCut)
                  return $ eitherMaybe minMaxBox (Just box) $ eitherMaybe minMaxBox mLBox mGBox

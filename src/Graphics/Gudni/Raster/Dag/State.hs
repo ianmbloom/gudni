@@ -25,23 +25,22 @@ module Graphics.Gudni.Raster.Dag.State
    , loadLimitS
    , loadPrimS
    , loadTreeS
-   , loadCurveS
    , assignPrimParent
    )
 where
 
 import Graphics.Gudni.Figure
 
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.Build
-import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Build
+import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Primitive
-import Graphics.Gudni.Raster.Dag.PrimStorage
-import Graphics.Gudni.Raster.Dag.PrimTag
-import Graphics.Gudni.Raster.Dag.Fabric
-import Graphics.Gudni.Raster.Dag.FabricStorage
-import Graphics.Gudni.Raster.Dag.TreeStorage
+import Graphics.Gudni.Raster.Dag.Primitive.Type
+import Graphics.Gudni.Raster.Dag.Primitive.Storage
+import Graphics.Gudni.Raster.Dag.Primitive.Tag
+import Graphics.Gudni.Raster.Dag.Fabric.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Storage
+import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
@@ -103,7 +102,7 @@ addFabricS parent fabric =
 addLimitS limit = overStateT dagFabricStorage $ storeLimit  limit
 storePrimS  prim  = overStateT dagPrimStorage   $ storePrim   prim
 addTreeS    slice = do pile <- use dagPrimTagIds
-                       overStateT dagTreeStorage $ storeTree loadBoxS loadCurveS slice pile
+                       overStateT dagTreeStorage $ storeTree loadBoxS loadPrimS slice pile
 
 loadFabricS :: (FabricConstraints s m) => FabricTagId   -> FabricMonad s m (FabricTagId, Fabric (ForStorage s))
 loadLimitS  :: (FabricConstraints s m) => FabricTagId   -> FabricMonad s m FabricTagId
@@ -116,15 +115,8 @@ loadLimitS  fabricTagId = overStateT dagFabricStorage $ loadLimit  fabricTagId
 loadPrimS   primTagId   = overStateT dagPrimStorage   $ loadPrim   primTagId
 loadTreeS   treeId      = overStateT dagTreeStorage   $ loadTree   treeId
 
-loadCurveS :: (FabricConstraints s m) => PrimTagId -> FabricMonad s m (Bezier s)
-loadCurveS primTagId =
-  do prim <- loadPrimS primTagId
-     case prim of
-       PrimBezier fabric curve -> return curve
-       _ -> error "non Bezier curve not implemented"
-
 loadBoxS :: (FabricConstraints s m) => PrimTagId -> FabricMonad s m (Box s)
-loadBoxS primTagId = boxOf <$> loadCurveS primTagId
+loadBoxS primTagId = boxOf <$> loadPrimS primTagId
 
 assignPrimParent :: MonadIO m => FabricTagId -> PrimTagId -> FabricMonad s m ()
 assignPrimParent fabricTagId primTagId =

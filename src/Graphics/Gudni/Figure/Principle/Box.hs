@@ -44,6 +44,7 @@ module Graphics.Gudni.Figure.Principle.Box
   , splitBox
   , sizeBox
   , areaBox
+  , centerBox
   , minMaxBox
   , minMaxBoxes
   , sizeToBox
@@ -206,6 +207,11 @@ sizeBox   box = makePoint (box ^. widthBox) (box ^. heightBox)
 -- | Calculate the area of a box.
 areaBox :: (CanBox (Box s), Num s) => Box s -> s
 areaBox   box = widthOf box * heightOf box
+
+-- | Determine the center of a box.
+centerBox :: Space s => Box s -> Point2 s
+centerBox box = (box ^. minBox ^+^ box ^. maxBox) ^/ 2
+
 -- | Calculate the smallest box that contains two boxes.
 minMaxBox :: (SimpleSpace s) => Box s -> Box s -> Box s
 minMaxBox a b = makeBox (min (a ^. leftSide ) (b ^. leftSide )) (min (a ^. topSide   ) (b ^. topSide   ))

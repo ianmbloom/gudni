@@ -17,13 +17,11 @@ module Graphics.Gudni.Figure.Transform.Projection.BezierSpace
   )
 where
 
-import Graphics.Gudni.Base.Chain
-import Graphics.Gudni.Base.Loop
-import Graphics.Gudni.Base.Reversible
+import Graphics.Gudni.Base
 
 import Graphics.Gudni.Figure.Principle
-import Graphics.Gudni.Figure.Bezier.Split
-import Graphics.Gudni.Figure.Bezier.Deknob
+import Graphics.Gudni.Figure.Bezier
+import Graphics.Gudni.Figure.Shape
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util

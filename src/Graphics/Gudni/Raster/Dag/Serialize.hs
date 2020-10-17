@@ -25,7 +25,7 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
-import Graphics.Gudni.Raster.Dag.Fabric
+import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.FromLayout
 import Graphics.Gudni.Layout.Layout
 import Graphics.Gudni.Layout.Style
@@ -36,16 +36,16 @@ import Graphics.Gudni.Layout.WithBox
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.TextureReference
 
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.TaggedBezier
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Primitive
-import Graphics.Gudni.Raster.Dag.PrimStorage
-import Graphics.Gudni.Raster.Dag.PrimTag
-import Graphics.Gudni.Raster.Dag.FabricStorage
-import Graphics.Gudni.Raster.Dag.FabricTag
+import Graphics.Gudni.Raster.Dag.Primitive.Type
+import Graphics.Gudni.Raster.Dag.Primitive.Storage
+import Graphics.Gudni.Raster.Dag.Primitive.Tag
+import Graphics.Gudni.Raster.Dag.Fabric.Storage
+import Graphics.Gudni.Raster.Dag.Fabric.Tag
 import Graphics.Gudni.Raster.Dag.State
-import Graphics.Gudni.Raster.Dag.TreeStorage
+import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
 import Graphics.Gudni.Raster.Dag.Serialize.ExtractPrimPass
 
 import Graphics.Gudni.Raster.Serial.Reference

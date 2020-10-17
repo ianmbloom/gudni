@@ -9,6 +9,7 @@ where
 import Graphics.Gudni.Base.Chain
 
 import Graphics.Gudni.Figure.Principle
+import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Facet.Triangle
 import Graphics.Gudni.Figure.Facet.BezierTriangle
 import Graphics.Gudni.Figure.Facet.Type
@@ -42,7 +43,7 @@ sizeLimit facet =
 insideBezierTri :: Space s => Point2 s -> BezTri s -> Bool
 insideBezierTri point =
   foldl1 (/=) .
-  fmap (crossesAlong Vertical minBound (point ^. pX) (point ^. pY)) .
+  fmap (crossesBezierAlong Vertical minBound (point ^. pX) (point ^. pY)) .
   bezTriToBeziers
 
 traverseFacetUntil :: forall s . (Space s) => s -> Point2 s -> Facet s -> Facet s

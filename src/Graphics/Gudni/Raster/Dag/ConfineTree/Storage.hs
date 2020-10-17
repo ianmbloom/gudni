@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies     #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Graphics.Gudni.Raster.Dag.TreeStorage
+module Graphics.Gudni.Raster.Dag.ConfineTree.Storage
   ( TreeStorage(..)
   , initTreeStorage
   , freeTreeStorage
@@ -18,13 +18,13 @@ import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
 import Graphics.Gudni.Raster.Serial.BytePile
-import Graphics.Gudni.Raster.Dag.Primitive
+import Graphics.Gudni.Raster.Dag.Primitive.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.PrimTag
+import Graphics.Gudni.Raster.Dag.Primitive.Tag
 import Graphics.Gudni.Raster.Dag.SubstanceTag
-import Graphics.Gudni.Raster.Dag.FabricTag
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.Build
+import Graphics.Gudni.Raster.Dag.Fabric.Tag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Build
 
 import Foreign.Storable
 import Control.Monad.IO.Class
@@ -48,12 +48,12 @@ freeTreeStorage treeStorage = return ()
 
 storeTree :: (MonadIO m, Space s, Storable s)
           => (PrimTagId -> m (Box s))
-          -> (PrimTagId -> m (Bezier s))
+          -> (PrimTagId -> m (Primitive s))
           -> Slice PrimTagId
           -> Pile PrimTagId
           -> StateT (TreeStorage s) m ConfineTreeId
-storeTree getBox getCurve slice primTagPile =
-    do (confineTree, decoTree, _) <- lift $ buildConfineTree getBox getCurve True 0 0 slice primTagPile
+storeTree getBox getPrim slice primTagPile =
+    do (confineTree, decoTree, _) <- lift $ buildConfineTree getBox getPrim True 0 0 slice primTagPile
        treeId <- use treeLastId
        treeMap %= M.insert treeId (confineTree, decoTree)
        treeLastId += 1

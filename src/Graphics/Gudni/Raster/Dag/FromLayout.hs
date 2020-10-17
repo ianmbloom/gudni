@@ -14,7 +14,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree.STree
 import Graphics.Gudni.ShapeTree.Traverse
 
-import Graphics.Gudni.Raster.Dag.Fabric
+import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.TextureReference
 
