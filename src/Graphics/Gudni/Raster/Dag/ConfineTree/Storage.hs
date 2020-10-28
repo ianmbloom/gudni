@@ -21,7 +21,7 @@ import Graphics.Gudni.Raster.Serial.BytePile
 import Graphics.Gudni.Raster.Dag.Primitive.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.Primitive.Tag
-import Graphics.Gudni.Raster.Dag.SubstanceTag
+import Graphics.Gudni.Raster.Dag.Fabric.Substance.Tag
 import Graphics.Gudni.Raster.Dag.Fabric.Tag
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Build

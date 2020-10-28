@@ -13,7 +13,7 @@
 {-# LANGUAGE UndecidableInstances       #-}
 
 module Graphics.Gudni.Raster.Dag.ConfineTree.Type
-  ( PrimStack(..)
+  ( ShapeStack(..)
   , ConfineTree (..)
   , Confine(..)
   , Branch(..)
@@ -46,7 +46,7 @@ import Data.Kind
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint hiding ((<>))
 
-type PrimStack = [PrimTagId]
+type ShapeStack = [ShapeId]
 
 data Confine axis s
     = Confine
@@ -84,7 +84,7 @@ outMConfineTree mTree =
 data DecoTree axis s
     = DecoBranch
       { _decoCut       :: Athwart axis s
-      , _decoCrossings :: PrimStack
+      , _decoCrossings :: ShapeStack
       , _decoLessCut   :: DecoTree (PerpendicularTo axis) s
       , _decoMoreCut   :: DecoTree (PerpendicularTo axis) s
       }

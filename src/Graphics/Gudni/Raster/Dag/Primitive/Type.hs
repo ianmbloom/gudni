@@ -7,7 +7,7 @@
 
 module Graphics.Gudni.Raster.Dag.Primitive.Type
   ( Primitive(..)
-  , primFabricTagId
+  , primShapeId
   , primType
   , PrimType(..)
   )
@@ -32,8 +32,8 @@ data PrimType s
     deriving (Show, Generic)
 
 data Primitive s = Prim
-  { _primFabricTagId :: FabricTagId
-  , _primType        :: PrimType s
+  { _primShapeId :: ShapeId
+  , _primType    :: PrimType s
   } deriving (Show, Generic)
 makeLenses ''Primitive
 

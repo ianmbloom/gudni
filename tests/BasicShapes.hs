@@ -20,11 +20,10 @@ basicShapes =
     [ ("randomCurves",
       \ playhead step ->
       let range = makePoint 2 2
-          randomCurves = evalRand (sequence . replicate 5 $ fuzzyCurve range 20) (mkStdGen $ step) :: [ShapeTree Int SubSpace]
+          randomCurves = evalRand (sequence . replicate 3 $ fuzzyCurve range 5) (mkStdGen $ step) :: [ShapeTree Int SubSpace]
       in  place .
           scaleBy 500 .
-          rotateBy  (playhead @@ deg) .
-          translateByXY 1 (0.5)
+          rotateBy  (playhead @@ deg)
           $
           overlap randomCurves
        )
@@ -32,27 +31,46 @@ basicShapes =
       ("twoTriangles",
       \ playhead step ->
       scaleBy 100 .
-      translateByXY 3 3 $
-      overlap [ withColor (transparent 0.25 red) .
+      translateByXY 1 1
+      $
+      overlap [ withColor red .
                 translateByXY 0 0 .
                 rotateBy (playhead @@ deg) .
-                scaleBy 6 .
+                scaleBy 10 .
                 mask
                 $
                 triangle
                 ,
-                withColor (transparent 0.25 $ light green) .
-                translateByXY 0.75 0.75 .
+                withColor green .
+                translateByXY 1 1 .
                 rotateBy (playhead @@ deg) .
-                scaleBy 6 .
+                scaleBy 10 .
                 mask
                 $
                 triangle
+                ,
+                 withColor purple .
+                 translateByXY 2 2  .
+                 rotateBy (playhead @@ deg) .
+                 scaleBy 10 .
+                 mask
+                 $
+                 triangle
+                 ,
+                 withColor cyan .
+                 translateByXY 3 3  .
+                 rotateBy (playhead @@ deg) .
+                 scaleBy 10 .
+                 mask
+                 $
+                 triangle
               ]
        )
       ,
       ("triRed",
       \ playhead step ->
+      rotateBy ((negate playhead) @@ deg) .
+      translateByXY 50 50 .
       scaleBy 100 .
       translateByXY 1 1 .
       rotateBy (playhead @@ deg) .

@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Gudni.Layout.Alignment
@@ -15,8 +16,12 @@ module Graphics.Gudni.Layout.Alignment
   )
 where
 
+import Graphics.Gudni.Base
+
 data Alignment
     = AlignMin
     | AlignMax
     | AlignCenter
-    deriving (Show)
+    deriving (Show, Generic)
+
+instance Out Alignment

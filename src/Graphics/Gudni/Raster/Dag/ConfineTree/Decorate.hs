@@ -14,8 +14,9 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
-import Graphics.Gudni.Raster.Dag.Primitive.Stack
 import Graphics.Gudni.Raster.Dag.Primitive.Type
+import Graphics.Gudni.Raster.Dag.Primitive.Cross
+import Graphics.Gudni.Raster.Dag.Primitive.Stack
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Util.Debug
 
@@ -34,11 +35,11 @@ modifyItemStackIfCrossedAlong :: ( Axis axis
                               -> Along axis s
                               -> PrimTagId
                               -> Primitive s
-                              -> StateT PrimStack m ()
-modifyItemStackIfCrossedAlong crossOp lineAxis start baseline end primTagId curve =
+                              -> StateT ShapeStack m ()
+modifyItemStackIfCrossedAlong crossOp lineAxis start baseline end primTagId prim =
   do lift crossOp
-     if crossesPrimAlong lineAxis start baseline end curve
-     then modify (toggleItem primTagId)
+     if crossesPrimAlong lineAxis start baseline end prim
+     then modify (toggleItem (prim ^. primShapeId))
      else return ()
 
 buildDecorateTree :: forall s m
@@ -69,8 +70,7 @@ buildDecorateTree getPrim crossOp limit mRoot =
                               do prim <- lift $ getPrim primTagId
                                  modifyItemStackIfCrossedAlong crossOp parentAxis parentCut parentLine cut primTagId prim
                      in
-                     do
-                         crossings <- execStateT (traverseCTAlong collector
+                     do  crossings <- execStateT (traverseCTAlong collector
                                                                   parentAxis
                                                                   parentCut
                                                                   parentLine
@@ -94,7 +94,7 @@ traverseDecorateTree :: forall s m
                      .  ( Space s
                         , Monad m
                         )
-                     => (PrimStack -> m ())
+                     => (ShapeStack -> m ())
                      -> (Point2 s -> m ())
                      -> Point2 s
                      -> DecorateTree s

@@ -8,7 +8,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE StandaloneDeriving    #-}
-
+{-# LANGUAGE DeriveGeneric         #-}
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Gudni.Layout.Proximity
@@ -51,7 +51,7 @@ data Proximity
     { _adjOverlapAlignVertical   :: Maybe Alignment
     , _adjOverlapAlignHorizontal :: Maybe Alignment
     }
-    deriving (Show)
+    deriving (Show, Generic)
 makeLenses ''Proximity
 
 instance HasDefault Proximity where
@@ -68,10 +68,21 @@ data ProximityMeld style meld
     { _proxType  :: Proximity
     , _proxStyle :: style
     , _proxMeld  :: meld
-    } deriving (Show)
+    } deriving (Show, Generic)
 makeLenses ''ProximityMeld
 
 instance (HasDefault style, HasDefault meld) => HasDefault (ProximityMeld style meld) where
     defaultValue = ProximityMeld defaultValue defaultValue defaultValue
 
 type ProximityCompoundTree style = TransTree (ProximityMeld style Compound) (Maybe (WithBox (Shape (SpaceOf style))))
+
+instance Out Proximity where
+  doc prox =
+    case prox of
+      OnTopOf v h -> text "OnTop " <+> doc v <+> doc h
+      NextTo axis align -> text "NextTo" <+> doc axis <+> doc align
+  docPrec _ = doc
+
+instance (Out style, Out meld) => Out (ProximityMeld style meld) where
+  doc meld = text "Prox" <+> parens (doc (meld ^. proxType)) <+> doc (meld ^. proxStyle) <+> doc (meld ^. proxMeld)
+  docPrec _ = doc

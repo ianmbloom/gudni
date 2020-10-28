@@ -1,4 +1,4 @@
-{-# LANGUAGE UndecidableInstances  #-} -- Show (SpaceOf leaf)
+--{-# LANGUAGE UndecidableInstances  #-} -- Show (SpaceOf leaf)
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE Rank2Types            #-}
@@ -8,6 +8,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -25,61 +26,117 @@
 module Graphics.Gudni.Raster.Dag.Fabric.Type
   ( FabricType(..)
   , Fabric(..)
-  , FCombineType(..)
-  , FTransformer(..)
-  , FFilter(..)
-  , FSubstance(..)
+  , WithParent(..)
+  , FLeaf(..)
+  , FTreeLeaf(..)
+  , ForStorage(..)
   )
 where
 
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Layout.WithBox
 
 import Graphics.Gudni.Raster.Dag.TagTypes
+import Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Ray.Transformer
 import Graphics.Gudni.Raster.Serial.Slice
 
+import Control.Lens
+
 class HasSpace i => FabricType i where
-    type FChild    i :: *
-    type FTex      i :: *
-    type FGeometry i :: *
-    type FQuery    i :: *
-    type FCombiner i :: *
+    type FRootType      i :: *
+    type FChildType     i :: *
+    type FLeafType      i :: *
+    type FCombinerType  i :: *
 
 data Fabric i where
-    FCombine   :: FCombiner i              -> FChild i -> FChild i -> Fabric i
-    FTransform :: FTransformer (SpaceOf i) -> FChild i             -> Fabric i
-    FLeaf      :: FSubstance i                                     -> Fabric i
+    FCombine   :: FCombinerType i          -> FChildType i -> FChildType i -> Fabric i
+    FTransform :: FTransformer (SpaceOf i) -> FChildType i                 -> Fabric i
+    FLeaf      :: FLeafType i                                              -> Fabric i
 
-data FCombineType
-    = FComposite
-    | FMask -- Mask , Multiply and FloatAnd are the same
-    | FAdd
-    | FFloatOr  -- x + y - (x*y)
-    | FFloatXor -- x + y - 2(x*y)
-     --      | RGTE
-     --      | RGT
-    deriving (Show)
+data WithParent i where
+    WithParent :: FabricTagId -> Fabric i -> WithParent i
 
-data FSubstance i where
-     FGeometry  :: FGeometry i -> FSubstance i
-     FConst     :: FQuery i    -> FSubstance i
-     FTexture   :: FTex   i    -> FSubstance i
-     FLinear    ::                FSubstance i
-     FQuadrance ::                FSubstance i
+data FLeaf i where
+    FShape     :: WithBox (Shape (SpaceOf i)) -> FLeaf i
+    FSubstance :: FSubstance i                -> FLeaf i
 
-deriving instance (Show (FGeometry i), Show (FQuery i), Show (FTex i)) => Show (FSubstance i)
+data FTreeLeaf i where
+    FTree          :: ConfineTreeId -> FabricTagId -> FTreeLeaf i
+    FTreeSubstance :: FSubstance i                 -> FTreeLeaf i
 
-data FTransformer s where
-     FAffineRay :: Affine s -> FTransformer s
-     FFacet     :: Facet s  -> FTransformer s
-     FFilter    :: FFilter  -> FTransformer s
-     FConvolve  :: s        -> FTransformer s
-     deriving (Show)
+data ForStorage s
 
-data FFilter where
-     FSqrt     :: FFilter
-     FInvert   :: FFilter -- (1-x)
-     FCos      :: FFilter
-     FSin      :: FFilter
-     FSaturate :: FFilter
-     deriving (Enum, Show)
+instance Space s => HasSpace (ForStorage s) where
+    type SpaceOf       (ForStorage s) = s
+
+instance Space s => FabricType (ForStorage s) where
+    type FRootType     (ForStorage s) = FabricTagId
+    type FChildType    (ForStorage s) = FabricTagId
+    type FLeafType     (ForStorage s) = FTreeLeaf (ForStorage s)
+    type FCombinerType (ForStorage s) = (FCombineType, ShapeId, ShapeId)
+
+deriving instance ( Show (SpaceOf i)
+                  , Show (FChildType     i)
+                  , Show (FLeafType      i)
+                  , Show (FCombinerType  i)
+                  ) => Show (Fabric i)
+
+deriving instance ( Show (SpaceOf     i)
+                  , Show (FChildType  i)
+                  , Show (FQuery      i)
+                  , Show (FTex        i)
+                  ) => Show (FTreeLeaf i)
+
+
+instance ( Out (SpaceOf       i)
+         , Out (FRootType     i)
+         , Out (FChildType    i)
+         , Out (FLeafType     i)
+         , Out (FCombinerType i)
+         ) => Out (Fabric i) where
+    doc tree =
+        case tree of
+            FCombine ty a b ->
+                 text "FCombine" <+> doc ty
+                 $$
+                 nest 4 ( doc a )
+                 $$
+                 nest 4 ( doc b )
+            FTransform trans child ->
+                 text "FTrans" <+> doc trans
+                 $$
+                 nest 4 ( doc child )
+            FLeaf leaf ->
+                 doc leaf
+    docPrec _ = doc
+
+instance (Chain f, Out s) => ( Out (Outline_ f s )) where
+    doc outline = brackets (foldl1 (<+>) (fmap doc (outline ^. outlineSegments)))
+    docPrec _ = doc
+
+instance (Chain f, Out s) => Out (Shape_ f s) where
+    doc shape = text "Shape " <+> foldl1 (<+>) (fmap doc (shape ^. shapeOutlines))
+    docPrec _ = doc
+
+instance ( Out (FSubstance i)
+         ) => Out (FLeaf i) where
+    doc tree =
+      case tree of
+          FShape shape ->
+               text "FShape" <+> text "Shape X"
+          FSubstance substance ->
+               text "FSubstance" <+> doc substance
+    docPrec _ = doc
+
+instance ( Out (FSubstance i)
+         ) => Out (FTreeLeaf i) where
+    doc tree =
+      case tree of
+          FTree treeId child ->
+               text "FTree" <+> text (show treeId) $$ doc child
+          FTreeSubstance substance ->
+               text "FTreeSubstance" <+> doc substance
+    docPrec _ = doc

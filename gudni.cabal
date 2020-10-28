@@ -68,6 +68,7 @@ library
 
                      , Graphics.Gudni.Util.Debug
                      , Graphics.Gudni.Util.FlattenTree
+                     , Graphics.Gudni.Util.MonadUnique
                      , Graphics.Gudni.Util.RandomField
                      , Graphics.Gudni.Util.Segment
                      , Graphics.Gudni.Util.StorableM
@@ -87,11 +88,22 @@ library
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Type
 
                      , Graphics.Gudni.Raster.Dag.Constants
+                     , Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
+                     , Graphics.Gudni.Raster.Dag.Fabric.Combine.Query
+                     , Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
+                     , Graphics.Gudni.Raster.Dag.Fabric.Ray.Answer
+                     , Graphics.Gudni.Raster.Dag.Fabric.Ray.Filter
+                     , Graphics.Gudni.Raster.Dag.Fabric.Ray.Transformer
+                     , Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
+                     , Graphics.Gudni.Raster.Dag.Fabric.Substance.Tag
+                     , Graphics.Gudni.Raster.Dag.Fabric.Substance.Query
+                     , Graphics.Gudni.Raster.Dag.Fabric.Substance.Storage
                      , Graphics.Gudni.Raster.Dag.Fabric.Type
                      , Graphics.Gudni.Raster.Dag.Fabric.Tag
+                     , Graphics.Gudni.Raster.Dag.Fabric.Traverse
+                     , Graphics.Gudni.Raster.Dag.Fabric.Out
                      , Graphics.Gudni.Raster.Dag.Fabric.Storage
                      , Graphics.Gudni.Raster.Dag.FromLayout
-                     , Graphics.Gudni.Raster.Dag.SubstanceTag
 
                      , Graphics.Gudni.Raster.Dag.Primitive.Cross
                      , Graphics.Gudni.Raster.Dag.Primitive.Stack
@@ -100,9 +112,6 @@ library
                      , Graphics.Gudni.Raster.Dag.Primitive.Type
                      , Graphics.Gudni.Raster.Dag.Primitive.WithinBox
                      , Graphics.Gudni.Raster.Dag.Primitive.WithTag
-
-                     , Graphics.Gudni.Raster.Dag.Query
-                     , Graphics.Gudni.Raster.Dag.PrimColorQuery
 
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Storage
                      , Graphics.Gudni.Raster.Dag.TagTypes
@@ -190,7 +199,7 @@ library
                      , Graphics.Gudni.Draw.Representation.Primitive
                      , Graphics.Gudni.Draw.Representation.ConfineTree
                      , Graphics.Gudni.Draw.Representation.DecorateTree
-                     , Graphics.Gudni.Draw.Representation.ConfineQuery
+                     , Graphics.Gudni.Draw.Representation.RayQuery
                      , Graphics.Gudni.Draw.Representation.Fabric
 
                      , Graphics.Gudni.Draw.ArrowHead

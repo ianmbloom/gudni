@@ -1,9 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TemplateHaskell            #-}
-
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Gudni.Raster.Dag.CompoundTag
@@ -16,7 +10,7 @@
 --
 -- Constructors for attaching metadata to shapes∘
 
-module Graphics.Gudni.Raster.Dag.SubstanceTag
+module Graphics.Gudni.Raster.Dag.Fabric.Substance.Tag
     (  makeSubstanceTagGeometry
     ,  makeSubstanceTagConstant
     ,  makeSubstanceTagTexture
@@ -27,7 +21,7 @@ module Graphics.Gudni.Raster.Dag.SubstanceTag
     ,  substanceTagIsTexture
     ,  substanceTagIsLinear
     ,  substanceTagIsQuadrance
-    ,  substanceTagType
+    ,  substanceTagCase
     ,  substanceTagDescription
     )
 where
@@ -45,8 +39,11 @@ import Numeric
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
 
+-- | The word "tag" is used to describe a bitfield that usually includes type metadata and pointers to other data.
+-- | The word "case" is used here like "type" to determine the type of substance represented by the tag.
+
 type SubstanceTagData_ = SubstanceTag_
-type SubstanceTagType_ = SubstanceTag_
+type SubstanceTagCase_ = SubstanceTag_
 
 makeSubstanceData :: SubstanceTagData_ -> SubstanceTag_
 makeSubstanceData i = i .&. fABRICtAGdATAbITMASK
@@ -70,23 +67,23 @@ substanceTagIsConstant   :: SubstanceTag -> Bool
 substanceTagIsTexture    :: SubstanceTag -> Bool
 substanceTagIsLinear     :: SubstanceTag -> Bool
 substanceTagIsQuadrance  :: SubstanceTag -> Bool
-substanceTagIsGeometry   tag = substanceTagType tag == sUBSTANCEiSgEOMETRY
-substanceTagIsConstant   tag = substanceTagType tag == sUBSTANCEiScONSTANT
-substanceTagIsTexture    tag = substanceTagType tag == sUBSTANCEiStEXTURE
-substanceTagIsLinear     tag = substanceTagType tag == sUBSTANCEiSlINEAR
-substanceTagIsQuadrance  tag = substanceTagType tag == sUBSTANCEiSqUADRANCE
+substanceTagIsGeometry   tag = substanceTagCase tag == sUBSTANCEiSgEOMETRY
+substanceTagIsConstant   tag = substanceTagCase tag == sUBSTANCEiScONSTANT
+substanceTagIsTexture    tag = substanceTagCase tag == sUBSTANCEiStEXTURE
+substanceTagIsLinear     tag = substanceTagCase tag == sUBSTANCEiSlINEAR
+substanceTagIsQuadrance  tag = substanceTagCase tag == sUBSTANCEiSqUADRANCE
 
-substanceTagType :: SubstanceTag -> SubstanceTagType_
-substanceTagType tag = unSubstanceTag tag .&. sUBSTANCEtAGtYPEbITMASK
+substanceTagCase :: SubstanceTag -> SubstanceTagCase_
+substanceTagCase tag = unSubstanceTag tag .&. sUBSTANCEtAGtYPEbITMASK
 
 substanceTagDescription :: SubstanceTag -> SubstanceTagData_
 substanceTagDescription tag = unSubstanceTag tag .&. sUBSTANCEdATArEFbITMASK
 
-showSubstanceType tag
+showSubstanceCase tag
     | substanceTagIsConstant  tag = "Constant"
     | substanceTagIsTexture   tag = "Texture"
     | substanceTagIsLinear    tag = "Linear"
     | substanceTagIsQuadrance tag = "Quadrance"
 
 instance Show SubstanceTag where
-  show tag = showSubstanceType tag ++ show (substanceTagDescription tag)
+  show tag = showSubstanceCase tag ++ show (substanceTagDescription tag)

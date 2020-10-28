@@ -7,6 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE DeriveGeneric         #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -64,7 +65,7 @@ class ( HasToken style
     styleGapY       :: style -> SpaceOf style
     styleGlyph      :: Monad m => style -> CodePoint -> FontMonad style m (ProximityCompoundTree style)
 
-data DefaultStyle = Title | Heading | Normal | Wide deriving (Eq, Show)
+data DefaultStyle = Title | Heading | Normal | Wide deriving (Eq, Show, Generic)
 
 instance HasSpace DefaultStyle where
   type SpaceOf DefaultStyle = SubSpace
@@ -92,6 +93,8 @@ instance IsStyle DefaultStyle where
       Heading -> scaleBy 1.2 <$> getGlyph codePoint
       Normal  -> getGlyph codePoint
       Wide    -> styleGlyph Normal codePoint
+
+instance Out DefaultStyle
 
 class StyleAxis axis where
   styleTextAlign :: IsStyle style => axis -> style -> Maybe Alignment

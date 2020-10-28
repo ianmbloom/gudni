@@ -67,7 +67,8 @@ instance (Space s) => CanFit (Box s) (V2 (Facet s)) where
     -- and the control x is less than or equal to the end x. In other words the curve is roughly horizontal.
     -- We can also assume that all the x coordinates will be within the range of 0 to the source curves arcLength after correction.
     projectDefaultCurve debugFlag max_steps m_accuracy start sourceCurve box =
-       undefined $ projectCurveBox sourceCurve box
+      error "projectDefaultCurve not implemented."
+      -- $ projectCurveBox sourceCurve box
 
 v4PointsToTris :: V4 (Point2 s) -> V2 (Tri s)
 v4PointsToTris (V4 tl tr br bl) = V2 (V3 tl tr bl) (V3 tr br bl)
@@ -82,7 +83,7 @@ projectTangentBox offset v0 normal box =
       tris = v4PointsToTris boxPoints
   in  liftA2 Facet bezTris tris
 
-buildBezTris sourceCurve (V4 tl tr br bl) = undefined
+buildBezTris sourceCurve (V4 tl tr br bl) = error "buildBezTris not implemented." 
 
 projectCurveBox :: Space s => Bezier s -> Box s -> V2 (Facet s)
 projectCurveBox sourceCurve box =

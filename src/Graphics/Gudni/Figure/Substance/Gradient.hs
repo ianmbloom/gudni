@@ -1,6 +1,9 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE UndecidableInstances  #-}
 
 module Graphics.Gudni.Figure.Substance.Gradient
     ( RadialGradient(..)
@@ -18,9 +21,11 @@ data RadialGradient s = RadialGradient
     { gradientCenter       :: Point2 s
     , gradientInnerRadius  :: s
     , gradientOuterRadius  :: s
-    , gradientInsideColor  :: Color
-    , gradientOutsideColor :: Color
-    } deriving (Show)
+    , gradientInsideColor  :: Color s
+    , gradientOutsideColor :: Color s
+    }
+
+deriving instance (Show s, Show (Color s)) => Show (RadialGradient s)
 
 instance Space s => HasSpace (RadialGradient s) where
     type SpaceOf (RadialGradient s) = s
@@ -28,9 +33,11 @@ instance Space s => HasSpace (RadialGradient s) where
 data LinearGradient s = LinearGradient
     { gradientStart      :: Point2 s
     , gradientEnd        :: Point2 s
-    , gradientStartColor :: Color
-    , gradientEndColor   :: Color
-    } deriving (Show)
+    , gradientStartColor :: Color s
+    , gradientEndColor   :: Color s
+    }
+
+deriving instance (Show s, Show (Color s)) => Show (LinearGradient s)
 
 instance Space s => HasSpace (LinearGradient s) where
     type SpaceOf (LinearGradient s) = s

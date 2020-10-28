@@ -95,7 +95,7 @@ data SerialState token s = SerialState
       -- The token is any type with an instance of Ord that the client program can use to identify shapes in the scene.
       _serTokenMap         :: M.Map SubstanceTag token
       -- | The background color for the scene.
-    , _serBackgroundColor  :: Color
+    , _serBackgroundColor  :: Color s
       -- | The tree of tiles collecting itemTagIds
     , _serTileTree         :: TileTree (Tile, Pile ItemTagId)
       -- | The pile of geometry strands

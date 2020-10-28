@@ -14,10 +14,9 @@
 module Graphics.Gudni.Raster.Dag.Primitive.Stack
   ( toggleItem
   , combineItemStacks
-  , crossPrimAlong
-  , crossPrimBetweenPoints
-  , crossesPrimAlong
-  , traversePrim
+  , passPrimAlong
+  , passPrimBetweenPoints
+  , passPrim
   )
 where
 
@@ -29,64 +28,65 @@ import Graphics.Gudni.Raster.Dag.Primitive.Type
 import Graphics.Gudni.Raster.Dag.Primitive.Cross
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.Primitive.WithTag
+import Graphics.Gudni.Util.Debug
 
 import Linear.Metric
 import Control.Applicative
 import Control.Lens
 
-toggleItem :: PrimTagId -> PrimStack -> PrimStack
-toggleItem primTagId stack =
+toggleItem :: ShapeId -> ShapeStack -> ShapeStack
+toggleItem shapeId stack =
     case stack of
-        (x:xs) | primTagId <  x -> primTagId:x:xs
-               | primTagId == x -> xs
-               | primTagId >  x -> x:toggleItem primTagId xs
-        [] -> [primTagId]
+        (x:xs) | shapeId <  x -> shapeId:x:xs
+               | shapeId == x -> xs
+               | shapeId >  x -> x:toggleItem shapeId xs
+        [] -> [shapeId]
 
-combineItemStacks :: PrimStack -> PrimStack -> PrimStack
+combineItemStacks :: ShapeStack -> ShapeStack -> ShapeStack
 combineItemStacks = flip (foldl (flip toggleItem))
 
-crossPrimAlong :: ( Axis axis
-                  , Space s)
-               => axis
-               -> Along axis s
-               -> Athwart axis s
-               -> Along axis s
-               -> PrimTagId
-               -> Primitive s
-               -> PrimStack
-               -> PrimStack
-crossPrimAlong axis start baseline end primTagId prim =
+passPrimAlong :: ( Axis axis
+                 , Space s)
+              => axis
+              -> Along axis s
+              -> Athwart axis s
+              -> Along axis s
+              -> PrimTagId
+              -> Primitive s
+              -> ShapeStack
+              -> ShapeStack
+passPrimAlong axis start baseline end primTagId prim =
     if crossesPrimAlong axis start baseline end prim
-    then toggleItem primTagId
+    then toggleItem (prim ^. primShapeId)
     else id
 
-crossPrimBetweenPoints :: (Space s)
-                       => Point2 s
-                       -> Point2 s
-                       -> PrimTagId
-                       -> Primitive s
-                       -> PrimStack
-                       -> PrimStack
-crossPrimBetweenPoints anchor point primTagId prim =
+passPrimBetweenPoints :: (Space s)
+                      => Point2 s
+                      -> Point2 s
+                      -> PrimTagId
+                      -> Primitive s
+                      -> ShapeStack
+                      -> ShapeStack
+passPrimBetweenPoints anchor point primTagId prim =
     if crossesPrim anchor point prim
-    then toggleItem primTagId
+    then toggleItem (prim ^. primShapeId)
     else id
 
-traversePrim :: forall s m
-             .  ( Space s
-                , Monad m
-                )
-             => Point2 s
-             -> Point2 s
-             -> Box s
-             -> PrimTagId
-             -> Primitive s
-             -> PrimStack
-             -> m PrimStack
-traversePrim anchor point box primTagId prim stack =
+passPrim :: forall s m
+         .  ( Space s
+            , Monad m
+            )
+         => Point2 s
+         -> Point2 s
+         -> Box s
+         -> PrimTagId
+         -> Primitive s
+         -> ShapeStack
+         -> m ShapeStack
+passPrim anchor point box primTagId prim stack =
     let primBox = boxOf prim
     in
     if primBox ^. maxBox . pX >= box ^. minBox . pX &&
        primBox ^. maxBox . pY >= box ^. minBox . pY
-    then return $ crossPrimBetweenPoints anchor point primTagId prim stack
+    then return $ passPrimBetweenPoints anchor point primTagId prim stack
     else return stack

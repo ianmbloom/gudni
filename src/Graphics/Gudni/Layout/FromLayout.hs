@@ -137,7 +137,7 @@ sceneFromLayout :: forall style token m
                 .  ( IsStyle style
                    , Monad m
                    )
-                => Color
+                => Color (SpaceOf style)
                 -> Layout style
                 -> FontMonad style m (Scene (Maybe (FinalTree (TokenOf style) (SpaceOf style))))
 sceneFromLayout color layout =
@@ -317,15 +317,16 @@ traverseFullProximityCompoundTree :: forall  m i value style
                                      , Tag  i ~ Transformer (SpaceOf (Item i))
                                      , Leaf i ~ SBranch i
                                      )
-                                  => ( Meld i -> value -> value -> value)
+                                  => (Tag  i -> value -> value )
+                                  -> (Meld i -> value -> value -> value)
                                      -- onItem
-                                  -> ( Meld i -> Tag i -> Item i -> m value )
+                                  -> (Meld i -> Tag i -> Item i -> m value)
                                   -> Tag i
                                   -> STree i
                                   -> m value
-traverseFullProximityCompoundTree meldValues onItem parentTrans tree =
+traverseFullProximityCompoundTree buildTrans meldValues onItem parentTrans tree =
   let trTree   = traverseSTree traverseProximityCompound meldValues
-      trBranch = traverseSBranch noPostTrans CombineTransform onItem
+      trBranch = traverseSBranch buildTrans CombineTransform onItem
   in  trTree trBranch defaultValue parentTrans tree
 
 -- | Traverse an overlap shape tree
@@ -337,11 +338,12 @@ traverseFullProximityTree :: forall  m i value style
                              , Tag  i ~ Transformer (SpaceOf (Item i))
                              , Leaf i ~ SBranch i
                              )
-                          => (Meld i -> value -> value -> value)
+                          => (Tag  i -> value -> value )
+                          -> (Meld i -> value -> value -> value)
                           -> (Meld i -> Tag i -> Item i -> m value)
                           -> STree i
                           -> m value
-traverseFullProximityTree meldValues onItem tree =
+traverseFullProximityTree buildTrans meldValues onItem tree =
   let trTree   = traverseSTree keepMeld meldValues
-      trBranch = traverseSBranch noPostTrans CombineTransform onItem
+      trBranch = traverseSBranch buildTrans CombineTransform onItem
   in  trTree trBranch (defaultValue :: Meld i) (Simple IdentityTransform) tree

@@ -33,6 +33,7 @@ module Graphics.Gudni.Figure.Facet.Type
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Facet.Triangle
@@ -46,9 +47,6 @@ import Control.Applicative
 import Control.Monad
 import Data.Maybe
 import qualified Data.Vector as V
-
-import Text.PrettyPrint.GenericPretty
-import Text.PrettyPrint hiding ((<>))
 
 data Facet s = Facet
   { _facetOutput :: BezTri s

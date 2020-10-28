@@ -1,12 +1,6 @@
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TemplateHaskell            #-}
-
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.Dag.CompoundTag
+-- Module      :  Graphics.Gudni.Raster.Dag.Fabric.Tag
 -- Copyright   :  (c) Ian Bloom 2020
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -14,7 +8,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- Constructors for attaching metadata to shapes∘
+-- Functions for constructing nodes in a fabric DAG.
 
 module Graphics.Gudni.Raster.Dag.Fabric.Tag
     ( makeFabHigh
@@ -22,7 +16,7 @@ module Graphics.Gudni.Raster.Dag.Fabric.Tag
     , fromFabHigh
     , fromFabLow
 
-    , fabTagType
+    , fabTagCase
 
     , makeFabTagTree
     , makeFabTagTransformAffine
@@ -56,13 +50,18 @@ module Graphics.Gudni.Raster.Dag.Fabric.Tag
     , fabTagSubstanceTag
     , fabTagParentId
     , fabTagChildId
+
+    , makeLimits
+    , fromLimits
     )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Raster.Dag.Constants
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.SubstanceTag
+import Graphics.Gudni.Raster.Dag.Fabric.Substance.Tag
 import Graphics.Gudni.Util.StorableM
+import Graphics.Gudni.Util.Debug
 
 import Graphics.Gudni.Raster.Serial.Reference
 
@@ -72,7 +71,11 @@ import Numeric
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
 
-type FabricType_ = FabricTag_
+-- | The word "tag" is used to describe a bitfield that usually includes type metadata and pointers to other data.
+-- | The word "case" is used here like "type" the fabric tags cast determines what type of fabric node it represents.
+-- | The tags can be traversed in memory on different devices to traverse the DAG representing a scene.
+
+type FabricCase_ = FabricTag_
 type FabricData_ = FabricTag_
 type FabricHigh_ = StorageId_
 type FabricLow_  = StorageId_
@@ -99,7 +102,7 @@ makeFabTagTree :: ConfineTreeId -> FabricTagId -> FabricTag
 makeFabTagTree treeId childId =
     FabricTag $ fABRICiStREE .|. (makeFabHigh . unConfineTreeId $ treeId) .|. (makeFabLow . unRef . unFabricTagId $ childId)
 
-makeFabTagTransform :: FabricType_ -> TransformId -> FabricTagId -> FabricTag
+makeFabTagTransform :: FabricCase_ -> TransformId -> FabricTagId -> FabricTag
 makeFabTagTransform ty transformId fabricTagId =
     FabricTag $ ty .|. (makeFabHigh . unTransformId $ transformId) .|. (makeFabLow  . unRef . unFabricTagId $ fabricTagId)
 
@@ -115,7 +118,7 @@ makeFabTagTransformConvolve = makeFabTagTransform fABRICiStRANSFORMcONVOLVE
 makeFabTagSubstance :: SubstanceTag -> FabricTag
 makeFabTagSubstance substanceTag = FabricTag $ fABRICiSsUBSTANCE .|. (unSubstanceTag substanceTag .&. fABRICtAGdATAbITMASK)
 
-makeBinaryOp :: FabricType_ -> FabricTagId -> FabricTagId -> FabricTag
+makeBinaryOp :: FabricCase_ -> FabricTagId -> FabricTagId -> FabricTag
 makeBinaryOp ty parent child = FabricTag $ ty
                                .|. makeFabHigh (unRef . unFabricTagId $ parent)
                                .|. makeFabLow  (unRef . unFabricTagId $ child )
@@ -130,14 +133,14 @@ makeFabTagFloatOr   = makeBinaryOp fABRICiSfLOAToR
 makeFabTagFloatXor  = makeBinaryOp fABRICiSfLOATxOR
 
 
-fabTagType :: FabricTag -> FabricType_
-fabTagType fabricTag = unFabricTag fabricTag .&. fABRICtAGtYPEbITMASK
+fabTagCase :: FabricTag -> FabricCase_
+fabTagCase fabricTag = unFabricTag fabricTag .&. fABRICtAGtYPEbITMASK
 
-matchType :: FabricType_ -> FabricTag -> Bool
-matchType match fabricTag = fabTagType fabricTag == match
+matchCase :: FabricCase_ -> FabricTag -> Bool
+matchCase match fabricTag = fabTagCase fabricTag == match
 
 fabTagIsBinaryOp :: FabricTag -> Bool
-fabTagIsBinaryOp fabricTag = fabTagType fabricTag >= fABRICiScOMPOSITE && fabTagType fabricTag <= fABRICiSaDD
+fabTagIsBinaryOp fabricTag = fabTagCase fabricTag >= fABRICiScOMPOSITE && fabTagCase fabricTag <= fABRICiSaDD
 
 fabTagIsTree              :: FabricTag -> Bool
 fabTagIsTransformAffine   :: FabricTag -> Bool
@@ -145,23 +148,23 @@ fabTagIsTransformFacet    :: FabricTag -> Bool
 fabTagIsTransformFilter   :: FabricTag -> Bool
 fabTagIsTransformConvolve :: FabricTag -> Bool
 fabTagIsSubstance         :: FabricTag -> Bool
-fabTagIsTree              = matchType fABRICiStREE
-fabTagIsTransformAffine   = matchType fABRICiStRANSFORMaFFINE
-fabTagIsTransformFacet    = matchType fABRICiStRANSFORMfACET
-fabTagIsTransformFilter   = matchType fABRICiStRANSFORMfILTER
-fabTagIsTransformConvolve = matchType fABRICiStRANSFORMcONVOLVE
-fabTagIsSubstance         = matchType fABRICiSsUBSTANCE
+fabTagIsTree              = matchCase fABRICiStREE
+fabTagIsTransformAffine   = matchCase fABRICiStRANSFORMaFFINE
+fabTagIsTransformFacet    = matchCase fABRICiStRANSFORMfACET
+fabTagIsTransformFilter   = matchCase fABRICiStRANSFORMfILTER
+fabTagIsTransformConvolve = matchCase fABRICiStRANSFORMcONVOLVE
+fabTagIsSubstance         = matchCase fABRICiSsUBSTANCE
 
 fabTagIsComposite :: FabricTag -> Bool
 fabTagIsMult      :: FabricTag -> Bool
 fabTagIsAdd       :: FabricTag -> Bool
 fabTagIsFloatOr   :: FabricTag -> Bool
 fabTagIsFloatXor  :: FabricTag -> Bool
-fabTagIsComposite = matchType fABRICiScOMPOSITE
-fabTagIsMult      = matchType fABRICiSmULT
-fabTagIsAdd       = matchType fABRICiSaDD
-fabTagIsFloatOr   = matchType fABRICiSfLOAToR
-fabTagIsFloatXor  = matchType fABRICiSfLOATxOR
+fabTagIsComposite = matchCase fABRICiScOMPOSITE
+fabTagIsMult      = matchCase fABRICiSmULT
+fabTagIsAdd       = matchCase fABRICiSaDD
+fabTagIsFloatOr   = matchCase fABRICiSfLOAToR
+fabTagIsFloatXor  = matchCase fABRICiSfLOATxOR
 
 fabTagTreeId :: FabricTag -> ConfineTreeId
 fabTagTreeId = ConfineTreeId . fromFabHigh . unFabricTag
@@ -178,7 +181,28 @@ fabTagParentId = FabricTagId . Ref . fromFabHigh . unFabricTag
 fabTagChildId :: FabricTag -> FabricTagId
 fabTagChildId = FabricTagId . Ref . fromFabLow . unFabricTag
 
-showFabType tag
+
+makeHighLimit :: ShapeId_ -> FabricTag_
+makeHighLimit shapeId = fromIntegral shapeId `shiftL` 32
+
+makeLowLimit :: ShapeId_ -> FabricTag_
+makeLowLimit = fromIntegral
+
+makeLimits :: ShapeId -> ShapeId -> FabricTag
+makeLimits aRef bRef = FabricTag $ (makeHighLimit . unShapeId $ tr "makeLimits aRef" aRef) .|. (makeLowLimit . unShapeId $ tr "makeLimits bRef" bRef)
+
+fromHighLimit :: FabricTag_ -> ShapeId_
+fromHighLimit fabricTag = fromIntegral $ fabricTag `shiftR` 32
+
+fromLowLimit :: FabricTag_ -> ShapeId_
+fromLowLimit tag = fromIntegral tag .&. nULLsHAPEiD
+
+fromLimits :: FabricTag -> (ShapeId, ShapeId)
+fromLimits (FabricTag tag) = ( ShapeId . fromHighLimit $ tag
+                             , ShapeId . fromLowLimit  $ tag
+                             )
+
+showFabCase tag
     | fabTagIsTree              tag = "Tree"
     | fabTagIsTransformAffine   tag = "Affine"
     | fabTagIsTransformFacet    tag = "Facet"
@@ -197,4 +221,4 @@ showFabData tag
     | fabTagIsBinaryOp          tag = (show . fabTagParentId  $ tag) ++ "->" ++ show (fabTagChildId tag)
 
 instance Show FabricTag where
-  show tag = showFabType tag ++ ":" ++ showFabData tag
+  show tag = showFabCase tag ++ ":" ++ showFabData tag

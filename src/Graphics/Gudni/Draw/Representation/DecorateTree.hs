@@ -18,7 +18,7 @@ import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.Primitive.Stack
-import Graphics.Gudni.Raster.Dag.Query
+import Graphics.Gudni.Raster.Dag.Fabric.Traverse
 import Graphics.Gudni.Raster.Dag.State
 import Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
 
@@ -27,7 +27,7 @@ import Graphics.Gudni.Draw.Rectangle
 import Graphics.Gudni.Draw.Text
 
 import Graphics.Gudni.Draw.Representation.Class
-import Graphics.Gudni.Draw.Representation.ConfineQuery
+import Graphics.Gudni.Draw.Representation.RayQuery
 import Graphics.Gudni.Util.Debug
 
 import Control.Lens
@@ -53,7 +53,7 @@ constructDecorateTree :: forall style m
                          , Storable (SpaceOf style)
                          )
                       => DecorateTree (SpaceOf style)
-                      -> FabricMonad (SpaceOf style) m (Layout style)
+                      -> DagMonad (SpaceOf style) m (Layout style)
 constructDecorateTree =
   go Vertical 0 (toAlong Horizontal minBound) (toAlong Vertical minBound) [] reasonableBoundaries
   where
@@ -63,13 +63,13 @@ constructDecorateTree =
      -> Int
      -> Athwart axis (SpaceOf style)
      -> Along   axis (SpaceOf style)
-     -> PrimStack
+     -> ShapeStack
      -> Box (SpaceOf style)
      -> DecoTree axis (SpaceOf style)
-     -> FabricMonad (SpaceOf style) m (Layout style)
+     -> DagMonad (SpaceOf style) m (Layout style)
   go axis depth parentCut parentLine layers boundary tree =
       do let anchor = pointAlongAxis (perpendicularTo axis) parentCut parentLine
-         layerStack <- constructLayerStack anchor layers
+         layerStack <- error "constructDecorateTree not implemented" -- constructLayerStack anchor layers
          case tree of
              DecoLeaf -> return $ overlap [rectangleAround anchor, layerStack]
              DecoBranch {} -> do branchLayout <- goBranch axis depth parentCut parentLine layers boundary tree
@@ -82,10 +82,10 @@ constructDecorateTree =
            -> Int
            -> Athwart axis (SpaceOf style)
            -> Along   axis (SpaceOf style)
-           -> PrimStack
+           -> ShapeStack
            -> Box (SpaceOf style)
            -> DecoTree axis (SpaceOf style)
-           -> FabricMonad (SpaceOf style) m (Layout style)
+           -> DagMonad (SpaceOf style) m (Layout style)
   goBranch axis depth parentCut parentLine layers boundary branch =
                   let cut      = branch ^?! decoCut
                       anchor = pointAlongAxis (perpendicularTo axis) parentCut parentLine

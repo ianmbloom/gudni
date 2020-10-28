@@ -5,6 +5,7 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE UndecidableSuperClasses    #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 module DrawSweepTrace
   ( constructSweepTrace
@@ -18,7 +19,8 @@ import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.Primitive.Type
 import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Raster.Dag.ConfineTree.SweepTrace
-import Graphics.Gudni.Raster.Dag.Query
+import Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
+import Graphics.Gudni.Raster.Dag.Fabric.Traverse
 import Graphics.Gudni.Raster.Dag.State
 
 import Graphics.Gudni.Draw
@@ -37,33 +39,35 @@ import qualified Data.Map as M
 import qualified Data.Colour.Names as CN
 
 simpleBezier :: (IsStyle style)
-             => Color
+             => Color (SpaceOf style)
              -> Bezier (SpaceOf style)
              -> Layout style
 simpleBezier color bz =
      withColor color . mask . stroke 1 $ makeOpenCurve [bz]
 
 boxedBezier :: (IsStyle style)
-            => Color
-            -> Color
+            => Color (SpaceOf style)
+            -> Color (SpaceOf style)
             -> Bezier (SpaceOf style)
             -> Layout style
 boxedBezier backColor color bz =
   let box = boxOf bz
-  in  overlap [ withColor color . mask . stroke 1 $ makeOpenCurve [bz]
+  in  overlap [ withColor color     . mask . stroke 1 $ makeOpenCurve [bz]
               , withColor backColor . mask . boxToRectangle $ box
               ]
 
-pathLine :: IsStyle style => Color -> (Point2 (SpaceOf style), Point2 (SpaceOf style)) -> Layout style
+pathLine :: IsStyle style => Color (SpaceOf style) -> (Point2 (SpaceOf style), Point2 (SpaceOf style)) -> Layout style
 pathLine  color (start, end) = withColor (transparent 0.5 color) . mask . stroke 4 . makeOpenCurve $ [line (constrainPoint start) (constrainPoint end)]
 
-constructSweepStored :: IsStyle style
+constructSweepStored :: forall style
+                     .  IsStyle style
                      => Bool
                      -> Int
                      -> [Primitive (SpaceOf style)]
                      -> Layout style
 constructSweepStored bypassed i prims =
   let sat = if bypassed then saturate 0.25 else id
+      color :: Color (SpaceOf style)
       color = sat $ colorList !! (i `mod` numColors)
   in
   overlap $ map (withColor color . drawPrim) prims
@@ -74,11 +78,11 @@ constructSweepTrace :: forall style m
                       , MonadIO m
                       )
                     => SweepTrace (SpaceOf style)
-                    -> FabricMonad (SpaceOf style) m (Layout style)
+                    -> RayMonad (SpaceOf style) m (Layout style)
 constructSweepTrace trace =
-   do discarded <- mapM loadPrimS (trace ^. sweepDiscarded)
-      continue  <- mapM loadPrimS (trace ^. sweepContinue)
-      bypass    <- mapM (mapM loadPrimS) (trace ^. sweepBypasses)
+   do discarded <- mapM loadPrimT (trace ^. sweepDiscarded)
+      continue  <- mapM loadPrimT (trace ^. sweepContinue)
+      bypass    <- mapM (mapM loadPrimT) (trace ^. sweepBypasses)
       return $
           overlap
               [ overlap $ map (pathLine blue  ) (nullTail $ trace ^. sweepPath)
@@ -89,6 +93,8 @@ constructSweepTrace trace =
               , overlap $ map (withColor (transparent 0.5 $ light gray) . mask . boxToRectangle . constrainBox) (trace ^. sweepVisited)
               ]
 
-numColors = length colorList
-
+colorList :: Space s => [Color s]
 colorList = [ red, orange, yellow, green, blue, purple ]
+
+numColors :: Int
+numColors = length (colorList :: [Color SubSpace])

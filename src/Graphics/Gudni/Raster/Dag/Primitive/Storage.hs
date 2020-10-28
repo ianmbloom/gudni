@@ -69,20 +69,20 @@ storePrim :: ( Storable s
              , MonadIO m)
           => Primitive s
           -> StateT (PrimStorage s) m (PrimTagId)
-storePrim (Prim fabricTagId primType) =
+storePrim (Prim shapeId primType) =
   do tag <- case primType of
                 PrimBezier bez ->
                     do bezId <- addToPileS primBezierPile bez
-                       return $ makeBezierPrimTag (BezierId bezId) fabricTagId
+                       return $ makeBezierPrimTag (BezierId bezId) shapeId
                 PrimFacet facet ->
                     do facetId <- addToPileS primFacetPile facet
-                       return $ makeFacetPrimTag (FacetId facetId) fabricTagId
+                       return $ makeFacetPrimTag (FacetId facetId) shapeId
                 PrimRect box ->
                     do boxId <- addToPileS primBoxPile box
-                       return $ makeRectPrimTag (BoxId boxId) fabricTagId
+                       return $ makeRectPrimTag (BoxId boxId) shapeId
                 PrimEllipse box ->
                     do boxId <- addToPileS primBoxPile box
-                       return $ makeElipsePrimTag (BoxId boxId) fabricTagId
+                       return $ makeElipsePrimTag (BoxId boxId) shapeId
      primTagId <- addToPileS primTagPile tag
      return $ PrimTagId primTagId
 
@@ -93,7 +93,7 @@ loadPrim :: ( Storable s
          -> StateT (PrimStorage s) m (Primitive s)
 loadPrim primTagId =
   do tag <- fromPileS primTagPile (unPrimTagId primTagId)
-     let fabricTagId = primTagFabricTagId tag
+     let shapeId = primTagShapeId tag
          buildType
              | primTagIsBezier tag = do bez <- fromPileS primBezierPile (unBezierId . primTagBezierId $ tag)
                                         return $ PrimBezier  bez
@@ -105,4 +105,4 @@ loadPrim primTagId =
                                         return $ PrimEllipse box
              | otherwise = error "unsupported primType"
      ty <- buildType
-     return $ Prim fabricTagId ty
+     return $ Prim shapeId ty

@@ -39,17 +39,17 @@ class (HasSpace a) => CanFill a where
     type UnFilled a :: *
     withFill :: Substance NamedTexture (SpaceOf a) -> UnFilled a -> a
 
-withColor :: (CanFill a) => Color -> UnFilled a -> a
+withColor :: (CanFill a) => Color (SpaceOf a) -> UnFilled a -> a
 withColor color = withFill (Solid color)
 
 withTexture :: (CanFill a) => NamedTexture -> UnFilled a -> a
 withTexture texture = withFill (Texture texture)
 
-withRadialGradient :: (CanFill a) => Point2 (SpaceOf a) -> SpaceOf a -> Color -> SpaceOf a -> Color -> UnFilled a -> a
+withRadialGradient :: (CanFill a) => Point2 (SpaceOf a) -> SpaceOf a -> Color (SpaceOf a) -> SpaceOf a -> Color (SpaceOf a) -> UnFilled a -> a
 withRadialGradient center innerRadius innerColor outerRadius outerColor =
   withFill (Radial $ RadialGradient center innerRadius outerRadius innerColor outerColor)
 
-withLinearGradient :: (CanFill a) => Point2 (SpaceOf a) -> Color -> Point2 (SpaceOf a) -> Color -> UnFilled a -> a
+withLinearGradient :: (CanFill a) => Point2 (SpaceOf a) -> Color (SpaceOf a) -> Point2 (SpaceOf a) -> Color (SpaceOf a) -> UnFilled a -> a
 withLinearGradient start startColor end endColor =
   withFill (Linear $ LinearGradient start end startColor endColor)
 

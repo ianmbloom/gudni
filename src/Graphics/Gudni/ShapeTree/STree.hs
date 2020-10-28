@@ -238,8 +238,9 @@ instance HasSpace rep => HasSpace (SMask token tex rep) where
 
 -- | A container for a ShapeTree that indicates the background color.
 data Scene t = Scene
-  { _sceneBackgroundColor :: Color
+  { _sceneBackgroundColor :: Color (SpaceOf t)
   , _sceneShapeTree       :: t
   }
 makeLenses ''Scene
-deriving instance Show t => Show (Scene t)
+
+deriving instance (Show t, Show (SpaceOf t)) => Show (Scene t)

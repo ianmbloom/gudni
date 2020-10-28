@@ -16,6 +16,7 @@
 
 module Graphics.Gudni.Figure.Principle.Angle
   ( Angle
+  , negateAngle
   , cosA
   , sinA
   , tanA
@@ -50,6 +51,9 @@ import Text.PrettyPrint hiding ((<>))
 instance Show s => Out (Angle s) where
     doc a = (text . show $ a)
     docPrec _ = doc
+
+negateAngle :: Num s => Angle s -> Angle s
+negateAngle = fmap negate
 -- -----------------------------------------------------------------------------
 -- Simple rotation functions.
 

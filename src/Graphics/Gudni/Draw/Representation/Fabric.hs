@@ -12,9 +12,9 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 
-import Graphics.Gudni.Raster.Dag.Query
-import Graphics.Gudni.Raster.Dag.PrimColorQuery
+import Graphics.Gudni.Raster.Dag.Fabric.Traverse
 import Graphics.Gudni.Raster.Dag.TagTypes
+import Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Storage
 import Graphics.Gudni.Raster.Dag.State
@@ -48,12 +48,11 @@ constructDag :: ( MonadIO m
                 , IsStyle style
                 )
              => FabricTagId
-             -> FabricMonad (SpaceOf style) m (Layout style)
+             -> DagMonad (SpaceOf style) m (Layout style)
 constructDag fabricTagId =
-    do liftIO $ putStrLn $ "fabricTagId " ++ show fabricTagId
-       if fabricTagId == nullFabricTagId
+    do if fabricTagId == nullFabricTagId
        then return . withColor black $ hatch 1 30
-       else do (parent, fabric) <- loadFabricS fabricTagId
+       else do (WithParent parent fabric) <- loadFabricS fabricTagId
                case fabric of
                    FCombine ty a b -> do aLayout <- constructDag a
                                          bLayout <- constructDag b
@@ -66,32 +65,35 @@ constructDag fabricTagId =
                                                 return $ rack [ scaler . withColor blue . blurb $ show fabricTagId ++ " Trans " ++ show trans
                                                               , childLayout
                                                               ]
-                   FLeaf substance -> do subst <- constructSubstance substance
-                                         return $ stack [ --scaler . withColor red . blurb $ show fabricTagId ++ " Subst"
-                                                        -- ,
-                                                        subst
-                                                        ]
+                   FLeaf leaf ->
+                       case leaf of
+                           FTree confineTreeId childId ->
+                               do childLayout <- constructDag childId
+                                  (confineTree, decorateTree) <- loadTreeS confineTreeId
+                                  mBox <- confineTreeBox confineTree
+                                  constructedTree <-
+                                      case mBox of
+                                          Nothing  -> return emptyItem
+                                          Just box -> constructConfineTreeBound box confineTree
+                                  return $
+                                      stack [ scaler . withColor (dark green) . blurb $ "Tree " ++ show confineTreeId ++ " mBox" ++ show mBox
+                                            , scaler constructedTree
+                                            , childLayout
+                                            ]
+                           FTreeSubstance substance ->
+                               do subst <- constructSubstance substance
+                                  return $ stack [ --scaler . withColor red . blurb $ show fabricTagId ++ " Subst"
+                                                 -- ,
+                                                 subst
+                                               ]
 
 constructSubstance :: ( MonadIO m
                       , IsStyle style
                       )
                    => FSubstance (ForStorage (SpaceOf style))
-                   -> FabricMonad (SpaceOf style) m (Layout style)
+                   -> DagMonad (SpaceOf style) m (Layout style)
 constructSubstance substance =
   case substance of
-      FGeometry (FTree confineTreeId childId) ->
-          do childLayout <- constructDag childId
-             (confineTree, decorateTree) <- loadTreeS confineTreeId
-             mBox <- confineTreeBox confineTree
-             constructedTree <-
-                 case mBox of
-                     Nothing  -> return emptyItem
-                     Just box -> constructConfineTreeBound box confineTree
-             return $
-                 stack [ scaler . withColor (dark green) . blurb $ "Tree " ++ show confineTreeId ++ " mBox" ++ show mBox
-                       , scaler constructedTree
-                       , childLayout
-                       ]
       FConst color -> return . scaleBy 30 . withColor color . mask $ circle
       FTexture   t -> return . withColor (blueish   gray) $ hatch 1 30
       FLinear      -> return . withColor (yellowish gray) $ hatch 1 30

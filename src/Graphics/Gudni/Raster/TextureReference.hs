@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveGeneric         #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -36,6 +37,7 @@ module Graphics.Gudni.Raster.TextureReference
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.StorableInstances
 import Graphics.Gudni.ShapeTree
@@ -84,14 +86,16 @@ data PictureMemoryReference = PictureMemory
     pictSize      :: Point2 PixelSpace
     -- | The offset of the picture data within the combined buffer of all source pictures.
   , pictMemOffset :: MemOffset_
-  } deriving (Show)
+  } deriving (Show, Generic)
+
+instance Out PictureMemoryReference
 
 instance (Storable a) => CanLoad Word8 (AsBytes a) where
     fromPile pile index = AsBytes    <$> (liftIO $ peek (castPtr $ ptrFromIndex pile index (undefined :: Word8)))
     toPile   pile index  (AsBytes item) = liftIO $ poke (castPtr $ ptrFromIndex pile index (undefined :: Word8)) item
 
 
-getPixelColor :: MonadIO m => PixelPile -> PictureMemoryReference -> Point2 PixelSpace -> m Color
+getPixelColor :: Space s => MonadIO m => PixelPile -> PictureMemoryReference -> Point2 PixelSpace -> m (Color s)
 getPixelColor pixelPile (PictureMemory (Point2 w h) offset) (Point2 x y) =
     do  let pos = Ref ((fromIntegral $ unPSpace (y * w + x)) * (fromIntegral $ sizeOf (undefined :: V4 Word8))) :: Reference Word8
         (AsBytes (colorWord8 :: V4 Word8)) <- liftIO $ fromPile pixelPile pos
@@ -168,7 +172,7 @@ withScenePictureMemory pictureMap scene code =
         do let (namedTree, pictureMap') = runState (namePicturesInShapeTree shapeTree) pictureMap
            (pictureRefMap, pictDataPile) <- liftIO $ collectPictureMemory pictureMap'
            let pictRefScene :: Scene (FinalTreePictureMemory token s)
-               pictRefScene = set sceneShapeTree (mapSLeaf (assignPictUsage pictureRefMap) (namedTree::FinalTreeNamed token s)) scene
+               pictRefScene = Scene (scene ^. sceneBackgroundColor) (mapSLeaf (assignPictUsage pictureRefMap) (namedTree::FinalTreeNamed token s))
            result <- code pictRefScene pictDataPile
            liftIO $ freePile pictDataPile
            return result

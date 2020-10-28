@@ -45,13 +45,13 @@ addCrossingM :: forall axis s m
              -> Athwart axis s
              -> Along axis s
              -> Confine axis s
-             -> PrimStack
+             -> ShapeStack
              -> PrimTagId
-             -> m PrimStack
+             -> m ShapeStack
 addCrossingM getPrim op axis parentCut parentLine tree stack primTagId =
     do op
        prim <- getPrim primTagId
-       return $ crossPrimAlong (perpendicularTo axis) parentCut parentLine (tree ^. confineCut) primTagId prim stack
+       return $ passPrimAlong (perpendicularTo axis) parentCut parentLine (tree ^. confineCut) primTagId prim stack
 
 sweepConfineTree :: forall s m
                  . ( Space s
@@ -61,9 +61,9 @@ sweepConfineTree :: forall s m
                  -> (PrimTagId -> m (Primitive s))
                  -> m ()
                  -> m ()
-                 -> (PrimStack -> PrimStack -> m ())
+                 -> ([PrimTagId] -> [PrimTagId] -> m ())
                  -> (Box s -> m ())
-                 -> (PrimStack -> m ())
+                 -> ([PrimTagId] -> m ())
                  -> m ()
                  -> ((Point2 s, Point2 s) -> m ())
                  -> m ()
@@ -194,7 +194,7 @@ sweepConfineTree getBox
                          , depth
                          )
 
-   collectOverhangs :: Axis axis => axis -> Branch axis s -> PrimStack -> m PrimStack
+   collectOverhangs :: Axis axis => axis -> Branch axis s -> [PrimTagId] -> m [PrimTagId]
    collectOverhangs axis mTree stack =
      case mTree of
        Nothing -> return stack

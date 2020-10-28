@@ -89,20 +89,37 @@ instance Storable s => Storable (Affine s) where
     peek = peekV
     poke = pokeV
 
+instance Storable s => StorableM (Affine s, Affine s) where
+    sizeOfM _ = do sizeOfM (undefined :: Affine s)
+                   sizeOfM (undefined :: Affine s)
+    alignmentM _ = do alignmentM (undefined :: Affine s)
+                      alignmentM (undefined :: Affine s)
+    peekM = do forward <- peekM
+               back    <- peekM
+               return $ (forward, back)
+    pokeM (forward, back) = do pokeM forward
+                               pokeM back
+
+instance Storable s => Storable (Affine s, Affine s) where
+    sizeOf = sizeOfV
+    alignment = alignmentV
+    peek = peekV
+    poke = pokeV
+
 
 instance StorableM (RadialGradient SubSpace) where
   sizeOfM _ =
     do sizeOfM (undefined :: Point2 SubSpace)
        sizeOfM (undefined :: SubSpace       )
        sizeOfM (undefined :: SubSpace       )
-       sizeOfM (undefined :: Color          )
-       sizeOfM (undefined :: Color          )
+       sizeOfM (undefined :: Color SubSpace )
+       sizeOfM (undefined :: Color SubSpace )
   alignmentM _ =
     do alignmentM (undefined :: Point2 SubSpace)
        alignmentM (undefined :: SubSpace       )
        alignmentM (undefined :: SubSpace       )
-       alignmentM (undefined :: Color          )
-       alignmentM (undefined :: Color          )
+       alignmentM (undefined :: Color SubSpace )
+       alignmentM (undefined :: Color SubSpace )
   peekM = do center       <- peekM
              innerRadius  <- peekM
              outerRadius  <- peekM
@@ -135,13 +152,13 @@ instance StorableM (LinearGradient SubSpace) where
   sizeOfM _ =
     do sizeOfM (undefined :: Point2 SubSpace)
        sizeOfM (undefined :: Point2 SubSpace)
-       sizeOfM (undefined :: Color          )
-       sizeOfM (undefined :: Color          )
+       sizeOfM (undefined :: Color  SubSpace)
+       sizeOfM (undefined :: Color  SubSpace)
   alignmentM _ =
     do alignmentM (undefined :: Point2 SubSpace)
        alignmentM (undefined :: Point2 SubSpace)
-       alignmentM (undefined :: Color          )
-       alignmentM (undefined :: Color          )
+       alignmentM (undefined :: Color  SubSpace)
+       alignmentM (undefined :: Color  SubSpace)
   peekM = do start      <- peekM
              end        <- peekM
              startColor <- peekM

@@ -46,7 +46,7 @@ instance Random Compound where
                                   1 -> CompoundSubtract
   randomR _ = random
 
-instance Random Color where
+instance (Random s, Space s) => Random (Color s) where
   random = runRand $ do hue       <- getRandomR(0,360)
                         sat       <- getRandomR(0.3,1)
                         lightness <- getRandomR(0.4,0.9)

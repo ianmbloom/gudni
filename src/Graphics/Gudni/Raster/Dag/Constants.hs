@@ -12,7 +12,9 @@
 -- Constructors for attaching metadata to shapes∘
 
 module Graphics.Gudni.Raster.Dag.Constants
-    ( StorageId_
+    ( ShapeId_
+    , nULLsHAPEiD
+    , StorageId_
     , PrimTag_
     , pRIMtAGtYPEbITMASK
     , pRIMtAGiSbEZIER
@@ -62,6 +64,9 @@ instance Out CULong where
     doc x = text . show $ x
     docPrec _ = doc
 
+type ShapeId_ = CUInt
+
+nULLsHAPEiD = 0xFFFFFFFF :: ShapeId_
 
 -- Prim Tag Bit Layout
 -- Bits | 4 bit    | 30 bit      | 30 bit      |
@@ -126,7 +131,7 @@ fABRICtAGhIGHiDsHIFT      = 30 :: Int
 -- Bit 29 - 0
 fABRICtAGlOWiDbITMASK     = 0x000000003FFFFFFF :: CULong
 
-nULLfABRICtAGiD = 0x3FFFFFFF :: CUInt
+nULLfABRICtAGiD           = 0x3FFFFFFF :: CUInt
 -- Substance Tag Bit Layout
 -- This fits inside of a FabricTag
 -- Bits | 4 bit     | 4 bit | 56 bit                   |

@@ -24,7 +24,7 @@ import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Query
+import Graphics.Gudni.Raster.Dag.Fabric.Traverse
 import Graphics.Gudni.Raster.Dag.State
 
 import Graphics.Gudni.Draw.Stroke
@@ -33,7 +33,7 @@ import Graphics.Gudni.Draw.Text
 import Graphics.Gudni.Draw.ArrowHead
 import Graphics.Gudni.Draw.Representation.Class
 import Graphics.Gudni.Draw.Representation.Primitive
-import Graphics.Gudni.Draw.Representation.ConfineQuery
+import Graphics.Gudni.Draw.Representation.RayQuery
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
 
@@ -48,7 +48,7 @@ import Text.PrettyPrint.GenericPretty
 import qualified Data.Map as M
 
 class (Axis axis) => AxisColor axis where
-  axisColor :: axis -> Color
+  axisColor :: Space s => axis -> Color s
 
 instance AxisColor Vertical where
   axisColor Vertical   = red
@@ -93,7 +93,7 @@ constructConfine :: forall axis style m
                  => axis
                  -> Confine axis (SpaceOf style)
                  -> Box (SpaceOf style)
-                 -> FabricMonad (SpaceOf style) m (Layout style)
+                 -> DagMonad (SpaceOf style) m (Layout style)
 constructConfine axis tree boundary =
     let thickness :: SpaceOf style
         thickness = 1
@@ -131,7 +131,7 @@ constructConfineTreeBound :: forall style m
                              , MonadIO m )
                           => Box (SpaceOf style)
                           -> ConfineTree (SpaceOf style)
-                          -> FabricMonad (SpaceOf style) m (Layout style)
+                          -> DagMonad (SpaceOf style) m (Layout style)
 constructConfineTreeBound startBoundary =
   go Vertical 0 startBoundary
   where
@@ -143,7 +143,7 @@ constructConfineTreeBound startBoundary =
      -> Int
      -> Box (SpaceOf style)
      -> Branch axis (SpaceOf style)
-     -> FabricMonad (SpaceOf style) m (Layout style)
+     -> DagMonad (SpaceOf style) m (Layout style)
   go axis depth boundary mTree =
         if widthOf boundary > 0 && heightOf boundary > 0
         then case mTree of
@@ -162,7 +162,7 @@ constructConfineTree :: forall style m
                         , Storable (SpaceOf style)
                         , MonadIO m )
                      => ConfineTree (SpaceOf style)
-                     -> FabricMonad (SpaceOf style) m (Layout style)
+                     -> DagMonad (SpaceOf style) m (Layout style)
 constructConfineTree =
      constructConfineTreeBound reasonableBoundaries
 
@@ -171,7 +171,7 @@ constructConfineTreeBoxed :: forall style m
                              , Storable (SpaceOf style)
                              , MonadIO m )
                           => ConfineTree (SpaceOf style)
-                          -> FabricMonad (SpaceOf style) m (Layout style)
+                          -> DagMonad (SpaceOf style) m (Layout style)
 constructConfineTreeBoxed confineTree =
     do mBox <- confineTreeBox confineTree
        case mBox of
@@ -184,14 +184,14 @@ confineTreeBox :: forall m s
                   , Storable s
                   )
                => ConfineTree s
-               -> FabricMonad s m (Maybe (Box s))
+               -> DagMonad s m (Maybe (Box s))
 confineTreeBox =
   go Vertical
   where
   go :: ( Axis axis )
      => axis
      -> Branch axis s
-     -> FabricMonad s m (Maybe (Box s))
+     -> DagMonad s m (Maybe (Box s))
   go axis mTree =
       case mTree of
           Nothing -> return Nothing

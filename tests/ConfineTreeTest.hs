@@ -11,6 +11,7 @@ module ConfineTreeTest
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
@@ -20,6 +21,7 @@ import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Util.Debug
 
+import Graphics.Gudni.Raster.Dag.Fabric.Out
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Build
 import Graphics.Gudni.Raster.Dag.Primitive.Storage
@@ -43,6 +45,7 @@ import GudniTests
 import BasicShapes
 import DrawSweepTrace
 
+
 data ConfineTreeState = ConfineTreeState
   { _stateBase        :: BasicSceneState
   , _stateShapeAngle  :: Angle SubSpace
@@ -55,28 +58,29 @@ makeLenses ''ConfineTreeState
 
 instance Out ConfineTreeState
 
+initialModel :: ConfineTreeState
 initialModel =
     ConfineTreeState
-    { _stateBase = BasicSceneState
-        { _stateScale       = 1
-        , _stateDelta       = Point2 0 0
-        , _stateAngle       = 0 @@ deg
-        , _statePaused      = True
-        , _stateSpeed       = 0.1
-        , _statePace        = 50
-        , _stateLastTime    = 0
-        , _stateDirection   = True
-        , _statePlayhead    = 0
-        , _stateFrameNumber = 0
-        , _stateStep        = 21
-        , _stateRepMode     = False
-        , _stateRepDk       = False
-        , _stateCursor      = Point2 448 474
-        }
-    --, _stateTree        = tree
+    { _stateBase =
+          BasicSceneState
+          { _stateScale       = 1
+          , _stateDelta       = Point2 0 0
+          , _stateAngle       = 0 @@ deg
+          , _statePaused      = True
+          , _stateSpeed       = 0.1
+          , _statePace        = 50
+          , _stateLastTime    = 0
+          , _stateDirection   = True
+          , _statePlayhead    = 3
+          , _stateFrameNumber = 0
+          , _stateStep        = 21
+          , _stateRepMode     = False
+          , _stateRepDk       = False
+          , _stateCursor      = Point2 392 298
+          }
     , _stateShapeAngle = 0 @@ rad -- 0 @@ rad
     , _stateTraceStep = 0
-    , _stateCurrentTest = findTest "diamondBox" {-"fuzzyGlyphs" "millionFuzzyCircles" "randomCurves" -} allTests
+    , _stateCurrentTest = flip findTest allTests "randomCurves" -- "twoTriangles" -- "triRed" -- "diamondBox" --"fuzzyGlyphs" "millionFuzzyCircles"
     , _stateDecorationType = True
     , _stateDecorationLimit = 0
     }
@@ -104,32 +108,38 @@ instance Model ConfineTreeState where
                 name = (fst $ getTest state)
                 canvasSize = Point2 2000 2000
                 canvas = sizeToBox canvasSize
+                point   = state ^. stateBase . stateCursor
             liftIO $ putStrLn name
             pictureMap <- liftIO $ providePictureMap state
             (pictureMemoryMap, pixelPile) <- liftIO $ collectPictureMemory pictureMap
             fabric <- sceneToFabric pictureMemoryMap (Scene (light gray) testShape)
             liftIO $ putStrLn "Before withSerialized Fabric"
-            testScene <- withSerializedFabric (Just canvas) pixelPile fabric $ \fabricTagId ->
-                do  -- (tree, decoTree, sweepTrace) <- liftIO $ buildConfineTree (state ^. stateDecorationType )
+            testScene <- withSerializedFabric (Just canvas) pixelPile fabric $ \root ->
+                do  out <- lift $ outFabric root
+                    liftIO $ putStrLn "**** outFabric *******************************************"
+                    liftIO $ putStrLn $ render out
+                    -- (tree, decoTree, sweepTrace) <- liftIO $ buildConfineTree (state ^. stateDecorationType )
                     --                                                           (state ^. stateTraceStep      )
                     --                                                           (state ^. stateDecorationLimit)
                     --                                                           (confineState ^. conPrimStorage . primBezierPile)
                     -- constructedTree     <- constructConfineTree tree
                     -- constructedDecoTree <- constructDecorateTree decoTree
                     -- boxQuery     <- checkBox tree decoTree (state ^. stateBase . stateCursor)
-                    -- setPoints    <- mapM (checkPoint tree decoTree) [Point2 300 500]
-                    -- randomPoints <- mapM (checkPoint tree decoTree) $
-                    --                     evalRand (take 800 <$> getRandomRs (Point2 0 0, canvasSize)) .
-                    --                     mkStdGen $ round $
-                    --                     state ^. stateBase . statePlayhead
+                    (setPoints :: [Layout DefaultStyle]) <-
+                         mapM (constructRayQuery root) [point] -- , Point2 200 200]
+                    -- (randomPoints :: [Layout DefaultStyle]) <-
+                    --      mapM (constructRayQuery root) .
+                    --      evalRand (take 1000 <$> getRandomRs (Point2 0 0, canvasSize)) .
+                    --      mkStdGen $ round $
+                    --      state ^. stateBase . statePlayhead
                     -- traceConstructed :: Layout DefaultStyle
                     -- traceConstructed <- constructSweepTrace sweepTrace
-                    liftIO $ putStrLn "about to contructDag"
-                    dag <- constructDag fabricTagId
+                    liftIO $ putStrLn "about to constructDag"
+                    (dag :: Layout DefaultStyle) <- lift $ constructDag root
                     return $
                         overlap [  -- overlap randomPoints
                                    -- ,
-                                   -- overlap setPoints
+                                   overlap setPoints
                                    -- ,
                                    -- boxQuery
                                    -- ,
@@ -139,8 +149,8 @@ instance Model ConfineTreeState where
                                    -- ,
                                    -- traceConstructed
                                    -- ,
-                                   dag
-                                 ,
+                                   -- dag
+                                   ,
                                    testShape
                                 ]
             let statusTree = statusDisplay (state ^. stateBase) "Test ConfineTree" (lines status)

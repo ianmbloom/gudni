@@ -10,6 +10,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE DeriveGeneric         #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -44,7 +45,7 @@ import Data.Vector as V
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint hiding ((<>))
 
-newtype Shape_ f s = Shape {_shapeOutlines :: [Outline_ f s]}
+newtype Shape_ f s = Shape {_shapeOutlines :: [Outline_ f s]} deriving (Generic)
 makeLenses ''Shape_
 
 deriving instance (Show (Outline_ f s)) => Show (Shape_ f s)

@@ -1,10 +1,13 @@
-{-# LANGUAGE DeriveGeneric              #-}
+ {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Graphics.Gudni.Raster.Dag.TagTypes
-    ( PrimTag(..)
+    ( ShapeId(..)
+    , nullShapeId
+    , PrimTag(..)
     , PrimTagId(..)
     , FabricTagId(..)
+    , nullFabricTagId
     , FabricTag(..)
     , BezierId(..)
     , FacetId(..)
@@ -12,7 +15,6 @@ module Graphics.Gudni.Raster.Dag.TagTypes
     , ConfineTreeId(..)
     , TransformId(..)
     , SubstanceTag(..)
-    , nullFabricTagId
     )
 where
 
@@ -29,6 +31,9 @@ import Text.PrettyPrint
 import Foreign.Storable
 import GHC.Ptr
 
+-- | The word "tag" is used to describe a bitfield that usually includes type metadata and pointers to other data.
+
+newtype ShapeId       = ShapeId       {unShapeId       :: ShapeId_              } deriving (Eq, Ord, Generic,       Num)
 newtype PrimTagId     = PrimTagId     {unPrimTagId     :: Reference PrimTag     } deriving (Eq, Ord, Generic       )
 newtype PrimTag       = PrimTag       {unPrimTag       :: PrimTag_              } deriving (Eq, Ord, Generic       )
 newtype FabricTagId   = FabricTagId   {unFabricTagId   :: Reference FabricTag   } deriving (Eq, Ord, Generic       )
@@ -36,27 +41,53 @@ newtype FabricTag     = FabricTag     {unFabricTag     :: FabricTag_            
 newtype BezierId s    = BezierId      {unBezierId      :: Reference (Bezier s)  } deriving (Eq, Ord, Generic, Show )
 newtype FacetId s     = FacetId       {unFacetId       :: Reference (Facet s)   } deriving (Eq, Ord, Generic, Show )
 newtype BoxId s       = BoxId         {unBoxId         :: Reference (Box s)     } deriving (Eq, Ord, Generic, Show )
-newtype ConfineTreeId = ConfineTreeId {unConfineTreeId :: StorageId_            } deriving (Eq, Ord, Generic, Show , Num)
+newtype ConfineTreeId = ConfineTreeId {unConfineTreeId :: StorageId_            } deriving (Eq, Ord, Generic,       Num)
 newtype TransformId   = TransformId   {unTransformId   :: StorageId_            } deriving (Eq, Ord, Generic, Show )
 newtype SubstanceTag  = SubstanceTag  {unSubstanceTag  :: FabricTag_            } deriving (Eq, Ord, Generic       )
 
 nullFabricTagId :: FabricTagId
 nullFabricTagId = FabricTagId (Ref $ nULLfABRICtAGiD)
 
+nullShapeId :: ShapeId
+nullShapeId = ShapeId nULLsHAPEiD
+
+instance Show ShapeId where
+  show shapeId = if shapeId == nullShapeId
+                 then "null"
+                 else show . unShapeId $ shapeId
+
 instance Show FabricTagId where
-  show = show . unRef . unFabricTagId
+  show fabricTagId = if fabricTagId == nullFabricTagId
+                     then "null"
+                     else show . unRef . unFabricTagId $ fabricTagId
 
 instance Show PrimTagId where
   show = show . unRef . unPrimTagId
 
+instance Show ConfineTreeId where
+  show = show . unConfineTreeId
+
+instance Out ShapeId where
+    doc tagId = if tagId == nullShapeId
+                then text "null"
+                else text "Sh" <+> (doc . unShapeId $ tagId)
+    docPrec _ = doc
 instance Out PrimTag
-instance Out PrimTagId
-instance Out FabricTagId
+instance Out PrimTagId where
+    doc tagId = doc . unRef . unPrimTagId $ tagId
+    docPrec _ = doc
+instance Out FabricTagId where
+    doc tagId = if tagId == nullFabricTagId
+                then text "null"
+                else text "Fb" <+> (doc . unRef . unFabricTagId $ tagId)
+    docPrec _ = doc
 instance Out FabricTag
 instance Out s => Out (BezierId s)
 instance Out s => Out (FacetId  s)
 instance Out s => Out (BoxId  s)
-instance Out ConfineTreeId
+instance Out ConfineTreeId where
+    doc treeId = text "Tx" <+> (doc . unConfineTreeId $ treeId)
+    docPrec _  = doc
 instance Out TransformId
 instance Out SubstanceTag
 

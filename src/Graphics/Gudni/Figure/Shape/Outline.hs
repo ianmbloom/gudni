@@ -9,6 +9,7 @@
 {-# LANGUAGE AllowAmbiguousTypes        #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE DeriveGeneric              #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -31,6 +32,7 @@ module Graphics.Gudni.Figure.Shape.Outline
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Base.Reversible
 import Graphics.Gudni.Base.Chain
 import Graphics.Gudni.Base.Loop
@@ -55,7 +57,7 @@ import Control.Monad
 -- | An shape is just a wrapper for a list of beziers. It represents one curve loop∘
 newtype Outline_ f s = Outline
   { _outlineSegments :: f (Bezier s)
-  }
+  } deriving (Generic)
 makeLenses ''Outline_
 
 makeOutline :: [Bezier s] -> Outline s

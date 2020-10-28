@@ -27,7 +27,7 @@ import Graphics.Gudni.Util.Debug
 
 -- | Type of filling for overlapping shapes.
 data Substance tex s
-    = Solid Color
+    = Solid (Color s)
     | Texture tex
     | Linear (LinearGradient s)
     | Radial (RadialGradient s)
@@ -52,7 +52,7 @@ mapMSubstanceTexture f substance =
 instance Space s => HasSpace (Substance n s) where
   type SpaceOf (Substance n s) = s
 
-instance (Space s, Show n, Show s) => Show (Substance n s) where
+instance (Space s, Show n, Show s, Show (Color s)) => Show (Substance n s) where
   show (Solid color) = "Solid " ++ show color
   show (Texture tex) = "Texture " ++ show tex
   show (Linear linearGradient)  = show linearGradient

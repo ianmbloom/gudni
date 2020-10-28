@@ -61,7 +61,7 @@ type PictureName = String
 
 data Picture
    = PictureFunction
-   { pictureFunction     :: Point2 PixelSpace -> Color
+   { pictureFunction     :: Point2 PixelSpace -> Color SubSpace
    , pictureFunctionSize :: Point2 PixelSpace
    }
    | PictureImage

@@ -53,7 +53,7 @@ instance KernelArgs s g w o r => KernelArgs s g w o (Slice x -> r) where
   prepArg = stoPrepArg
 
 -- | Make a color into an individual kernel argument.
-instance KernelArgs s g w o r => KernelArgs s g w o (Color -> r) where
+instance KernelArgs s g w o r => KernelArgs s g w o (Color SubSpace -> r) where
   prepArg = stoPrepArg
 
 -- | Make a pile of Storables in a OpenCL memory buffer.

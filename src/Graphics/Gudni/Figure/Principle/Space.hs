@@ -158,7 +158,7 @@ instance Random SubSpace where
 instance Show SubSpace where
   show x | x == minBound = "(minBound)"
          | x == maxBound = "maxBound"
-         | otherwise = (if x < 0 then \string -> "("++string++")" else id) . showFl' 12 . unSubSpace $ x
+         | otherwise = (if x < 0 then \string -> "("++string++")" else id) . showFl' 3 . unSubSpace $ x
 
 instance Show PixelSpace where
   show (PSpace x) = show x
