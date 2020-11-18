@@ -21,11 +21,12 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
-import Graphics.Gudni.Raster.Dag.Primitive.WithTag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Tag
 import Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
+import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.Fabric.Traverse
-import Graphics.Gudni.Raster.Dag.State
+import Graphics.Gudni.Raster.Dag.Storage
 
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Rectangle
@@ -91,14 +92,14 @@ constructConfine :: forall axis style m
                     , MonadIO m
                     )
                  => axis
-                 -> Confine axis (SpaceOf style)
+                 -> ConfineTag (SpaceOf style)
                  -> Box (SpaceOf style)
                  -> DagMonad (SpaceOf style) m (Layout style)
 constructConfine axis tree boundary =
     let thickness :: SpaceOf style
         thickness = 1
-        cut       = tree ^. confineCut
-        overhang  = tree ^. confineOverhang
+        cut       = toAthwart axis (tree ^. confineTagCut     )
+        overhang  = toAthwart axis (tree ^. confineTagOverhang)
         aColor    = axisColor axis
         aLine :: Bezier (SpaceOf style)
         aLine = axisLine axis cut boundary
@@ -109,11 +110,11 @@ constructConfine axis tree boundary =
         overhangLayout :: Layout style
         overhangLayout = withColor (transparent 0.01 aColor) . mask . boxToRectangle $ overhangBox
     in
-    do  prim <- loadPrimS (tree ^. confinePrimTagId)
+    do  prim <- loadPrimS (tree ^. confineTagPrimTagId)
         let primLayout :: Layout style
             primLayout = withColor blue . drawPrim $ prim
             label :: Layout style
-            label = withColor (transparent 0.5 purple) . labelPrim (tree ^. confinePrimTagId) $ prim
+            label = withColor (transparent 0.5 purple) . labelPrim (tree ^. confineTagPrimTagId) $ prim
         return $
             overlap $ [
                       -- label
@@ -130,7 +131,7 @@ constructConfineTreeBound :: forall style m
                              , Storable (SpaceOf style)
                              , MonadIO m )
                           => Box (SpaceOf style)
-                          -> ConfineTree (SpaceOf style)
+                          -> ConfineTagId (SpaceOf style)
                           -> DagMonad (SpaceOf style) m (Layout style)
 constructConfineTreeBound startBoundary =
   go Vertical 0 startBoundary
@@ -142,18 +143,18 @@ constructConfineTreeBound startBoundary =
      => axis
      -> Int
      -> Box (SpaceOf style)
-     -> Branch axis (SpaceOf style)
+     -> ConfineTagId (SpaceOf style)
      -> DagMonad (SpaceOf style) m (Layout style)
-  go axis depth boundary mTree =
+  go axis depth boundary treeId =
         if widthOf boundary > 0 && heightOf boundary > 0
-        then case mTree of
-               Nothing   -> return emptyItem
-               Just tree ->
-                   do confine <- constructConfine axis tree boundary
-                      let cut     = tree ^. confineCut
+        then if treeId == nullConfineTagId
+             then return emptyItem
+             else do  tree <- loadTreeTagS treeId
+                      confine <- constructConfine axis tree boundary
+                      let cut     = toAthwart axis (tree ^. confineTagCut)
                           (lessBound, moreBound) = splitBox axis cut boundary
-                      lessBranch <- go (perpendicularTo axis) (depth + 1) lessBound (tree ^. confineLessCut)
-                      moreBranch <- go (perpendicularTo axis) (depth + 1) moreBound (tree ^. confineMoreCut)
+                      lessBranch <- go (perpendicularTo axis) (depth + 1) lessBound (tree ^. confineTagLessCut)
+                      moreBranch <- go (perpendicularTo axis) (depth + 1) moreBound (tree ^. confineTagMoreCut)
                       return $ overlap [confine, lessBranch, moreBranch]
         else return emptyItem
 
@@ -161,7 +162,7 @@ constructConfineTree :: forall style m
                      .  ( IsStyle style
                         , Storable (SpaceOf style)
                         , MonadIO m )
-                     => ConfineTree (SpaceOf style)
+                     => ConfineTagId (SpaceOf style)
                      -> DagMonad (SpaceOf style) m (Layout style)
 constructConfineTree =
      constructConfineTreeBound reasonableBoundaries
@@ -170,7 +171,7 @@ constructConfineTreeBoxed :: forall style m
                           .  ( IsStyle style
                              , Storable (SpaceOf style)
                              , MonadIO m )
-                          => ConfineTree (SpaceOf style)
+                          => ConfineTagId (SpaceOf style)
                           -> DagMonad (SpaceOf style) m (Layout style)
 constructConfineTreeBoxed confineTree =
     do mBox <- confineTreeBox confineTree
@@ -183,20 +184,20 @@ confineTreeBox :: forall m s
                   , Space s
                   , Storable s
                   )
-               => ConfineTree s
+               => ConfineTagId s
                -> DagMonad s m (Maybe (Box s))
 confineTreeBox =
   go Vertical
   where
   go :: ( Axis axis )
      => axis
-     -> Branch axis s
+     -> ConfineTagId s
      -> DagMonad s m (Maybe (Box s))
-  go axis mTree =
-      case mTree of
-          Nothing -> return Nothing
-          Just tree ->
-              do box <- boxOf <$> loadPrimS (tree ^. confinePrimTagId)
-                 mLBox <- go (perpendicularTo axis) (tree ^. confineLessCut)
-                 mGBox <- go (perpendicularTo axis) (tree ^. confineMoreCut)
-                 return $ eitherMaybe minMaxBox (Just box) $ eitherMaybe minMaxBox mLBox mGBox
+  go axis treeId =
+      if treeId == nullConfineTagId
+      then return Nothing
+      else  do  tree <- loadTreeTagS treeId
+                box <- boxOf <$> loadPrimS (tree ^. confineTagPrimTagId)
+                mLBox <- go (perpendicularTo axis) (tree ^. confineTagLessCut)
+                mGBox <- go (perpendicularTo axis) (tree ^. confineTagMoreCut)
+                return $ eitherMaybe minMaxBox (Just box) $ eitherMaybe minMaxBox mLBox mGBox

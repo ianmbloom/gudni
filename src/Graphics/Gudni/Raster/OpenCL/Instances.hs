@@ -24,6 +24,7 @@ import CLUtil
 import CLUtil.KernelArgs
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
+import Graphics.Gudni.Raster.OpenCL.Buffer
 
 import Graphics.Gudni.Interface.DrawTarget(TextureObject(..))
 import Graphics.Gudni.Interface.GLInterop
@@ -38,14 +39,6 @@ import Graphics.GL.Core31
 
 import Control.Monad (void)
 
--- | Convert a pile to an OpenCL memory buffer.
-pileToBuffer :: forall t . (Storable t) => CLContext -> Pile t -> IO (CLBuffer t)
-pileToBuffer context (Pile cursor _ startPtr) =
-    let vecSize = fromIntegral cursor * sizeOf (undefined :: t)
-        adjustedVecSize = max 1 vecSize -- OpenCL will reject a memory buffer with size 0 so the minimum size is 1.
-    in  CLBuffer vecSize <$> clCreateBuffer context [CL_MEM_READ_ONLY, CL_MEM_COPY_HOST_PTR] (adjustedVecSize, castPtr startPtr)
-
-
 instance KernelArgs s g w o r => KernelArgs s g w o (Tile -> r) where
   prepArg = stoPrepArg
 
@@ -54,6 +47,10 @@ instance KernelArgs s g w o r => KernelArgs s g w o (Slice x -> r) where
 
 -- | Make a color into an individual kernel argument.
 instance KernelArgs s g w o r => KernelArgs s g w o (Color SubSpace -> r) where
+  prepArg = stoPrepArg
+
+-- | Make a tile into an individual kernel argument.
+instance KernelArgs s g w o r => KernelArgs s g w o (Box PixelSpace -> r) where
   prepArg = stoPrepArg
 
 -- | Make a pile of Storables in a OpenCL memory buffer.

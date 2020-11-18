@@ -19,7 +19,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Tag
-import Graphics.Gudni.Raster.Dag.State
+import Graphics.Gudni.Raster.Dag.Storage
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
@@ -47,8 +47,7 @@ outFabric  fabricTagId =
               (doc fabricTagId <+>) <$>
               if fabricTagId == nullFabricTagId
               then return $ text "X"
-              else do (WithParent parent fabric) <- loadFabricS fabricTagId
-                      --(text "p" <+> doc parent <+>) <$>
+              else do fabric <- loadFabricS fabricTagId
                       case fabric of
                         FCombine (op, shapeMinA, shapeMinB) aboveId belowId ->
                             do aboveQ <- nest 1 <$> go aboveId
@@ -59,7 +58,7 @@ outFabric  fabricTagId =
                         FLeaf leaf ->
                             case leaf of
                                 FTree treeId child ->
-                                    do (confineTree, decoTree) <- loadTreeS treeId
+                                    do (confineTreeId, decoTreeId) <- loadTreeRootS treeId
                                        (text "FTree" <+> doc treeId
                                             -- $$
                                             -- nest 2 ( (doc confineTree) $$

@@ -72,10 +72,10 @@ import Control.Monad.ListM
 import Linear.V4
 import Data.Word
 
-type PixelPile = Pile Word8
+type PixelPile = Pile CFloat
 type PictMemId = CUInt
 type PictUsageId = CUInt
-type MemOffset_ = Reference Word8
+type MemOffset_ = Reference CFloat
 
 type PictureMemoryMap = M.Map PictureName PictureMemoryReference
 type PictureIdMap = M.Map PictureName PictMemId
@@ -94,11 +94,14 @@ instance (Storable a) => CanLoad Word8 (AsBytes a) where
     fromPile pile index = AsBytes    <$> (liftIO $ peek (castPtr $ ptrFromIndex pile index (undefined :: Word8)))
     toPile   pile index  (AsBytes item) = liftIO $ poke (castPtr $ ptrFromIndex pile index (undefined :: Word8)) item
 
+instance (Storable a) => CanLoad CFloat (AsBytes a) where
+    fromPile pile index = AsBytes    <$> (liftIO $ peek (castPtr $ ptrFromIndex pile index (undefined :: CFloat)))
+    toPile   pile index  (AsBytes item) = liftIO $ poke (castPtr $ ptrFromIndex pile index (undefined :: CFloat)) item
 
 getPixelColor :: Space s => MonadIO m => PixelPile -> PictureMemoryReference -> Point2 PixelSpace -> m (Color s)
 getPixelColor pixelPile (PictureMemory (Point2 w h) offset) (Point2 x y) =
-    do  let pos = Ref ((fromIntegral $ unPSpace (y * w + x)) * (fromIntegral $ sizeOf (undefined :: V4 Word8))) :: Reference Word8
-        (AsBytes (colorWord8 :: V4 Word8)) <- liftIO $ fromPile pixelPile pos
+    do  let pos = Ref ((fromIntegral $ unPSpace (y * w + x)) * (fromIntegral $ sizeOf (undefined :: V4 CFloat))) :: Reference CFloat
+        (AsBytes (colorWord8 :: V4 CFloat)) <- liftIO $ fromPile pixelPile pos
         return . Color . fmap realToFrac $ colorWord8
 
 pictureTextureSize :: PictureMemoryReference -> Point2 SubSpace

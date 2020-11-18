@@ -33,7 +33,7 @@ import Graphics.Gudni.Layout.FromLayout
 import Graphics.Gudni.Layout.Proximity
 import Graphics.Gudni.Layout.WithBox
 
-import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.TextureReference
 
 import Graphics.Gudni.Raster.Dag.TagTypes
@@ -45,7 +45,7 @@ import Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Ray.Transformer
 import Graphics.Gudni.Raster.Dag.Fabric.Storage
 import Graphics.Gudni.Raster.Dag.Fabric.Tag
-import Graphics.Gudni.Raster.Dag.State
+import Graphics.Gudni.Raster.Dag.Storage
 import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
 
 import Graphics.Gudni.Raster.Serial.Reference
@@ -92,14 +92,13 @@ transBoundary trans box =
           FConvolve scale -> addMarginsBox scale box
 
 buildMaybeTree :: (DagConstraints s m)
-               => FabricTagId
-               -> Maybe (Slice PrimTagId)
+               => Maybe (Slice PrimTagId)
                -> FabricTagId
                -> DagMonad s m FabricTagId
-buildMaybeTree parent mSlice childId =
+buildMaybeTree mSlice childId =
   case mSlice of
       Just slice -> do treeId <- addTreeS slice
-                       leafId <- addFabricS (WithParent parent . FLeaf $ FTree treeId childId)
+                       leafId <- addFabricS (FLeaf $ FTree treeId childId)
                        return leafId
       Nothing -> return childId
 
@@ -122,25 +121,24 @@ extractPrimPass :: forall m style
                 => Fabric (PicturePass style)
                 -> DagMonad (SpaceOf style) (UniqueT m) FabricTagId
 extractPrimPass fabric =
-    do (mSlice, _, childId, _) <- go nullFabricTagId fabric
-       buildMaybeTree nullFabricTagId mSlice childId
+    do (mSlice, _, childId, _) <- go fabric
+       buildMaybeTree mSlice childId
     where
-    go :: FabricTagId
-       -> Fabric (PicturePass style)
+    go :: Fabric (PicturePass style)
        -> DagMonad (SpaceOf style) (UniqueT m)
                    ( Maybe (Slice PrimTagId)
                    , Maybe (Box (SpaceOf style))
                    , FabricTagId
                    , ShapeId
                    )
-    go parent fabric =
+    go fabric =
         case fabric of
             FCombine ty a b ->
                 do  fabricTagId <- allocateFabricCombineTagS
-                    (mSliceA, mBoxA, childIdA, childShapeMinA) <- go fabricTagId a
-                    (mSliceB, mBoxB, childIdB, childShapeMinB) <- go fabricTagId b
+                    (mSliceA, mBoxA, childIdA, childShapeMinA) <- go a
+                    (mSliceB, mBoxB, childIdB, childShapeMinB) <- go b
                     let shapeMin = combineMinimums (ty ^. proxMeld) childShapeMinA childShapeMinB
-                        melder = (ty ^. proxMeld, tr "childShapeMinA" childShapeMinA, tr "childShapeMinB" childShapeMinB)
+                        melder = (ty ^. proxMeld, childShapeMinA, childShapeMinB)
                         combinedBoxes = eitherMaybe minMaxBox mBoxA mBoxB
                     --if proximityWillTransform (ty ^. proxType) && isJust mBoxA && isJust mBoxB
                     --then do treeIdA <- buildMaybeTree fabricTagId mSliceA childIdA
@@ -154,7 +152,7 @@ extractPrimPass fabric =
                     --               , shapeMin
                     --               )
                     -- else
-                    setFabricS fabricTagId (WithParent parent $ FCombine melder childIdA childIdB)
+                    setFabricS fabricTagId (FCombine melder childIdA childIdB)
                     return ( eitherMaybe combineSlices mSliceA mSliceB
                            , combinedBoxes
                            , fabricTagId
@@ -162,16 +160,16 @@ extractPrimPass fabric =
                            )
             FTransform trans child ->
                 do  fabricTagId <- allocateFabricTagS
-                    (mSlice, mBox, childId, childShapeId) <- go fabricTagId child
+                    (mSlice, mBox, childId, childShapeId) <- go child
                     let tBox = fmap (transBoundary trans) mBox
-                    leafId <- buildMaybeTree fabricTagId mSlice childId
-                    setFabricS fabricTagId (WithParent parent . FTransform trans $ leafId)
+                    leafId <- buildMaybeTree mSlice childId
+                    setFabricS fabricTagId (FTransform trans leafId)
                     return ( Nothing
                            , tBox
                            , fabricTagId
                            , nullShapeId
                            )
-            FLeaf leaf -> buildLeaf parent leaf
+            FLeaf leaf -> buildLeaf leaf
 
 -- buildProximity treeIdA treeIdB
    -- do let (aP, bP) = applyProximity (ty ^. proxStyle) (ty ^. proxType) (fromJust mBoxA, fromJust mBoxB)
@@ -187,15 +185,14 @@ newShapeId = ShapeId . fromIntegral <$> lift fresh
 buildLeaf :: ( MonadIO m
              , IsStyle style
              )
-          => FabricTagId
-          -> FLeafType (PicturePass style)
+          => FLeafType (PicturePass style)
           -> DagMonad (SpaceOf style) (UniqueT m)
                       ( Maybe (Slice PrimTagId)
                       , Maybe (Box (SpaceOf style))
                       , FabricTagId
                       , ShapeId
                       )
-buildLeaf parent leaf =
+buildLeaf leaf =
     case leaf of
         FShape (WithBox shape box) ->
             do shapeId <- newShapeId
@@ -210,7 +207,7 @@ buildLeaf parent leaf =
                slice <- foldIntoPileS dagPrimTagIds primTagIds
                return (Just slice, Just boundingBox, nullFabricTagId, shapeId)
         FSubstance substance ->
-            do leafId <- addFabricS (WithParent parent . FLeaf . FTreeSubstance . substanceForStorage $ substance)
+            do leafId <- addFabricS (FLeaf . FTreeSubstance . substanceForStorage $ substance)
                return (Nothing, Nothing, leafId, nullShapeId)
 
 substanceForStorage :: FSubstance (PicturePass style) -> FSubstance (ForStorage (SpaceOf style))

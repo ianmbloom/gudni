@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.OpenCL.Setup
+-- Module      :  Graphics.Gudni.Raster.Thresholds.OpenCL.Setup
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -11,18 +11,18 @@
 -- Functions for setting up an OpenCL platform to run the rasterizer kernel.
 -- Including macro definitions that are implanted into OpenCL source code.
 
-module Graphics.Gudni.Raster.OpenCL.Setup
+module Graphics.Gudni.Raster.Thresholds.OpenCL.Setup
   ( setupOpenCL
   )
 where
 
-import Graphics.Gudni.Raster.OpenCL.Rasterizer
+import Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
 import Graphics.Gudni.Raster.OpenCL.DeviceQuery
 import Graphics.Gudni.Raster.OpenCL.KernelQuery
 import Graphics.Gudni.Raster.OpenCL.CppDefines
 import Graphics.Gudni.Interface.GLInterop
 
-import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.Thresholds.ReorderTable
 import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Util.Util
@@ -35,7 +35,7 @@ import CLUtil
 import CLUtil.Initialization
 import CLUtil.CL
 
---import Graphics.Gudni.Raster.OpenCL.DeviceQuery
+--import Graphics.Gudni.Raster.Thresholds.OpenCL.DeviceQuery
 
 import Data.List
 import Data.Maybe
@@ -143,8 +143,8 @@ getKernelAndDump device program name =
      putStrLn $ dumpKernelDetail kernelDetail
      return kernel
 
--- | Create a Rasterizer by setting up an OpenCL device.
-setupOpenCL :: Bool -> Bool -> BS.ByteString -> IO Rasterizer
+-- | Create a RasterState by setting up an OpenCL device.
+setupOpenCL :: Bool -> Bool -> BS.ByteString -> IO RasterState
 setupOpenCL enableProfiling useCLGLInterop src =
   do
       putStrLn $ "Initializing OpenCL device."
@@ -195,7 +195,7 @@ setupOpenCL enableProfiling useCLGLInterop src =
               -- Generate a random field for the stochastic aliasing of the rasterizer.
               randomField <- makeRandomField rANDOMFIELDsIZE
               -- Return a Library constructor with relevant information about the device for the rasterizer.
-              return $ Rasterizer
+              return $ RasterState
                   { -- | The OpenCL state
                     _rasterClState = state
                     -- | The rasterizer kernels.

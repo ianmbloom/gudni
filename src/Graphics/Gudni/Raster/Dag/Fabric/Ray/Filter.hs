@@ -20,13 +20,13 @@ module Graphics.Gudni.Raster.Dag.Fabric.Ray.Filter
 where
 
 import Graphics.Gudni.Base
+import Graphics.Gudni.Figure.Substance
 
 data FFilter where
      FSqrt     :: FFilter
      FInvert   :: FFilter -- (1-x)
      FCos      :: FFilter
      FSin      :: FFilter
-     FSaturate :: FFilter
      deriving (Enum, Show, Generic)
 
 instance Out FFilter

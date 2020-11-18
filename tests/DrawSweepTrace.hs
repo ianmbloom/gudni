@@ -21,6 +21,7 @@ import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Raster.Dag.ConfineTree.SweepTrace
 import Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
 import Graphics.Gudni.Raster.Dag.Fabric.Traverse
+import Graphics.Gudni.Raster.Dag.Storage
 import Graphics.Gudni.Raster.Dag.State
 
 import Graphics.Gudni.Draw
@@ -31,6 +32,7 @@ import Foreign.Storable
 import GHC.Exts
 import Control.Lens
 import Control.Monad
+import Control.Monad.State
 import Control.Monad.IO.Class
 import Data.Maybe
 import Data.List
@@ -80,9 +82,9 @@ constructSweepTrace :: forall style m
                     => SweepTrace (SpaceOf style)
                     -> RayMonad (SpaceOf style) m (Layout style)
 constructSweepTrace trace =
-   do discarded <- mapM loadPrimT (trace ^. sweepDiscarded)
-      continue  <- mapM loadPrimT (trace ^. sweepContinue)
-      bypass    <- mapM (mapM loadPrimT) (trace ^. sweepBypasses)
+   do discarded <- mapM (lift . loadPrimS) (trace ^. sweepDiscarded)
+      continue  <- mapM (lift . loadPrimS) (trace ^. sweepContinue)
+      bypass    <- mapM (mapM (lift . loadPrimS)) (trace ^. sweepBypasses)
       return $
           overlap
               [ overlap $ map (pathLine blue  ) (nullTail $ trace ^. sweepPath)

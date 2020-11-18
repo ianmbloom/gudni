@@ -205,7 +205,8 @@ sliceBezier t0 t1 = takeBezier ((t1 - t0) / (1 - t0)) . dropBezier t0
 {-# INLINE splitBezier #-}
 -- | Split a bezier at parameter t
 splitBezier :: (Floating s, Ord s) => s -> Bezier s -> (Bezier s, Bezier s)
-splitBezier t (Bez p0 c p1) = (Bez p0 mid0 onCurve, Bez onCurve mid1 p1) where
+splitBezier t (Bez p0 c p1) =
+    (Bez p0 mid0 onCurve, Bez onCurve mid1 p1) where
     (Bez mid0 onCurve mid1 ) = insideBezier t (Bez p0 c p1)
 
 -- | Given two onCurve points and a controlPoint. Find two control points and an on-curve point between them

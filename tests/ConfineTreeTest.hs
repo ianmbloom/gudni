@@ -18,6 +18,7 @@ import Graphics.Gudni.Layout
 import Graphics.Gudni.Application
 import Graphics.Gudni.Draw
 import Graphics.Gudni.ShapeTree
+import Graphics.Gudni.Image
 
 import Graphics.Gudni.Util.Debug
 
@@ -27,6 +28,7 @@ import Graphics.Gudni.Raster.Dag.ConfineTree.Build
 import Graphics.Gudni.Raster.Dag.Primitive.Storage
 import Graphics.Gudni.Raster.Dag.FromLayout
 import Graphics.Gudni.Raster.Dag.Serialize
+import Graphics.Gudni.Raster.Dag.Fabric.Traverse
 import Graphics.Gudni.Raster.TextureReference
 
 import qualified Data.Map as M
@@ -71,16 +73,16 @@ initialModel =
           , _statePace        = 50
           , _stateLastTime    = 0
           , _stateDirection   = True
-          , _statePlayhead    = 3
+          , _statePlayhead    = 5
           , _stateFrameNumber = 0
-          , _stateStep        = 21
+          , _stateStep        = 53
           , _stateRepMode     = False
           , _stateRepDk       = False
-          , _stateCursor      = Point2 392 298
+          , _stateCursor      = Point2 730 1140
           }
     , _stateShapeAngle = 0 @@ rad -- 0 @@ rad
     , _stateTraceStep = 0
-    , _stateCurrentTest = flip findTest allTests "randomCurves" -- "twoTriangles" -- "triRed" -- "diamondBox" --"fuzzyGlyphs" "millionFuzzyCircles"
+    , _stateCurrentTest = flip findTest allTests "randomCurves" --  "twoTriangles" -- "triRed" --"diamondBox" --"fuzzyGlyphs" "millionFuzzyCircles"
     , _stateDecorationType = True
     , _stateDecorationLimit = 0
     }
@@ -106,13 +108,15 @@ instance Model ConfineTreeState where
     constructScene state status =
         do  let testShape = (snd $ getTest state) (view deg $ state ^. stateShapeAngle) (round (state ^. stateBase . statePlayhead))
                 name = (fst $ getTest state)
-                canvasSize = Point2 2000 2000
-                canvas = sizeToBox canvasSize
-                point   = state ^. stateBase . stateCursor
+                canvasSize :: Point2 PixelSpace
+                canvasSize = Point2 256 256
+                canvas :: Box SubSpace
+                canvas = sizeToBox . fmap fromIntegral $ canvasSize
+                point  = state ^. stateBase . stateCursor
             liftIO $ putStrLn name
             pictureMap <- liftIO $ providePictureMap state
             (pictureMemoryMap, pixelPile) <- liftIO $ collectPictureMemory pictureMap
-            fabric <- sceneToFabric pictureMemoryMap (Scene (light gray) testShape)
+            fabric <- sceneToFabric pictureMemoryMap (Scene gray testShape)
             liftIO $ putStrLn "Before withSerialized Fabric"
             testScene <- withSerializedFabric (Just canvas) pixelPile fabric $ \root ->
                 do  out <- lift $ outFabric root
@@ -125,21 +129,31 @@ instance Model ConfineTreeState where
                     -- constructedTree     <- constructConfineTree tree
                     -- constructedDecoTree <- constructDecorateTree decoTree
                     -- boxQuery     <- checkBox tree decoTree (state ^. stateBase . stateCursor)
-                    (setPoints :: [Layout DefaultStyle]) <-
-                         mapM (constructRayQuery root) [point] -- , Point2 200 200]
+                    -- (setPoints :: [Layout DefaultStyle]) <-
+                    --      mapM (constructRayColor root) [point] -- , Point2 200 200]
                     -- (randomPoints :: [Layout DefaultStyle]) <-
-                    --      mapM (constructRayQuery root) .
-                    --      evalRand (take 1000 <$> getRandomRs (Point2 0 0, canvasSize)) .
+                    --      mapM (constructRayColor root) .
+                    --      evalRand (take 100 <$> getRandomRs (Point2 0 0, fromIntegral <$> canvasSize)) .
                     --      mkStdGen $ round $
                     --      state ^. stateBase . statePlayhead
                     -- traceConstructed :: Layout DefaultStyle
                     -- traceConstructed <- constructSweepTrace sweepTrace
-                    liftIO $ putStrLn "about to constructDag"
-                    (dag :: Layout DefaultStyle) <- lift $ constructDag root
+
+                    let traversePixel loc = traverseFabric (locationToSubSpace loc) root
+                    img <- createImageM traversePixel canvasSize
+                    let imageLayout :: Layout DefaultStyle
+                        imageLayout = withTexture (NewTexture "pictureFrozen" (PictureFrozen img)) $ mask $ rectangle $ fmap fromIntegral canvasSize
+
+                    -- liftIO $ putStrLn "about to constructDag"
+                    -- (dag :: Layout DefaultStyle) <- lift $ constructDag root
                     return $
-                        overlap [  -- overlap randomPoints
+                        overlap [  imageLayout
+                                   ,
+                                   -- withColor black . mask . rectangle $ fmap (+3) $ fmap fromIntegral canvasSize
                                    -- ,
-                                   overlap setPoints
+                                   -- overlap randomPoints
+                                   -- ,
+                                   -- overlap setPoints
                                    -- ,
                                    -- boxQuery
                                    -- ,
@@ -150,8 +164,8 @@ instance Model ConfineTreeState where
                                    -- traceConstructed
                                    -- ,
                                    -- dag
-                                   ,
-                                   testShape
+                                   -- ,
+                                   translateByXY 0 256 $ testShape
                                 ]
             let statusTree = statusDisplay (state ^. stateBase) "Test ConfineTree" (lines status)
                 treeScene  = transformFromState (state ^. stateBase) testScene

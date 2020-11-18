@@ -2,7 +2,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.OpenCL.InterfaceSDL
+-- Module      :  Graphics.Gudni.Raster.Thresholds.OpenCL.InterfaceSDL
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --

@@ -3,6 +3,7 @@
 
 module Graphics.Gudni.Draw.Representation.RayQuery
   ( constructRayQuery
+  , constructRayColor
   )
 where
 
@@ -66,3 +67,21 @@ constructRayQuery :: forall style m
 constructRayQuery root point =
   do (ColorStack stack) <- traverseFabric point root :: RayMonad (SpaceOf style) m (ColorStack (SpaceOf style))
      return $ ringStack point $ reverse stack
+
+sizeCircle :: Space s => s
+sizeCircle = 10
+
+constructRayColor :: forall style m
+                  .  ( IsStyle style
+                     , MonadIO m
+                     )
+                  => FabricTagId
+                  -> Point2 (SpaceOf style)
+                  -> RayMonad (SpaceOf style) m (Layout style)
+constructRayColor root point =
+  do (color :: Color (SpaceOf style)) <- traverseFabric point root
+     return $ translateBy point $
+              overlap [ withColor black $ hatch 1 4
+                      , withColor color . scaleBy sizeCircle . mask $ circle
+                      , withColor black $ (scaleBy sizeCircle . mask $ circle) `subtractFrom` (scaleBy (sizeCircle + 1) . mask $ circle)
+                      ]

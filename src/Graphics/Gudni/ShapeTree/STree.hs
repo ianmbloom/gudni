@@ -21,7 +21,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- A ShapeTree is the main input data structure for the Gudni Rasterizer. A client program
+-- A ShapeTree is the main input data structure for the Gudni RasterState. A client program
 -- generates a Scene which contains a ShapeTree for each frame that they wish to render.
 
 module Graphics.Gudni.ShapeTree.STree

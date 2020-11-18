@@ -39,10 +39,10 @@ collectIfCrossed start end prim =
 modifyItemStackIfCrossed :: (Space s, Monad m) => (PrimTagId -> m (Primitive s)) -> Point2 s -> Point2 s -> PrimTagId -> StateT ShapeStack m ()
 modifyItemStackIfCrossed getPrim start end primTagId =
   do prim <- lift $ getPrim primTagId
-     when (crossesPrim start end prim) $ modify (toggleItem (prim ^. primShapeId))
+     when (crossesPrim start end prim) $ modify (toggleShapeActive (prim ^. primShapeId))
 
 buildStack :: (Monad m) => ShapeStack -> StateT (Point2 s, ShapeStack) m ()
-buildStack branchItemStack = modify (over _2 (combineItemStacks branchItemStack))
+buildStack branchShapeStack = modify (over _2 (combineShapeStacks branchShapeStack))
 
 holdAnchor :: (Monad m) => Point2 s -> StateT (Point2 s, ShapeStack) m ()
 holdAnchor anchor = modify (set _1 anchor)

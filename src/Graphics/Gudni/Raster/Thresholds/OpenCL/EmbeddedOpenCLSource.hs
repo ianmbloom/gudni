@@ -2,7 +2,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.OpenCL.CallKernel
+-- Module      :  Graphics.Gudni.Raster.Thresholds.OpenCL.CallKernel
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -12,7 +12,7 @@
 --
 -- Functions for embedding OpenCL source in the compiled Haskell library.
 
-module Graphics.Gudni.Raster.OpenCL.EmbeddedOpenCLSource
+module Graphics.Gudni.Raster.Thresholds.OpenCL.EmbeddedOpenCLSource
   ( embeddedOpenCLSource
   )
 where
@@ -22,4 +22,4 @@ import Data.FileEmbed
 
 -- | Raw embedded source from the Kernels.cl file.
 embeddedOpenCLSource :: BS.ByteString
-embeddedOpenCLSource = $(embedFile "src/Graphics/Gudni/Raster/OpenCL/Kernels.cl")
+embeddedOpenCLSource = $(embedFile "src/Graphics/Gudni/Raster/Thresholds/OpenCL/Kernels.cl")

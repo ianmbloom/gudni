@@ -19,7 +19,6 @@
 
 module Graphics.Gudni.Raster.Dag.Serialize
   ( withSerializedFabric
-  , outputDagState
   )
 where
 
@@ -33,7 +32,7 @@ import Graphics.Gudni.Layout.FromLayout
 import Graphics.Gudni.Layout.Proximity
 import Graphics.Gudni.Layout.WithBox
 
-import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.TextureReference
 
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
@@ -46,7 +45,7 @@ import Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Storage
 import Graphics.Gudni.Raster.Dag.Fabric.Tag
 import Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
-import Graphics.Gudni.Raster.Dag.State
+import Graphics.Gudni.Raster.Dag.Storage
 import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
 import Graphics.Gudni.Raster.Dag.Serialize.ExtractPrimPass
 
@@ -109,12 +108,6 @@ withSerializedFabric mCanvas pixelPile fabric code =
                liftIO . freePile $ state' ^. dagPrimTagIds
         return result
 
-findLimit :: FCombineType -> FabricTagId -> FabricTagId -> FabricTagId
-findLimit ty aLimit bLimit =
-    case ty of
-      FMask -> aLimit
-      _     -> bLimit
-
 serializeFabric :: ( MonadIO m
                    , IsStyle style
                    )
@@ -122,12 +115,7 @@ serializeFabric :: ( MonadIO m
                 -> Fabric (PicturePass style)
                 -> DagMonad (SpaceOf style) (UniqueT m) FabricTagId
 serializeFabric mCanvas fabric =
-    do --liftIO $ liftIO $ putStrLn $ "===================== Serialize Fabric Start ====================="
+    do liftIO $ liftIO $ putStrLn $ "===================== Serialize Fabric Start ====================="
        f' <- extractPrimPass fabric
-       --liftIO $ liftIO $ putStrLn $ "===================== Serialize Fabric End ======================="
+       liftIO $ liftIO $ putStrLn $ "===================== Serialize Fabric End ======================="
        return f'
-
-outputDagState :: (Show s, Show token, Storable (Facet s))
-                   => DagState token s -> IO ()
-outputDagState state =
-  do  putStrLn $ "dagTokenMap         " ++ (show . view dagFabricTokenMap  $ state)

@@ -28,7 +28,7 @@ module Graphics.Gudni.Raster.Serial.Reference
   )
 where
 
-import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.Thresholds.Constants
 
 import Foreign.Storable
 import Foreign.C.Types(CUInt)

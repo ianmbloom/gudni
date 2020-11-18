@@ -10,7 +10,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.OpenCL.CallKernel
+-- Module      :  Graphics.Gudni.Raster.Thresholds.OpenCL.CallKernel
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -20,7 +20,7 @@
 --
 -- Functions for preparing buffers and calling the rasterizer kernel∘
 
-module Graphics.Gudni.Raster.OpenCL.PrepareBuffers
+module Graphics.Gudni.Raster.Thresholds.OpenCL.PrepareBuffers
   ( BuffersInCommon(..)
   , bicGeometryHeap
   , bicFacetHeap
@@ -30,11 +30,7 @@ module Graphics.Gudni.Raster.OpenCL.PrepareBuffers
   , bicPictHeap
   , bicRandoms
 
-  , newBuffer
-  , releaseBuffer
   , readBufferToPtr
-  , bufferFromPile
-  , bufferFromVector
   , withBuffersInCommon
 
   , BlockId(..)
@@ -62,24 +58,24 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface
 import Graphics.Gudni.ShapeTree
 
-import Graphics.Gudni.Raster.Constants
-import Graphics.Gudni.Raster.Thresholds.ItemInfo
-import Graphics.Gudni.Raster.Thresholds.SubstanceInfo
+import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.TextureReference
 
+import Graphics.Gudni.Raster.Thresholds.ItemInfo
+import Graphics.Gudni.Raster.Thresholds.SubstanceInfo
 import Graphics.Gudni.Raster.Thresholds.Enclosure
 import Graphics.Gudni.Raster.Thresholds.Serialize
 import Graphics.Gudni.Raster.Thresholds.TileTree
 import Graphics.Gudni.Raster.Thresholds.Params
 
-import Graphics.Gudni.Raster.OpenCL.Rasterizer
+import Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
+import Graphics.Gudni.Raster.OpenCL.Buffer
 import Graphics.Gudni.Raster.OpenCL.DeviceQuery
 import Graphics.Gudni.Raster.OpenCL.Instances
-
-import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
 
+import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Util.StorableM
@@ -110,7 +106,6 @@ import Control.Concurrent.ParallelIO.Global
 import Control.Monad.Morph
 import qualified Data.Sequence as S
 
-
 import Data.Word
 import qualified Data.Map as M
 import GHC.Exts
@@ -121,36 +116,10 @@ data BuffersInCommon = BuffersInCommon
   , _bicItemTagHeap    :: CLBuffer PrimTag
   , _bicSubTagHeap     :: CLBuffer SubstanceTag
   , _bicDescriptions   :: CLBuffer CChar
-  , _bicPictHeap       :: CLBuffer Word8
+  , _bicPictHeap       :: CLBuffer CFloat
   , _bicRandoms        :: CLBuffer CFloat
   }
 makeLenses ''BuffersInCommon
-
-newBuffer :: (Storable a) => String -> Int -> CL (CLBuffer a)
-newBuffer message size =
-  do buffer <- allocBuffer [CL_MEM_READ_WRITE] (max 1 size)
-     --liftIO $ putStrLn $ "   newBuffer " ++ message ++ " " ++ (show . bufferObject $ buffer)
-     return buffer
-
-releaseBuffer :: String -> CLBuffer a -> CL Bool
-releaseBuffer message buffer =
-  do result <- liftIO $ clReleaseMemObject . bufferObject $ buffer
-     --liftIO $ putStrLn $ "releaseBuffer " ++ message ++ " " ++ (show . bufferObject $ buffer)
-     return result
-
-bufferFromPile :: (Storable a) => String -> Pile a -> CL (CLBuffer a)
-bufferFromPile message pile =
-   do context <- clContext <$> ask
-      buffer <- liftIO $ pileToBuffer context pile
-      --liftIO $ putStrLn $ "  pileBuffer " ++ message ++ " " ++ (show . bufferObject $ buffer)
-      return buffer
-
-bufferFromVector :: (Storable a) => String -> VS.Vector a -> CL (CLBuffer a)
-bufferFromVector message vector =
-   do context <- clContext <$> ask
-      buffer <- liftIO $ vectorToBuffer context vector
-      --liftIO $ putStrLn $ "vectorBuffer " ++ message ++ " " ++ (show . bufferObject $ buffer)
-      return buffer
 
 withBuffersInCommon :: RasterParams token -> (BuffersInCommon -> CL a) -> CL a
 withBuffersInCommon params code =
@@ -176,7 +145,7 @@ createBuffersInCommon params =
         subTagBuffer    <- bufferFromPile   "subTagBuffer     " (params ^. rpSerialState . serSubstanceTagPile)
         descriptionBuffer <- bufferFromPile "descriptionBuffer" (params ^. rpSerialState . serDescriptionPile  )
         pixelPileBuffer  <- bufferFromPile   "pixelPileBuffer   " (params ^. rpPixelPile)
-        randoms         <- bufferFromVector "randoms          " (params ^. rpRasterizer  . rasterRandomField  )
+        randoms         <- bufferFromVector "randoms          " (params ^. rpRasterState  . rasterRandomField  )
         return $  BuffersInCommon
                   { _bicGeometryHeap   = geoBuffer
                   , _bicFacetHeap      = facetBuffer
@@ -231,9 +200,9 @@ nullTile = Tile $ v4ToBox nULLtILE
 createBlockSection :: RasterParams token
                    -> CL BlockSection
 createBlockSection params =
-  do let blocksToAlloc   = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
-         columnsPerBlock = params ^. rpRasterizer . rasterDeviceSpec . specColumnsPerBlock
-         maxThresholds   = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
+  do let blocksToAlloc   = params ^. rpRasterState . rasterDeviceSpec . specBlocksPerSection
+         columnsPerBlock = params ^. rpRasterState . rasterDeviceSpec . specColumnsPerBlock
+         maxThresholds   = params ^. rpRasterState . rasterDeviceSpec . specMaxThresholds
          blockSize       = blocksToAlloc * columnsPerBlock * maxThresholds
      --liftIO $ putStrLn "createBlockSection"
      context <- clContext <$> ask

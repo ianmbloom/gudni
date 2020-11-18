@@ -37,7 +37,7 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
 
-import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.Thresholds.SubstanceInfo
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.Thresholds.ItemInfo
@@ -55,7 +55,7 @@ import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
 
 import Graphics.Gudni.Layout.FromLayout
-import Graphics.Gudni.Raster.OpenCL.Rasterizer
+import Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
 
 import Control.Monad
 import Control.Monad.State
@@ -118,16 +118,16 @@ type SerialMonad token s m = StateT (SerialState token s) m
 withSerializedScene :: ( MonadIO m
                        , Show token
                        )
-                    => Rasterizer
+                    => RasterState
                     -> Point2 PixelSpace
                     -> PictureMap
                     -> Scene (Maybe (FinalTree token SubSpace))
-                    -> (Pile Word8 -> SerialState token SubSpace -> m a)
+                    -> (PixelPile -> SerialState token SubSpace -> m a)
                     -> m a
 withSerializedScene rasterizer canvasSize pictureMap scene code =
     withScenePictureMemory pictureMap scene $
        \ sceneWithPictMem pictDataPile ->
-           do geometryPile     <- liftIO (newPileSize (fromIntegral iNITgEOMETRYpILEsIZE) :: IO BytePile)
+           do geometryPile     <- liftIO $ newPile
               facetPile        <- liftIO $ newPile
               itemTagPile      <- liftIO $ newPile
               substanceTagPile <- liftIO $ newPile
@@ -167,7 +167,7 @@ addItem boundingBox itemTags =
 
 -- | On each shape in the shape tree run add the appropriate data to the appropriate buffers and the TileTree.
 onShape :: MonadIO m
-        => Rasterizer
+        => RasterState
         -> Point2 SubSpace
         -> SubstanceTag
         -> Compound
@@ -218,7 +218,7 @@ onSubstance :: forall m item token .
              , Space (SpaceOf item)
              , SpaceOf item ~ SubSpace
              , MonadIO m)
-            => Rasterizer
+            => RasterState
             -> Point2 SubSpace
             -> (SpaceOf item)
             -> Overlap
@@ -269,7 +269,7 @@ onSubstance rasterizer canvasSize tolerance Overlap (SMask mToken substance subT
                          -}
 
 buildOverScene :: (MonadIO m, Show token)
-               => Rasterizer
+               => RasterState
                -> Point2 SubSpace
                -> Scene (FinalTreePictureMemory token SubSpace)
                -> SerialMonad token SubSpace m ()

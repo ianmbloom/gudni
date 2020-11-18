@@ -1,15 +1,17 @@
-{-# LANGUAGE TemplateHaskell   #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE DeriveGeneric         #-}
 
 module CrossesBezierTest
   ( main
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Application
 import Graphics.Gudni.Figure
@@ -213,5 +215,4 @@ instance HandlesInput token CrossTestState where
 
 main :: IO ()
 main = do putStrLn "Started"
-          putStrLn . show $ crossesAlong Horizontal 134.448608398438 92.897171020508 145.160034179688 (Bez (Point2 141.676727294922  75.385391235352) (Point2 145.160034179688  83.794853210449) (Point2 145.160034179688  92.897178649902):: Bezier SubSpace)
           runApplication initialModel

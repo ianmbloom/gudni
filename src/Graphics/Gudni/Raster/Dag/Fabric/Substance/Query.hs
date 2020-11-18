@@ -15,8 +15,8 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
-import Graphics.Gudni.Raster.Dag.State
 import Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
+import Graphics.Gudni.Raster.Dag.Storage
 import Graphics.Gudni.Raster.TextureReference
 
 import Control.Lens

@@ -34,7 +34,7 @@ import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Pile
 import Graphics.Gudni.Raster.Serial.BytePile
 import Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
-import Graphics.Gudni.Raster.Dag.Fabric.Substance.Tag
+import Graphics.Gudni.Raster.Dag.Fabric.Tag
 import Graphics.Gudni.Raster.Dag.TagTypes
 
 import Control.Lens
@@ -49,26 +49,26 @@ storeSubstance :: ( MonadIO m
                   , Storable (FQuery i)
                   )
                => FSubstance i
-               -> StateT BytePile m SubstanceTag
+               -> StateT BytePile m FabricTag
 storeSubstance substance =
   case substance of
     FConst query -> do queryId <- addToPileS id (AsBytes query)
-                       return $ makeSubstanceTagConstant queryId
+                       return $ makeFabTagConstant queryId
     FTexture tex -> do pictureRef <- addToPileS id (AsBytes tex)
-                       return $ makeSubstanceTagTexture pictureRef
-    FLinear      -> return $ makeSubstanceTagLinear
-    FQuadrance   -> return $ makeSubstanceTagQuadrance
+                       return $ makeFabTagTexture pictureRef
+    FLinear      -> return $ makeFabTagLinear
+    FQuadrance   -> return $ makeFabTagQuadrance
 
 loadSubstance :: ( MonadIO m
                  , Storable (FTex i)
                  , Storable (FQuery i)
                  )
-              => SubstanceTag
+              => FabricTag
               -> StateT BytePile m (FSubstance i)
 loadSubstance tag
-   | substanceTagIsConstant  tag = do (AsBytes query) <- fromPileS id (Ref . fromIntegral . substanceTagDescription $ tag)
-                                      return $ FConst query
-   | substanceTagIsTexture   tag = do (AsBytes tex) <- fromPileS id (Ref . fromIntegral . substanceTagDescription $ tag)
-                                      return $ FTexture tex
-   | substanceTagIsLinear    tag = return FLinear
-   | substanceTagIsQuadrance tag = return FQuadrance
+   | fabTagIsConstant  tag = do (AsBytes query) <- fromPileS id (Ref . fromIntegral . fabTagSubstanceRef $ tag)
+                                return $ FConst query
+   | fabTagIsTexture   tag = do (AsBytes tex) <- fromPileS id (Ref . fromIntegral . fabTagSubstanceRef  $ tag)
+                                return $ FTexture tex
+   | fabTagIsLinear    tag = return FLinear
+   | fabTagIsQuadrance tag = return FQuadrance

@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.OpenCL.CallKernel
+-- Module      :  Graphics.Gudni.Raster.Dag.OpenCL.CallKernel
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -31,6 +31,7 @@ data CppValueType
   | CppHexUInt4 (V4 CUInt)
   | CppInt   Int
   | CppFloat Float
+  | CppFloat4 (V4 Float)
   | CppNothing
 
 -- | A definition for a C Preprocessor #define pragma.
@@ -47,12 +48,16 @@ instance Show CppValueType where
   show val = case val of
     CppHex64 i -> mkHex64 i
     CppHex32 i -> mkHex32 i
-    CppHexUInt4 (V4 a b c d) -> tr "Uint4" $  "(int4)(" ++ mkHex32 a
-                                                  ++ "," ++ mkHex32 b
-                                                  ++ "," ++ mkHex32 c
-                                                  ++ "," ++ mkHex32 d ++ ")"
-    CppInt   i -> showInt i                          []
-    CppFloat f -> showFFloat Nothing f               []
+    CppHexUInt4 (V4 a b c d) -> "(int4)(" ++ mkHex32 a
+                                   ++ "," ++ mkHex32 b
+                                   ++ "," ++ mkHex32 c
+                                   ++ "," ++ mkHex32 d ++ ")"
+    CppInt   i -> showInt i            []
+    CppFloat f -> showFFloat Nothing f []
+    CppFloat4 (V4 a b c d) -> "(float4)(" ++ showFFloat Nothing a []
+                                   ++ "," ++ showFFloat Nothing b []
+                                   ++ "," ++ showFFloat Nothing c []
+                                   ++ "," ++ showFFloat Nothing d [] ++ ")"
     CppNothing -> ""
 
 -- | Convert a CppDefinition to a string.

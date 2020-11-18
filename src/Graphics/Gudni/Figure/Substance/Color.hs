@@ -22,14 +22,20 @@
 
 module Graphics.Gudni.Figure.Substance.Color
   ( Color(..)
+  , unColor
   , rgbaColor
   , hslColor
+
+  , cRed
+  , cGreen
+  , cBlue
+  , cAlpha
 
   , pureRed, pureGreen, pureBlue
   , red, orange, yellow, green, cyan, blue, purple
   , black, gray, white
   , clearBlack
-  , solidWhite
+  , opaqueWhite
 
   , isOpaque
   , isClear
@@ -43,6 +49,7 @@ module Graphics.Gudni.Figure.Substance.Color
   , mixColor
 
   , redish, orangeish, yellowish, greenish, blueish, purpleish
+  , word8ToCFloat
   , colorToRGBA8
   , colourToColor
   )
@@ -92,6 +99,9 @@ instance Out s => Out (Color s) where
 instance Space s => HasSpace (Color s) where
   type SpaceOf (Color s) = s
 
+instance Space s => HasDefault (Color s) where
+  defaultValue = clearBlack
+
 cRed   :: Lens' (Color s) s
 cGreen :: Lens' (Color s) s
 cBlue  :: Lens' (Color s) s
@@ -126,8 +136,8 @@ pureBlue  = rgbaColor 0 0 1 1
 clearBlack :: Num s => Color s
 clearBlack = rgbaColor 0 0 0 0
 -- | Completely opaque color with maximum values on each channell
-solidWhite :: Num s => Color s
-solidWhite = rgbaColor 1 1 1 1
+opaqueWhite :: Num s => Color s
+opaqueWhite = rgbaColor 1 1 1 1
 
 -- | Generate a 'Color' from hue saturation and lightness values.
 hslColor :: (Space s) => s -> s -> s -> Color s
@@ -139,10 +149,10 @@ rgbaColor r g b a = Color $ V4 r g b a
 
 composite :: (Space s) => Color s -> Color s -> Color s
 composite f b =
-  let alphaOut = f ^. cAlpha + b ^. cAlpha * (1 - f ^. cAlpha)
+  let alphaOut = f ^. cAlpha + (b ^. cAlpha * (1 - f ^. cAlpha))
   in
   if alphaOut > 0
-  then Color $ (((f ^. unColor) ^* (f ^. cAlpha)) ^+^ ((b ^. unColor) ^* ((b ^. cAlpha) * (1 - (f ^. cAlpha))))) ^* (1 / alphaOut)
+  then Color $ ((f ^. unColor ^* f ^. cAlpha) ^+^ (b ^. unColor ^* (b ^. cAlpha * (1 - f ^. cAlpha)))) ^* (1 / alphaOut)
   else clearBlack
 
 -- | Generate a 'Color' based on the input color by multiplying the saturation by a factor.
@@ -226,11 +236,17 @@ instance (Space s, Storable s) => Storable (Color s) where
     poke ptr = poke (F.castPtr ptr) . fmap (realToFrac :: s -> CFloat) . view unColor
 
 
-mAXcHANNELfLOAT :: Space s => s
-mAXcHANNELfLOAT = 255.0
+mAXcHANNELsPACE :: Space s => s
+mAXcHANNELsPACE = 255.0
+
+mAXcHANNELcfLOAT :: CFloat
+mAXcHANNELcfLOAT = 255.0
+
+word8ToCFloat :: Word8 -> CFloat
+word8ToCFloat word = realToFrac word / mAXcHANNELcfLOAT;
 
 colorToRGBA8 :: Space s => Color s -> Color Word8
-colorToRGBA8 = Color . fmap (round . (* mAXcHANNELfLOAT)) . view unColor
+colorToRGBA8 = Color . fmap (round . (* mAXcHANNELsPACE)) . view unColor
 
 -- | Wrapped colors
 red    :: Space s => Color s

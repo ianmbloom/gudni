@@ -24,11 +24,11 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.Dag.Fabric.Ray.Filter
 
 data FTransformer s where
-     FAffine   :: Affine s -> Affine s -> FTransformer s
-     FFacet    :: Facet s  -> FTransformer s
-     FFilter   :: FFilter  -> FTransformer s
-     FConvolve :: s        -> FTransformer s
-     deriving (Generic)
+    FAffine   :: Affine s -> Affine s -> FTransformer s
+    FFacet    :: Facet s  -> FTransformer s
+    FFilter   :: FFilter  -> FTransformer s
+    FConvolve :: s        -> FTransformer s
+    deriving (Generic)
 
 instance Show s => Show (FTransformer s) where
     show trans =

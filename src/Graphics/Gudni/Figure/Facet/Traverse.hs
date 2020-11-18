@@ -29,16 +29,8 @@ insideBox p box =
     && box ^. rightSide  >  p ^. pX
     && box ^. bottomSide >  p ^. pY
 
-couldContain :: Space s => Point2 s -> Facet s -> Bool
-couldContain p facet = insideBox p . boxOf $ facet
-
 limit :: Space s => s
 limit = 1 / 16
-
-sizeLimit :: Space s => Facet s -> Bool
-sizeLimit facet =
-  let box = boxOf facet
-  in (box ^. heightBox > toAlong Vertical limit) || (box ^. widthBox > toAlong Horizontal limit)
 
 insideBezierTri :: Space s => Point2 s -> BezTri s -> Bool
 insideBezierTri point =

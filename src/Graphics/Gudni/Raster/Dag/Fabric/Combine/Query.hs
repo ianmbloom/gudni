@@ -32,6 +32,8 @@ import Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
 
 import Linear.Vector
 import Linear.Metric
+import Control.Applicative
+import Control.Lens
 
 combineColor :: Space s => FCombineType -> Color s -> Color s -> Color s
 combineColor combine (Color a) (Color b) =
@@ -41,3 +43,6 @@ combineColor combine (Color a) (Color b) =
         FAdd       -> Color $ a ^+^ b
         FFloatOr   -> Color $ a ^+^ b ^-^ (a * b)
         FFloatXor  -> Color $ a ^+^ b ^-^ (2 *^ (a * b))
+        FMin       -> Color $ liftA2 min a b
+        FMax       -> Color $ liftA2 max a b
+        FSaturate  -> saturate (view cAlpha (Color a)) (Color b)

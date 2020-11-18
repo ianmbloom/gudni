@@ -35,6 +35,8 @@ import Graphics.Gudni.Raster.Serial.Pile
 import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Util.Debug
 
+import Graphics.Gudni.Image.Type
+
 import Codec.Picture
 
 import Foreign.C.Types
@@ -43,7 +45,7 @@ import Data.List
 import Data.Word
 import Foreign.Ptr
 import Foreign.Storable
-import qualified Data.Vector.Storable as VS
+import qualified Data.Vector.Storable as V
 import qualified Data.Map as M
 import qualified Data.Foldable as Foldable
 import Data.Traversable
@@ -56,21 +58,25 @@ import Control.Monad.ListM
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint hiding ((<>))
 
+import Linear.V4
 
 type PictureName = String
 
 data Picture
-   = PictureFunction
-   { pictureFunction     :: Point2 PixelSpace -> Color SubSpace
-   , pictureFunctionSize :: Point2 PixelSpace
-   }
-   | PictureImage
+   = PictureImage
    { pictureImage :: Image PixelRGBA8
+   }
+   | PictureFrozen
+   { pictureFrozen :: FrozenImage (Color SubSpace)
    }
 
 instance Out Picture where
     doc x = text "Picture"
     docPrec _ = doc
+
+instance Out Word8 where
+   doc x = text (show x)
+   docPrec _ = doc
 
 type PictureMap = M.Map PictureName Picture
 
@@ -88,18 +94,14 @@ noPictures = return M.empty
 checkPicture :: PictureName -> PictureMap -> Picture
 checkPicture name mapping = (M.!) mapping name
 
-allPixels :: Point2 PixelSpace -> [Point2 PixelSpace]
-allPixels size = [(makePoint x y) | y <- [0 .. size ^. pY - 1], x <- [0 ..  size ^. pX - 1]]
-
-pictureData :: Picture -> VS.Vector Word8
-pictureData (PictureImage image) = imageData image
-pictureData (PictureFunction f size) = error "need to reimplement PictureFunction"
-  -- VS.concatMap (VS.fromList . Foldable.toList . colorToRGBA8 . f) (VS.fromList $ allPixels size)
+pictureData :: (Storable SubSpace) => Picture -> V.Vector CFloat
+pictureData (PictureImage image) = V.map word8ToCFloat $ imageData image
+pictureData (PictureFrozen (FrozenImage vector _ _)) = V.concatMap (V.fromList . Foldable.toList . fmap realToFrac . view unColor) $ vector
 
 pictureSize :: Picture -> Point2 PixelSpace
 pictureSize (PictureImage img) = Point2 (fromIntegral $ imageWidth  img) (fromIntegral $ imageHeight img)
-pictureSize (PictureFunction _ size) = size
+pictureSize (PictureFrozen (FrozenImage _ _ size)) = size
 
 instance Show Picture where
-  show (PictureFunction _ size) = "PictureFunction" ++ show size
-  show (PictureImage _) = "PictureImage"
+  show (PictureImage  _) = "PictureImage"
+  show (PictureFrozen _) = "PictureFrozen"

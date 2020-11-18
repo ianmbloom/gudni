@@ -20,9 +20,9 @@ basicShapes =
     [ ("randomCurves",
       \ playhead step ->
       let range = makePoint 2 2
-          randomCurves = evalRand (sequence . replicate 3 $ fuzzyCurve range 5) (mkStdGen $ step) :: [ShapeTree Int SubSpace]
+          randomCurves = evalRand (sequence . replicate 8 $ fuzzyCurve range 5) (mkStdGen $ step) :: [ShapeTree Int SubSpace]
       in  place .
-          scaleBy 500 .
+          scaleBy 200 .
           rotateBy  (playhead @@ deg)
           $
           overlap randomCurves
@@ -69,12 +69,11 @@ basicShapes =
       ,
       ("triRed",
       \ playhead step ->
-      rotateBy ((negate playhead) @@ deg) .
-      translateByXY 50 50 .
-      scaleBy 100 .
-      translateByXY 1 1 .
-      rotateBy (playhead @@ deg) .
-      withColor (transparent 0.25 red) .
+      -- rotateBy ((negate playhead) @@ deg) .
+      translateByXY 0 0 .
+      scaleBy 5 .
+      -- rotateBy (playhead @@ deg) .
+      withColor ({-transparent 0.25-} red) .
       mask
       $
       triangle2

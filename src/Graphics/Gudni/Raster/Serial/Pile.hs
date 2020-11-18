@@ -49,7 +49,7 @@ where
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.StorableM
-import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice
 

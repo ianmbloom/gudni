@@ -2,7 +2,7 @@
 // 2 So the line numbers are correct
 // 3  -----------------------------------------------------------------------------
 // 4  -- |
-// 5  -- Module      :  Graphics.Gudni.Raster.OpenCL.Kernel.cl
+// 5  -- Module      :  Graphics.Gudni.Raster.Thresholds.OpenCL.Kernel.cl
 // 6  -- Copyright   :  (c) Ian Bloom 2019
 // 7  -- License     :  BSD-style (see the file libraries/base/LICENSE)
 // 8  --
@@ -90,7 +90,7 @@
 #define ITEMTAGID  uint
 
 // An Item tag links to either a shape or a texture facet.
-// See Graphics.Gudni.Raster.Constants for the bit layouts of ITEMTAG type.
+// See Graphics.Gudni.Raster.Thresholds.Constants for the bit layouts of ITEMTAG type.
 #define ITEMTAG ulong
 // A FacetID refers to the index of a facet in the facet heap.
 #define FACETID   uint
@@ -277,7 +277,7 @@ typedef struct PointQuery
 typedef struct ColorState {
     GMEM SUBSTANCETAG *csSubstanceTagHeap;        // access to the substanceTagHeap
                COLOR   csBackgroundColor;         // background color
-    GMEM       uchar  *csPictureData;             // global image information
+    GMEM       COLOR  *csPictureData;             // global image information
     GMEM       uchar  *csDescriptions;            // global heap of substance descriptions
                 int2   absolutePosition;          // the absolute position of the current pixel.
   } ColorState;
@@ -767,7 +767,7 @@ void copyBlock
                            , GMEM         ITEMTAG *itemTagHeap
                            , GMEM    SUBSTANCETAG *substanceTagHeap
                            , GMEM       HardFacet *facetHeap
-                           , GMEM           uchar *pictureData
+                           , GMEM           COLOR *pictureData
                            , GMEM           uchar *descriptionHeap
                            , CMEM           float *randomField
                            ,                COLOR  backgroundColor
@@ -794,7 +794,7 @@ SUBSTANCETAG identifyPoint ( PMEM  ThresholdQueue *tQ
 void initColorState ( PMEM   ColorState *init
                     , GMEM SUBSTANCETAG *substanceTagHeap
                     ,             COLOR  backgroundColor
-                    , GMEM        uchar *pictureData
+                    , GMEM        COLOR *pictureData
                     , GMEM        uchar *descriptionHeap
                     ,              int2  absolutePosition
                     );
@@ -854,11 +854,16 @@ inline COLOR loadPixel_Word32_BGRA(uint pixel) {
 inline COLOR loadPixel_Word32_RGBA(uchar4 pixel) {
   return convert_float4(pixel)/ MAXCHANNELFLOAT;
 }
-
-inline COLOR getPicturePixel(GMEM uchar *pictData, int w, int x, int y) {
+/*
+inline COLOR getPicturePixel(GMEM float *pictData, int w, int x, int y) {
      GMEM uchar4 *pixelPointer = ((GMEM uchar4 *)pictData) + mul24(y, w) + x;
      //DEBUG_IF(printf("getPicturePixel x %i y %i w %i \n", x, y, w);)
      return loadPixel_Word32_RGBA(*pixelPointer);
+}
+*/
+
+inline COLOR getPicturePixel(GMEM COLOR *pictData, int w, int x, int y) {
+     return *(pictData + mul24(y, w) + x);
 }
 
 
@@ -1998,7 +2003,7 @@ void calculatePixel ( PMEM ThresholdQueue *tQ
 void initColorState ( PMEM   ColorState *init
                     , GMEM SUBSTANCETAG *substanceTagHeap
                     ,             COLOR  backgroundColor
-                    , GMEM        uchar *pictureData
+                    , GMEM        COLOR *pictureData
                     , GMEM        uchar *descriptionHeap
                     ,              int2  absolutePosition
                     ) {
@@ -2091,7 +2096,7 @@ void prepThresholdArray( PMEM ThresholdQueue *tQ
                            , GMEM         ITEMTAG *itemTagHeap
                            , GMEM    SUBSTANCETAG *substanceTagHeap
                            , GMEM       HardFacet *facetHeap
-                           , GMEM           uchar *pictureData
+                           , GMEM           COLOR *pictureData
                            , GMEM           uchar *descriptionHeap
                            , CMEM           float *randomField
                            ,                COLOR  backgroundColor
@@ -2871,7 +2876,7 @@ __kernel void renderThresholdsKernel
     , GMEM      ITEMTAG *itemTagHeap
     , GMEM SUBSTANCETAG *substanceTagHeap
     , GMEM    HardFacet *facetHeap
-    , GMEM        uchar *pictureData
+    , GMEM        COLOR *pictureData
     , GMEM        uchar *descriptionHeap
     , CMEM        float *randomField
     ,             COLOR  backgroundColor

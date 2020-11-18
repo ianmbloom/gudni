@@ -33,7 +33,7 @@ module Graphics.Gudni.Raster.Thresholds.SubstanceInfo
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.TextureReference
 
 import Graphics.Gudni.Util.StorableM

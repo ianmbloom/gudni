@@ -20,13 +20,12 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- A ShapeTree is the main input data structure for the Gudni Rasterizer. A client program
+-- A ShapeTree is the main input data structure for the Gudni RasterState. A client program
 -- generates a Scene which contains a ShapeTree for each frame that they wish to render.
 
 module Graphics.Gudni.Raster.Dag.Fabric.Type
   ( FabricType(..)
   , Fabric(..)
-  , WithParent(..)
   , FLeaf(..)
   , FTreeLeaf(..)
   , ForStorage(..)
@@ -41,6 +40,8 @@ import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Ray.Transformer
+import Graphics.Gudni.Raster.Dag.ConfineTree.Tag
+import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice
 
 import Control.Lens
@@ -56,16 +57,13 @@ data Fabric i where
     FTransform :: FTransformer (SpaceOf i) -> FChildType i                 -> Fabric i
     FLeaf      :: FLeafType i                                              -> Fabric i
 
-data WithParent i where
-    WithParent :: FabricTagId -> Fabric i -> WithParent i
-
 data FLeaf i where
     FShape     :: WithBox (Shape (SpaceOf i)) -> FLeaf i
     FSubstance :: FSubstance i                -> FLeaf i
 
 data FTreeLeaf i where
-    FTree          :: ConfineTreeId -> FabricTagId -> FTreeLeaf i
-    FTreeSubstance :: FSubstance i                 -> FTreeLeaf i
+    FTree          :: Reference (Root (SpaceOf i)) -> FabricTagId -> FTreeLeaf i
+    FTreeSubstance :: FSubstance i                                -> FTreeLeaf i
 
 data ForStorage s
 

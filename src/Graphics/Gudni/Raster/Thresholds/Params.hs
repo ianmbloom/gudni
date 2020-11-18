@@ -13,7 +13,7 @@
 
 module Graphics.Gudni.Raster.Thresholds.Params
   ( RasterParams(..)
-  , rpRasterizer
+  , rpRasterState
   , rpSerialState
   , rpPixelPile
   , rpPointQueries
@@ -30,7 +30,7 @@ import Graphics.Gudni.Raster.Thresholds.Serialize
 import Graphics.Gudni.Raster.Thresholds.ReorderTable
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Util.RandomField
-import Graphics.Gudni.Raster.OpenCL.Rasterizer
+import Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
 
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
@@ -40,7 +40,7 @@ import CLUtil
 import Control.Lens
 
 data RasterParams token = RasterParams
-  { _rpRasterizer   :: Rasterizer
+  { _rpRasterState   :: RasterState
   , _rpSerialState  :: SerialState token SubSpace
   , _rpPixelPile    :: PixelPile
   , _rpPointQueries :: [(PointQueryId, Point2 SubSpace)]

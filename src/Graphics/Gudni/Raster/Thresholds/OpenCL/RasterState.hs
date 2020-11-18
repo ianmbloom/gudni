@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.OpenCL.Rasterizer
+-- Module      :  Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -11,7 +11,7 @@
 --
 -- A constructor for storing an OpenCL state, compiled kernels (just one right now) and other metadata.
 
-module Graphics.Gudni.Raster.OpenCL.Rasterizer
+module Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
   ( DeviceSpec(..)
   , specMaxTileSize
   , specMaxStrandSize
@@ -21,7 +21,7 @@ module Graphics.Gudni.Raster.OpenCL.Rasterizer
   , specMaxLayers
   , specBlocksPerSection
   , specBlockSectionDepth
-  , Rasterizer(..)
+  , RasterState(..)
   , rasterClState
   , rasterInitializeSectionKernel
   , rasterInitializeBlockKernel
@@ -77,7 +77,7 @@ data DeviceSpec = DeviceSpec
     } deriving (Show)
 makeLenses ''DeviceSpec
 
-data Rasterizer = Rasterizer
+data RasterState = RasterState
   { -- | The OpenCL state
     _rasterClState :: OpenCLState
     -- | The rasterizer kernels.
@@ -99,4 +99,4 @@ data Rasterizer = Rasterizer
   , _rasterReorderTable :: ReorderTable
   , _rasterRandomField  :: RandomField
   }
-makeLenses ''Rasterizer
+makeLenses ''RasterState

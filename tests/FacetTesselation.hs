@@ -22,6 +22,7 @@ module FacetTesselation
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
@@ -39,7 +40,6 @@ import Linear.Affine
 import qualified Data.Vector as V
 import Control.Applicative
 import Data.Maybe
-import Text.PrettyPrint.GenericPretty
 
 data FacetState = FacetState
    {_stateBase        :: BasicSceneState
@@ -88,7 +88,7 @@ instance Model FacetState where
         in sceneFromLayout gray .
                transformFromState (state ^. stateBase) .
                overlap $
-                   [ hatch 0.1 20 point
+                   [ withColor red . translateBy point $ hatch 0.1 20
                    , stack $
                        [ --overlap . fmap (place . represent repDk) $ tesselatedFacets
                          overlap [ overlap . fmap (place . represent repDk) $ untilThreshold
@@ -103,10 +103,9 @@ instance Model FacetState where
     handleOutput state target = do
         presentTarget target
         return state
-    dumpState state input =
-        do  putStrLn $ pretty state
-            when (not . null $ inputs) $ putStrLn $  pretty inputs
-
+    dumpState state inputs =
+        do putStrLn $ pretty state
+           when (not . null $ inputs) $ putStrLn $  pretty inputs
 
 instance HandlesInput token FacetState where
    processInput input =

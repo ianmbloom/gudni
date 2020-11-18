@@ -12,38 +12,30 @@ module Graphics.Gudni.Raster.Dag.TagTypes
     , BezierId(..)
     , FacetId(..)
     , BoxId(..)
-    , ConfineTreeId(..)
     , TransformId(..)
-    , SubstanceTag(..)
     )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Dag.Constants
-
-import Graphics.Gudni.Util.StorableM
-
-import Text.PrettyPrint.GenericPretty
-import Text.PrettyPrint
 
 import Foreign.Storable
 import GHC.Ptr
 
 -- | The word "tag" is used to describe a bitfield that usually includes type metadata and pointers to other data.
 
-newtype ShapeId       = ShapeId       {unShapeId       :: ShapeId_              } deriving (Eq, Ord, Generic,       Num)
-newtype PrimTagId     = PrimTagId     {unPrimTagId     :: Reference PrimTag     } deriving (Eq, Ord, Generic       )
-newtype PrimTag       = PrimTag       {unPrimTag       :: PrimTag_              } deriving (Eq, Ord, Generic       )
-newtype FabricTagId   = FabricTagId   {unFabricTagId   :: Reference FabricTag   } deriving (Eq, Ord, Generic       )
-newtype FabricTag     = FabricTag     {unFabricTag     :: FabricTag_            } deriving (Eq, Ord, Generic       )
-newtype BezierId s    = BezierId      {unBezierId      :: Reference (Bezier s)  } deriving (Eq, Ord, Generic, Show )
-newtype FacetId s     = FacetId       {unFacetId       :: Reference (Facet s)   } deriving (Eq, Ord, Generic, Show )
-newtype BoxId s       = BoxId         {unBoxId         :: Reference (Box s)     } deriving (Eq, Ord, Generic, Show )
-newtype ConfineTreeId = ConfineTreeId {unConfineTreeId :: StorageId_            } deriving (Eq, Ord, Generic,       Num)
-newtype TransformId   = TransformId   {unTransformId   :: StorageId_            } deriving (Eq, Ord, Generic, Show )
-newtype SubstanceTag  = SubstanceTag  {unSubstanceTag  :: FabricTag_            } deriving (Eq, Ord, Generic       )
+newtype ShapeId     = ShapeId      {unShapeId       :: ShapeId_              } deriving (Eq, Ord, Generic,       Num)
+newtype PrimTagId   = PrimTagId    {unPrimTagId     :: Reference PrimTag     } deriving (Eq, Ord, Generic       )
+newtype PrimTag     = PrimTag      {unPrimTag       :: PrimTag_              } deriving (Eq, Ord, Generic       )
+newtype FabricTagId = FabricTagId  {unFabricTagId   :: Reference FabricTag   } deriving (Eq, Ord, Generic       )
+newtype FabricTag   = FabricTag    {unFabricTag     :: FabricTag_            } deriving (Eq, Ord, Generic       )
+newtype BezierId s  = BezierId     {unBezierId      :: Reference (Bezier s)  } deriving (Eq, Ord, Generic, Show )
+newtype FacetId  s  = FacetId      {unFacetId       :: Reference (Facet  s)  } deriving (Eq, Ord, Generic, Show )
+newtype BoxId    s  = BoxId        {unBoxId         :: Reference (Box    s)  } deriving (Eq, Ord, Generic, Show )
+newtype TransformId = TransformId  {unTransformId   :: StorageId_            } deriving (Eq, Ord, Generic, Show )
 
 nullFabricTagId :: FabricTagId
 nullFabricTagId = FabricTagId (Ref $ nULLfABRICtAGiD)
@@ -64,9 +56,6 @@ instance Show FabricTagId where
 instance Show PrimTagId where
   show = show . unRef . unPrimTagId
 
-instance Show ConfineTreeId where
-  show = show . unConfineTreeId
-
 instance Out ShapeId where
     doc tagId = if tagId == nullShapeId
                 then text "null"
@@ -85,11 +74,13 @@ instance Out FabricTag
 instance Out s => Out (BezierId s)
 instance Out s => Out (FacetId  s)
 instance Out s => Out (BoxId  s)
-instance Out ConfineTreeId where
-    doc treeId = text "Tx" <+> (doc . unConfineTreeId $ treeId)
-    docPrec _  = doc
 instance Out TransformId
-instance Out SubstanceTag
+
+instance Storable ShapeId where
+  sizeOf    (ShapeId i) = sizeOf    (undefined :: ShapeId_ )
+  alignment (ShapeId i) = alignment (undefined :: ShapeId_ )
+  peek ptr = ShapeId <$>  peek (castPtr ptr)
+  poke ptr  (ShapeId i) = poke (castPtr ptr) i
 
 instance Storable PrimTagId where
   sizeOf    (PrimTagId i) = sizeOf    (undefined :: Reference PrimTag )
@@ -133,20 +124,8 @@ instance Storable s => Storable (BoxId  s) where
   peek ptr = BoxId <$>  peek (castPtr ptr)
   poke ptr  (BoxId i) = poke (castPtr ptr) i
 
-instance Storable ConfineTreeId where
-  sizeOf    (ConfineTreeId i) = sizeOf    (undefined :: StorageId_ )
-  alignment (ConfineTreeId i) = alignment (undefined :: StorageId_ )
-  peek ptr = ConfineTreeId <$>  peek (castPtr ptr)
-  poke ptr  (ConfineTreeId i) = poke (castPtr ptr) i
-
 instance Storable TransformId where
   sizeOf    (TransformId i) = sizeOf    (undefined :: StorageId_ )
   alignment (TransformId i) = alignment (undefined :: StorageId_ )
   peek ptr = TransformId <$>  peek (castPtr ptr)
   poke ptr  (TransformId i) = poke (castPtr ptr) i
-
-instance Storable SubstanceTag where
-  sizeOf    (SubstanceTag i) = sizeOf    (undefined :: FabricTag_ )
-  alignment (SubstanceTag i) = alignment (undefined :: FabricTag_ )
-  peek ptr = SubstanceTag <$>  peek (castPtr ptr)
-  poke ptr  (SubstanceTag i) = poke (castPtr ptr) i

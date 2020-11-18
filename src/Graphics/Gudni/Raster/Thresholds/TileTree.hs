@@ -34,7 +34,7 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
-import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.Thresholds.StrandReference
 import Graphics.Gudni.Raster.Thresholds.ItemInfo
 import Graphics.Gudni.Raster.Thresholds.Enclosure

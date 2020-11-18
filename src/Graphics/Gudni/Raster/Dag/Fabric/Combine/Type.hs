@@ -36,6 +36,9 @@ data FCombineType
     | FAdd
     | FFloatOr  -- x + y - (x*y)
     | FFloatXor -- x + y - 2(x*y)
+    | FMin
+    | FMax
+    | FSaturate
      --      | RGTE
      --      | RGT
     deriving (Show, Generic)

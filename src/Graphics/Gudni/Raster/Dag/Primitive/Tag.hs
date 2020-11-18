@@ -21,7 +21,6 @@ module Graphics.Gudni.Raster.Dag.Primitive.Tag
     , makeBezierPrimTag
     , makeRectPrimTag
     , makeElipsePrimTag
-    , assignFabricTagToPrimTag
     , primTagType
     , primTagIsBezier
     , primTagIsFacet
@@ -82,10 +81,6 @@ makeBasicPrim storageId shapeId ty =
     PrimTag $  ty
            .|. makePrimStorage storageId
            .|. (makePrimShapeId . unShapeId $ shapeId)
-
-assignFabricTagToPrimTag :: PrimTag -> ShapeId -> PrimTag
-assignFabricTagToPrimTag tag shapeId = PrimTag $ ((pRIMtAGtYPEbITMASK .|. pRIMtAGsTORAGEiDbITMASK) .&. unPrimTag tag)
-                                              .|. (makePrimShapeId . unShapeId $ shapeId)
 
 makeBezierPrimTag :: BezierId s -> ShapeId -> PrimTag
 makeBezierPrimTag bezId shapeId =  makeBasicPrim (unRef . unBezierId $ bezId) shapeId pRIMtAGiSbEZIER

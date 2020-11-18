@@ -39,7 +39,7 @@ modifyItemStackIfCrossedAlong :: ( Axis axis
 modifyItemStackIfCrossedAlong crossOp lineAxis start baseline end primTagId prim =
   do lift crossOp
      if crossesPrimAlong lineAxis start baseline end prim
-     then modify (toggleItem (prim ^. primShapeId))
+     then modify (toggleShapeActive (prim ^. primShapeId))
      else return ()
 
 buildDecorateTree :: forall s m

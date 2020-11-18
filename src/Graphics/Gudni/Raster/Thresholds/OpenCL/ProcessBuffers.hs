@@ -5,7 +5,7 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE ViewPatterns               #-}
 
-module Graphics.Gudni.Raster.OpenCL.ProcessBuffers
+module Graphics.Gudni.Raster.Thresholds.OpenCL.ProcessBuffers
   ( collectTileBlocks
   , mergeTileBlocks
   , verticalSplitTile
@@ -24,9 +24,10 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface.Query
 import Graphics.Gudni.Interface.DrawTarget
 
-import Graphics.Gudni.Raster.OpenCL.Rasterizer
-import Graphics.Gudni.Raster.OpenCL.PrepareBuffers
-import Graphics.Gudni.Raster.OpenCL.CallKernels
+import Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
+import Graphics.Gudni.Raster.Thresholds.OpenCL.PrepareBuffers
+import Graphics.Gudni.Raster.Thresholds.OpenCL.CallKernels
+import Graphics.Gudni.Raster.OpenCL.Buffer
 
 import Graphics.Gudni.Raster.Thresholds.ItemInfo
 import Graphics.Gudni.Raster.Thresholds.SubstanceInfo
@@ -120,7 +121,7 @@ combineSections :: RasterParams token
                 -> BlockSection
                 -> CL (Bool, BlockSection, BlockSection)
 combineSections params dst src =
-   let blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
+   let blocksPerSection = params ^. rpRasterState . rasterDeviceSpec . specBlocksPerSection
        available = min (blocksPerSection - dst ^. sectNumActive) (src ^. sectNumActive)
    in
    if available > 0 &&
@@ -136,7 +137,7 @@ condenseStack :: RasterParams token
               -> CL (Bool, S.Seq BlockSection)
 condenseStack params ssss =
     do -- liftIO $ putStrLn $ "condenseStack " ++ show (S.length ssss)
-       let blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
+       let blocksPerSection = params ^. rpRasterState . rasterDeviceSpec . specBlocksPerSection
        case S.viewl ssss of
          S.EmptyL -> return (False, S.empty)
          (S.:<) s0 sss -> case S.viewl sss of
@@ -259,7 +260,7 @@ collectAndRender params buffersInCommon target = --announceStack "collectAndRend
 condenseAndSplit :: RasterParams token
                  -> GenerateMonad (S.Seq BlockSection) ()
 condenseAndSplit params = --announceStack "condenseAndSplit" $
-  let blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
+  let blocksPerSection = params ^. rpRasterState . rasterDeviceSpec . specBlocksPerSection
   in
   do stack <- use genData
      (hasCombined, condensed) <- lift $ condenseStack params stack
@@ -310,9 +311,9 @@ generateLoop :: ( KernelArgs
              -> target
              -> CL (S.Seq (PointQueryId, SubstanceTag))
 generateLoop params buffersInCommon tree target =
-    do  let  blocksPerSection = params ^. rpRasterizer . rasterDeviceSpec . specBlocksPerSection
-             maxThresholds    = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds
-             batchSize        = params ^. rpRasterizer . rasterDeviceSpec . specMaxThresholds `div` 2
+    do  let  blocksPerSection = params ^. rpRasterState . rasterDeviceSpec . specBlocksPerSection
+             maxThresholds    = params ^. rpRasterState . rasterDeviceSpec . specMaxThresholds
+             batchSize        = params ^. rpRasterState . rasterDeviceSpec . specMaxThresholds `div` 2
              tilePiles :: S.Seq (Tile, Pile ItemTagId)
              tilePiles = execState (traverseTileTree (\t -> modify ( |> t)) tree) S.empty
              processTile :: (Tile, Pile ItemTagId) -> GenerateMonad (S.Seq BlockSection) ()
@@ -464,7 +465,7 @@ runRaster :: Show token
 runRaster params =
     do  let tileTree = params ^. rpSerialState . serTileTree
         -- Get the OpenCL state from the Library structure.
-            state = params ^. rpRasterizer . rasterClState
+            state = params ^. rpRasterState . rasterClState
         -- total number of 32 bit words in the output buffer.
         -- liftIO $ outputSerialState(params ^. rpSerialState)
         runCL state $

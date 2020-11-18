@@ -57,14 +57,14 @@ import Graphics.Gudni.Interface.Time
 import Graphics.Gudni.Interface.FontLibrary
 import Graphics.Gudni.Interface.Query
 
-import Graphics.Gudni.Raster.OpenCL.Setup
-import Graphics.Gudni.Raster.OpenCL.Rasterizer
-import Graphics.Gudni.Raster.OpenCL.ProcessBuffers
+import Graphics.Gudni.Raster.Thresholds.OpenCL.Setup
+import Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
+import Graphics.Gudni.Raster.Thresholds.OpenCL.ProcessBuffers
 
 import Graphics.Gudni.ShapeTree
 
-import Graphics.Gudni.Raster.Constants (rANDOMFIELDsIZE)
-import Graphics.Gudni.Raster.OpenCL.EmbeddedOpenCLSource
+import Graphics.Gudni.Raster.Thresholds.Constants (rANDOMFIELDsIZE)
+import Graphics.Gudni.Raster.Thresholds.OpenCL.EmbeddedOpenCLSource
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.Thresholds.TileTree
 import Graphics.Gudni.Raster.Thresholds.Serialize
@@ -123,7 +123,7 @@ data ApplicationState s = AppState
       -- | The start time of the application.
     , _appStartTime     :: TimeSpec
       -- | Constructor used to store the OpenCL state, compiled kernels and device metadata.
-    , _appRasterizer :: Rasterizer
+    , _appRasterState :: RasterState
       -- | A string representing information about the app. Usually timing data and other stuff for display.
     , _appStatus        :: String
      -- | The number of event loop cycles that have commenced from starting.
@@ -242,7 +242,7 @@ drawFrame :: ( Model s
           -> ApplicationMonad s (DrawTarget, [PointQueryResult (TokenOf (StyleOf s))])
 drawFrame frameCount scene queries =
     do  --appMessage "ResetJob"
-        rasterizer <- use appRasterizer
+        rasterizer <- use appRasterState
         target <- withIO appBackend (prepareTarget (rasterizer ^. rasterUseGLInterop))
         let canvasSize = P $ fromIntegral <$> target ^. targetArea
         state <- use appState

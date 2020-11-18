@@ -13,5 +13,7 @@ import Graphics.Gudni.Base.Loop
 import Graphics.Gudni.Base.HasDefault
 import Graphics.Gudni.Base.Reversible
 
+import Graphics.Gudni.Util.Debug
+
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint hiding ((<>), empty)

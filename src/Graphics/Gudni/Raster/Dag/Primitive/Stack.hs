@@ -12,8 +12,8 @@
 {-# LANGUAGE StandaloneDeriving         #-}
 
 module Graphics.Gudni.Raster.Dag.Primitive.Stack
-  ( toggleItem
-  , combineItemStacks
+  ( toggleShapeActive
+  , combineShapeStacks
   , passPrimAlong
   , passPrimBetweenPoints
   , passPrim
@@ -34,16 +34,16 @@ import Linear.Metric
 import Control.Applicative
 import Control.Lens
 
-toggleItem :: ShapeId -> ShapeStack -> ShapeStack
-toggleItem shapeId stack =
+toggleShapeActive :: ShapeId -> ShapeStack -> ShapeStack
+toggleShapeActive shapeId stack =
     case stack of
         (x:xs) | shapeId <  x -> shapeId:x:xs
                | shapeId == x -> xs
-               | shapeId >  x -> x:toggleItem shapeId xs
+               | shapeId >  x -> x:toggleShapeActive shapeId xs
         [] -> [shapeId]
 
-combineItemStacks :: ShapeStack -> ShapeStack -> ShapeStack
-combineItemStacks = flip (foldl (flip toggleItem))
+combineShapeStacks :: ShapeStack -> ShapeStack -> ShapeStack
+combineShapeStacks = flip (foldl (flip toggleShapeActive))
 
 passPrimAlong :: ( Axis axis
                  , Space s)
@@ -57,7 +57,7 @@ passPrimAlong :: ( Axis axis
               -> ShapeStack
 passPrimAlong axis start baseline end primTagId prim =
     if crossesPrimAlong axis start baseline end prim
-    then toggleItem (prim ^. primShapeId)
+    then toggleShapeActive (prim ^. primShapeId)
     else id
 
 passPrimBetweenPoints :: (Space s)
@@ -69,7 +69,7 @@ passPrimBetweenPoints :: (Space s)
                       -> ShapeStack
 passPrimBetweenPoints anchor point primTagId prim =
     if crossesPrim anchor point prim
-    then toggleItem (prim ^. primShapeId)
+    then toggleShapeActive (prim ^. primShapeId)
     else id
 
 passPrim :: forall s m

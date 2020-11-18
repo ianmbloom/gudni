@@ -40,7 +40,7 @@ import Graphics.Gudni.Raster.Serial.Pile
 import Graphics.Gudni.Util.StorableM
 
 import Graphics.Gudni.ShapeTree.STree
-import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.Thresholds.SubstanceInfo
 import Graphics.Gudni.Raster.Thresholds.StrandReference
 

@@ -22,7 +22,7 @@ import Graphics.Gudni.Util.Debug
 import Control.Lens
 
 crossSplitLimit :: (Space s) => s
-crossSplitLimit = 1 / 32
+crossSplitLimit = 1 / 1024
 
 foldBez :: (Point2 s -> a) -> (a -> a -> a) -> Bezier s -> a
 foldBez f g = foldl1 g . fmap f . unBezier

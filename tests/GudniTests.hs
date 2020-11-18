@@ -299,7 +299,7 @@ testPict playhead step =
         size = Point2 w h
     in  place $
         overlap [ translateByXY 100 50 $ withTexture (SharedTexture "flowers") $ subtractFrom (scaleBy 200 . mask $ circle) (addOver (translateByXY 100 100 . scaleBy 100 . mask $ circle) (scaleBy 100 . mask $ circle))
-                , translateByXY 100 50 $ withTexture (NewTexture "gradient" (PictureFunction f size)) $ translateByXY 0 50 $ (scaleBy 50 . mask $ circle)
+                -- , translateByXY 100 50 $ withTexture (NewTexture "gradient" (PictureFunction f size)) $ translateByXY 0 50 $ (scaleBy 50 . mask $ circle)
                 -- , translateByXY 100 50 $ withColor (transparent 0.2 blue) $ rectangle (Point2 40 2000)
                 ]
 

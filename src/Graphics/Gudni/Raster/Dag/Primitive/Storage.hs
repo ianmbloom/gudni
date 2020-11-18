@@ -6,6 +6,7 @@ module Graphics.Gudni.Raster.Dag.Primitive.Storage
   ( PrimStorage(..)
   , primBezierPile
   , primFacetPile
+  , primBoxPile
   , primTagPile
   , initPrimStorage
   , freePrimStorage

@@ -24,20 +24,20 @@
 module Graphics.Gudni.Raster.Serial.Slice
   ( Slice (..)
   , combineSlices
+  , mapSliceM_
   , mapSliceM
   )
 where
 
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.StorableM
-import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.Serial.Reference
 
 import Control.Lens
 import Control.Loop
 
 import Foreign.Storable
-import Foreign.C.Types
 
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
@@ -53,8 +53,20 @@ data Slice t = Slice
   , sliceLength  :: !(Reference t)
   } deriving (Eq)
 
-mapSliceM :: Monad m => (Reference i -> m ()) -> Slice i -> m ()
-mapSliceM body slice = numLoop (sliceStart slice) (sliceStart slice + sliceLength slice) body
+mapSliceM_ :: Monad m => (Reference i -> m ()) -> Slice i -> m ()
+mapSliceM_ body slice = let len = sliceLength slice
+                        in if len > 0
+                           then numLoop (sliceStart slice) (sliceStart slice + sliceLength slice - 1) body
+                           else return ()
+
+mapSliceM :: Monad m => (Reference i -> m a) -> Slice i -> m [a]
+mapSliceM body slice = let end = sliceStart slice + sliceLength slice - 1
+                           len = sliceLength slice
+                       in  if len > 0
+                           then  numLoopState 0 (len - 1) [] $
+                                   \l i -> do a <- body (end - i)
+                                              return (a:l)
+                           else return []
 
 instance Show (Slice t) where
   show (Slice (Ref a) (Ref b)) = "(" ++ show a ++ "," ++ show b ++ ")"

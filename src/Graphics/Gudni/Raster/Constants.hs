@@ -2,7 +2,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.Constants
+-- Module      :  Graphics.Gudni.Raster.Thresholds.Constants
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -12,20 +12,22 @@
 --
 -- Global constants that paramaterize the rasterizer.
 
-module Graphics.Gudni.Raster.Constants
+module Graphics.Gudni.Raster.Thresholds.Constants
     ( UINT4(..)
     , THRESHOLDTYPE(..)
     , HEADERTYPE(..)
     , tAXICABfLATNESS
     , sTOCHASTICfACTOR
+    , rANDOMFIELDsIZE
+    , sHAPEsTACKsIZE
+    , sOURCEfILEpADDING
+
     , mAXsTRANDsIZE
     , mAXlAYERS
     , mAXtHRESHOLDS
     , mAXfACETiD
     , lAYERfLAGSsECTIONS
-    , rANDOMFIELDsIZE
-    , sOURCEfILEpADDING
-    , iNITgEOMETRYpILEsIZE
+
     , nULLtILE
     , iTEMtAGsLOPEbITMASK
     , iTEMtAGsLOPEpOSITVE
@@ -64,7 +66,14 @@ type UINT4 = V4 CUInt
 type THRESHOLDTYPE = V4 CFloat
 type HEADERTYPE    = CULong
 
-tAXICABfLATNESS    = 0.25 :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
+sTOCHASTICfACTOR = 0.0 :: Float -- relative amount of variability in an edge.
+tAXICABfLATNESS  = 0.25 :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
+rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
+sHAPEsTACKsIZE   = 64   :: Int
+
+sOURCEfILEpADDING = 40 :: Int -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
+
+
 sIZEoFlAYERiD         = 4 :: Int -- sizof(uint)
 sIZEoFlOCALsUBSTANCEiD = 4 :: Int -- sizof(uint)
 sIZEoFlAYEReNTRY   = 2 :: Int -- sizeof(ushort)
@@ -73,18 +82,10 @@ sIZEoFfACETiD = 4 :: Int -- sizeof(uint)
 lAYERfLAGSsECTIONS = 8 :: Int
 sIZEoFsUBSTANCEiD  = 4 :: Int --sizeof(int)
 sIZEoFlAYERfLAGSsECTION = 8 :: Int -- sizeof(ulong)
-sTOCHASTICfACTOR = 0.0 :: Float -- relative amount of variability in an edge.
 mAXfACETiD       = (2^20) :: Int -- 1048576 total possible number of facets per scene
-
 mAXlAYERS        = 256 :: Int -- a hard limit on the number of shapes based on the empirical testing of the timeout period of the GPU.
 mAXtHRESHOLDS    = 256 :: Int
-
 mAXsTRANDsIZE   = 32   :: Int
-rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
-
-sOURCEfILEpADDING = 40 :: Int -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
-
-iNITgEOMETRYpILEsIZE = 65536 :: Int
 
 nULLtILE = V4 0xFFFFFFFF 0xFFFFFFFF 0xFFFFFFFF 0xFFFFFFFF :: UINT4
 

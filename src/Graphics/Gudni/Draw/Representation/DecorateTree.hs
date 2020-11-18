@@ -15,11 +15,13 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Tag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
 import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.Primitive.Stack
 import Graphics.Gudni.Raster.Dag.Fabric.Traverse
-import Graphics.Gudni.Raster.Dag.State
+import Graphics.Gudni.Raster.Dag.Storage
 import Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
 
 import Graphics.Gudni.Draw.Stroke
@@ -29,6 +31,9 @@ import Graphics.Gudni.Draw.Text
 import Graphics.Gudni.Draw.Representation.Class
 import Graphics.Gudni.Draw.Representation.RayQuery
 import Graphics.Gudni.Util.Debug
+
+import Graphics.Gudni.Raster.Serial.Pile
+import Graphics.Gudni.Raster.Serial.Slice
 
 import Control.Lens
 import Control.Monad
@@ -52,7 +57,7 @@ constructDecorateTree :: forall style m
                          , MonadIO m
                          , Storable (SpaceOf style)
                          )
-                      => DecorateTree (SpaceOf style)
+                      => DecoTagId (SpaceOf style)
                       -> DagMonad (SpaceOf style) m (Layout style)
 constructDecorateTree =
   go Vertical 0 (toAlong Horizontal minBound) (toAlong Vertical minBound) [] reasonableBoundaries
@@ -65,15 +70,16 @@ constructDecorateTree =
      -> Along   axis (SpaceOf style)
      -> ShapeStack
      -> Box (SpaceOf style)
-     -> DecoTree axis (SpaceOf style)
+     -> DecoTagId (SpaceOf style)
      -> DagMonad (SpaceOf style) m (Layout style)
-  go axis depth parentCut parentLine layers boundary tree =
+  go axis depth parentCut parentLine layers boundary treeId =
       do let anchor = pointAlongAxis (perpendicularTo axis) parentCut parentLine
          layerStack <- error "constructDecorateTree not implemented" -- constructLayerStack anchor layers
-         case tree of
-             DecoLeaf -> return $ overlap [rectangleAround anchor, layerStack]
-             DecoBranch {} -> do branchLayout <- goBranch axis depth parentCut parentLine layers boundary tree
-                                 return $ overlap [rectangleAround anchor, layerStack, branchLayout]
+         if treeId == nullDecoTagId
+         then return $ overlap [rectangleAround anchor, layerStack]
+         else do tree <- loadDecoTagS treeId
+                 branchLayout <- goBranch axis depth parentCut parentLine layers boundary tree
+                 return $ overlap [rectangleAround anchor, layerStack, branchLayout]
 
   goBranch :: ( Axis axis
               , axis~PerpendicularTo(PerpendicularTo axis)
@@ -84,19 +90,20 @@ constructDecorateTree =
            -> Along   axis (SpaceOf style)
            -> ShapeStack
            -> Box (SpaceOf style)
-           -> DecoTree axis (SpaceOf style)
+           -> DecoTag (SpaceOf style)
            -> DagMonad (SpaceOf style) m (Layout style)
-  goBranch axis depth parentCut parentLine layers boundary branch =
-                  let cut      = branch ^?! decoCut
+  goBranch axis depth parentCut parentLine layers boundary tree =
+                  let cut      = toAthwart axis (tree ^. decoTagCut)
                       anchor = pointAlongAxis (perpendicularTo axis) parentCut parentLine
                       endPoint = pointAlongAxis axis parentLine cut
                   in
                   if widthOf boundary > 0 && heightOf boundary > 0
                   then
-                     do  let layers' = combineItemStacks (branch ^. decoCrossings) layers
+                     do  newStack <- mapSliceM (fromPileS (dagTreeStorage . treeCrossingPile)) (tree ^. decoTagCrossings)
+                         let layers' = combineShapeStacks newStack layers
                              (lessBound, moreBound) = splitBox axis cut boundary
-                         lessBranch <- go (perpendicularTo axis) (depth + 1) parentLine cut layers' lessBound (branch ^?! decoLessCut)
-                         moreBranch <- go (perpendicularTo axis) (depth + 1) parentLine cut layers' moreBound (branch ^?! decoMoreCut)
+                         lessBranch <- go (perpendicularTo axis) (depth + 1) parentLine cut layers' lessBound (tree ^. decoTagLessCut)
+                         moreBranch <- go (perpendicularTo axis) (depth + 1) parentLine cut layers' moreBound (tree ^. decoTagMoreCut)
                          let pathLine :: Layout style
                              pathLine  = withColor (transparent 0.2 black) . mask . stroke 1 . makeOpenCurve $ [line anchor endPoint]
                          return $ overlap [ pathLine

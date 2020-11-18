@@ -12,12 +12,12 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 
-import Graphics.Gudni.Raster.Dag.Fabric.Traverse
 import Graphics.Gudni.Raster.Dag.TagTypes
+import Graphics.Gudni.Raster.Dag.Fabric.Traverse
 import Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Storage
-import Graphics.Gudni.Raster.Dag.State
+import Graphics.Gudni.Raster.Dag.Storage
 
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Elipse
@@ -52,29 +52,31 @@ constructDag :: ( MonadIO m
 constructDag fabricTagId =
     do if fabricTagId == nullFabricTagId
        then return . withColor black $ hatch 1 30
-       else do (WithParent parent fabric) <- loadFabricS fabricTagId
+       else do fabric <- loadFabricS fabricTagId
                case fabric of
-                   FCombine ty a b -> do aLayout <- constructDag a
-                                         bLayout <- constructDag b
-                                         return $ rack [ scaler . withColor blue . blurb $ show fabricTagId ++ " Comb " ++ show ty
-                                                       , stack [ aLayout
-                                                               , bLayout
-                                                               ]
-                                                       ]
-                   FTransform trans child -> do childLayout <- constructDag child
-                                                return $ rack [ scaler . withColor blue . blurb $ show fabricTagId ++ " Trans " ++ show trans
-                                                              , childLayout
-                                                              ]
+                   FCombine ty a b ->
+                       do aLayout <- constructDag a
+                          bLayout <- constructDag b
+                          return $ rack [ scaler . withColor blue . blurb $ show fabricTagId ++ " Comb " ++ show ty
+                                        , stack [ aLayout
+                                                , bLayout
+                                                ]
+                                        ]
+                   FTransform trans child ->
+                       do childLayout <- constructDag child
+                          return $ rack [ scaler . withColor blue . blurb $ show fabricTagId ++ " Trans " ++ show trans
+                                        , childLayout
+                                        ]
                    FLeaf leaf ->
                        case leaf of
-                           FTree confineTreeId childId ->
+                           FTree rootId childId ->
                                do childLayout <- constructDag childId
-                                  (confineTree, decorateTree) <- loadTreeS confineTreeId
-                                  mBox <- confineTreeBox confineTree
+                                  (confineTreeId, decorateTreeId) <- loadTreeRootS rootId
+                                  mBox <- confineTreeBox confineTreeId
                                   constructedTree <-
                                       case mBox of
                                           Nothing  -> return emptyItem
-                                          Just box -> constructConfineTreeBound box confineTree
+                                          Just box -> constructConfineTreeBound box confineTreeId
                                   return $
                                       stack [ scaler . withColor (dark green) . blurb $ "Tree " ++ show confineTreeId ++ " mBox" ++ show mBox
                                             , scaler constructedTree
@@ -83,9 +85,9 @@ constructDag fabricTagId =
                            FTreeSubstance substance ->
                                do subst <- constructSubstance substance
                                   return $ stack [ --scaler . withColor red . blurb $ show fabricTagId ++ " Subst"
-                                                 -- ,
-                                                 subst
-                                               ]
+                                                   -- ,
+                                                   subst
+                                                 ]
 
 constructSubstance :: ( MonadIO m
                       , IsStyle style
