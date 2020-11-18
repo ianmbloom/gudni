@@ -384,7 +384,7 @@ traverseFabric initRay fabricTagId =
                                                              aboveQ <- popColor
                                                              let combineType = fabTagCombineType tag
                                                                  color = traverseCombine combineType aboveQ belowQ
-                                                             --liftIO $ putStrLn $ "combineType " ++ show combineType ++ " aboveQ " ++ show aboveQ ++ " belowQ " ++ show belowQ ++ " color " ++ show color
+                                                             -- liftIO $ putStrLn $ "combineType " ++ show combineType ++ " aboveQ " ++ show aboveQ ++ " belowQ " ++ show belowQ ++ " color " ++ show color
                                                              pushColor color
                                                              popGo
                traverseTag

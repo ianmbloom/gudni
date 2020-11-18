@@ -30,10 +30,10 @@ basicShapes =
       ,
       ("twoTriangles",
       \ playhead step ->
-      scaleBy 100 .
+      scaleBy 10 .
       translateByXY 1 1
       $
-      overlap [ withColor red .
+      overlap [ withColor (transparent 0.5 red) .
                 translateByXY 0 0 .
                 rotateBy (playhead @@ deg) .
                 scaleBy 10 .
@@ -41,7 +41,7 @@ basicShapes =
                 $
                 triangle
                 ,
-                withColor green .
+                withColor (transparent 0.5 cyan) .
                 translateByXY 1 1 .
                 rotateBy (playhead @@ deg) .
                 scaleBy 10 .
@@ -49,7 +49,7 @@ basicShapes =
                 $
                 triangle
                 ,
-                 withColor purple .
+                 withColor (transparent 0.5 purple) .
                  translateByXY 2 2  .
                  rotateBy (playhead @@ deg) .
                  scaleBy 10 .
@@ -57,7 +57,7 @@ basicShapes =
                  $
                  triangle
                  ,
-                 withColor cyan .
+                 withColor (transparent 0.5 green) .
                  translateByXY 3 3  .
                  rotateBy (playhead @@ deg) .
                  scaleBy 10 .

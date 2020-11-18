@@ -152,7 +152,7 @@ composite f b =
   let alphaOut = f ^. cAlpha + (b ^. cAlpha * (1 - f ^. cAlpha))
   in
   if alphaOut > 0
-  then Color $ ((f ^. unColor ^* f ^. cAlpha) ^+^ (b ^. unColor ^* (b ^. cAlpha * (1 - f ^. cAlpha)))) ^* (1 / alphaOut)
+  then set cAlpha alphaOut $ Color $ ((f ^. unColor ^* f ^. cAlpha) ^+^ (b ^. unColor ^* (b ^. cAlpha * (1 - f ^. cAlpha)))) ^* (1 / alphaOut)
   else clearBlack
 
 -- | Generate a 'Color' based on the input color by multiplying the saturation by a factor.

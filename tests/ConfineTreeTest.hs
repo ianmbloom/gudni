@@ -82,7 +82,7 @@ initialModel =
           }
     , _stateShapeAngle = 0 @@ rad -- 0 @@ rad
     , _stateTraceStep = 0
-    , _stateCurrentTest = flip findTest allTests "randomCurves" --  "twoTriangles" -- "triRed" --"diamondBox" --"fuzzyGlyphs" "millionFuzzyCircles"
+    , _stateCurrentTest = flip findTest allTests "randomCurves" -- "twoTriangles" "triRed" "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
     , _stateDecorationType = True
     , _stateDecorationLimit = 0
     }
@@ -129,8 +129,8 @@ instance Model ConfineTreeState where
                     -- constructedTree     <- constructConfineTree tree
                     -- constructedDecoTree <- constructDecorateTree decoTree
                     -- boxQuery     <- checkBox tree decoTree (state ^. stateBase . stateCursor)
-                    -- (setPoints :: [Layout DefaultStyle]) <-
-                    --      mapM (constructRayColor root) [point] -- , Point2 200 200]
+                    (setPoints :: [Layout DefaultStyle]) <-
+                         mapM (constructRayColor root) [point] -- , Point2 200 200]
                     -- (randomPoints :: [Layout DefaultStyle]) <-
                     --      mapM (constructRayColor root) .
                     --      evalRand (take 100 <$> getRandomRs (Point2 0 0, fromIntegral <$> canvasSize)) .
