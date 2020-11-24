@@ -40,6 +40,7 @@ initialModel =
           , _stateStep        = 0
           , _stateRepMode     = False
           , _stateRepDk       = False
+          , _stateCursor      = Point2 0 0
           }
     }
 
@@ -59,7 +60,7 @@ instance Model ParagraphState where
                 tree :: Layout (StyleOf ParagraphState)
                 tree = transformFromState (state ^. stateBase) layout
                 withStatus = {-if False then overlap [statusTree, tree] else-} tree
-            sceneFromLayout (light gray) withStatus
+            return $ withBackgroundColor (light gray) withStatus
 
 instance HandlesInput token ParagraphState where
     processInput input = over stateBase (processInput input)

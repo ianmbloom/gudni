@@ -14,8 +14,6 @@ module Graphics.Gudni.Raster.Dag.Fabric.Traverse
   )
 where
 
--- import Prelude hiding (minimum, maximum)
-
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree.STree
@@ -39,6 +37,7 @@ import Graphics.Gudni.Raster.Dag.ConfineTree.Tag
 import Graphics.Gudni.Raster.Dag.Storage
 import Graphics.Gudni.Raster.Dag.State
 import Graphics.Gudni.Raster.Dag.Serialize
+import Graphics.Gudni.Raster.Dag.Constants
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.Serial.Reference
 
@@ -107,13 +106,13 @@ makeLenses ''TraverseState
 initTraverseState :: TraverseState ray q
 initTraverseState = TraverseState [] [] []
 
-findSubt :: Stack -> ShapeId -> StackIndex -> StackIndex
-findSubt stack cutPoint = go
+findSubt :: Stack -> ShapeId -> StackIndex -> StackIndex -> StackIndex
+findSubt stack cutPoint minLimit = go
     where
     go :: StackIndex -> StackIndex
     go i =
         let x = stackLookup stack (i - 1)
-        in  if i > 0 && x >= cutPoint
+        in  if i > minLimit && x >= cutPoint
             then go (i - 1)
             else i
 
@@ -168,7 +167,6 @@ checkShapeStack =
       else do stackTemp <- peekShapeStack "check"
               liftIO $ putStrLn $ "shapeStack " ++ show stackTemp
 
-fstOf3 (a, _, _) = a
 checkFabricStack :: (MonadIO m, HasSpace ray,  Storable (SpaceOf ray), Show ray)
                  => StateT (TraverseState ray q) (RayMonad (SpaceOf ray) m) ()
 checkFabricStack = do stack <- use tsFabricStack
@@ -181,107 +179,28 @@ checkFabricStack = do stack <- use tsFabricStack
                                                                                    " " ++ show fabricStage ++
                                                                                    " " ++ show ray) stack
 
-{-
-traverseFabric :: forall m ray q
-               .  ( Show ray
-                  , Show q
-                  , Out ray
-                  , Out q
-                  , MonadIO m
-                  , Ray ray
-                  , Answer q
-                  , SpaceOf q ~ SpaceOf ray
-                  )
-               => ray
-               -> FabricTagId
-               -> RayMonad (SpaceOf ray) m q
-traverseFabric initRay fabricTagId =
-    evalStateT (
-        do -- liftIO $ putStrLn $ "initRay " ++ show initRay
-           pushFabric fabricTagId Nothing FirstStage initRay
-           whileM_ (not <$> emptyFabric) $
-               do  (tagId, mRange, fabricStage, ray) <- popFabric
-                   if tagId == nullFabricTagId
-                   then do --liftIO $ putStrLn $ show tagId ++ " range " ++ show mRange ++ " hasRange mRange " ++ show (hasRange mRange)
-                           pushColor (if hasRange mRange then insideShape else emptyQuery)
-                   else
-                       do  tag <- loadFabricTagT tagId
-                           --liftIO $ putStrLn $ show tagId ++ " tagX " ++ show tag ++ " range " ++ show mRange ++ " " ++ show fabricStage
-                           -- checkFabricStack
-                           -- checkShapeStack
-                           let traverseTag
-                                | fabTagIsLeaf      tag = do substance <- loadSubstanceT tag
-                                                             color <- lift $ fromSubstance substance (rayToPoint ray)
-                                                             --liftIO $ putStrLn $ "ray " ++ show ray ++ " color " ++ show color
-                                                             pushColor color
-                                | fabTagIsUnaryPre  tag = if fabTagIsTree tag
-                                                          then case fabricStage of
-                                                                   FirstStage ->
-                                                                       do (confineTreeId, decoTreeId) <- loadTreeRootT (fabTagTreeId tag)
-                                                                          newStack <- Stack . V.fromList <$> (lift $ overTree confineTreeId decoTreeId ray)
-                                                                          pushShapeStack newStack
-                                                                          let newRange = makeStackRange newStack
-                                                                          pushFabric (fabTagChildId tag) newRange FirstStage ray
-                                                          else -- must be transformer
-                                                               case fabricStage of
-                                                                        FirstStage ->
-                                                                            do transform <- loadTransformT tag
-                                                                               let transformedRay = overTransform transform ray
-                                                                               pushFabric (fabTagChildId tag) Nothing FirstStage  transformedRay
-                                | fabTagIsUnaryPost tag = case fabricStage of
-                                                              FirstStage ->
-                                                                  do pushFabric  tagId              Nothing SecondStage ray
-                                                                     pushFabric (fabTagChildId tag) mRange  FirstStage  ray
-                                                              SecondStage ->
-                                                                  do color <- popColor
-                                                                     filt <- loadFilterT tag
-                                                                     let filteredColor = applyFilter filt color
-                                                                     pushColor filteredColor
-                                | fabTagIsBinaryOp  tag = do  limits <- loadFabricLimT tagId
-                                                              case fabricStage of
-                                                                  FirstStage ->
-                                                                      do (aboveRange, belowRange) <-
-                                                                             case mRange of
-                                                                                 Nothing    -> return ( Nothing
-                                                                                                      , Nothing
-                                                                                                      )
-                                                                                 Just range -> if snd limits == nullShapeId
-                                                                                               then return (mRange, mRange)
-                                                                                               else  do stack <- peekShapeStack "getLimits"
-                                                                                                        let cutIndex = findSubt stack (snd limits) (rangeMax range)
-                                                                                                        return ( Just (StackRange (rangeMin range) cutIndex)
-                                                                                                               , Just (StackRange cutIndex (rangeMax range))
-                                                                                                               )
-                                                                         --liftIO $ putStrLn $ "snd limits " ++ show (snd limits) ++ " aboveRange " ++ show aboveRange ++ " belowRange " ++ show belowRange
-                                                                         pushFabric tagId belowRange SecondStage ray
-                                                                         if hasRange aboveRange
-                                                                         then pushFabric (fabTagAboveId tag) aboveRange FirstStage ray
-                                                                         else pushColor emptyQuery
-                                                                  SecondStage ->
-                                                                      do aboveQ <- popColor
-                                                                         let combineType = fabTagCombineType tag
-                                                                         if traverseStop combineType aboveQ
-                                                                         then do pushColor aboveQ
-                                                                                 return ()
-                                                                         else do pushColor aboveQ
-                                                                                 pushFabric tagId Nothing ThirdStage ray
-                                                                                 if hasRange mRange
-                                                                                 then pushFabric (fabTagBelowId tag) mRange FirstStage ray
-                                                                                 else pushColor emptyQuery
-                                                                  ThirdStage ->
-                                                                      do belowQ <- popColor
-                                                                         aboveQ <- popColor
-                                                                         let combineType = fabTagCombineType tag
-                                                                             color = traverseCombine combineType aboveQ belowQ
-                                                                         --liftIO $ putStrLn $ "combineType " ++ show combineType ++ " aboveQ " ++ show aboveQ ++ " belowQ " ++ show belowQ ++ " color " ++ show color
-                                                                         pushColor color
-                           traverseTag
-                   return () -- end whileM
-           color <- popColor
-           --liftIO $ putStrLn $ "done loop " ++ show initRay ++ " -> " ++ show color
-           return color
-    ) initTraverseState
--}
+splitWithCutPoint :: MonadIO m
+                  => ShapeId
+                  -> Maybe StackRange
+                  -> StateT (TraverseState ray q) m (Maybe StackRange, Maybe StackRange)
+splitWithCutPoint cutPoint mRange =
+    case mRange of
+        Nothing    -> return ( Nothing
+                             , Nothing
+                             )
+        Just range -> if cutPoint == nullShapeId
+                      then return (mRange, mRange)
+                      else  do stack <- peekShapeStack "getLimits"
+                               let cutIndex = findSubt stack cutPoint (rangeMin range) (rangeMax range)
+                               return ( Just (StackRange (rangeMin range) cutIndex)
+                                      , Just (StackRange cutIndex (rangeMax range))
+                                      )
+
+debugIf ray f = let p = rayToPoint ray
+                in
+                if p ^. pX == fromIntegral dEBUG0 && p ^. pY == fromIntegral dEBUG1
+                then f
+                else return ()
 
 traverseFabric :: forall m ray q
                .  ( Show ray
@@ -297,23 +216,32 @@ traverseFabric :: forall m ray q
                -> FabricTagId
                -> RayMonad (SpaceOf ray) m q
 traverseFabric initRay fabricTagId =
-    evalStateT (go fabricTagId Nothing FirstStage initRay ) initTraverseState
+    evalStateT (do debugIf initRay . liftIO . putStrLn $ "======================== start thread" ++ show initRay
+                   q <- go fabricTagId Nothing FirstStage initRay
+                   debugIf initRay . liftIO . putStrLn $ "======================== end   thread" ++ show initRay
+                   return q
+                ) initTraverseState
     where
     popGo :: StateT (TraverseState ray q) (RayMonad (SpaceOf ray) m) q
     popGo = do isEmpty <- emptyFabric
                if isEmpty
                then popColor
                else do (tagId, mRange, fabricStage, ray) <- popFabric
+                       debugIf initRay . liftIO . putStrLn $ "pop -> " ++ show tagId ++ " ray " ++ show ray ++ " range " ++ show mRange ++ " hasRange mRange " ++ show (hasRange mRange)
                        go tagId mRange fabricStage ray
     go :: FabricTagId -> Maybe StackRange -> Stage -> ray -> StateT (TraverseState ray q) (RayMonad (SpaceOf ray) m) q
     go tagId mRange fabricStage ray =
+       if not $ hasRange mRange
+       then do pushColor emptyQuery
+               popGo
+       else
        if tagId == nullFabricTagId
-       then do --liftIO $ putStrLn $ show tagId ++ " range " ++ show mRange ++ " hasRange mRange " ++ show (hasRange mRange)
-               pushColor (if hasRange mRange then insideShape else emptyQuery)
+       then do debugIf initRay . liftIO . putStrLn $ show tagId ++ " tag X range " ++ show mRange ++ " stage " ++ show fabricStage ++ " ray " ++ show ray
+               pushColor insideShape
                popGo
        else
            do  tag <- loadFabricTagT tagId
-               --liftIO $ putStrLn $ show tagId ++ " tagX " ++ show tag ++ " range " ++ show mRange ++ " " ++ show fabricStage
+               debugIf initRay . liftIO . putStrLn $ show tagId ++ " tag " ++ show tag ++ " range " ++ show mRange ++ " stage " ++ show fabricStage ++ " ray " ++ show ray
                -- checkFabricStack
                -- checkShapeStack
                let traverseTag
@@ -323,22 +251,18 @@ traverseFabric initRay fabricTagId =
                                                  pushColor color
                                                  popGo
                     | fabTagIsUnaryPre  tag = if fabTagIsTree tag
-                                              then case fabricStage of
-                                                       FirstStage ->
-                                                           do (confineTreeId, decoTreeId) <- loadTreeRootT (fabTagTreeId tag)
-                                                              newStack <- Stack . V.fromList <$> (lift $ overTree confineTreeId decoTreeId ray)
-                                                              pushShapeStack newStack
-                                                              let newRange = makeStackRange newStack
-                                                              go (fabTagChildId tag) newRange FirstStage ray
+                                              then do root <- loadTreeRootT (fabTagTreeId tag)
+                                                      newStack <- Stack . V.fromList <$> (lift $ rayTraverseTree root ray)
+                                                      pushShapeStack newStack
+                                                      let newRange = makeStackRange newStack
+                                                      go (fabTagChildId tag) newRange FirstStage ray
                                               else -- must be transformer
-                                                   case fabricStage of
-                                                            FirstStage ->
-                                                                do transform <- loadTransformT tag
-                                                                   let transformedRay = overTransform transform ray
-                                                                   go (fabTagChildId tag) Nothing FirstStage  transformedRay
+                                                   do transform <- loadTransformT tag
+                                                      let transformedRay = rayApplyTransform transform ray
+                                                      go (fabTagChildId tag) Nothing FirstStage  transformedRay
                     | fabTagIsUnaryPost tag = case fabricStage of
                                                   FirstStage ->
-                                                      do pushFabric  tagId              Nothing SecondStage ray
+                                                      do pushFabric tagId Nothing SecondStage ray
                                                          go (fabTagChildId tag) mRange  FirstStage  ray
                                                   SecondStage ->
                                                       do color <- popColor
@@ -346,65 +270,48 @@ traverseFabric initRay fabricTagId =
                                                          let filteredColor = applyFilter filt color
                                                          pushColor filteredColor
                                                          popGo
-                    | fabTagIsBinaryOp  tag = do  limits <- loadFabricLimT tagId
+                    | fabTagIsBinaryOp  tag = do  cutPoint <- loadFabricCutT tagId
                                                   case fabricStage of
                                                       FirstStage ->
-                                                          do (aboveRange, belowRange) <-
-                                                                 case mRange of
-                                                                     Nothing    -> return ( Nothing
-                                                                                          , Nothing
-                                                                                          )
-                                                                     Just range -> if snd limits == nullShapeId
-                                                                                   then return (mRange, mRange)
-                                                                                   else  do stack <- peekShapeStack "getLimits"
-                                                                                            let cutIndex = findSubt stack (snd limits) (rangeMax range)
-                                                                                            return ( Just (StackRange (rangeMin range) cutIndex)
-                                                                                                   , Just (StackRange cutIndex (rangeMax range))
-                                                                                                   )
-                                                             --liftIO $ putStrLn $ "snd limits " ++ show (snd limits) ++ " aboveRange " ++ show aboveRange ++ " belowRange " ++ show belowRange
-                                                             if hasRange aboveRange
-                                                             then do pushFabric tagId belowRange SecondStage ray
-                                                                     go (fabTagAboveId tag) aboveRange FirstStage ray
-                                                             else do pushColor emptyQuery
-                                                                     go tagId belowRange SecondStage ray
+                                                          do (aboveRange, belowRange) <- splitWithCutPoint cutPoint mRange
+                                                             -- debugIf ray . liftIO . putStrLn $ "cutPoint " ++ show cutPoint ++ " aboveRange " ++ show aboveRange ++ " belowRange " ++ show belowRange
+                                                             pushFabric tagId belowRange SecondStage ray
+                                                             go (fabTagAboveId tag) aboveRange FirstStage ray
                                                       SecondStage ->
                                                           do aboveQ <- popColor
+                                                             pushColor aboveQ
                                                              let combineType = fabTagCombineType tag
                                                              if traverseStop combineType aboveQ
-                                                             then do pushColor aboveQ
-                                                                     popGo
-                                                             else do pushColor aboveQ
-                                                                     if hasRange mRange
-                                                                     then do pushFabric tagId Nothing ThirdStage ray
-                                                                             go (fabTagBelowId tag) mRange FirstStage ray
-                                                                     else do pushColor emptyQuery
-                                                                             go tagId Nothing ThirdStage ray
+                                                             then do popGo
+                                                             else do pushFabric tagId Nothing ThirdStage ray
+                                                                     go (fabTagBelowId tag) mRange FirstStage ray
                                                       ThirdStage ->
                                                           do belowQ <- popColor
                                                              aboveQ <- popColor
+                                                             debugIf initRay . liftIO $ putStrLn $ "traverseCombine " ++ show aboveQ ++ " " ++ show belowQ
                                                              let combineType = fabTagCombineType tag
-                                                                 color = traverseCombine combineType aboveQ belowQ
+                                                                 colorCombined = traverseCombine combineType aboveQ belowQ
                                                              -- liftIO $ putStrLn $ "combineType " ++ show combineType ++ " aboveQ " ++ show aboveQ ++ " belowQ " ++ show belowQ ++ " color " ++ show color
-                                                             pushColor color
+                                                             pushColor colorCombined
                                                              popGo
                traverseTag
 
-loadFabricT    :: (DagConstraints s m) => FabricTagId        -> StateT t (RayMonad s m) (Fabric (ForStorage s))
-loadTransformT :: (DagConstraints s m) => FabricTag          -> StateT t (RayMonad s m) (FTransformer s)
-loadFilterT    :: (DagConstraints s m) => FabricTag          -> StateT t (RayMonad s m) FFilter
-loadSubstanceT :: (DagConstraints s m) => FabricTag          -> StateT t (RayMonad s m) (FSubstance (ForStorage s))
-loadFabricTagT :: (DagConstraints s m) => FabricTagId        -> StateT t (RayMonad s m) FabricTag
-loadFabricLimT :: (DagConstraints s m) => FabricTagId        -> StateT t (RayMonad s m) (ShapeId, ShapeId)
-loadPrimT      :: (DagConstraints s m) => PrimTagId          -> StateT t (RayMonad s m) (Primitive s)
-loadTreeRootT  :: (DagConstraints s m) => Reference (Root s) -> StateT t (RayMonad s m) (Root s)
-loadTreeTagT   :: (DagConstraints s m) => ConfineTagId s     -> StateT t (RayMonad s m) (ConfineTag s)
-loadDecoTagT   :: (DagConstraints s m) => DecoTagId s        -> StateT t (RayMonad s m) (DecoTag s)
+loadFabricT    :: (DagConstraints s m) => FabricTagId            -> StateT t (RayMonad s m) (Fabric (ForStorage s))
+loadTransformT :: (DagConstraints s m) => FabricTag              -> StateT t (RayMonad s m) (FTransformer s)
+loadFilterT    :: (DagConstraints s m) => FabricTag              -> StateT t (RayMonad s m) FFilter
+loadSubstanceT :: (DagConstraints s m) => FabricTag              -> StateT t (RayMonad s m) (FSubstance (ForStorage s))
+loadFabricTagT :: (DagConstraints s m) => FabricTagId            -> StateT t (RayMonad s m) FabricTag
+loadFabricCutT :: (DagConstraints s m) => FabricTagId            -> StateT t (RayMonad s m) ShapeId
+loadPrimT      :: (DagConstraints s m) => PrimTagId              -> StateT t (RayMonad s m) (Primitive s)
+loadTreeRootT  :: (DagConstraints s m) => Reference (TreeRoot s) -> StateT t (RayMonad s m) (TreeRoot s)
+loadTreeTagT   :: (DagConstraints s m) => ConfineTagId s         -> StateT t (RayMonad s m) (ConfineTag s)
+loadDecoTagT   :: (DagConstraints s m) => DecoTagId s            -> StateT t (RayMonad s m) (DecoTag s)
 loadFabricT    = lift . lift . loadFabricS
 loadTransformT = lift . lift . loadTransformS
 loadFilterT    = lift . lift . loadFilterS
 loadSubstanceT = lift . lift . loadSubstanceS
 loadFabricTagT = lift . lift . loadFabricTagS
-loadFabricLimT = lift . lift . loadFabricLimS
+loadFabricCutT = lift . lift . loadFabricCutS
 loadPrimT      = lift . lift . loadPrimS
 loadTreeRootT  = lift . lift . loadTreeRootS
 loadTreeTagT   = lift . lift . loadTreeTagS

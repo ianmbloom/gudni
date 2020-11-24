@@ -35,7 +35,7 @@ import Graphics.Gudni.Raster.Serial.Pile
 import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Util.Debug
 
-import Graphics.Gudni.Image.Type
+import Graphics.Gudni.Image
 
 import Codec.Picture
 

@@ -11,6 +11,7 @@ module Graphics.Gudni.Raster.Dag.ConfineTree.Tag
   ( ConfineTag(..)
   , ConfineTagId(..)
   , confineTagPrimTagId
+  , confineTagHorizontal
   , confineTagCut
   , confineTagOverhang
   , confineTagLessCut
@@ -19,11 +20,12 @@ module Graphics.Gudni.Raster.Dag.ConfineTree.Tag
   , DecoTag(..)
   , DecoTagId(..)
   , decoTagCut
+  , decoTagHorizontal
   , decoTagCrossings
   , decoTagLessCut
   , decoTagMoreCut
   , nullDecoTagId
-  , Root(..)
+  , TreeRoot(..)
   )
 where
 
@@ -38,17 +40,19 @@ import Graphics.Gudni.Util.StorableM
 
 import Control.Lens
 import Foreign.Storable
+import Foreign.C.Types
 import GHC.Ptr
 
 newtype ConfineTagId s = ConfineTagId {unConfineTagId :: Reference (ConfineTag s) } deriving (Eq, Ord, Generic, Num)
 
 data ConfineTag s
     = ConfineTag
-     { _confineTagPrimTagId :: PrimTagId
-     , _confineTagCut       :: s
-     , _confineTagOverhang  :: s
-     , _confineTagLessCut   :: ConfineTagId s
-     , _confineTagMoreCut   :: ConfineTagId s
+     { _confineTagPrimTagId  :: PrimTagId
+     , _confineTagHorizontal :: Bool
+     , _confineTagCut        :: s
+     , _confineTagOverhang   :: s
+     , _confineTagLessCut    :: ConfineTagId s
+     , _confineTagMoreCut    :: ConfineTagId s
      }
 makeLenses ''ConfineTag
 
@@ -58,16 +62,17 @@ newtype DecoTagId s = DecoTagId {unDecoTagId :: Reference (DecoTag s)} deriving 
 
 data DecoTag s
     = DecoTag
-    { _decoTagCut       :: s
-    , _decoTagCrossings :: Slice ShapeId
-    , _decoTagLessCut   :: DecoTagId s
-    , _decoTagMoreCut   :: DecoTagId s
+    { _decoTagCut        :: s
+    , _decoTagHorizontal :: Bool
+    , _decoTagCrossings  :: Slice ShapeId
+    , _decoTagLessCut    :: DecoTagId s
+    , _decoTagMoreCut    :: DecoTagId s
     }
 makeLenses ''DecoTag
 
 nullDecoTagId = DecoTagId nullReference
 
-type Root s = (ConfineTagId s, DecoTagId s)
+type TreeRoot s = (ConfineTagId s, DecoTagId s)
 
 instance Show (ConfineTagId s) where
   show = show . unConfineTagId
@@ -81,34 +86,46 @@ instance Out (DecoTagId s) where
     doc treeId = text "Deco" <+> (doc . unDecoTagId $ treeId)
     docPrec _  = doc
 
+cUIntToBool :: CUInt -> Bool
+cUIntToBool i = if (i==0) then False else True
+
+boolToCUInt :: Bool -> CUInt
+boolToCUInt True  = 1
+boolToCUInt False = 0
+
 instance Storable s => StorableM (ConfineTag s) where
     sizeOfM _ = do sizeOfM (undefined :: PrimTagId     )
+                   sizeOfM (undefined :: CUInt         )
                    sizeOfM (undefined :: s             )
                    sizeOfM (undefined :: s             )
                    sizeOfM (undefined :: ConfineTagId s)
                    sizeOfM (undefined :: ConfineTagId s)
     alignmentM _ = do alignmentM (undefined :: PrimTagId     )
+                      alignmentM (undefined :: CUInt         )
                       alignmentM (undefined :: s             )
                       alignmentM (undefined :: s             )
                       alignmentM (undefined :: ConfineTagId s)
                       alignmentM (undefined :: ConfineTagId s)
-    peekM = do tagPrimTagId <- peekM
-               tagCut       <- peekM
-               tagOverhang  <- peekM
-               tagLessCut   <- peekM
-               tagMoreCut   <- peekM
+    peekM = do tagPrimTagId  <- peekM
+               tagHorizontal <- cUIntToBool <$> peekM
+               tagCut        <- peekM
+               tagOverhang   <- peekM
+               tagLessCut    <- peekM
+               tagMoreCut    <- peekM
                return $ ConfineTag
-                        { _confineTagPrimTagId = tagPrimTagId
-                        , _confineTagCut       = tagCut
-                        , _confineTagOverhang  = tagOverhang
-                        , _confineTagLessCut   = tagLessCut
-                        , _confineTagMoreCut   = tagMoreCut
+                        { _confineTagPrimTagId  = tagPrimTagId
+                        , _confineTagHorizontal = tagHorizontal
+                        , _confineTagCut        = tagCut
+                        , _confineTagOverhang   = tagOverhang
+                        , _confineTagLessCut    = tagLessCut
+                        , _confineTagMoreCut    = tagMoreCut
                         }
-    pokeM tag = do pokeM (tag ^. confineTagPrimTagId )
-                   pokeM (tag ^. confineTagCut       )
-                   pokeM (tag ^. confineTagOverhang  )
-                   pokeM (tag ^. confineTagLessCut   )
-                   pokeM (tag ^. confineTagMoreCut   )
+    pokeM tag = do pokeM (              tag ^. confineTagPrimTagId )
+                   pokeM (boolToCUInt $ tag ^. confineTagHorizontal)
+                   pokeM (              tag ^. confineTagCut       )
+                   pokeM (              tag ^. confineTagOverhang  )
+                   pokeM (              tag ^. confineTagLessCut   )
+                   pokeM (              tag ^. confineTagMoreCut   )
 
 instance Storable s => Storable (ConfineTag s) where
     sizeOf = sizeOfV
@@ -116,31 +133,36 @@ instance Storable s => Storable (ConfineTag s) where
     peek = peekV
     poke = pokeV
 
-instance forall s . Storable s => StorableM (DecoTag s) where
+instance forall s . (Storable s, Num s) => StorableM (DecoTag s) where
     sizeOfM _ = do sizeOfM (undefined :: s             )
+                   sizeOfM (undefined :: CUInt         )
                    sizeOfM (undefined :: Slice ShapeId )
                    sizeOfM (undefined :: DecoTagId s   )
                    sizeOfM (undefined :: DecoTagId s   )
     alignmentM _ = do alignmentM (undefined :: s             )
+                      alignmentM (undefined :: CUInt         )
                       alignmentM (undefined :: Slice ShapeId )
                       alignmentM (undefined :: DecoTagId s   )
                       alignmentM (undefined :: DecoTagId s   )
-    peekM = do tagCut       <- peekM
-               tagCrossings <- peekM
-               tagLessCut   <- peekM
-               tagMoreCut   <- peekM
+    peekM = do tagCut        <- peekM
+               tagHorizontal <- cUIntToBool <$> peekM
+               tagCrossings  <- peekM
+               tagLessCut    <- peekM
+               tagMoreCut    <- peekM
                return $ DecoTag
-                        { _decoTagCut       = tagCut
-                        , _decoTagCrossings = tagCrossings
-                        , _decoTagLessCut   = tagLessCut
-                        , _decoTagMoreCut   = tagMoreCut
+                        { _decoTagCut        = tagCut
+                        , _decoTagHorizontal = tagHorizontal
+                        , _decoTagCrossings  = tagCrossings
+                        , _decoTagLessCut    = tagLessCut
+                        , _decoTagMoreCut    = tagMoreCut
                         }
-    pokeM tag = do pokeM (tag ^. decoTagCut       )
-                   pokeM (tag ^. decoTagCrossings )
-                   pokeM (tag ^. decoTagLessCut   )
-                   pokeM (tag ^. decoTagMoreCut   )
+    pokeM tag = do pokeM (              tag ^. decoTagCut       )
+                   pokeM (boolToCUInt $ tag ^. decoTagHorizontal) -- filler
+                   pokeM (              tag ^. decoTagCrossings )
+                   pokeM (              tag ^. decoTagLessCut   )
+                   pokeM (              tag ^. decoTagMoreCut   )
 
-instance Storable s => Storable (DecoTag s) where
+instance (Storable s, Num s) => Storable (DecoTag s) where
     sizeOf = sizeOfV
     alignment = alignmentV
     peek = peekV
@@ -158,7 +180,7 @@ instance Storable (DecoTagId s) where
   peek ptr = DecoTagId <$>  peek (castPtr ptr)
   poke ptr  (DecoTagId i) = poke (castPtr ptr) i
 
-instance Storable s => StorableM (Root s) where
+instance Storable s => StorableM (TreeRoot s) where
     sizeOfM _ = do sizeOfM (undefined :: Reference (ConfineTag s))
                    sizeOfM (undefined :: Reference (DecoTag s)   )
     alignmentM _ = do alignmentM (undefined :: Reference (ConfineTag s))
@@ -169,7 +191,7 @@ instance Storable s => StorableM (Root s) where
     pokeM (confine, deco) = do pokeM confine
                                pokeM deco
 
-instance Storable s => Storable (Root s) where
+instance Storable s => Storable (TreeRoot s) where
     sizeOf = sizeOfV
     alignment = alignmentV
     peek = peekV

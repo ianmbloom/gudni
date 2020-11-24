@@ -17,7 +17,7 @@ module Graphics.Gudni.Interface.InterfaceSDL
   , interfaceWindow
   , startInterface
   , closeInterface
-  , prepareTarget
+  , prepareTargetSDL
   , presentTarget
   , checkInputs
   )
@@ -117,8 +117,8 @@ startInterface screenMode =
 makeTexture renderer size = SDL.createTexture renderer SDL.ARGB8888 SDL.TextureAccessStreaming size
 
 -- | Prepare a draw target based on whether or not GL-CL interop is in use.
-prepareTarget :: Bool -> StateT InterfaceState IO DrawTarget
-prepareTarget useGLInterop =
+prepareTargetSDL :: Bool -> StateT InterfaceState IO DrawTarget
+prepareTargetSDL useGLInterop =
     do  window   <- use interfaceWindow
         oldSize  <- use interfaceOldSize
         size     <- liftIO $ SDL.glGetDrawableSize window

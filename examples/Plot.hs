@@ -47,7 +47,7 @@ instance Model PlotState where
     fontFile _ = findDefaultFont
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     constructScene state status =
-        sceneFromLayout (light . greenish $ blue) (plots state)
+        return $ withBackgroundColor (light . greenish $ blue) (plots state)
     providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target
                                     return state

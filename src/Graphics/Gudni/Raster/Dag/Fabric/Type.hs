@@ -62,8 +62,8 @@ data FLeaf i where
     FSubstance :: FSubstance i                -> FLeaf i
 
 data FTreeLeaf i where
-    FTree          :: Reference (Root (SpaceOf i)) -> FabricTagId -> FTreeLeaf i
-    FTreeSubstance :: FSubstance i                                -> FTreeLeaf i
+    FTree          :: Reference (TreeRoot (SpaceOf i)) -> FabricTagId -> FTreeLeaf i
+    FTreeSubstance :: FSubstance i                                    -> FTreeLeaf i
 
 data ForStorage s
 
@@ -74,7 +74,7 @@ instance Space s => FabricType (ForStorage s) where
     type FRootType     (ForStorage s) = FabricTagId
     type FChildType    (ForStorage s) = FabricTagId
     type FLeafType     (ForStorage s) = FTreeLeaf (ForStorage s)
-    type FCombinerType (ForStorage s) = (FCombineType, ShapeId, ShapeId)
+    type FCombinerType (ForStorage s) = (FCombineType, ShapeId)
 
 deriving instance ( Show (SpaceOf i)
                   , Show (FChildType     i)

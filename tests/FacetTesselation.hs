@@ -85,7 +85,7 @@ instance Model FacetState where
            fullyTesselated :: [Facet SubSpace]
            fullyTesselated  = join . fmap (tesselateFacet 1) $ facets
 
-        in sceneFromLayout gray .
+        in return $ withBackgroundColor gray .
                transformFromState (state ^. stateBase) .
                overlap $
                    [ withColor red . translateBy point $ hatch 0.1 20

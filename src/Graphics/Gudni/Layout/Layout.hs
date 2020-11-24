@@ -27,6 +27,7 @@ module Graphics.Gudni.Layout.Layout
   , Layout(..)
   , LayoutRep(..)
   , CompoundLayout(..)
+  , withBackgroundColor
   )
 where
 
@@ -110,7 +111,7 @@ overLayouts f (Layout a) (Layout b) = Layout (f a b)
 instance HasDefault style => Overlappable (Layout style) where
   combine = overLayouts (SMeld defaultValue)
 
-instance HasStyle (Layout style) where
+instance IsStyle style => HasStyle (Layout style) where
   type StyleOf (Layout style) = style
 
 instance HasMeld (Layout style) where
@@ -142,7 +143,7 @@ instance (IsStyle style) => Compoundable (CompoundLayout style) where
   addOver      = liftCompoundLayout addOver
   subtractFrom = liftCompoundLayout subtractFrom -- the subtracted shape must be above what is being subtracted in the stack.
 
-instance HasStyle (CompoundLayout style) where
+instance IsStyle style => HasStyle (CompoundLayout style) where
   type StyleOf (CompoundLayout style) = style
 
 instance HasMeld (CompoundLayout style) where
@@ -193,3 +194,6 @@ instance (IsStyle style) => Transformable (CompoundLayout style) where
 
 instance (IsStyle style) => Projectable (CompoundLayout style) where
   projectOnto path = over compoundLayout (projectOnto path)
+
+withBackgroundColor :: Color (SpaceOf style) -> Layout style -> Scene (Layout style)
+withBackgroundColor color layout = Scene color layout

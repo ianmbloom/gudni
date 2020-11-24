@@ -49,7 +49,7 @@ import Control.Applicative
 
 import Foreign.Storable
 
-class HasStyle a where
+class IsStyle (StyleOf a) => HasStyle a where
     type StyleOf a :: *
 
 class ( HasToken style

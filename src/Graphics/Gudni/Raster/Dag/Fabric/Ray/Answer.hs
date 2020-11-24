@@ -25,9 +25,11 @@ import Graphics.Gudni.Raster.Dag.Storage
 import Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
 import Graphics.Gudni.Raster.Dag.Fabric.Ray.Filter
 
+import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Raster.TextureReference
 import Control.Applicative
 
+import Control.Lens
 import Control.Monad.IO.Class
 
 class Answer q where
@@ -59,7 +61,13 @@ instance Space s => Answer (Color s) where
         _          -> False
     fromSubstance substance ray = querySubstanceColor substance ray
     traverseCombine combiner a b = combineColor combiner a b
-    applyFilter filt = id
+    applyFilter filt =
+        case filt of
+            FSqrt   -> Color . fmap sqrt        . view unColor
+            FInvert -> Color . fmap (1-)        . view unColor
+            FCos    -> Color . fmap cos         . view unColor
+            FSin    -> Color . fmap sin         . view unColor
+            FClamp  -> Color . fmap (clamp 0 1) . view unColor
 
 newtype ColorStack s = ColorStack [Color s] deriving (Show, Generic)
 

@@ -2,7 +2,7 @@
 // 2 So the line numbers are correct
 // 3  -----------------------------------------------------------------------------
 // 4  -- |
-// 5  -- Module      :  Graphics.Gudni.Raster.Thresholds.OpenCL.Kernel.cl
+// 5  -- Module      :  Graphics.Gudni.Raster.Dag.OpenCL.Kernel.cl
 // 6  -- Copyright   :  (c) Ian Bloom 2019
 // 7  -- License     :  BSD-style (see the file libraries/base/LICENSE)
 // 8  --
@@ -43,6 +43,51 @@
 // 43
 // 44
 // 45
+// 46
+// 47
+// 48
+// 49
+// 50
+// 51
+// 52
+// 53
+// 54
+// 55
+// 56
+// 57
+// 58
+// 59
+// 60
+// 61
+// 62
+// 63
+// 64
+// 65
+// 66
+// 67
+// 68
+// 69
+// 70
+// 71
+// 72
+// 73
+// 74
+// 75
+// 76
+// 77
+// 78
+// 79
+// 80
+// 81
+// 82
+// 83
+// 84
+// 85
+// 86
+// 87
+// 88
+// 89
+// 90
 // ---------------- Macros, Type definitions and type accessors -----------------------------------
 
 #define MAXTHRESHOLDMASK (MAXTHRESHOLDS - 1)

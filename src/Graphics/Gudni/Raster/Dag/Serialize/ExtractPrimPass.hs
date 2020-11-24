@@ -138,7 +138,7 @@ extractPrimPass fabric =
                     (mSliceA, mBoxA, childIdA, childShapeMinA) <- go a
                     (mSliceB, mBoxB, childIdB, childShapeMinB) <- go b
                     let shapeMin = combineMinimums (ty ^. proxMeld) childShapeMinA childShapeMinB
-                        melder = (ty ^. proxMeld, childShapeMinA, childShapeMinB)
+                        melder = (ty ^. proxMeld, childShapeMinB)
                         combinedBoxes = eitherMaybe minMaxBox mBoxA mBoxB
                     --if proximityWillTransform (ty ^. proxType) && isJust mBoxA && isJust mBoxB
                     --then do treeIdA <- buildMaybeTree fabricTagId mSliceA childIdA

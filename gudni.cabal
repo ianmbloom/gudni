@@ -91,6 +91,7 @@ library
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Type
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Tag
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Storage
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Out
 
                      , Graphics.Gudni.Raster.Dag.Constants
                      , Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
@@ -117,11 +118,14 @@ library
                      , Graphics.Gudni.Raster.Dag.Primitive.WithinBox
                      , Graphics.Gudni.Raster.Dag.Primitive.WithTag
 
+                     , Graphics.Gudni.Raster.Dag.Haskell.Rasterizer
+
                      , Graphics.Gudni.Raster.Dag.OpenCL.CallKernels
                      , Graphics.Gudni.Raster.Dag.OpenCL.EmbeddedOpenCLSource
                      , Graphics.Gudni.Raster.Dag.OpenCL.PrepareBuffers
-                     , Graphics.Gudni.Raster.Dag.OpenCL.RasterState
+                     , Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
                      , Graphics.Gudni.Raster.Dag.OpenCL.Setup
+                     , Graphics.Gudni.Raster.Dag.OpenCL.Instance
 
                      , Graphics.Gudni.Raster.Dag.TagTypes
                      , Graphics.Gudni.Raster.Dag.Storage
@@ -129,6 +133,7 @@ library
                      , Graphics.Gudni.Raster.Dag.Serialize.ExtractPrimPass
                      , Graphics.Gudni.Raster.Dag.Serialize
                      , Graphics.Gudni.Raster.TextureReference
+                     , Graphics.Gudni.Raster.Class
 
   -- Modules included in this library but not exported.
   other-modules:       Graphics.Gudni.Base.HasDefault
@@ -195,6 +200,7 @@ library
 
                      , Graphics.Gudni.Image.Fast2D
                      , Graphics.Gudni.Image.Type
+                     , Graphics.Gudni.Image.Format
 
                      , Graphics.Gudni.Interface.BasicSceneState
                      , Graphics.Gudni.Interface.DrawTarget
@@ -204,6 +210,7 @@ library
                      , Graphics.Gudni.Interface.InterfaceSDL
                      , Graphics.Gudni.Interface.Query
                      , Graphics.Gudni.Interface.ScreenMode
+                     , Graphics.Gudni.Interface.TargetFromImage
                      , Graphics.Gudni.Interface.Time
 
                      , Graphics.Gudni.Draw.Representation
@@ -250,7 +257,8 @@ library
                      , Graphics.Gudni.Raster.Thresholds.OpenCL.EmbeddedOpenCLSource
                      , Graphics.Gudni.Raster.Thresholds.OpenCL.PrepareBuffers
                      , Graphics.Gudni.Raster.Thresholds.OpenCL.ProcessBuffers
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
+                     , Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
+                     , Graphics.Gudni.Raster.Thresholds.OpenCL.Instance
                      , Graphics.Gudni.Raster.Thresholds.OpenCL.Setup
 
                      , Graphics.Gudni.Raster.Thresholds.Constants

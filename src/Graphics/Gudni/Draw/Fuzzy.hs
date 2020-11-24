@@ -49,9 +49,9 @@ instance Random Compound where
 instance (Random s, Space s) => Random (Color s) where
   random = runRand $ do hue       <- getRandomR(0,360)
                         sat       <- getRandomR(0.3,1)
-                        lightness <- getRandomR(0.4,0.9)
+                        value     <- getRandomR(0.4,0.9)
                         alpha     <- getRandomR(0.2,0.5)
-                        return $ transparent alpha $ hslColor hue sat lightness
+                        return $ transparent alpha $ hsvColor hue sat value
   randomR _ = random
 
 instance Random CodePoint where

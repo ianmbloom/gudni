@@ -295,7 +295,7 @@ testPict :: SubSpace -> Int -> Layout DefaultStyle
 testPict playhead step =
     let w = 1000
         h = 300
-        f (Point2 x y) = hslColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
+        f (Point2 x y) = hsvColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
         size = Point2 w h
     in  place $
         overlap [ translateByXY 100 50 $ withTexture (SharedTexture "flowers") $ subtractFrom (scaleBy 200 . mask $ circle) (addOver (translateByXY 100 100 . scaleBy 100 . mask $ circle) (scaleBy 100 . mask $ circle))
@@ -308,7 +308,7 @@ testRadialGradient :: SubSpace -> Int -> Layout DefaultStyle
 testRadialGradient playhead step =
     let w = 1000
         h = 300
-        f (Point2 x y) = hslColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
+        f (Point2 x y) = hsvColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
         size = Point2 w h
     in  place .
         translateByXY 50 50 $
@@ -319,7 +319,7 @@ testLinearGradient :: SubSpace -> Int -> Layout DefaultStyle
 testLinearGradient playhead step =
     let w = 1000
         h = 300
-        f (Point2 x y) = hslColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
+        f (Point2 x y) = hsvColor 0 (fromIntegral x / fromIntegral w) (fromIntegral y / fromIntegral h)
         size = Point2 w h
     in  place $ -- rotateBy (45 @@ deg) $
         overlap [ withLinearGradient zeroPoint clearBlack (Point2 100 500) red . mask $ rectangle (Point2 500 500) ]

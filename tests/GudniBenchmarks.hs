@@ -13,7 +13,6 @@ import Graphics.Gudni.Interface
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Draw
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Application
 
 import Graphics.Gudni.Util.Debug
@@ -84,12 +83,12 @@ instance Model BenchmarkState where
                repMode = state ^. stateBase . stateRepMode
                repDk   = state ^. stateBase . stateRepDk
                statusTree = statusDisplay (state ^. stateBase) testName (lines status)
-           flatScene <- sceneFromLayout gray $ transformFromState (state ^. stateBase) testScene
+           flatScene <- return $ withBackgroundColor gray $ transformFromState (state ^. stateBase) testScene
            let tree = if repMode
-                      then place . represent repDk . fromJust $ flatScene ^. sceneShapeTree
+                      then undefined -- place . represent repDk $ flatScene ^. sceneShapeTree
                       else transformFromState (state ^. stateBase) $ testScene
                withStatus = if False then overlap [statusTree, tree] else tree
-           sceneFromLayout (light gray) $ withStatus
+           return $ withBackgroundColor (light gray) withStatus
     providePictureMap state = return $ state ^. statePictureMap
     dumpState state inputs =
         do putStrLn $ show state

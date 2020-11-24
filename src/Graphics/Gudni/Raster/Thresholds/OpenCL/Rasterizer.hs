@@ -11,7 +11,7 @@
 --
 -- A constructor for storing an OpenCL state, compiled kernels (just one right now) and other metadata.
 
-module Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
+module Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
   ( DeviceSpec(..)
   , specMaxTileSize
   , specMaxStrandSize
@@ -47,8 +47,10 @@ import Graphics.Gudni.Interface.Query
 import Graphics.Gudni.Interface.DrawTarget
 --import Graphics.Gudni.Raster.Serialize
 import Graphics.Gudni.Raster.Thresholds.ReorderTable
+--import Graphics.Gudni.Raster.Thresholds.OpenCL.ProcessBuffers
 import Graphics.Gudni.Util.RandomField
 
+import Graphics.Gudni.Raster.Class
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
 
@@ -89,7 +91,7 @@ data RasterState = RasterState
   , _rasterCollectRenderBlocksKernel :: CLKernel
   , _rasterSplitTileKernel           :: CLKernel
   , _rasterCombineSectionKernel      :: CLKernel
-  , _rasterMergeBlockKernel           :: CLKernel
+  , _rasterMergeBlockKernel          :: CLKernel
   , _rasterSortThresholdsKernel      :: CLKernel
   , _rasterRenderThresholdsKernel    :: CLKernel
   , _rasterPointQueryKernel          :: CLKernel

@@ -24,7 +24,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface.Query
 import Graphics.Gudni.Interface.DrawTarget
 
-import Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
+import Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.Thresholds.OpenCL.PrepareBuffers
 import Graphics.Gudni.Raster.Thresholds.OpenCL.CallKernels
 import Graphics.Gudni.Raster.OpenCL.Buffer

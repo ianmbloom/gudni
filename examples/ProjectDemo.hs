@@ -77,7 +77,7 @@ instance Model ProjectionState where
                             , projectOnto path $ subdivide 6 unprojected
                             , scaleBy 30 . withColor blue $ text
                             ]
-           sceneFromLayout gray $
+           return $ withBackgroundColor gray $
                --(if repMode then represent repDk else id) $
                transformFromState (state ^. stateBase) stacked
 
@@ -107,12 +107,12 @@ instance Model ProjectionState where
                        -- follow text path
                        translateByXY 0 (-1) . withColor white . mask . rectangle $ Point2 pathLength 2
                        -- translateByXY (state ^. stateOffset) 0 .
-                       ,  translateByXY 0 (-(layerThickness * 3 / 2)) .
+                       ,  translateByXY 0 (toAlong Vertical (-(layerThickness * 3 / 2))) .
                           overlap $
                           [ slashDotted (transparent 0.5 red) layerThickness
-                          , translateByXY 0 layerThickness $ doubleDotted (transparent 0.5 $ light blue) layerThickness
-                          , translateByXY 0 layerThickness $ withColor (light green) . mask . rectangle $ Point2 pathLength layerThickness
-                          , translateByXY 0 (2*layerThickness) $ slashDotted (transparent 0.5 purple) layerThickness
+                          , translateByXY 0 (toAlong Vertical layerThickness) $ doubleDotted (transparent 0.5 $ light blue) layerThickness
+                          , translateByXY 0 (toAlong Vertical layerThickness) $ withColor (light green) . mask . rectangle $ Point2 pathLength layerThickness
+                          , translateByXY 0 (toAlong Vertical (2*layerThickness)) $ slashDotted (transparent 0.5 purple) layerThickness
                           ]
                        ]
 
@@ -122,39 +122,39 @@ instance Model ProjectionState where
                betweenGap = 1
                dotLength = 8
                dotGap = 2
-               numDots = floor (pathLength / (dotLength + dotGap))
+               numDots = floor (pathLength / realToFrac (dotLength + dotGap))
            in  withColor (dark . greenish $ red) .
                projectOnto path .
-               translateByXY (state ^. stateOffset) 0 .
+               translateByXY (toAlong Horizontal $ state ^. stateOffset) 0 .
                translateByXY 10 3 .
                scaleBy 5 $
                text
 
-        doubleDotted :: Color -> SubSpace -> Layout (StyleOf ProjectionState)
+        doubleDotted :: Color SubSpace -> SubSpace -> Layout (StyleOf ProjectionState)
         doubleDotted color thickness =
            let dotThickness = thickness / 3
                dotLength = 80
                dotGap = 20
-               numDots = floor (pathLength / (dotLength + dotGap))
+               numDots = floor (pathLength / realToFrac (dotLength + dotGap))
            in  withColor color .
                overlap .
-               horizontallySpacedBy translateBy zeroPoint (dotLength + dotGap) .
+               horizontallySpacedBy translateBy zeroPoint (toAlong Horizontal . realToFrac $ dotLength + dotGap) .
                replicate numDots .
                overlap .
-               verticallySpacedBy translateBy zeroPoint (dotThickness * 2) .
+               verticallySpacedBy translateBy zeroPoint (toAlong Vertical . realToFrac $ dotThickness * 2) .
                replicate 2 .
                mask .
                rectangle $
-               dotLength `by` dotThickness
+               (toAlong Horizontal dotLength) `by` (toAlong Vertical dotThickness)
 
-        slashDotted :: Color -> SubSpace -> Layout (StyleOf ProjectionState)
+        slashDotted :: Color SubSpace -> SubSpace -> Layout (StyleOf ProjectionState)
         slashDotted color thickness =
            let dotLength = 20
                dotGap = 20
-               numDots = floor (arcLength path / (dotLength + dotGap))
+               numDots = floor (arcLength path / realToFrac (dotLength + dotGap))
            in  withColor color .
                overlap .
-               horizontallySpacedBy translateBy zeroPoint (dotLength + dotGap) .
+               horizontallySpacedBy translateBy zeroPoint (toAlong Horizontal . realToFrac $ dotLength + dotGap) .
                replicate numDots .
                mask $
                slantedLine dotLength thickness
@@ -180,7 +180,7 @@ instance HandlesInput token ProjectionState where
               _ -> return ()
           )
 
-marker :: Color -> Point2 SubSpace -> Layout (StyleOf ProjectionState)
+marker :: Color SubSpace -> Point2 SubSpace -> Layout (StyleOf ProjectionState)
 marker color center = withColor (transparent 0.5 color) $ translateBy center marker0
 
 marker0 :: CompoundLayout (StyleOf ProjectionState)
@@ -206,5 +206,6 @@ main = runApplication $ ProjectionState
            , _stateStep        = 69
            , _stateRepMode     = False
            , _stateRepDk       = False
+           , _stateCursor      = Point2 0 0
            }
        ) 0 (0 @@ deg)

@@ -68,7 +68,7 @@ import Graphics.Gudni.Raster.Thresholds.Serialize
 import Graphics.Gudni.Raster.Thresholds.TileTree
 import Graphics.Gudni.Raster.Thresholds.Params
 
-import Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
+import Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.OpenCL.Buffer
 import Graphics.Gudni.Raster.OpenCL.DeviceQuery
 import Graphics.Gudni.Raster.OpenCL.Instances
@@ -139,13 +139,13 @@ readBufferToPtr ptr size buffer =
 
 createBuffersInCommon :: RasterParams token -> CL BuffersInCommon
 createBuffersInCommon params =
-    do  geoBuffer       <- bufferFromPile   "geoBuffer        " (params ^. rpSerialState . serGeometryPile    )
-        facetBuffer     <- bufferFromPile   "facetBuffer      " (params ^. rpSerialState . serFacetPile       )
-        itemTagBuffer   <- bufferFromPile   "itemTagBuffer    " (params ^. rpSerialState . serItemTagPile     )
-        subTagBuffer    <- bufferFromPile   "subTagBuffer     " (params ^. rpSerialState . serSubstanceTagPile)
+    do  geoBuffer         <- bufferFromPile   "geoBuffer        " (params ^. rpSerialState . serGeometryPile    )
+        facetBuffer       <- bufferFromPile   "facetBuffer      " (params ^. rpSerialState . serFacetPile       )
+        itemTagBuffer     <- bufferFromPile   "itemTagBuffer    " (params ^. rpSerialState . serItemTagPile     )
+        subTagBuffer      <- bufferFromPile   "subTagBuffer     " (params ^. rpSerialState . serSubstanceTagPile)
         descriptionBuffer <- bufferFromPile "descriptionBuffer" (params ^. rpSerialState . serDescriptionPile  )
-        pixelPileBuffer  <- bufferFromPile   "pixelPileBuffer   " (params ^. rpPixelPile)
-        randoms         <- bufferFromVector "randoms          " (params ^. rpRasterState  . rasterRandomField  )
+        pixelPileBuffer   <- bufferFromPile   "pixelPileBuffer   " (params ^. rpPixelPile)
+        randoms           <- bufferFromVector "randoms          " (params ^. rpRasterState  . rasterRandomField  )
         return $  BuffersInCommon
                   { _bicGeometryHeap   = geoBuffer
                   , _bicFacetHeap      = facetBuffer
@@ -236,37 +236,6 @@ releaseBlockSection blockSection =
      releaseBuffer "sectBlockIdBuffer      " $ blockSection ^. sectBlockIdBuffer
      releaseBuffer "sectActiveFlagBuffer   " $ blockSection ^. sectActiveFlagBuffer
      return ()
-
-data PointQuery = PointQuery
-    { pqTileId :: TileId
-    , pqQueryId :: PointQueryId
-    , pqLocation :: (Point2 SubSpace)
-    } deriving (Show)
-
-instance StorableM PointQuery where
-    sizeOfM _ = do sizeOfM (undefined :: Point2 SubSpace)
-                   sizeOfM (undefined :: TileId)
-                   sizeOfM (undefined :: PointQueryId)
-                   sizeOfM (undefined :: CInt) -- filler
-
-    alignmentM _ = do alignmentM (undefined :: Point2 SubSpace)
-                      alignmentM (undefined :: TileId)
-                      alignmentM (undefined :: PointQueryId)
-                      alignmentM (undefined :: CInt) -- filler
-    peekM = do location     <- peekM
-               tileId       <- peekM
-               pointQueryId <- peekM
-               return (PointQuery tileId pointQueryId location)
-    pokeM (PointQuery tileId pointQueryId location) =
-            do pokeM location
-               pokeM tileId
-               pokeM pointQueryId
-
-instance Storable PointQuery where
-  sizeOf = sizeOfV
-  alignment = alignmentV
-  peek = peekV
-  poke = pokeV
 
 instance Storable BlockId where
     sizeOf (BlockId a) = sizeOf (undefined :: CInt)

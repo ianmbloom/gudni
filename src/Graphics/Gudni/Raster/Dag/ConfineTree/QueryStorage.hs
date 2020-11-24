@@ -49,8 +49,9 @@ getAnchorStack point decoTree = execStateT (traverseDecorateTreeTag buildStack h
 secondLeg :: (Space s, Storable s, MonadIO m) => Point2 s -> Point2 s -> ConfineTagId s -> ShapeStack -> DagMonad s m ShapeStack
 secondLeg anchor point confineTagId anchorStack = execStateT (traverseCTagBetweenPoints (modifyItemStackIfCrossed anchor point) anchor point confineTagId) anchorStack
 
-queryConfineTagPoint :: forall s m . (Space s, Storable s, MonadIO m) => ConfineTagId s -> DecoTagId s -> Point2 s -> DagMonad s m ShapeStack
-queryConfineTagPoint confineTree decoTree point =
-    do  (anchor, anchorStack) <- getAnchorStack point decoTree
-        stack <- secondLeg anchor point confineTree anchorStack
+queryConfineTagPoint :: forall s m . (Space s, Storable s, MonadIO m) => TreeRoot s -> Point2 s -> DagMonad s m ShapeStack
+queryConfineTagPoint root point =
+    do  let (confineTreeId, decoTreeId) = root
+        (anchor, anchorStack) <- getAnchorStack point decoTreeId
+        stack <- secondLeg anchor point confineTreeId anchorStack
         return stack

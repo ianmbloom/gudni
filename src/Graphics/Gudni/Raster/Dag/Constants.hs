@@ -13,15 +13,25 @@
 
 module Graphics.Gudni.Raster.Dag.Constants
     ( tAXICABfLATNESS
-    , sTOCHASTICfACTOR
+    , cROSSsPLITlIMIT
+    , oPAQUEtHRESHOLD
     , rANDOMFIELDsIZE
+    , bEZIERsTACKsIZE
     , sHAPEsTACKsIZE
     , fABRICsTACKsIZE
     , cOLORsTACKsIZE
-    , rAYsTACKsIZE
+    , cONFINEtREEsTACKsIZE
+    , bEZIERsIZEiNfLOATS
+    , fACETsIZEiNfLOATS
+    , bOXsIZEiNfLOATS
     , sOURCEfILEpADDING
+    , dEBUG0
+    , dEBUG1
 
     , ShapeId_
+    , nULLrEFERENCE
+    , nULLdECOtADiD
+    , nULLcONFINEtAGiD
     , nULLsHAPEiD
     , StorageId_
     , PrimTag_
@@ -36,12 +46,12 @@ module Graphics.Gudni.Raster.Dag.Constants
 
     , FabricTag_
     , SubstanceTag_
-    , fABRICnODEtYPEbITMASK
+    , fABRICtYPEbITMASK
     , fABRICiSlEAF
     , fABRICiSuNARYpRE
     , fABRICiSuNARYpOST
     , fABRICiSbINARY
-    , fABRICnODEsUBtYPEbITMASK
+    , fABRICsUBtYPEbITMASK
     , fABRICiStREE
     , fABRICiStRANSFORMaFFINE
     , fABRICiStRANSFORMfACET
@@ -50,6 +60,7 @@ module Graphics.Gudni.Raster.Dag.Constants
     , fABRICiSiNVERT
     , fABRICiScOS
     , fABRICiSsIN
+    , fABRICiScLAMP
     , fABRICiScOMPOSITE
     , fABRICiSmULT
     , fABRICiSaDD
@@ -57,7 +68,8 @@ module Graphics.Gudni.Raster.Dag.Constants
     , fABRICiSfLOATxOR
     , fABRICiSmIN
     , fABRICiSmAX
-    , fABRICiSsATURATE
+    , fABRICiShSVaDJUST
+    , fABRICiStRANSPARENT
     , fABRICiScONSTANT
     , fABRICiStEXTURE
     , fABRICiSlINEAR
@@ -75,14 +87,21 @@ import Foreign.C.Types (CUInt, CULong)
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
 
-sTOCHASTICfACTOR  = 0.0  :: Float -- relative amount of variability in an edge.
-tAXICABfLATNESS   = 0.25 :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
-rANDOMFIELDsIZE   = 4096 :: Int   -- must be a power of 2
-sHAPEsTACKsIZE    = 64   :: Int
-fABRICsTACKsIZE   = 64   :: Int
-cOLORsTACKsIZE    = 64   :: Int
-rAYsTACKsIZE      = 64   :: Int
-sOURCEfILEpADDING = 40   :: Int   -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
+tAXICABfLATNESS      = (1/16384) :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
+cROSSsPLITlIMIT      = (1/16384) :: Float
+oPAQUEtHRESHOLD      = (1/256)   :: Float
+rANDOMFIELDsIZE      = 4096      :: Int   -- must be a power of 2
+bEZIERsTACKsIZE      = 4         :: Int
+sHAPEsTACKsIZE       = 64        :: Int
+fABRICsTACKsIZE      = 64        :: Int
+cOLORsTACKsIZE       = 64        :: Int
+cONFINEtREEsTACKsIZE = 64        :: Int
+bEZIERsIZEiNfLOATS   = 6         :: Int
+fACETsIZEiNfLOATS    = 18        :: Int
+bOXsIZEiNfLOATS      = 4         :: Int
+sOURCEfILEpADDING    = 90        :: Int   -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
+dEBUG0               = 20        :: Int
+dEBUG1               = 20        :: Int
 
 instance Out CULong where
     doc x = text . show $ x
@@ -90,7 +109,10 @@ instance Out CULong where
 
 type ShapeId_ = CUInt
 
-nULLsHAPEiD = 0xFFFFFFFF :: ShapeId_
+nULLrEFERENCE    = 0xFFFFFFFF :: CUInt
+nULLdECOtADiD    = 0xFFFFFFFF :: CUInt
+nULLcONFINEtAGiD = 0xFFFFFFFF :: CUInt
+nULLsHAPEiD      = 0xFFFFFFFF :: ShapeId_
 
 -- Prim Tag Bit Layout
 -- Bits | 4 bit    | 30 bit      | 30 bit      |
@@ -127,7 +149,7 @@ type FabricTag_   = CULong
 type SubstanceTag_ = FabricTag_
 
 -- Bit 63 - 60
-fABRICnODEtYPEbITMASK     = 0xC000000000000000 :: CULong -- & with this to get the fabric type
+fABRICtYPEbITMASK         = 0xC000000000000000 :: CULong -- & with this to get the fabric type
 -- Basic node types
 
 
@@ -137,7 +159,7 @@ fABRICiSuNARYpOST         = 0x8000000000000000 :: CULong
 fABRICiSbINARY            = 0xC000000000000000 :: CULong
 
 -- Node Subtypes
-fABRICnODEsUBtYPEbITMASK  = 0x3F00000000000000 :: CULong
+fABRICsUBtYPEbITMASK  = 0x3F00000000000000 :: CULong
 
 -- Unary Pre
 fABRICiStREE              = 0x0000000000000000 :: CULong
@@ -150,6 +172,7 @@ fABRICiSsQRT              = 0x0000000000000000 :: CULong
 fABRICiSiNVERT            = 0x0100000000000000 :: CULong
 fABRICiScOS               = 0x0200000000000000 :: CULong
 fABRICiSsIN               = 0x0300000000000000 :: CULong
+fABRICiScLAMP             = 0x0400000000000000 :: CULong
 
 -- Binary
 fABRICiScOMPOSITE         = 0x0000000000000000 :: CULong
@@ -159,7 +182,8 @@ fABRICiSfLOAToR           = 0x0300000000000000 :: CULong
 fABRICiSfLOATxOR          = 0x0400000000000000 :: CULong
 fABRICiSmIN               = 0x0500000000000000 :: CULong
 fABRICiSmAX               = 0x0600000000000000 :: CULong
-fABRICiSsATURATE          = 0x0700000000000000 :: CULong
+fABRICiShSVaDJUST         = 0x0700000000000000 :: CULong
+fABRICiStRANSPARENT       = 0x0800000000000000 :: CULong
 
 -- Leaves
 fABRICiScONSTANT          = 0x0000000000000000 :: CULong

@@ -26,7 +26,6 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Draw
-import Graphics.Gudni.ShapeTree
 
 import Control.Lens
 import Control.Monad.State
@@ -54,15 +53,14 @@ instance Model SquareState where
     ioTask = return
     --shouldLoop _ = False
     constructScene state status =
-      let l = fromLayout .
-              --translateBy (Point2 100 100) .      -- translate the child ShapeTree
+      let l = --translateBy (Point2 100 100) .      -- translate the child ShapeTree
               scaleBy  (state ^. squareScale) .    -- scale the child ShapeTree based on the current state.
               --rotateBy (state ^. stateAngle) .    -- rotate the child ShapeTree based on the current state.
               withColor yellow .                  -- create a leaf of the ShapeTree and fill the contained CompoundTree with a color.
               mask .
               rectangle $                         -- create new compoundTree with just one leaf that is the outline of a unit square.
               1 `by` 1
-      in  Scene (light . greenish $ blue) <$> l -- Wrap the ShapeTree in a scene with background color
+      in  return $ withBackgroundColor (light . greenish $ blue) l -- Wrap the ShapeTree in a scene with background color
 
 
 instance HandlesInput token SquareState where

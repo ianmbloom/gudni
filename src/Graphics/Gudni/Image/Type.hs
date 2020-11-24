@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE TemplateHaskell      #-}
 
 module Graphics.Gudni.Image.Type
   ( IsImage(..)
@@ -10,6 +11,9 @@ module Graphics.Gudni.Image.Type
   , MutableImage(..)
   , getPixel
   , FrozenImage(..)
+  , frImageVector
+  , frImageGrid
+  , frImageSize
   , newMutableFromGrid
   , newMutableImage
   , setPixelM
@@ -38,14 +42,22 @@ import qualified Data.Vector.Generic.Mutable as MV
 import Data.Maybe
 
 class IsImage img where
-  type PixelType img
-  pixelAt :: img -> Location -> PixelType img
+    type PixelType img
+    pixelAt :: img -> Location -> PixelType img
 
 class IsBoundedImage img where
-  imageSize :: img -> BoxSize
+    imageSize :: img -> BoxSize
 
 ($~) :: IsImage img => img -> Location -> PixelType img
 ($~) = pixelAt
+
+data FrozenImage a
+    = FrozenImage
+    { _frImageVector :: V.Vector a
+    , _frImageGrid   :: Grid2D
+    , _frImageSize   :: BoxSize
+    }
+makeLenses ''FrozenImage
 
 data MutableImage s a = MutableImage (V.MVector s a) Grid2D BoxSize
 
@@ -61,8 +73,6 @@ getPixel :: (V.Storable a)
          -> FrozenImage a
          -> a
 getPixel loc (FrozenImage table grid size) = (V.!) table (locationToIndex grid loc)
-
-data FrozenImage a = FrozenImage (V.Vector a) Grid2D BoxSize
 
 instance (V.Storable a) => IsImage (FrozenImage a) where
   type PixelType (FrozenImage a) = a

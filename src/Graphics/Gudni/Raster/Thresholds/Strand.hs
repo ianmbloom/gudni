@@ -34,7 +34,6 @@ import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.StorableM
 
 import Foreign.Marshal.Array
-import Foreign.Marshal.Utils(copyBytes)
 import Foreign.Ptr
 import Foreign.C.Types
 import Foreign.Storable

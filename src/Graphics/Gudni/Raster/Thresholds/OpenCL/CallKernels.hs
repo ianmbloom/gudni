@@ -29,7 +29,7 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface
-import Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
+import Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.Thresholds.OpenCL.PrepareBuffers
 
 import Graphics.Gudni.Raster.Thresholds.ItemInfo

@@ -43,13 +43,13 @@ class ( HasSpace r
       , Storable (Bezier (SpaceOf r))
       , Storable (Facet (SpaceOf r))
       ) => Ray r where
-    rayToPoint    :: r -> Point2 (SpaceOf r)
-    overTree      :: MonadIO m => ConfineTagId (SpaceOf r) -> DecoTagId (SpaceOf r) -> r -> RayMonad (SpaceOf r) m ShapeStack
-    overTransform :: FTransformer (SpaceOf r) -> r -> r
-    overFacet     :: Facet (SpaceOf r) -> r -> r
+    rayToPoint        :: r -> Point2 (SpaceOf r)
+    rayTraverseTree   :: MonadIO m => TreeRoot (SpaceOf r) -> r -> RayMonad (SpaceOf r) m ShapeStack
+    rayApplyTransform :: FTransformer (SpaceOf r) -> r -> r
+    rayApplyFacet     :: Facet (SpaceOf r) -> r -> r
 
 instance (Space s, Storable s) => Ray (Point2 s) where
-    rayToPoint                ray = ray
-    overTree      cTree dTree ray = lift $ queryConfineTagPoint cTree dTree (rayToPoint ray)
-    overTransform trans       ray = transformPoint trans ray
-    overFacet     facet       ray = inverseFacet facet ray
+    rayToPoint              ray = ray
+    rayTraverseTree   root  ray = lift $ queryConfineTagPoint root (rayToPoint ray)
+    rayApplyTransform trans ray = transformPoint trans ray
+    rayApplyFacet     facet ray = inverseFacet facet ray

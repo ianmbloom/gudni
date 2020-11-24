@@ -1,4 +1,6 @@
 {-# LANGUAGE TemplateHaskell, ScopedTypeVariables, FlexibleContexts, RankNTypes #-}
+{-# LANGUAGE TypeFamilies     #-}
+{-# LANGUAGE TypeApplications #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -14,6 +16,9 @@
 
 module Graphics.Gudni.Application
   ( runApplication
+  , runApplicationThresholdOpenCL
+  , runApplicationDagOpenCL
+  , runApplicationDagHaskell
   , Model(..)
   , ScreenMode(..)
   , SimpleTime
@@ -57,18 +62,17 @@ import Graphics.Gudni.Interface.Time
 import Graphics.Gudni.Interface.FontLibrary
 import Graphics.Gudni.Interface.Query
 
-import Graphics.Gudni.Raster.Thresholds.OpenCL.Setup
-import Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
-import Graphics.Gudni.Raster.Thresholds.OpenCL.ProcessBuffers
+
+import Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
+import Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
+import Graphics.Gudni.Raster.Dag.Haskell.Rasterizer
+import Graphics.Gudni.Raster.Thresholds.OpenCL.Instance
+import Graphics.Gudni.Raster.Dag.OpenCL.Instance
+
 
 import Graphics.Gudni.ShapeTree
 
-import Graphics.Gudni.Raster.Thresholds.Constants (rANDOMFIELDsIZE)
-import Graphics.Gudni.Raster.Thresholds.OpenCL.EmbeddedOpenCLSource
-import Graphics.Gudni.Raster.TextureReference
-import Graphics.Gudni.Raster.Thresholds.TileTree
-import Graphics.Gudni.Raster.Thresholds.Serialize
-import Graphics.Gudni.Raster.Thresholds.Params
+import Graphics.Gudni.Raster.Class
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
@@ -89,7 +93,7 @@ class ( HasStyle s
       )
       => Model s where
   -- | Construct a Scene from the state of type `s`
-  constructScene   :: s -> String -> FontMonad (StyleOf s) IO (Scene (Maybe (FinalTree (TokenOf (StyleOf s)) SubSpace)))
+  constructScene   :: s -> String -> FontMonad (StyleOf s) IO (Scene (Layout (StyleOf s)))
   -- | Update the state based on the elapsed time and a list of inputs
   updateModelState :: Int -> SimpleTime -> [Input (TokenOf (StyleOf s))] -> s -> s
   -- | Do tasks in the IO monad based and update the current state.
@@ -115,7 +119,7 @@ class ( HasStyle s
   dumpState :: s -> [Input (TokenOf (StyleOf s))] -> IO ()
   dumpState _ _ = return ()
 
-data ApplicationState s = AppState
+data ApplicationState r s = AppState
     { -- | The state maintained specific to the interface type.
       _appBackend       :: InterfaceState
       -- | Structure for marking time.
@@ -123,7 +127,7 @@ data ApplicationState s = AppState
       -- | The start time of the application.
     , _appStartTime     :: TimeSpec
       -- | Constructor used to store the OpenCL state, compiled kernels and device metadata.
-    , _appRasterState :: RasterState
+    , _appRasterizer    :: r
       -- | A string representing information about the app. Usually timing data and other stuff for display.
     , _appStatus        :: String
      -- | The number of event loop cycles that have commenced from starting.
@@ -134,38 +138,39 @@ data ApplicationState s = AppState
 makeLenses ''ApplicationState
 
 -- | Monad Stack for the event loop.
-type ApplicationMonad s = StateT (ApplicationState s) (FontMonad (StyleOf s) IO)
+type ApplicationMonad r s = StateT (ApplicationState r s) (FontMonad (StyleOf s) IO)
 
-runApplicationMonad :: ApplicationState s -> ApplicationMonad s a -> FontMonad (StyleOf s) IO a
+runApplicationMonad :: ApplicationState r s -> ApplicationMonad r s a -> FontMonad (StyleOf s) IO a
 runApplicationMonad = flip evalStateT
 
 -- | Initializes openCL, frontend interface, timekeeper, randomfield data and returns the initial `ApplicationState`
-setupApplication :: Model s => s -> IO (ApplicationState s)
-setupApplication state  =
-  do  -- Setup OpenCL state and kernels.
-      openCLLibrary <- setupOpenCL False False embeddedOpenCLSource
-      -- Initialize the backend state.
+setupApplication :: forall r s . (Rasterizer r, Model s) => r -> s -> IO (ApplicationState r s)
+setupApplication rasterizer state  =
+  do  -- Initialize the backend state.
       backendState <- startInterface (screenSize state)
       -- Start the timeKeeper
       timeKeeper <- startTimeKeeper
       startTime <- getTime Realtime
-      return $ AppState backendState timeKeeper startTime openCLLibrary "No Status" 0 state
+      return $ AppState backendState timeKeeper startTime rasterizer "No Status" 0 state
 
 -- | Closes the interface.
-closeApplication :: ApplicationMonad s ()
+closeApplication :: ApplicationMonad r s ()
 closeApplication = withIO appBackend closeInterface
 
 -- | Initialize the ApplicationMonad stack and enter the event loop.
-runApplication :: ( Show s
-                  , Model s
-                  , HasStyle s
-                  , Show (TokenOf (StyleOf s))
-                  )
-               => s
-               -> IO ()
-runApplication state =
+startApplication :: ( Show s
+                    , Model s
+                    , Rasterizer r
+                    , HasStyle s
+                    , Show (TokenOf (StyleOf s))
+                    , SpaceOf (StyleOf s) ~ SubSpace
+                    )
+                 => r
+                 -> s
+                 -> IO ()
+startApplication rasterizer state =
     do  -- Initialize the application and get the initial state.
-        appState <- setupApplication state
+        appState <- setupApplication rasterizer state
         -- Start the glyph monad.
         runFontMonad $
             do  -- Load a font file.
@@ -179,19 +184,66 @@ runApplication state =
                         -- when the loop exits close the application.
                         closeApplication
 
+runApplicationThresholdOpenCL :: ( Show s
+                                 , Model s
+                                 , HasStyle s
+                                 , Show (TokenOf (StyleOf s))
+                                 , SpaceOf (StyleOf s) ~ SubSpace
+                                 )
+                              => s
+                              -> IO ()
+runApplicationThresholdOpenCL state =
+    do (rasterizer :: RasterState) <- setupRasterizer
+       startApplication rasterizer state
+
+runApplicationDagOpenCL :: ( Show s
+                           , Model s
+                           , HasStyle s
+                           , Show (TokenOf (StyleOf s))
+                           , SpaceOf (StyleOf s) ~ SubSpace
+                           )
+                        => s
+                        -> IO ()
+runApplicationDagOpenCL state =
+    do (rasterizer :: DagOpenCLState) <- setupRasterizer
+       startApplication rasterizer state
+
+runApplicationDagHaskell :: ( Show s
+                            , Model s
+                            , HasStyle s
+                            , Show (TokenOf (StyleOf s))
+                            , SpaceOf (StyleOf s) ~ SubSpace
+                            )
+                         => s
+                         -> IO ()
+runApplicationDagHaskell state =
+    do (rasterizer :: DagHaskellState) <- setupRasterizer
+       startApplication rasterizer state
+
+runApplication :: ( Show s
+                  , Model s
+                  , HasStyle s
+                  , Show (TokenOf (StyleOf s))
+                  , SpaceOf (StyleOf s) ~ SubSpace
+                  )
+               => s
+               -> IO ()
+runApplication = runApplicationDagOpenCL
+
+-- runApplication = runApplicationThresholdOpenCL
 -- | Convert a `Timespec` to the `SimpleTime` (a double in seconds from application start)
 toSimpleTime :: TimeSpec -> SimpleTime
 toSimpleTime timeSpec = (fromIntegral . toNanoSecs $ timeSpec) / 1000000000
 
 -- | Get the time elapsed from starting the event loop.
-getElapsedTime :: ApplicationMonad s SimpleTime
+getElapsedTime :: ApplicationMonad r s SimpleTime
 getElapsedTime =
   do  startTime   <- use appStartTime
       currentTime <- liftIO $ getTime Realtime
       return $ toSimpleTime $ currentTime `diffTimeSpec` startTime
 
 -- | Debug message from the ApplicationMonad
-appMessage :: String -> ApplicationMonad s ()
+appMessage :: String -> ApplicationMonad r s ()
 appMessage = liftIO . putStrLn
 
 -- | Call a function f in IO that uses the application state as it's first argument.
@@ -202,11 +254,11 @@ overState lens f =
       lens .= state'
 
 -- | Initialize the timekeeper
-restartAppTimer :: ApplicationMonad s ()
+restartAppTimer :: ApplicationMonad r s ()
 restartAppTimer = appTimeKeeper <~ liftIO startTimeKeeper
 
 -- | First phase of event loop.
-beginCycle :: ApplicationMonad s ()
+beginCycle :: ApplicationMonad r s ()
 beginCycle =
     do  restartAppTimer
 
@@ -218,7 +270,7 @@ processState :: ( Show s
                 )
              => SimpleTime
              -> [Input (TokenOf (StyleOf s))]
-             -> ApplicationMonad s (Scene (Maybe (FinalTree (TokenOf (StyleOf s)) SubSpace)))
+             -> ApplicationMonad r s (Scene (Layout (StyleOf s)))
 processState elapsedTime inputs =
     do  frame <- fromIntegral <$> use appCycle
         markAppTime "Advance State"
@@ -233,42 +285,29 @@ processState elapsedTime inputs =
         return scene
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
-drawFrame :: ( Model s
+drawFrame :: ( Rasterizer r
+             , Model s
              , Show (TokenOf (StyleOf s))
-             , HasStyle s)
+             , HasStyle s
+             , SpaceOf (StyleOf s) ~ SubSpace
+             )
           => Int
-          -> Scene (Maybe (FinalTree (TokenOf (StyleOf s)) SubSpace))
-          -> [(PointQueryId, Point2 SubSpace)]
-          -> ApplicationMonad s (DrawTarget, [PointQueryResult (TokenOf (StyleOf s))])
+          -> Scene (Layout (StyleOf s))
+          -> [PointQuery (SpaceOf (StyleOf s))]
+          -> ApplicationMonad r s (DrawTarget, [PointQueryResult (TokenOf (StyleOf s))])
 drawFrame frameCount scene queries =
     do  --appMessage "ResetJob"
-        rasterizer <- use appRasterState
-        target <- withIO appBackend (prepareTarget (rasterizer ^. rasterUseGLInterop))
+        rasterizer <- use appRasterizer
+        target <- withIO appBackend (prepareTarget rasterizer)
         let canvasSize = P $ fromIntegral <$> target ^. targetArea
         state <- use appState
         pictureMap <- liftIO $ providePictureMap state
         markAppTime "Build TileTree"
-        queryResults <- withSerializedScene rasterizer canvasSize pictureMap scene $
-             \ pictDataPile serialState ->
-                   do  markAppTime "Traverse ShapeTree"
-                       -- | Create a specification for the current frame.
-                       let rasterParams = RasterParams rasterizer
-                                                       serialState
-                                                       pictDataPile
-                                                       queries
-                                                       canvasSize
-                                                       target
-                                                       frameCount
-                       appMessage "===================== rasterStart ====================="
-                       queryResults <- liftIO $ runRaster rasterParams
-                       appMessage "===================== rasterDone ====================="
-                       markAppTime "Rasterize Threads"
-                       --liftIO $ threadDelay 3000000
-                       return queryResults
-        return (target, toList queryResults)
+        lift $ rasterFrame rasterizer canvasSize pictureMap scene frameCount queries target
+        return (target, []) --  toList queryResults)
 
 -- Final phase of the event loop.
-endCycle :: SimpleTime -> ApplicationMonad s ()
+endCycle :: SimpleTime -> ApplicationMonad r s ()
 endCycle elapsedTime =
     do  tk         <- use appTimeKeeper
         cycleCount <- use appCycle
@@ -283,7 +322,7 @@ endCycle elapsedTime =
         appCycle += 1
 
 -- Mark a time in the status.
-markAppTime :: String -> ApplicationMonad s ()
+markAppTime :: String -> ApplicationMonad r s ()
 markAppTime message =
     do  tk  <- use appTimeKeeper
         tk' <- liftIO $ markTime message tk
@@ -299,13 +338,15 @@ isQuit input =
         _ -> False
 
 -- | Cycle through the event loop.
-loop :: ( Show s
+loop :: ( Rasterizer r
+        , Show s
         , Model s
         , HasStyle s
         , Show (TokenOf (StyleOf s))
+        , (SpaceOf (StyleOf s)) ~ SubSpace
         )
      => [Input (TokenOf (StyleOf s))]
-     -> ApplicationMonad s ()
+     -> ApplicationMonad r s ()
 loop preppedInputs =
   do  --appMessage "checkInputs"
       unless (any isQuit preppedInputs) $
@@ -315,10 +356,10 @@ loop preppedInputs =
               frameCount <- fromIntegral <$> use appCycle
               newInputs <- withIO appBackend checkInputs
               let queries = pullQueries newInputs
-              (target, queryResults) <- drawFrame frameCount scene queries
+              (target, queryResults) <- drawFrame frameCount scene (map (over pointQueryPos (fmap realToFrac)) queries)
               let newPreppedInputs = tr "preppedInputs" $ attachQueryResults newInputs queryResults
-              state      <- use appState
-              state'     <- withIO appBackend $ handleOutput state target
+              state  <- use appState
+              state' <- withIO appBackend $ handleOutput state target
               appState .= state'
               markAppTime "Raster Frame"
               endCycle elapsedTime

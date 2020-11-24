@@ -66,13 +66,12 @@ type UINT4 = V4 CUInt
 type THRESHOLDTYPE = V4 CFloat
 type HEADERTYPE    = CULong
 
-sTOCHASTICfACTOR = 0.0 :: Float -- relative amount of variability in an edge.
+sTOCHASTICfACTOR = 0.0  :: Float -- relative amount of variability in an edge.
 tAXICABfLATNESS  = 0.25 :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
 rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
 sHAPEsTACKsIZE   = 64   :: Int
 
 sOURCEfILEpADDING = 40 :: Int -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
-
 
 sIZEoFlAYERiD         = 4 :: Int -- sizof(uint)
 sIZEoFlOCALsUBSTANCEiD = 4 :: Int -- sizof(uint)

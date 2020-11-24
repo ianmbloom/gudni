@@ -38,7 +38,8 @@ data FCombineType
     | FFloatXor -- x + y - 2(x*y)
     | FMin
     | FMax
-    | FSaturate
+    | FHsvAdjust
+    | FTransparent
      --      | RGTE
      --      | RGT
     deriving (Show, Generic)

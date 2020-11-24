@@ -44,10 +44,9 @@ traverseFacetUntil threshold point =
   where
   go :: Facet s -> Facet s
   go facet =
-    let potential = traverseFacet point facet
-    in  if shouldSubdivideFacet threshold potential
-        then go potential
-        else facet
+      if shouldSubdivideFacet threshold facet
+      then go (traverseFacet point facet)
+      else facet
 
 traverseFacet :: (Space s) => Point2 s -> Facet s -> Facet s
 traverseFacet point facet =

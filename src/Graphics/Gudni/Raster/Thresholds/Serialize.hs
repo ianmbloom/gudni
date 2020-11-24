@@ -47,6 +47,7 @@ import Graphics.Gudni.Raster.Thresholds.ReorderTable
 import Graphics.Gudni.Raster.Thresholds.TileTree
 
 import Graphics.Gudni.Util.RandomField
+import Graphics.Gudni.Raster.Class
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
 import Graphics.Gudni.Raster.Serial.BytePile
@@ -55,7 +56,7 @@ import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
 
 import Graphics.Gudni.Layout.FromLayout
-import Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
+import Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
 
 import Control.Monad
 import Control.Monad.State

@@ -25,7 +25,6 @@ module Graphics.Gudni.Layout.FromLayout
   , CollapseShapeTree(..)
   , FinalTree(..)
   , fromLayout
-  , sceneFromLayout
   , toFullProximityTree
   , traverseFullProximityCompoundTree
   , traverseFullProximityTree
@@ -132,16 +131,6 @@ fromLayout layout =
      let collapsed :: Maybe (SimpTree Overlap (Tree Overlap (SMask (TokenOf style) NamedTexture (Tree Compound (Shape (SpaceOf style))))))
          collapsed = fmap (fromWithItem . collapseProximityTree) full
      return $ fmap (joinLeaves . collapseSimpTree) collapsed
-
-sceneFromLayout :: forall style token m
-                .  ( IsStyle style
-                   , Monad m
-                   )
-                => Color (SpaceOf style)
-                -> Layout style
-                -> FontMonad style m (Scene (Maybe (FinalTree (TokenOf style) (SpaceOf style))))
-sceneFromLayout color layout =
-    Scene color <$> fromLayout layout
 
 data SimpTree_ meld item
 

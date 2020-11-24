@@ -71,7 +71,7 @@ tAXICABfLATNESS  = 0.25 :: Float -- minimum taxicab distance between (relative t
 rANDOMFIELDsIZE  = 4096 :: Int -- must be a power of 2
 sHAPEsTACKsIZE   = 64   :: Int
 
-sOURCEfILEpADDING = 40 :: Int -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
+sOURCEfILEpADDING = 90 :: Int -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
 
 
 sIZEoFlAYERiD         = 4 :: Int -- sizof(uint)

@@ -19,7 +19,7 @@ where
 import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Substance.Color
 import Graphics.Gudni.Raster.Dag.Constants
-import Graphics.Gudni.Raster.Dag.OpenCL.RasterState
+import Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.OpenCL.DeviceQuery
 import Graphics.Gudni.Raster.OpenCL.KernelQuery
 import Graphics.Gudni.Raster.OpenCL.CppDefines
@@ -56,60 +56,67 @@ oPAQUEwHITE = fmap realToFrac . view unColor $ (opaqueWhite :: Color SubSpace)
 -- | List of definition pragmas to be added to the beggining of the Kernels.cl file.
 cppDefines :: DeviceSpec -> [CppDefinition]
 cppDefines spec =
-  [ Cpp "RANDOMFIELDSIZE"             (CppInt    rANDOMFIELDsIZE          )
-  , Cpp "SHAPESTACKSIZE"              (CppInt    sHAPEsTACKsIZE           )
-  , Cpp "FABRICSTACKSIZE"             (CppInt    fABRICsTACKsIZE          )
-  , Cpp "COLORSTACKSIZE"              (CppInt    cOLORsTACKsIZE           )
-  , Cpp "RAYSTACKSIZE"                (CppInt    rAYsTACKsIZE             )
-  , Cpp "CLEARBLACK"                  (CppFloat4 cLEARbLACK               )
-  , Cpp "OPAQUEWHITE"                 (CppFloat4 oPAQUEwHITE              )
-
-  , Cpp "NULLSHAPEID"                 (CppHex32 nULLsHAPEiD               )
-  , Cpp "PRIMTAGTYPEBITMASK"          (CppHex64 pRIMtAGtYPEbITMASK        )
-  , Cpp "PRIMTAGISBEZIER"             (CppHex64 pRIMtAGiSbEZIER           )
-  , Cpp "PRIMTAGISFACET"              (CppHex64 pRIMtAGiSfACET            )
-  , Cpp "PRIMTAGISRECTANGLE"          (CppHex64 pRIMtAGiSrECTANGLE        )
-  , Cpp "PRIMTAGISELIPSE"             (CppHex64 pRIMtAGiSeLIPSE           )
-  , Cpp "PRIMTAGSTORAGEIDBITMASK"     (CppHex64 pRIMtAGsTORAGEiDbITMASK   )
-  , Cpp "PRIMTAGSTORAGEIDSHIFT"       (CppInt   pRIMtAGsTORAGEiDsHIFT     )
-  , Cpp "PRIMTAGFABRICIDBITMASK"      (CppHex64 pRIMtAGfABRICiDbITMASK    )
-
-  , Cpp "FABRICNODETYPEBITMASK"       (CppHex64 fABRICnODEtYPEbITMASK     )
-  , Cpp "FABRICISLEAF"                (CppHex64 fABRICiSlEAF              )
-  , Cpp "FABRICISUNARYPRE"            (CppHex64 fABRICiSuNARYpRE          )
-  , Cpp "FABRICISUNARYPOST"           (CppHex64 fABRICiSuNARYpOST         )
-  , Cpp "FABRICISBINARY"              (CppHex64 fABRICiSbINARY            )
-  , Cpp "FABRICNODESUBTYPEBITMASK"    (CppHex64 fABRICnODEsUBtYPEbITMASK  )
-  , Cpp "FABRICISTREE"                (CppHex64 fABRICiStREE              )
-  , Cpp "FABRICISTRANSFORMAFFINE"     (CppHex64 fABRICiStRANSFORMaFFINE   )
-  , Cpp "FABRICISTRANSFORMFACET"      (CppHex64 fABRICiStRANSFORMfACET    )
-  , Cpp "FABRICISTRANSFORMCONVOLVE"   (CppHex64 fABRICiStRANSFORMcONVOLVE )
-  , Cpp "FABRICISSQRT"                (CppHex64 fABRICiSsQRT              )
-  , Cpp "FABRICISINVERT"              (CppHex64 fABRICiSiNVERT            )
-  , Cpp "FABRICISCOS"                 (CppHex64 fABRICiScOS               )
-  , Cpp "FABRICISSIN"                 (CppHex64 fABRICiSsIN               )
-  , Cpp "FABRICISCOMPOSITE"           (CppHex64 fABRICiScOMPOSITE         )
-  , Cpp "FABRICISMULT"                (CppHex64 fABRICiSmULT              )
-  , Cpp "FABRICISADD"                 (CppHex64 fABRICiSaDD               )
-  , Cpp "FABRICISFLOATOR"             (CppHex64 fABRICiSfLOAToR           )
-  , Cpp "FABRICISFLOATXOR"            (CppHex64 fABRICiSfLOATxOR          )
-  , Cpp "FABRICISMIN"                 (CppHex64 fABRICiSmIN               )
-  , Cpp "FABRICISMAX"                 (CppHex64 fABRICiSmAX               )
-  , Cpp "FABRICISSATURATE"            (CppHex64 fABRICiSsATURATE          )
-  , Cpp "SUBSTANCEISCONSTANT"         (CppHex64 fABRICiScONSTANT          )
-  , Cpp "SUBSTANCEISTEXTURE"          (CppHex64 fABRICiStEXTURE           )
-  , Cpp "SUBSTANCEISLINEAR"           (CppHex64 fABRICiSlINEAR            )
-  , Cpp "SUBSTANCEISQUADRANCE"        (CppHex64 fABRICiSqUADRANCE         )
-  , Cpp "FABRICTAGDATABITMASK"        (CppHex64 fABRICtAGdATAbITMASK      )
-  , Cpp "FABRICTAGHIGHIDSHIFT"        (CppInt   fABRICtAGhIGHiDsHIFT      )
-  , Cpp "FABRICTAGHIGHIDBITMASK"      (CppHex64 fABRICtAGhIGHiDbITMASK    )
-  , Cpp "FABRICTAGLOWIDBITMASK"       (CppHex64 fABRICtAGlOWiDbITMASK     )
-  , Cpp "NULLFABRICTAGID"             (CppHex32 nULLfABRICtAGiD           )
-
+  [ Cpp "TAXICABFLATNESS"             (CppFloat  tAXICABfLATNESS           )
+  , Cpp "CROSSSPLITLIMIT"             (CppFloat  cROSSsPLITlIMIT           )
+  , Cpp "OPAQUETHRESHOLD"             (CppFloat  oPAQUEtHRESHOLD           )
+  , Cpp "RANDOMFIELDSIZE"             (CppInt    rANDOMFIELDsIZE           )
+  , Cpp "SHAPESTACKSIZE"              (CppInt    sHAPEsTACKsIZE            )
+  , Cpp "BEZIERSTACKSIZE"             (CppInt    bEZIERsTACKsIZE           )
+  , Cpp "FABRICSTACKSIZE"             (CppInt    fABRICsTACKsIZE           )
+  , Cpp "COLORSTACKSIZE"              (CppInt    cOLORsTACKsIZE            )
+  , Cpp "CONFINETREESTACKSIZE"        (CppInt    cONFINEtREEsTACKsIZE      )
+  , Cpp "BEZIERSIZEINFLOATS"          (CppInt    bEZIERsIZEiNfLOATS        )
+  , Cpp "FACETSIZEINFLOATS"           (CppInt    fACETsIZEiNfLOATS         )
+  , Cpp "BOXSIZEINFLOATS"             (CppInt    bOXsIZEiNfLOATS           )
+  , Cpp "CLEARBLACK"                  (CppFloat4 cLEARbLACK                )
+  , Cpp "OPAQUEWHITE"                 (CppFloat4 oPAQUEwHITE               )
+  , Cpp "NULLDECOTAGID"               (CppHex32  nULLdECOtADiD             )
+  , Cpp "NULLCONFINETAGID"            (CppHex32  nULLcONFINEtAGiD          )
+  , Cpp "NULLSHAPEID"                 (CppHex32  nULLsHAPEiD               )
+  , Cpp "PRIMTAGTYPEBITMASK"          (CppHex64  pRIMtAGtYPEbITMASK        )
+  , Cpp "PRIMTAGISBEZIER"             (CppHex64  pRIMtAGiSbEZIER           )
+  , Cpp "PRIMTAGISFACET"              (CppHex64  pRIMtAGiSfACET            )
+  , Cpp "PRIMTAGISRECTANGLE"          (CppHex64  pRIMtAGiSrECTANGLE        )
+  , Cpp "PRIMTAGISELIPSE"             (CppHex64  pRIMtAGiSeLIPSE           )
+  , Cpp "PRIMTAGSTORAGEIDBITMASK"     (CppHex64  pRIMtAGsTORAGEiDbITMASK   )
+  , Cpp "PRIMTAGSTORAGEIDSHIFT"       (CppInt    pRIMtAGsTORAGEiDsHIFT     )
+  , Cpp "PRIMTAGFABRICIDBITMASK"      (CppHex64  pRIMtAGfABRICiDbITMASK    )
+  , Cpp "FABRICTYPEBITMASK"           (CppHex64  fABRICtYPEbITMASK         )
+  , Cpp "FABRICISLEAF"                (CppHex64  fABRICiSlEAF              )
+  , Cpp "FABRICISUNARYPRE"            (CppHex64  fABRICiSuNARYpRE          )
+  , Cpp "FABRICISUNARYPOST"           (CppHex64  fABRICiSuNARYpOST         )
+  , Cpp "FABRICISBINARY"              (CppHex64  fABRICiSbINARY            )
+  , Cpp "FABRICSUBTYPEBITMASK"        (CppHex64  fABRICsUBtYPEbITMASK      )
+  , Cpp "FABRICISTREE"                (CppHex64  fABRICiStREE              )
+  , Cpp "FABRICISTRANSFORMAFFINE"     (CppHex64  fABRICiStRANSFORMaFFINE   )
+  , Cpp "FABRICISTRANSFORMFACET"      (CppHex64  fABRICiStRANSFORMfACET    )
+  , Cpp "FABRICISTRANSFORMCONVOLVE"   (CppHex64  fABRICiStRANSFORMcONVOLVE )
+  , Cpp "FABRICISSQRT"                (CppHex64  fABRICiSsQRT              )
+  , Cpp "FABRICISINVERT"              (CppHex64  fABRICiSiNVERT            )
+  , Cpp "FABRICISCOS"                 (CppHex64  fABRICiScOS               )
+  , Cpp "FABRICISSIN"                 (CppHex64  fABRICiSsIN               )
+  , Cpp "FABRICISCLAMP"               (CppHex64  fABRICiScLAMP             )
+  , Cpp "FABRICISCOMPOSITE"           (CppHex64  fABRICiScOMPOSITE         )
+  , Cpp "FABRICISMULT"                (CppHex64  fABRICiSmULT              )
+  , Cpp "FABRICISADD"                 (CppHex64  fABRICiSaDD               )
+  , Cpp "FABRICISFLOATOR"             (CppHex64  fABRICiSfLOAToR           )
+  , Cpp "FABRICISFLOATXOR"            (CppHex64  fABRICiSfLOATxOR          )
+  , Cpp "FABRICISMIN"                 (CppHex64  fABRICiSmIN               )
+  , Cpp "FABRICISMAX"                 (CppHex64  fABRICiSmAX               )
+  , Cpp "FABRICISHSVADJUST"           (CppHex64  fABRICiShSVaDJUST         )
+  , Cpp "FABRICISTRANSPARENT"         (CppHex64  fABRICiStRANSPARENT       )
+  , Cpp "FABRICISCONSTANT"            (CppHex64  fABRICiScONSTANT          )
+  , Cpp "FABRICISTEXTURE"             (CppHex64  fABRICiStEXTURE           )
+  , Cpp "FABRICISLINEAR"              (CppHex64  fABRICiSlINEAR            )
+  , Cpp "FABRICISQUADRANCE"           (CppHex64  fABRICiSqUADRANCE         )
+  , Cpp "FABRICTAGDATABITMASK"        (CppHex64  fABRICtAGdATAbITMASK      )
+  , Cpp "FABRICTAGHIGHIDSHIFT"        (CppInt    fABRICtAGhIGHiDsHIFT      )
+  , Cpp "FABRICTAGHIGHIDBITMASK"      (CppHex64  fABRICtAGhIGHiDbITMASK    )
+  , Cpp "FABRICTAGLOWIDBITMASK"       (CppHex64  fABRICtAGlOWiDbITMASK     )
+  , Cpp "NULLFABRICTAGID"             (CppHex32  nULLfABRICtAGiD           )
   , Cpp "DEBUG_OUTPUT"                (CppNothing) -- uncomment this to turn on simple debugging output
-  --, Cpp "DEBUG_TRACE"                    (CppNothing) -- uncomment this to turn on parsable debugging output
-  , Cpp "DEBUGCOLUMNTHREAD"           (CppInt 5)   -- determines the column for DEBUG_IF macro
-  , Cpp "DEBUGINDEX"                  (CppInt 0)   -- determines the index for DEBUG_IF macro
+  , Cpp "DEBUG0"                      (CppInt dEBUG0 ) -- determines the column for DEBUG_IF macro
+  , Cpp "DEBUG1"                      (CppInt dEBUG1 ) -- determines the row    for DEBUG_IF macro
   ]
 -- | Embedded source with implanted definition pragmas.
 addDefinesToSource :: DeviceSpec -> BS.ByteString -> String
@@ -157,7 +164,7 @@ getKernelAndDump device program name =
      return kernel
 
 -- | Create a RasterState by setting up an OpenCL device.
-setupOpenCL :: Bool -> Bool -> BS.ByteString -> IO RasterState
+setupOpenCL :: Bool -> Bool -> BS.ByteString -> IO DagOpenCLState
 setupOpenCL enableProfiling useCLGLInterop src =
   do
       putStrLn $ "Initializing OpenCL device."
@@ -196,13 +203,13 @@ setupOpenCL enableProfiling useCLGLInterop src =
               -- Generate a random field for the stochastic aliasing of the rasterizer.
               randomField <- makeRandomField rANDOMFIELDsIZE
               -- Return a Library constructor with relevant information about the device for the rasterizer.
-              return $ RasterState
+              return $ DagOpenCLState
                   { -- | The OpenCL state
-                    _rasterClState = state
+                    _dagOpenCLState = state
                     -- | The rasterizer kernels.
-                  , _rasterTraverseDagKernel = traverseDagKernel
+                  , _dagOpenCLTraverseDagKernel = traverseDagKernel
                     -- | Flag for if OpenCL-OpenGL interop should be used to render the drawing target.
-                  , _rasterUseGLInterop = useCLGLInterop
-                  , _rasterDeviceSpec   = deviceSpec
-                  , _rasterRandomField  = randomField
+                  , _dagOpenCLUseGLInterop = useCLGLInterop
+                  , _dagOpenCLDeviceSpec   = deviceSpec
+                  , _dagOpenCLRandomField  = randomField
                   }

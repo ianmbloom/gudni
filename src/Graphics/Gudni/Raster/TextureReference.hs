@@ -17,12 +17,10 @@
 --
 -- Functions used by TraverseShapeTree to extract named textures from the tree and assign them to memory references.
 
-
 module Graphics.Gudni.Raster.TextureReference
   ( PixelPile(..)
   , PictMemId(..)
   , PictUsageId(..)
-  , PictureMap(..)
   , PictureMemoryReference(..)
   , PictureMemoryMap(..)
   , ShapeTreePictureMemory(..)
@@ -135,8 +133,8 @@ accumulatePicture :: Picture
                   -> StateT PixelPile IO PictureMemoryReference
 accumulatePicture picture =
   do pictPile <- get
-     let size = pictureSize picture
-         memory = PictureMemory size (pictPile ^. pileCursor)
+     let size    = pictureSize picture
+         memory  = PictureMemory size (pictPile ^. pileCursor)
          pVector = pictureData picture
      (pictPile', _) <- liftIO $ copyIntoPile pictPile pVector
      put pictPile'

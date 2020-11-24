@@ -59,10 +59,9 @@ import Graphics.Gudni.Util.Debug
 
 import Control.Monad
 import Control.Monad.State
+import Control.Monad.IO.Class
 import Control.Applicative
 import Control.Lens
-
-import Control.Monad.Random
 
 import Linear.V4
 
@@ -84,7 +83,7 @@ withSerializedFabric :: ( MonadIO m
                      => Maybe (Box (SpaceOf style))
                      -> PixelPile
                      -> Fabric (PicturePass style)
-                     -> (FabricTagId -> RayMonad (SpaceOf style) m a)
+                     -> (DagStorage (SpaceOf style) -> FabricTagId -> m a)
                      -> m a
 withSerializedFabric mCanvas pixelPile fabric code =
     do  primStorage   <- initPrimStorage
@@ -98,9 +97,11 @@ withSerializedFabric mCanvas pixelPile fabric code =
                         , _dagPrimTagIds    = primTagIdPile
                         , _dagPixelPile     = pixelPile
                         }
+        liftIO $ putStrLn "serializeFabric"
         (fabricTagId, state') <- evalUniqueT (runStateT (serializeFabric mCanvas fabric) initState)
-        let seed = 7787
-        result <- evalStateT (evalRandT (code fabricTagId) (mkStdGen seed)) state'
+        liftIO $ putStrLn "before code"
+        result <- code state' fabricTagId
+        liftIO $ putStrLn "after code"
         liftIO $
             do freePrimStorage   $ state' ^. dagPrimStorage
                freeFabricStorage $ state' ^. dagFabricStorage

@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.Dag.OpenCL.RasterState
+-- Module      :  Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -11,17 +11,17 @@
 --
 -- A constructor for storing an OpenCL state, compiled kernels (just one right now) and other metadata.
 
-module Graphics.Gudni.Raster.Dag.OpenCL.RasterState
+module Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
   ( DeviceSpec(..)
   , specMaxTileSize
   , specColumnsPerBlock
   , specColumnDepth
-  , RasterState(..)
-  , rasterClState
-  , rasterTraverseDagKernel
-  , rasterUseGLInterop
-  , rasterDeviceSpec
-  , rasterRandomField
+  , DagOpenCLState(..)
+  , dagOpenCLState
+  , dagOpenCLTraverseDagKernel
+  , dagOpenCLUseGLInterop
+  , dagOpenCLDeviceSpec
+  , dagOpenCLRandomField
   )
 where
 
@@ -30,8 +30,12 @@ import Graphics.Gudni.Interface.Query
 import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Util.RandomField
 
+import Graphics.Gudni.Raster.Class
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
+import Graphics.Gudni.Raster.Dag.FromLayout
+import Graphics.Gudni.Raster.Dag.Serialize
+import Graphics.Gudni.Raster.TextureReference
 
 import CLUtil
 import Control.Lens
@@ -46,16 +50,16 @@ data DeviceSpec = DeviceSpec
     } deriving (Show)
 makeLenses ''DeviceSpec
 
-data RasterState = RasterState
+data DagOpenCLState = DagOpenCLState
   { -- | The OpenCL state
-    _rasterClState :: OpenCLState
+    _dagOpenCLState :: OpenCLState
     -- | The rasterizer dag traversal kernel.
-  , _rasterTraverseDagKernel  :: CLKernel
+  , _dagOpenCLTraverseDagKernel  :: CLKernel
     -- | Flag for if OpenCL-OpenGL interop should be used to render the drawing target.
-  , _rasterUseGLInterop :: Bool
+  , _dagOpenCLUseGLInterop :: Bool
     -- | Specifications
-  , _rasterDeviceSpec   :: DeviceSpec
+  , _dagOpenCLDeviceSpec   :: DeviceSpec
     -- | Supply of random floats
-  , _rasterRandomField  :: RandomField
+  , _dagOpenCLRandomField  :: RandomField
   }
-makeLenses ''RasterState
+makeLenses ''DagOpenCLState

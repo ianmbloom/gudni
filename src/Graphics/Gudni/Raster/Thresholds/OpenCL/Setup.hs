@@ -16,7 +16,7 @@ module Graphics.Gudni.Raster.Thresholds.OpenCL.Setup
   )
 where
 
-import Graphics.Gudni.Raster.Thresholds.OpenCL.RasterState
+import Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.OpenCL.DeviceQuery
 import Graphics.Gudni.Raster.OpenCL.KernelQuery
 import Graphics.Gudni.Raster.OpenCL.CppDefines

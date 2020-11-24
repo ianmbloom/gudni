@@ -97,7 +97,7 @@ instance Model ProjectionState where
                repMode = state ^. stateBase . stateRepMode
                repDk   = state ^. stateBase . stateRepDk
                offset  = state ^. stateOffset
-           sceneFromLayout gray . place $
+           return $ withBackgroundColor gray . place $
                --(if repMode then represent repDk else id) $
                (transformFromState (state ^. stateBase) $
                debugScene :: ShapeTree Int SubSpace)
@@ -113,15 +113,15 @@ instance Model ProjectionState where
                betweenGap = 1
                dotLength = 8
                dotGap = 2
-               numDots = floor (arcLength path / (dotLength + dotGap))
+               numDots = floor (arcLength path / realToFrac (dotLength + dotGap))
            in  withColor (light . greenish $ blue) .
                projectOnto path .
                translateByXY 0 (negate ((thickness * 2 + betweenGap) / 2)) .
                overlap .
-               horizontallySpacedBy translateBy zeroPoint (dotLength + dotGap) .
+               horizontallySpacedBy translateBy zeroPoint (realToFrac . toAlong Horizontal $ dotLength + dotGap) .
                replicate numDots .
                overlap .
-               verticallySpacedBy translateBy zeroPoint (thickness + betweenGap) .
+               verticallySpacedBy translateBy zeroPoint (realToFrac . toAlong Vertical $ thickness + betweenGap) .
                replicate 2 .
                mask .
                rectangle $
@@ -161,5 +161,6 @@ main = runApplication $ ProjectionState
            , _stateStep        = 69
            , _stateRepMode     = False
            , _stateRepDk       = False
+           , _stateCursor      = Point2 0 0
            }
        ) 0

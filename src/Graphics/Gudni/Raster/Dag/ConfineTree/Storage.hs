@@ -40,7 +40,7 @@ import qualified Data.Map as M
 data TreeStorage s
     = TreeStorage
       -- | A list of every confineTree
-    { _treeRootPile     :: Pile (Root s)
+    { _treeRootPile     :: Pile (TreeRoot s)
     , _treeConfinePile  :: Pile (ConfineTag s)
     , _treeDecoPile     :: Pile (DecoTag s)
     , _treeCrossingPile :: Pile ShapeId
@@ -52,6 +52,7 @@ makeLenses ''TreeStorage
 
 initTreeStorage :: ( MonadIO m
                    , Storable s
+                   , Num s
                    )
                 => m (TreeStorage s)
 initTreeStorage =
@@ -71,9 +72,9 @@ freeTreeStorage storage =
        freePile (storage ^. treeDecoPile    )
        freePile (storage ^. treeCrossingPile)
 
-loadTreeRoot :: (Storable s, MonadIO m) => Reference (Root s) -> StateT (TreeStorage s) m (Root       s)
+loadTreeRoot :: (Storable s, MonadIO m) => Reference (TreeRoot s) -> StateT (TreeStorage s) m (TreeRoot s)
 loadTreeTag  :: (Storable s, MonadIO m) => ConfineTagId    s  -> StateT (TreeStorage s) m (ConfineTag s)
-loadDecoTag  :: (Storable s, MonadIO m) => DecoTagId       s  -> StateT (TreeStorage s) m (DecoTag    s)
+loadDecoTag  :: (Storable s, Num s, MonadIO m) => DecoTagId       s  -> StateT (TreeStorage s) m (DecoTag    s)
 loadTreeRoot treeId = fromPileS treeRootPile                     $ treeId
 loadTreeTag  treeId = fromPileS treeConfinePile . unConfineTagId $ treeId
 loadDecoTag  treeId = fromPileS treeDecoPile    . unDecoTagId    $ treeId
@@ -83,7 +84,7 @@ storeTree :: (MonadIO m, Space s, Storable s)
           -> (PrimTagId -> m (Primitive s))
           -> Slice PrimTagId
           -> Pile PrimTagId
-          -> StateT (TreeStorage s) m (Reference (Root s))
+          -> StateT (TreeStorage s) m (Reference (TreeRoot s))
 storeTree getBox getPrim slice primTagPile =
     do (confineTree, decoTree, _) <- lift $ buildConfineTree getBox getPrim True 0 0 slice primTagPile
        -- store tree in confinePile and decoPile
@@ -108,11 +109,12 @@ storeConfineTree = go Vertical
       case mTree of
         Just tree -> do less <- go (perpendicularTo axis) (tree ^. confineLessCut)
                         more <- go (perpendicularTo axis) (tree ^. confineMoreCut)
-                        let treeTag = ConfineTag { _confineTagPrimTagId = tree ^. confinePrimTagId
-                                                 , _confineTagCut       = fromAthwart axis (tree ^. confineCut     )
-                                                 , _confineTagOverhang  = fromAthwart axis (tree ^. confineOverhang)
-                                                 , _confineTagLessCut   = less
-                                                 , _confineTagMoreCut   = more
+                        let treeTag = ConfineTag { _confineTagPrimTagId  = tree ^. confinePrimTagId
+                                                 , _confineTagHorizontal = isHorizontal axis
+                                                 , _confineTagCut        = fromAthwart axis (tree ^. confineCut     )
+                                                 , _confineTagOverhang   = fromAthwart axis (tree ^. confineOverhang)
+                                                 , _confineTagLessCut    = less
+                                                 , _confineTagMoreCut    = more
                                                  }
                         thisId <- ConfineTagId <$> addToPileS treeConfinePile treeTag
                         return thisId
@@ -120,6 +122,7 @@ storeConfineTree = go Vertical
 
 storeDecoTree :: forall m s
               .  ( Storable s
+                 , Space s
                  , MonadIO m
                  )
               => DecorateTree s
@@ -132,10 +135,11 @@ storeDecoTree = go Vertical
           DecoBranch {} -> do less <- go (perpendicularTo axis) (tree ^?! decoLessCut)
                               more <- go (perpendicularTo axis) (tree ^?! decoMoreCut)
                               slice <- foldIntoPileS treeCrossingPile (tree ^?! decoCrossings)
-                              let treeTag = DecoTag { _decoTagCut       = fromAthwart axis (tree ^?! decoCut)
-                                                    , _decoTagCrossings = slice
-                                                    , _decoTagLessCut   = less
-                                                    , _decoTagMoreCut   = more
+                              let treeTag = DecoTag { _decoTagCut        = fromAthwart axis (tree ^?! decoCut)
+                                                    , _decoTagHorizontal = isHorizontal axis
+                                                    , _decoTagCrossings  = slice
+                                                    , _decoTagLessCut    = less
+                                                    , _decoTagMoreCut    = more
                                                     }
                               thisId <- DecoTagId <$> addToPileS treeDecoPile treeTag
                               return thisId

@@ -16,7 +16,7 @@ module Graphics.Gudni.Raster.Dag.Fabric.Storage
   , fabTagCombineType
   , storeFabric
   , loadFabricTag
-  , loadFabricLimit
+  , loadFabricShapeCutPoint
   , loadTransform
   , loadFilter
   , loadFabric
@@ -92,8 +92,8 @@ addFabric fabric =
                storeFabric tagId fabric
                return tagId
 
-storeLimit :: MonadIO m => FabricTagId -> ShapeId -> ShapeId -> FabricStorageMonad s m ()
-storeLimit fabricTagId aboveShape belowShape = toPileS fabricTagPile (unFabricTagId fabricTagId + 1) (makeLimits aboveShape belowShape)
+storeCutPoint :: MonadIO m => FabricTagId -> ShapeId -> FabricStorageMonad s m ()
+storeCutPoint fabricTagId belowShape = toPileS fabricTagPile (unFabricTagId fabricTagId + 1) (makeCutPoint belowShape)
 
 storeFabric :: ( MonadIO m
                , Storable s
@@ -112,8 +112,8 @@ storeFabric fabricTagId fabric =
                           return $ makeFabTagTree treeId childId
                       FTreeSubstance substance ->
                           overStateT fabricHeapPile $ storeSubstance substance
-                FCombine (op, aboveShape, belowShape) aboveId belowId ->
-                     do storeLimit fabricTagId aboveShape belowShape
+                FCombine (op, belowShape) aboveId belowId ->
+                     do storeCutPoint fabricTagId belowShape
                         return $ combineTypeToFabTag op aboveId belowId
      toPileS fabricTagPile (unFabricTagId fabricTagId) tag
 
@@ -128,31 +128,33 @@ allocateFabricTag = FabricTagId <$> allocatePileS fabricTagPile
 combineTypeToFabTag :: FCombineType -> FabricTagId -> FabricTagId -> FabricTag
 combineTypeToFabTag op parentId childId =
     case op of
-        FComposite -> makeFabTagComposite parentId childId
-        FMask      -> makeFabTagMult      parentId childId
-        FAdd       -> makeFabTagAdd       parentId childId
-        FFloatOr   -> makeFabTagFloatOr   parentId childId
-        FFloatXor  -> makeFabTagFloatXor  parentId childId
-        FMin       -> makeFabTagMin       parentId childId
-        FMax       -> makeFabTagMax       parentId childId
-        FSaturate  -> makeFabTagSaturate  parentId childId
+        FComposite   -> makeFabTagComposite  parentId childId
+        FMask        -> makeFabTagMult       parentId childId
+        FAdd         -> makeFabTagAdd        parentId childId
+        FFloatOr     -> makeFabTagFloatOr    parentId childId
+        FFloatXor    -> makeFabTagFloatXor   parentId childId
+        FMin         -> makeFabTagMin        parentId childId
+        FMax         -> makeFabTagMax        parentId childId
+        FHsvAdjust   -> makeFabTagHsvAdjust  parentId childId
+        FTransparent -> makeFabTagTranparent parentId childId
 
 fabTagCombineType :: FabricTag -> FCombineType
 fabTagCombineType tag
-    | fabTagIsComposite tag = FComposite
-    | fabTagIsMult      tag = FMask
-    | fabTagIsAdd       tag = FAdd
-    | fabTagIsFloatOr   tag = FFloatOr
-    | fabTagIsFloatXor  tag = FFloatXor
-    | fabTagIsMin       tag = FMin
-    | fabTagIsMax       tag = FMax
-    | fabTagIsSaturate  tag = FSaturate
+    | fabTagIsComposite  tag = FComposite
+    | fabTagIsMult       tag = FMask
+    | fabTagIsAdd        tag = FAdd
+    | fabTagIsFloatOr    tag = FFloatOr
+    | fabTagIsFloatXor   tag = FFloatXor
+    | fabTagIsMin        tag = FMin
+    | fabTagIsMax        tag = FMax
+    | fabTagIsHsvAdjust  tag = FHsvAdjust
+    | fabTagIsTranparent tag = FTransparent
 
 loadFabricTag :: MonadIO m => FabricTagId -> FabricStorageMonad s m FabricTag
 loadFabricTag fabricTagId = fromPileS fabricTagPile (unFabricTagId fabricTagId)
 
-loadFabricLimit :: MonadIO m => FabricTagId -> FabricStorageMonad s m (ShapeId, ShapeId)
-loadFabricLimit fabricTagId = fromLimits <$> fromPileS fabricTagPile (unFabricTagId fabricTagId + 1)
+loadFabricShapeCutPoint :: MonadIO m => FabricTagId -> FabricStorageMonad s m ShapeId
+loadFabricShapeCutPoint fabricTagId = fromCutPoint <$> fromPileS fabricTagPile (unFabricTagId fabricTagId + 1)
 
 loadFabric :: forall s m
            .  ( MonadIO m
@@ -171,8 +173,8 @@ loadFabric fabricTagId =
              | fabTagIsBinaryOp  tag = do let parentId = fabTagAboveId tag
                                               childId  = fabTagChildId  tag
                                               op = fabTagCombineType tag
-                                          (shapeAbove, shapeBelow) <- loadFabricLimit fabricTagId
-                                          return $ FCombine (op, shapeAbove, shapeBelow) parentId childId
+                                          shapeCutPoint <- loadFabricShapeCutPoint fabricTagId
+                                          return $ FCombine (op, shapeCutPoint) parentId childId
              | otherwise = error "unsupported fabricType"
      fabric <- buildFabric
      return fabric
@@ -200,6 +202,7 @@ loadFilter tag
   | fabTagIsInvert tag = FInvert
   | fabTagIsCos    tag = FCos
   | fabTagIsSin    tag = FSin
+  | fabTagIsClamp  tag = FClamp
 
 storeUnaryPost :: Fabric (ForStorage s) -> FabricTag
 storeUnaryPost fabric =
@@ -214,6 +217,7 @@ storeFilter filt =
       FInvert -> makeFabTagInvert
       FCos    -> makeFabTagCos
       FSin    -> makeFabTagSin
+      FClamp  -> makeFabTagClamp
 
 storeTransform :: ( MonadIO m
                   , Storable s

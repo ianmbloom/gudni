@@ -22,7 +22,7 @@ module Graphics.Gudni.Raster.Dag.Storage
    , loadFilterS
    , loadSubstanceS
    , loadFabricTagS
-   , loadFabricLimS
+   , loadFabricCutS
    , loadPrimS
    , loadTreeRootS
    , loadTreeTagS
@@ -84,7 +84,7 @@ allocateFabricCombineTagS :: (DagConstraints s m) =>                            
 setFabricS                :: (DagConstraints s m) => FabricTagId -> Fabric (ForStorage s) -> DagMonad s m ()
 addFabricS                :: (DagConstraints s m) =>                Fabric (ForStorage s) -> DagMonad s m FabricTagId
 storePrimS                :: (DagConstraints s m) => Primitive s                          -> DagMonad s m PrimTagId
-addTreeS                  :: (DagConstraints s m) => Slice PrimTagId                      -> DagMonad s m (Reference (Root s))
+addTreeS                  :: (DagConstraints s m) => Slice PrimTagId                      -> DagMonad s m (Reference (TreeRoot s))
 allocateFabricTagS         = overStateT dagFabricStorage allocateFabricTag
 allocateFabricCombineTagS  = overStateT dagFabricStorage allocateFabricCombineTag
 setFabricS location fabric = overStateT dagFabricStorage $ storeFabric location fabric
@@ -93,25 +93,25 @@ storePrimS prim            = overStateT dagPrimStorage   $ storePrim   prim
 addTreeS   slice           = do pile <- use dagPrimTagIds
                                 overStateT dagTreeStorage $ storeTree loadBoxS loadPrimS slice pile
 
-loadFabricS    :: (DagConstraints s m) => FabricTagId        -> DagMonad s m (Fabric (ForStorage s))
-loadTransformS :: (DagConstraints s m) => FabricTag          -> DagMonad s m (FTransformer s)
-loadFilterS    :: (DagConstraints s m) => FabricTag          -> DagMonad s m FFilter
-loadSubstanceS :: (DagConstraints s m) => FabricTag          -> DagMonad s m (FSubstance (ForStorage s))
-loadFabricTagS :: (DagConstraints s m) => FabricTagId        -> DagMonad s m FabricTag
-loadFabricLimS :: (DagConstraints s m) => FabricTagId        -> DagMonad s m (ShapeId, ShapeId)
-loadPrimS      :: (DagConstraints s m) => PrimTagId          -> DagMonad s m (Primitive s)
-loadBoxS       :: (DagConstraints s m) => PrimTagId          -> DagMonad s m (Box s)
-loadTreeRootS  :: (DagConstraints s m) => Reference (Root s) -> DagMonad s m (Root s)
-loadTreeTagS   :: (DagConstraints s m) => ConfineTagId    s  -> DagMonad s m (ConfineTag s)
-loadDecoTagS   :: (DagConstraints s m) => DecoTagId       s  -> DagMonad s m (DecoTag    s)
+loadFabricS    :: (DagConstraints s m) => FabricTagId            -> DagMonad s m (Fabric (ForStorage s))
+loadTransformS :: (DagConstraints s m) => FabricTag              -> DagMonad s m (FTransformer s)
+loadFilterS    :: (DagConstraints s m) => FabricTag              -> DagMonad s m FFilter
+loadSubstanceS :: (DagConstraints s m) => FabricTag              -> DagMonad s m (FSubstance (ForStorage s))
+loadFabricTagS :: (DagConstraints s m) => FabricTagId            -> DagMonad s m FabricTag
+loadFabricCutS :: (DagConstraints s m) => FabricTagId            -> DagMonad s m ShapeId
+loadPrimS      :: (DagConstraints s m) => PrimTagId              -> DagMonad s m (Primitive s)
+loadBoxS       :: (DagConstraints s m) => PrimTagId              -> DagMonad s m (Box s)
+loadTreeRootS  :: (DagConstraints s m) => Reference (TreeRoot s) -> DagMonad s m (TreeRoot s)
+loadTreeTagS   :: (DagConstraints s m) => ConfineTagId        s  -> DagMonad s m (ConfineTag s)
+loadDecoTagS   :: (DagConstraints s m) => DecoTagId           s  -> DagMonad s m (DecoTag    s)
 loadFabricS    fabricTagId = overStateT dagFabricStorage $ loadFabric      fabricTagId
 loadTransformS fabricTag   = overStateT dagFabricStorage $ loadTransform   fabricTag
 loadFilterS    fabricTag   = overStateT dagFabricStorage $ return $ loadFilter      fabricTag
 loadSubstanceS fabricTag   = overStateT (dagFabricStorage . fabricHeapPile) $ loadSubstance fabricTag
-loadFabricTagS fabricTagId = overStateT dagFabricStorage $ loadFabricTag   fabricTagId
-loadFabricLimS fabricTagId = overStateT dagFabricStorage $ loadFabricLimit fabricTagId
-loadPrimS      primTagId   = overStateT dagPrimStorage   $ loadPrim        primTagId
-loadBoxS       primTagId   = boxOf <$> loadPrimS primTagId
-loadTreeRootS  treeId      = overStateT dagTreeStorage   $ loadTreeRoot    treeId
-loadTreeTagS   treeId      = overStateT dagTreeStorage   $ loadTreeTag     treeId
-loadDecoTagS   treeId      = overStateT dagTreeStorage   $ loadDecoTag     treeId
+loadFabricTagS fabricTagId = overStateT dagFabricStorage $ loadFabricTag      fabricTagId
+loadFabricCutS fabricTagId = overStateT dagFabricStorage $ loadFabricShapeCutPoint fabricTagId
+loadPrimS      primTagId   = overStateT dagPrimStorage   $ loadPrim  primTagId
+loadBoxS       primTagId   = boxOf <$>                     loadPrimS primTagId
+loadTreeRootS  treeId      = overStateT dagTreeStorage   $ loadTreeRoot treeId
+loadTreeTagS   treeId      = overStateT dagTreeStorage   $ loadTreeTag  treeId
+loadDecoTagS   treeId      = overStateT dagTreeStorage   $ loadDecoTag  treeId

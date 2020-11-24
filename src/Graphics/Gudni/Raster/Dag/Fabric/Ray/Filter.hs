@@ -27,6 +27,7 @@ data FFilter where
      FInvert   :: FFilter -- (1-x)
      FCos      :: FFilter
      FSin      :: FFilter
+     FClamp    :: FFilter
      deriving (Enum, Show, Generic)
 
 instance Out FFilter

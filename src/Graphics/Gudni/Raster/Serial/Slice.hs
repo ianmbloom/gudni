@@ -71,6 +71,10 @@ mapSliceM body slice = let end = sliceStart slice + sliceLength slice - 1
 instance Show (Slice t) where
   show (Slice (Ref a) (Ref b)) = "(" ++ show a ++ "," ++ show b ++ ")"
 
+instance Out (Slice t) where
+      doc slice = text (show slice)
+      docPrec _ = doc
+
 instance StorableM (Slice t) where
   sizeOfM _ = do sizeOfM (undefined :: Reference t)
                  sizeOfM (undefined :: Reference t)

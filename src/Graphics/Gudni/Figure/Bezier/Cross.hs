@@ -42,6 +42,22 @@ bezierSlopeLTEZero axis bez =
 trDP depth message = id -- trDepth (depth + 1) message
 tcDP depth message = id -- tcDepth (depth + 1) message
 
+outsideOfRange :: ( Axis axis
+                  , Space s
+                  )
+               => axis
+               -> Along   axis s
+               -> Athwart axis s
+               -> Along   axis s
+               -> Box s
+               -> Bool
+outsideOfRange axis start baseline end box =
+    baseline >  box ^. maxBox . athwart axis ||
+    baseline <= box ^. minBox . athwart axis ||
+    start    >  box ^. maxBox . along   axis ||
+    end      <= box ^. minBox . along   axis
+
+-- This is written with a little odd recursion using checkGo so that it matches the finite stack based GPU code better.
 crossesBezierAlong :: forall axis s
                    . (Axis axis, Space s)
                    => axis
@@ -50,50 +66,52 @@ crossesBezierAlong :: forall axis s
                    -> Along axis s
                    -> Bezier s
                    -> Bool
-crossesBezierAlong axis start baseline end bez =
+crossesBezierAlong axis start baseline end initBez =
   --tc ("crossesBezierAlong " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
   if start == end
   then False
   else
   if start > end
-  then crossesBezierAlong axis end baseline start bez
-  else go bez
+  then crossesBezierAlong axis end baseline start initBez
+  else checkGo initBez
   where
-  go :: Bezier s -> Bool
-  go bez =
-    --tcDepth depth ("go " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
-    let minAthwart = bezAthwart axis min bez
-        maxAthwart = bezAthwart axis max bez
-        minAlong   = bezAlong   axis min bez
-        maxAlong   = bezAlong   axis max bez
-        (lessBez, moreBez) = splitBezier 0.5 bez
-    in  if baseline >  maxAthwart ||
-           baseline <= minAthwart ||
-           start >  maxAlong      ||
-           end   <= minAlong
-        then -- segment is totally outside the range of curve
-             False
-        else let size = fromAlong axis (maxAlong - minAlong) `max` fromAthwart axis (maxAthwart - minAthwart)
-                 slopeLTEZero = bezierSlopeLTEZero axis bez
-                 offBaseline = baseline /= maxAthwart
-                 isK = isKnobAbsolute axis bez || isKnobAbsolute (perpendicularTo axis) bez
-             in
-             if  size >= crossSplitLimit &&
-                (
-                 -- curve size remains greater than the limit
-                 offBaseline &&
-                 (start > minAlong || end <= maxAlong) -- and the start or end points are somewhere inside curve limits
-                )
-                || isK -- or the curve creates a knob, meaning there could be more than one cross point
-             then -- must split
-                  go lessBez /= go moreBez
-             else
-                  let barrierMin = slopeLTEZero || (not slopeLTEZero && (offBaseline && isVertical axis))
-                      barrier    = if barrierMin then minAlong else maxAlong
-                      startLTE   = slopeLTEZero || (not slopeLTEZero && (offBaseline || isHorizontal axis))
-                  in  if startLTE
-                      then start <= barrier && end > barrier
-                      else start < barrier  && end >= barrier
+  checkGo :: Bezier s -> Bool
+  checkGo bez =
+    let box = boxOf bez
+    in  if outsideOfRange axis start baseline end box
+        then False
+        else go bez box
+  go :: Bezier s -> Box s -> Bool
+  go bez box =
+     --tcDepth depth ("go " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
+     let minAthwart = box ^. minBox . athwart axis
+         maxAthwart = box ^. maxBox . athwart axis
+         minAlong   = box ^. minBox . along   axis
+         maxAlong   = box ^. maxBox . along   axis
+         size = fromAlong axis (maxAlong - minAlong) `max` fromAthwart axis (maxAthwart - minAthwart)
+         slopeLTEZero = bezierSlopeLTEZero axis bez
+         offBaseline = baseline /= maxAthwart
+         isK = isKnobAbsolute axis bez || isKnobAbsolute (perpendicularTo axis) bez
+     in
+     if  size >= crossSplitLimit &&
+        (
+         -- curve size remains greater than the limit
+         offBaseline &&
+         (start > box ^. minBox . along axis || end <= box ^. maxBox . along axis) -- and the start or end points are somewhere inside curve limits
+        )
+        || isK -- or the curve creates a knob, meaning there could be more than one cross point
+     then -- must split
+          let (lessBez, moreBez) = splitBezier 0.5 bez
+         in   checkGo lessBez
+              /=
+              checkGo moreBez
+     else
+          let barrierMin = slopeLTEZero || (not slopeLTEZero && (offBaseline && isVertical axis))
+              barrier    = if barrierMin then minAlong else maxAlong
+              startLTE   = slopeLTEZero || (not slopeLTEZero && (offBaseline || isHorizontal axis))
+          in  if startLTE
+              then start <= barrier && end >  barrier
+              else start <  barrier && end >= barrier
 
 -- This is an implementation of crossesBezierAlong that doesn't short circuit if the maximum side of the curve is on the baseline.
 crossesBezierAlongNoShort :: forall axis s

@@ -21,6 +21,7 @@ module Graphics.Gudni.Raster.Dag.Fabric.Tag
     , makeFabTagInvert               --
     , makeFabTagCos                  --
     , makeFabTagSin                  --
+    , makeFabTagClamp                --
 
     , makeFabTagComposite            --
     , makeFabTagMult                 --
@@ -29,7 +30,8 @@ module Graphics.Gudni.Raster.Dag.Fabric.Tag
     , makeFabTagFloatXor             --
     , makeFabTagMin                  --
     , makeFabTagMax                  --
-    , makeFabTagSaturate             --
+    , makeFabTagHsvAdjust            --
+    , makeFabTagTranparent           --
 
     , makeFabTagConstant             --
     , makeFabTagTexture              --
@@ -55,6 +57,7 @@ module Graphics.Gudni.Raster.Dag.Fabric.Tag
     , fabTagIsInvert                 --
     , fabTagIsCos                    --
     , fabTagIsSin                    --
+    , fabTagIsClamp                  --
 
     , fabTagIsComposite              --
     , fabTagIsMult                   --
@@ -63,7 +66,8 @@ module Graphics.Gudni.Raster.Dag.Fabric.Tag
     , fabTagIsFloatXor               --
     , fabTagIsMin                    --
     , fabTagIsMax                    --
-    , fabTagIsSaturate               --
+    , fabTagIsHsvAdjust              --
+    , fabTagIsTranparent             --
 
     , fabTagTreeId                   --
     , fabTagTransformId              --
@@ -72,9 +76,8 @@ module Graphics.Gudni.Raster.Dag.Fabric.Tag
     , fabTagBelowId                  --
     , fabTagChildId                  --
 
-    , makeLimits                     --
-
-    , fromLimits                     --
+    , makeCutPoint                   --
+    , fromCutPoint                   --
     )
 where
 
@@ -116,7 +119,7 @@ fromFabData tag = tag .&. fABRICtAGdATAbITMASK
 toFabData :: FabricTag_ -> FabricData_
 toFabData i = i .&. fABRICtAGdATAbITMASK
 
-makeFabTagTree :: Reference (Root s) -> FabricTagId -> FabricTag
+makeFabTagTree :: Reference (TreeRoot s) -> FabricTagId -> FabricTag
 makeFabTagTree treeId childId =
     FabricTag
     $   fABRICiSuNARYpRE
@@ -150,10 +153,12 @@ makeFabTagSqrt   :: FabricTagId -> FabricTag
 makeFabTagInvert :: FabricTagId -> FabricTag
 makeFabTagCos    :: FabricTagId -> FabricTag
 makeFabTagSin    :: FabricTagId -> FabricTag
+makeFabTagClamp  :: FabricTagId -> FabricTag
 makeFabTagSqrt   = makeFabTagFilter fABRICiSsQRT
 makeFabTagInvert = makeFabTagFilter fABRICiSiNVERT
 makeFabTagCos    = makeFabTagFilter fABRICiScOS
 makeFabTagSin    = makeFabTagFilter fABRICiSsIN
+makeFabTagClamp  = makeFabTagFilter fABRICiScLAMP
 
 makeBinaryOp :: FabricSubType_ -> FabricTagId -> FabricTagId -> FabricTag
 makeBinaryOp ty parent child =
@@ -163,22 +168,24 @@ makeBinaryOp ty parent child =
     .|. makeFabHigh (unRef . unFabricTagId $ parent)
     .|. makeFabLow  (unRef . unFabricTagId $ child )
 
-makeFabTagComposite :: FabricTagId -> FabricTagId -> FabricTag
-makeFabTagMult      :: FabricTagId -> FabricTagId -> FabricTag
-makeFabTagAdd       :: FabricTagId -> FabricTagId -> FabricTag
-makeFabTagFloatOr   :: FabricTagId -> FabricTagId -> FabricTag
-makeFabTagFloatXor  :: FabricTagId -> FabricTagId -> FabricTag
-makeFabTagMin       :: FabricTagId -> FabricTagId -> FabricTag
-makeFabTagMax       :: FabricTagId -> FabricTagId -> FabricTag
-makeFabTagSaturate  :: FabricTagId -> FabricTagId -> FabricTag
-makeFabTagComposite = makeBinaryOp fABRICiScOMPOSITE
-makeFabTagMult      = makeBinaryOp fABRICiSmULT
-makeFabTagAdd       = makeBinaryOp fABRICiSaDD
-makeFabTagFloatOr   = makeBinaryOp fABRICiSfLOAToR
-makeFabTagFloatXor  = makeBinaryOp fABRICiSfLOATxOR
-makeFabTagMin       = makeBinaryOp fABRICiSmIN
-makeFabTagMax       = makeBinaryOp fABRICiSmAX
-makeFabTagSaturate  = makeBinaryOp fABRICiSsATURATE
+makeFabTagComposite  :: FabricTagId -> FabricTagId -> FabricTag
+makeFabTagMult       :: FabricTagId -> FabricTagId -> FabricTag
+makeFabTagAdd        :: FabricTagId -> FabricTagId -> FabricTag
+makeFabTagFloatOr    :: FabricTagId -> FabricTagId -> FabricTag
+makeFabTagFloatXor   :: FabricTagId -> FabricTagId -> FabricTag
+makeFabTagMin        :: FabricTagId -> FabricTagId -> FabricTag
+makeFabTagMax        :: FabricTagId -> FabricTagId -> FabricTag
+makeFabTagHsvAdjust  :: FabricTagId -> FabricTagId -> FabricTag
+makeFabTagTranparent :: FabricTagId -> FabricTagId -> FabricTag
+makeFabTagComposite  = makeBinaryOp fABRICiScOMPOSITE
+makeFabTagMult       = makeBinaryOp fABRICiSmULT
+makeFabTagAdd        = makeBinaryOp fABRICiSaDD
+makeFabTagFloatOr    = makeBinaryOp fABRICiSfLOAToR
+makeFabTagFloatXor   = makeBinaryOp fABRICiSfLOATxOR
+makeFabTagMin        = makeBinaryOp fABRICiSmIN
+makeFabTagMax        = makeBinaryOp fABRICiSmAX
+makeFabTagHsvAdjust  = makeBinaryOp fABRICiShSVaDJUST
+makeFabTagTranparent = makeBinaryOp fABRICiStRANSPARENT
 
 makeSubstanceData :: FabricData_ -> SubstanceTag_
 makeSubstanceData i = i .&. fABRICtAGdATAbITMASK
@@ -202,7 +209,7 @@ makeFabTagLinear    = makeSubstanceTag    fABRICiSlINEAR
 makeFabTagQuadrance = makeSubstanceTag    fABRICiSqUADRANCE
 
 fabTagNodeType :: FabricTag -> FabricNodeType_
-fabTagNodeType fabricTag = unFabricTag fabricTag .&. fABRICnODEtYPEbITMASK
+fabTagNodeType fabricTag = unFabricTag fabricTag .&. fABRICtYPEbITMASK
 
 matchNodeType :: FabricNodeType_ -> FabricTag -> Bool
 matchNodeType ty fabricTag = fabTagNodeType fabricTag == ty
@@ -216,11 +223,11 @@ fabTagIsUnaryPre  = matchNodeType fABRICiSuNARYpRE
 fabTagIsUnaryPost = matchNodeType fABRICiSuNARYpOST
 fabTagIsBinaryOp  = matchNodeType fABRICiSbINARY
 
-fabTagNodeSubType :: FabricTag -> FabricNodeSubType_
-fabTagNodeSubType fabricTag = unFabricTag fabricTag .&. fABRICnODEsUBtYPEbITMASK
+fabTagSubType :: FabricTag -> FabricNodeSubType_
+fabTagSubType fabricTag = unFabricTag fabricTag .&. fABRICsUBtYPEbITMASK
 
 matchSubType :: FabricSubType_ -> FabricTag -> Bool
-matchSubType match fabricTag = fabTagNodeSubType fabricTag == match
+matchSubType match fabricTag = fabTagSubType fabricTag == match
 
 substanceTagRef :: FabricTag -> FabricData_
 substanceTagRef tag = unFabricTag tag .&. fABRICtAGdATAbITMASK
@@ -247,27 +254,29 @@ fabTagIsSqrt   :: FabricTag -> Bool
 fabTagIsInvert :: FabricTag -> Bool
 fabTagIsCos    :: FabricTag -> Bool
 fabTagIsSin    :: FabricTag -> Bool
+fabTagIsClamp  :: FabricTag -> Bool
 fabTagIsSqrt   = matchSubType fABRICiSsQRT
 fabTagIsInvert = matchSubType fABRICiSiNVERT
 fabTagIsCos    = matchSubType fABRICiScOS
 fabTagIsSin    = matchSubType fABRICiSsIN
+fabTagIsClamp  = matchSubType fABRICiScLAMP
 
 fabTagIsComposite :: FabricTag -> Bool
 fabTagIsMult      :: FabricTag -> Bool
 fabTagIsAdd       :: FabricTag -> Bool
 fabTagIsFloatOr   :: FabricTag -> Bool
 fabTagIsFloatXor  :: FabricTag -> Bool
-fabTagIsComposite = matchSubType fABRICiScOMPOSITE
-fabTagIsMult      = matchSubType fABRICiSmULT
-fabTagIsAdd       = matchSubType fABRICiSaDD
-fabTagIsFloatOr   = matchSubType fABRICiSfLOAToR
-fabTagIsFloatXor  = matchSubType fABRICiSfLOATxOR
-fabTagIsMin       = matchSubType fABRICiSmIN
-fabTagIsMax       = matchSubType fABRICiSmAX
-fabTagIsSaturate  = matchSubType fABRICiSsATURATE
+fabTagIsComposite  = matchSubType fABRICiScOMPOSITE
+fabTagIsMult       = matchSubType fABRICiSmULT
+fabTagIsAdd        = matchSubType fABRICiSaDD
+fabTagIsFloatOr    = matchSubType fABRICiSfLOAToR
+fabTagIsFloatXor   = matchSubType fABRICiSfLOATxOR
+fabTagIsMin        = matchSubType fABRICiSmIN
+fabTagIsMax        = matchSubType fABRICiSmAX
+fabTagIsHsvAdjust  = matchSubType fABRICiShSVaDJUST
+fabTagIsTranparent = matchSubType fABRICiStRANSPARENT
 
-
-fabTagTreeId :: FabricTag -> Reference (Root s)
+fabTagTreeId :: FabricTag -> Reference (TreeRoot s)
 fabTagTreeId = Ref . fromFabHigh . unFabricTag
 
 fabTagTransformId :: FabricTag -> TransformId
@@ -285,25 +294,17 @@ fabTagBelowId = fabTagChildId
 fabTagChildId :: FabricTag -> FabricTagId
 fabTagChildId = FabricTagId . Ref . fromFabLow . unFabricTag
 
-makeHighLimit :: ShapeId_ -> FabricTag_
-makeHighLimit shapeId = fromIntegral shapeId `shiftL` 32
+makeLowCutPoint :: ShapeId_ -> FabricTag_
+makeLowCutPoint = fromIntegral
 
-makeLowLimit :: ShapeId_ -> FabricTag_
-makeLowLimit = fromIntegral
+makeCutPoint :: ShapeId -> FabricTag
+makeCutPoint belowShape = FabricTag . makeLowCutPoint . unShapeId $ belowShape
 
-makeLimits :: ShapeId -> ShapeId -> FabricTag
-makeLimits aRef bRef = FabricTag $ (makeHighLimit . unShapeId $ aRef) .|. (makeLowLimit . unShapeId $ bRef)
+fromLowCutPoint :: FabricTag_ -> ShapeId_
+fromLowCutPoint tag = fromIntegral tag .&. nULLsHAPEiD
 
-fromHighLimit :: FabricTag_ -> ShapeId_
-fromHighLimit fabricTag = fromIntegral $ fabricTag `shiftR` 32
-
-fromLowLimit :: FabricTag_ -> ShapeId_
-fromLowLimit tag = fromIntegral tag .&. nULLsHAPEiD
-
-fromLimits :: FabricTag -> (ShapeId, ShapeId)
-fromLimits (FabricTag tag) = ( ShapeId . fromHighLimit $ tag
-                             , ShapeId . fromLowLimit  $ tag
-                             )
+fromCutPoint :: FabricTag -> ShapeId
+fromCutPoint (FabricTag tag) = ShapeId . fromLowCutPoint $ tag
 
 showBinaryTag :: FabricTag -> String
 showBinaryTag tag = (show . fabTagAboveId $ tag) ++ " X " ++ (show . fabTagChildId $ tag)
@@ -322,11 +323,12 @@ instance Show FabricTag where
        | fabTagIsUnaryPost tag && fabTagIsInvert             tag = "Invert"
        | fabTagIsUnaryPost tag && fabTagIsCos                tag = "Cos"
        | fabTagIsUnaryPost tag && fabTagIsSin                tag = "Sin"
-       | fabTagIsBinaryOp  tag && fabTagIsComposite          tag = "Composite" ++ " " ++ showBinaryTag tag
-       | fabTagIsBinaryOp  tag && fabTagIsMult               tag = "Mult"      ++ " " ++ showBinaryTag tag
-       | fabTagIsBinaryOp  tag && fabTagIsAdd                tag = "Add"       ++ " " ++ showBinaryTag tag
-       | fabTagIsBinaryOp  tag && fabTagIsFloatOr            tag = "FloatOr"   ++ " " ++ showBinaryTag tag
-       | fabTagIsBinaryOp  tag && fabTagIsFloatXor           tag = "FloatXor"  ++ " " ++ showBinaryTag tag
-       | fabTagIsBinaryOp  tag && fabTagIsMin                tag = "Min"       ++ " " ++ showBinaryTag tag
-       | fabTagIsBinaryOp  tag && fabTagIsMax                tag = "Max"       ++ " " ++ showBinaryTag tag
-       | fabTagIsBinaryOp  tag && fabTagIsSaturate           tag = "Saturate"  ++ " " ++ showBinaryTag tag
+       | fabTagIsBinaryOp  tag && fabTagIsComposite          tag = "Composite"  ++ " " ++ showBinaryTag tag
+       | fabTagIsBinaryOp  tag && fabTagIsMult               tag = "Mult"       ++ " " ++ showBinaryTag tag
+       | fabTagIsBinaryOp  tag && fabTagIsAdd                tag = "Add"        ++ " " ++ showBinaryTag tag
+       | fabTagIsBinaryOp  tag && fabTagIsFloatOr            tag = "FloatOr"    ++ " " ++ showBinaryTag tag
+       | fabTagIsBinaryOp  tag && fabTagIsFloatXor           tag = "FloatXor"   ++ " " ++ showBinaryTag tag
+       | fabTagIsBinaryOp  tag && fabTagIsMin                tag = "Min"        ++ " " ++ showBinaryTag tag
+       | fabTagIsBinaryOp  tag && fabTagIsMax                tag = "Max"        ++ " " ++ showBinaryTag tag
+       | fabTagIsBinaryOp  tag && fabTagIsHsvAdjust          tag = "HsvAdjust"  ++ " " ++ showBinaryTag tag
+       | fabTagIsBinaryOp  tag && fabTagIsTranparent         tag = "Tranparent" ++ " " ++ showBinaryTag tag

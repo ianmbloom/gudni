@@ -16,6 +16,7 @@ where
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 
+import Graphics.Gudni.Raster.Dag.ConfineTree.Out
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Tag
@@ -49,21 +50,24 @@ outFabric  fabricTagId =
               then return $ text "X"
               else do fabric <- loadFabricS fabricTagId
                       case fabric of
-                        FCombine (op, shapeMinA, shapeMinB) aboveId belowId ->
+                        FCombine (op, shapeMinB) aboveId belowId ->
                             do aboveQ <- nest 1 <$> go aboveId
                                belowQ <- nest 1 <$> go belowId
-                               return $ {-text "FCombine" <+>-} doc op <+> doc shapeMinA <+> doc shapeMinB $$ aboveQ $$ belowQ
+                               return $ {-text "FCombine" <+>-} doc op <+> doc shapeMinB $$ aboveQ $$ belowQ
                         FTransform trans childId ->
                             ({-text "FTransform" <+>-} doc trans $$) <$> go childId
                         FLeaf leaf ->
                             case leaf of
                                 FTree treeId child ->
                                     do (confineTreeId, decoTreeId) <- loadTreeRootS treeId
+                                       confineOut <- outConfineTree confineTreeId
+                                       decoOut    <- outDecoTree decoTreeId
                                        (text "FTree" <+> doc treeId
-                                            -- $$
-                                            -- nest 2 ( (doc confineTree) $$
-                                            --          (doc decoTree)
-                                            --        )
+                                            $$
+                                            nest 2 ( hang (text "decoTree")    4 decoOut    $$
+                                                     hang (text "confineTree") 4 confineOut
+
+                                                   )
                                             $$
                                             )
                                             <$> go child

@@ -24,7 +24,7 @@ module Graphics.Gudni.Figure.Substance.Color
   ( Color(..)
   , unColor
   , rgbaColor
-  , hslColor
+  , hsvColor
 
   , cRed
   , cGreen
@@ -40,6 +40,7 @@ module Graphics.Gudni.Figure.Substance.Color
   , isOpaque
   , isClear
   , composite
+  , hsvAdjust
   , saturate
   , lighten
   , light
@@ -49,8 +50,6 @@ module Graphics.Gudni.Figure.Substance.Color
   , mixColor
 
   , redish, orangeish, yellowish, greenish, blueish, purpleish
-  , word8ToCFloat
-  , colorToRGBA8
   , colourToColor
   )
 where
@@ -78,7 +77,7 @@ import Linear.Vector
 
 import System.Random
 import qualified Data.Colour as C
-import qualified Data.Colour.RGBSpace.HSL as C
+import qualified Data.Colour.RGBSpace.HSV as C
 import qualified Data.Colour.RGBSpace as C
 import qualified Data.Colour.SRGB as C
 import qualified Data.Colour.Names as N
@@ -140,8 +139,8 @@ opaqueWhite :: Num s => Color s
 opaqueWhite = rgbaColor 1 1 1 1
 
 -- | Generate a 'Color' from hue saturation and lightness values.
-hslColor :: (Space s) => s -> s -> s -> Color s
-hslColor hue saturation lightness = colourToColor 1 (C.uncurryRGB C.sRGB $ C.hsl hue saturation lightness)
+hsvColor :: (Space s) => s -> s -> s -> Color s
+hsvColor hue saturation value = colourToColor 1 (C.uncurryRGB C.sRGB $ C.hsv hue saturation value)
 
 -- | Generate a 'Color' from simple RGB and alpha values.
 rgbaColor :: s -> s -> s -> s -> Color s
@@ -156,28 +155,28 @@ composite f b =
   else clearBlack
 
 -- | Generate a 'Color' based on the input color by multiplying the saturation by a factor.
-saturate :: (Space s) => s -> Color s -> Color s
-saturate sat color =
+hsvAdjust :: Space s => Color s -> Color s -> Color s
+hsvAdjust adjuster color =
     let (colour, alpha) = colorToColour color
-        (h, s, l) = C.hslView . C.toSRGB $ colour
-        c = C.uncurryRGB C.sRGB $ C.hsl h (clamp 0 1.0 $ sat * s) l
+        (h, s, l) = C.hsvView . C.toSRGB $ colour
+        (V4 hueShift sat value _) = color ^. unColor
+        c = C.uncurryRGB C.sRGB $ C.hsv (snd . properFraction $ hueShift + h) (clamp 0 1.0 $ sat + s) (l + value)
     in  colourToColor alpha c
+
+saturate :: (Space s) => s -> Color s -> Color s
+saturate sat = hsvAdjust (Color $ V4 0 sat 0 0)
 
 -- | Generate a 'Color' based on the input color by multiplying the lightness by a factor.
 lighten :: (Space s) => s -> Color s -> Color s
-lighten light color =
-  let (colour, alpha) = colorToColour color
-      (h, s, l) = C.hslView . C.toSRGB $ colour
-      c = C.uncurryRGB C.sRGB $ C.hsl h s (clamp 0 1.0 $ light * l)
-  in  colourToColor alpha c
+lighten value = hsvAdjust (Color $ V4 0 0 value 0)
 
 -- | Make a slightly lighter version of the color.
 light :: (Space s) => Color s -> Color s
-light = saturate 0.8  . lighten 1.25
+light = saturate 0.8  . lighten 0.2
 
 -- | Make a slightly darker version of the color.
 dark :: (Space s) => Color s -> Color s
-dark  = saturate 1.25 . lighten 0.75
+dark  = saturate 1.25 . lighten (-0.2)
 
 -- | Make a much darker version of the color.
 veryDark :: (Space s) => Color s -> Color s
@@ -197,9 +196,9 @@ influenceHue amount b a =
   let (color,   alpha) = colorToColour a
       (blender,    _ ) = colorToColour b
       blended = C.blend amount blender color
-      (h,s,_) = C.hslView . C.toSRGB $ blended
-      (_,_,l) = C.hslView . C.toSRGB $ color
-  in  transparent alpha (hslColor h s l)
+      (h,s,_) = C.hsvView . C.toSRGB $ blended
+      (_,_,l) = C.hsvView . C.toSRGB $ color
+  in  transparent alpha (hsvColor h s l)
 
 -- | The amount to mix in a color to ish it.
 ishAmount :: Space s => s
@@ -234,19 +233,6 @@ instance (Space s, Storable s) => Storable (Color s) where
     alignment _ = alignment (undefined :: V4 CFloat)
     peek ptr = Color . fmap (realToFrac :: CFloat -> s) <$> peek (F.castPtr ptr)
     poke ptr = poke (F.castPtr ptr) . fmap (realToFrac :: s -> CFloat) . view unColor
-
-
-mAXcHANNELsPACE :: Space s => s
-mAXcHANNELsPACE = 255.0
-
-mAXcHANNELcfLOAT :: CFloat
-mAXcHANNELcfLOAT = 255.0
-
-word8ToCFloat :: Word8 -> CFloat
-word8ToCFloat word = realToFrac word / mAXcHANNELcfLOAT;
-
-colorToRGBA8 :: Space s => Color s -> Color Word8
-colorToRGBA8 = Color . fmap (round . (* mAXcHANNELsPACE)) . view unColor
 
 -- | Wrapped colors
 red    :: Space s => Color s

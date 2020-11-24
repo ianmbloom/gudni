@@ -30,10 +30,10 @@ basicShapes =
       ,
       ("twoTriangles",
       \ playhead step ->
-      scaleBy 10 .
+      scaleBy 7 .
       translateByXY 1 1
       $
-      overlap [ withColor (transparent 0.5 red) .
+      overlap [ withColor (transparent 0.75 red) .
                 translateByXY 0 0 .
                 rotateBy (playhead @@ deg) .
                 scaleBy 10 .
@@ -41,31 +41,41 @@ basicShapes =
                 $
                 triangle
                 ,
-                withColor (transparent 0.5 cyan) .
+                withColor (transparent 0.75 cyan) .
                 translateByXY 1 1 .
                 rotateBy (playhead @@ deg) .
                 scaleBy 10 .
                 mask
                 $
                 triangle
-                ,
-                 withColor (transparent 0.5 purple) .
-                 translateByXY 2 2  .
-                 rotateBy (playhead @@ deg) .
-                 scaleBy 10 .
-                 mask
-                 $
-                 triangle
-                 ,
-                 withColor (transparent 0.5 green) .
-                 translateByXY 3 3  .
-                 rotateBy (playhead @@ deg) .
-                 scaleBy 10 .
-                 mask
-                 $
-                 triangle
+                -- ,
+                -- withColor (transparent 0.5 purple) .
+                -- translateByXY 2 2  .
+                -- rotateBy (playhead @@ deg) .
+                -- scaleBy 10 .
+                -- mask
+                -- $
+                -- triangle
+                -- ,
+                -- withColor (transparent 0.5 green) .
+                -- translateByXY 3 3  .
+                -- rotateBy (playhead @@ deg) .
+                -- scaleBy 10 .
+                -- mask
+                -- $
+                -- triangle
               ]
        )
+      ,
+      ("bigTriangle",
+      \ playhead step ->
+      -- rotateBy ((negate playhead) @@ deg) .
+      -- rotateBy (playhead @@ deg) .
+      withColor ({-transparent 0.25-} red) .
+      mask
+      $
+      bigTriangle
+      )
       ,
       ("triRed",
       \ playhead step ->
@@ -81,7 +91,7 @@ basicShapes =
       ,
       ("diamondBox",
       \ playhead step ->
-      scaleBy 100 .
+      scaleBy 10 .
       translateByXY 4 4 .
       rotateBy (playhead @@ deg) .
       withColor (transparent 0.25 purple) .
@@ -97,7 +107,7 @@ basicShapes =
       ,
       ("tallBox",
       \ playhead step ->
-      scaleBy 100 .
+      scaleBy 10 .
       translateByXY 6 1 .
       rotateBy (playhead @@ deg) .
       withColor (transparent 0.25 purple) .
@@ -113,7 +123,7 @@ basicShapes =
       ,
       ("triPurple",
       \ playhead step ->
-      scaleBy 100 .
+      scaleBy 10 .
       translateByXY 4 4 .
       rotateBy (playhead @@ deg) .
       withColor (transparent 0.25 purple) .
@@ -124,7 +134,7 @@ basicShapes =
       ,
       ("knob",
       \ playhead step ->
-      scaleBy 100 .
+      scaleBy 10 .
       rotateBy (playhead @@ deg) .
       withColor (transparent 0.25 purple) .
       mask
@@ -134,7 +144,7 @@ basicShapes =
       ,
       ("overhangs",
       \ playhead step ->
-      scaleBy 100 .
+      scaleBy 10 .
       translateByXY 1 0 $
       overlap [
           rotateBy (playhead @@ deg) .
@@ -166,6 +176,16 @@ sixPointRectangle =
   [ straightXY 0 0, straightXY 1 0, straightXY 2 0
   , straightXY 2 1, straightXY 1 1, straightXY 0 1
   ]
+
+bigTriangle :: Space s => Shape s
+bigTriangle =
+    Shape . pure . fromSegments $
+    [ straightXY 0  0
+    , straightXY 32 0
+    , straightXY 0  32
+    ]
+
+
 
 triangle :: Space s => Shape s
 triangle =
