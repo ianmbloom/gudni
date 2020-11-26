@@ -196,10 +196,10 @@ splitWithCutPoint cutPoint mRange =
                                       , Just (StackRange cutIndex (rangeMax range))
                                       )
 
-debugIf ray f = let p = rayToPoint ray
+debugIf ray m = let p = rayToPoint ray
                 in
                 if p ^. pX == fromIntegral dEBUG0 && p ^. pY == fromIntegral dEBUG1
-                then f
+                then liftIO $ putStrLn $ m
                 else return ()
 
 traverseFabric :: forall m ray q
@@ -216,9 +216,9 @@ traverseFabric :: forall m ray q
                -> FabricTagId
                -> RayMonad (SpaceOf ray) m q
 traverseFabric initRay fabricTagId =
-    evalStateT (do debugIf initRay . liftIO . putStrLn $ "======================== start thread" ++ show initRay
+    evalStateT (do debugIf initRay $ "======================== start thread" ++ show initRay
                    q <- go fabricTagId Nothing FirstStage initRay
-                   debugIf initRay . liftIO . putStrLn $ "======================== end   thread" ++ show initRay
+                   debugIf initRay $ "======================== end   thread" ++ show initRay
                    return q
                 ) initTraverseState
     where
@@ -227,21 +227,19 @@ traverseFabric initRay fabricTagId =
                if isEmpty
                then popColor
                else do (tagId, mRange, fabricStage, ray) <- popFabric
-                       debugIf initRay . liftIO . putStrLn $ "pop -> " ++ show tagId ++ " ray " ++ show ray ++ " range " ++ show mRange ++ " hasRange mRange " ++ show (hasRange mRange)
+                       debugIf initRay $ "pop -> " ++ show tagId ++ " " ++ show fabricStage ++ " range " ++ show mRange ++ " hasRange mRange " ++ show (hasRange mRange) ++ " ray " ++ show ray
                        go tagId mRange fabricStage ray
     go :: FabricTagId -> Maybe StackRange -> Stage -> ray -> StateT (TraverseState ray q) (RayMonad (SpaceOf ray) m) q
     go tagId mRange fabricStage ray =
-       if not $ hasRange mRange
-       then do pushColor emptyQuery
-               popGo
-       else
        if tagId == nullFabricTagId
-       then do debugIf initRay . liftIO . putStrLn $ show tagId ++ " tag X range " ++ show mRange ++ " stage " ++ show fabricStage ++ " ray " ++ show ray
-               pushColor insideShape
+       then do debugIf initRay $ lpad 4 (show tagId) ++ " " ++ show fabricStage ++ " tag " ++ rpad 16 "X" ++ " range " ++ show mRange ++ " ray " ++ show ray
+               pushColor $ if hasRange mRange then insideShape else emptyQuery
                popGo
        else
            do  tag <- loadFabricTagT tagId
-               debugIf initRay . liftIO . putStrLn $ show tagId ++ " tag " ++ show tag ++ " range " ++ show mRange ++ " stage " ++ show fabricStage ++ " ray " ++ show ray
+               debugIf initRay $ lpad 4 (show tagId) ++ " " ++ show fabricStage ++ " tag " ++ rpad 16 (show tag) ++ " range " ++ show mRange ++ " ray " ++ show ray
+               colorStack <- use tsColorStack
+               debugIf initRay $ lpad 4 (show tagId) ++ " colorStack " ++ show colorStack
                -- checkFabricStack
                -- checkShapeStack
                let traverseTag
@@ -251,11 +249,17 @@ traverseFabric initRay fabricTagId =
                                                  pushColor color
                                                  popGo
                     | fabTagIsUnaryPre  tag = if fabTagIsTree tag
-                                              then do root <- loadTreeRootT (fabTagTreeId tag)
-                                                      newStack <- Stack . V.fromList <$> (lift $ rayTraverseTree root ray)
-                                                      pushShapeStack newStack
-                                                      let newRange = makeStackRange newStack
-                                                      go (fabTagChildId tag) newRange FirstStage ray
+                                              then case fabricStage of
+                                                       FirstStage ->
+                                                           do pushFabric tagId Nothing SecondStage ray
+                                                              root <- loadTreeRootT (fabTagTreeId tag)
+                                                              newStack <- Stack . V.fromList <$> (lift $ rayTraverseTree root ray)
+                                                              pushShapeStack newStack
+                                                              let newRange = makeStackRange newStack
+                                                              go (fabTagChildId tag) newRange FirstStage ray
+                                                       SecondStage ->
+                                                           do popShapeStack
+                                                              popGo
                                               else -- must be transformer
                                                    do transform <- loadTransformT tag
                                                       let transformedRay = rayApplyTransform transform ray
@@ -274,7 +278,7 @@ traverseFabric initRay fabricTagId =
                                                   case fabricStage of
                                                       FirstStage ->
                                                           do (aboveRange, belowRange) <- splitWithCutPoint cutPoint mRange
-                                                             -- debugIf ray . liftIO . putStrLn $ "cutPoint " ++ show cutPoint ++ " aboveRange " ++ show aboveRange ++ " belowRange " ++ show belowRange
+                                                             debugIf initRay $ "    cutPoint " ++ show cutPoint ++ " aboveRange " ++ show aboveRange ++ " belowRange " ++ show belowRange
                                                              pushFabric tagId belowRange SecondStage ray
                                                              go (fabTagAboveId tag) aboveRange FirstStage ray
                                                       SecondStage ->
@@ -288,7 +292,7 @@ traverseFabric initRay fabricTagId =
                                                       ThirdStage ->
                                                           do belowQ <- popColor
                                                              aboveQ <- popColor
-                                                             debugIf initRay . liftIO $ putStrLn $ "traverseCombine " ++ show aboveQ ++ " " ++ show belowQ
+                                                             debugIf initRay $ lpad 4 (show tagId) ++ "traverseCombine\n    " ++ show aboveQ ++ "\n    " ++ show belowQ
                                                              let combineType = fabTagCombineType tag
                                                                  colorCombined = traverseCombine combineType aboveQ belowQ
                                                              -- liftIO $ putStrLn $ "combineType " ++ show combineType ++ " aboveQ " ++ show aboveQ ++ " belowQ " ++ show belowQ ++ " color " ++ show color

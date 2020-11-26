@@ -75,16 +75,16 @@ initialModel =
           , _statePace        = 50
           , _stateLastTime    = 0
           , _stateDirection   = True
-          , _statePlayhead    = 15
+          , _statePlayhead    = 18
           , _stateFrameNumber = 0
           , _stateStep        = 53
           , _stateRepMode     = False
           , _stateRepDk       = False
           , _stateCursor      = Point2 730 1140
           }
-    , _stateShapeAngle = 15 @@ deg -- @@ rad -- 0 @@ rad
+    , _stateShapeAngle = 0 @@ deg -- @@ rad -- 0 @@ rad
     , _stateTraceStep = 0
-    , _stateCurrentTest = flip findTest allTests  "twoTriangles" -- "bigTriangle" -- "randomCurves" -- "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
+    , _stateCurrentTest = flip findTest allTests "randomCurves"  -- "onTriangles" -- "twoTriangles" -- "bigTriangle" -- "randomCurves" -- "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
     , _stateDecorationType = True
     , _stateDecorationLimit = 0
     }
@@ -150,8 +150,12 @@ instance Model ConfineTreeState where
 
                          -- liftIO $ putStrLn "about to constructDag"
                          -- (dag :: Layout DefaultStyle) <- lift $ constructDag root
+                         let curs :: Layout DefaultStyle
+                             curs = translateBy (Point2 200 200) . scaleBy 5 . withColor black $ mask circle
                          return $
-                             overlap [  --imageLayout
+                             overlap [  curs
+                                        --,
+                                        --imageLayout
                                         -- ,
                                         -- withColor black . mask . rectangle $ fmap (+3) $ fmap fromIntegral canvasSize
                                         -- ,
@@ -168,7 +172,7 @@ instance Model ConfineTreeState where
                                         -- traceConstructed
                                         -- ,
                                         -- dag
-                                        -- ,
+                                        ,
                                         testShape
                                      ]
                 ) (mkStdGen frameNumber)) storage
@@ -176,9 +180,9 @@ instance Model ConfineTreeState where
             liftIO $ putStrLn $ "sizeOf Haskell ConfineTag " ++ show (sizeOf (undefined :: ConfineTag SubSpace))
             liftIO $ putStrLn "After withSerialized Fabric"
             let statusTree = statusDisplay (state ^. stateBase) "Test ConfineTree" (lines status)
-                treeScene  = transformFromState (state ^. stateBase) testShape --testScene
+                treeScene  = transformFromState (state ^. stateBase) testShape
                 withStatus = if False then overlap [statusTree, treeScene] else treeScene
-            return $ withBackgroundColor black withStatus
+            return $ withBackgroundColor gray withStatus
     providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target
                                     return state

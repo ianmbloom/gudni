@@ -53,5 +53,7 @@ queryConfineTagPoint :: forall s m . (Space s, Storable s, MonadIO m) => TreeRoo
 queryConfineTagPoint root point =
     do  let (confineTreeId, decoTreeId) = root
         (anchor, anchorStack) <- getAnchorStack point decoTreeId
+        when (point == Point2 2 2) $ liftIO $ putStrLn $ "afterDecorate point " ++ show point ++ " anchor " ++ show anchor ++ " \n" ++ show anchorStack
         stack <- secondLeg anchor point confineTreeId anchorStack
+        when (point == Point2 2 2) $ liftIO $ putStrLn $ "after SecondLeg " ++ " \n" ++ show stack
         return stack

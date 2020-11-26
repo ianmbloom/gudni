@@ -229,8 +229,9 @@ runApplication :: ( Show s
                => s
                -> IO ()
 runApplication = runApplicationDagOpenCL
+--runApplication = runApplicationDagHaskell
+--runApplication = runApplicationThresholdOpenCL
 
--- runApplication = runApplicationThresholdOpenCL
 -- | Convert a `Timespec` to the `SimpleTime` (a double in seconds from application start)
 toSimpleTime :: TimeSpec -> SimpleTime
 toSimpleTime timeSpec = (fromIntegral . toNanoSecs $ timeSpec) / 1000000000

@@ -224,6 +224,7 @@ typedef struct Dag
 
 typedef struct ShapeStack {
     ShapeId_  stVector[SHAPESTACKSIZE];
+         int  stOffset;
          int  stSize;
 } ShapeStack;
 
@@ -276,6 +277,7 @@ inline bool crossesBezTriAlong(  Space_  limit
 
 inline Space_ getRandom(Dag *dag);
 
+void showBezierHeap(int size, Dag *dag);
 void showDecoTagHeap(int size, GMEM DecoTag  *treeDecoHeap);
 void showDecoTag(DecoTag tag);
 void showConfineTagHeap(int size, GMEM ConfineTag  *treeConfineHeap);
@@ -287,7 +289,6 @@ void showColorStack(TraverseState *state);
 void showStackInRange(StackRange_ range, ShapeStack *stack);
 void showBezier(Bezier_ bez);
 void showAffine(Affine_ a);
-void showFabricTagType(FabricTag_ tag);
 // ------------------------------------------ Box ------------------------------------------
 
 inline Space_  taxiDistance(Point2_ v0, Point2_ v1) {return fabs(v1.x - v0.x) + fabs(v1.y - v0.y);}
@@ -376,9 +377,7 @@ inline FabricTagId_ fabTagAboveId     (FabricTag_ tag) {return fromFabHigh(tag);
 inline FabricTagId_ fabTagChildId     (FabricTag_ tag) {return fromFabLow (tag);}
 #define fabTagBelowId fabTagChildId
 
-inline ShapeId_ fromHighLimit(FabricTag_ fabricTag) {return (ShapeId_) (fabricTag >> 32        );}
-inline ShapeId_ fromLowLimit (FabricTag_ fabricTag) {return (ShapeId_) (fabricTag & NULLSHAPEID);}
-
+inline ShapeId_ fromCutpoint (FabricTag_ fabricTag) {return (ShapeId_) (fabricTag & NULLSHAPEID);}
 
 // ------------------- functions matching Graphics.Gudni.Principle.Point -------------------
 
@@ -599,10 +598,10 @@ inline bool crossesBezierAlong (  Space_  limit
                     done = true;
                 }
             }
+        } // if outsideOfRange init
+        else {
+           //DEBUG_IF(printf("out   ret %i ", returnValue);showBezier(bez);printf("\n");)
         }
-        // else {
-        //    DEBUG_IF(printf("out   ret %i ", returnValue);showBezier(bez);printf("\n");)
-        // }
     }
     return returnValue;
 }
@@ -611,9 +610,9 @@ inline bool crossesBezierAlong (  Space_  limit
 
 #define PrimType_ PrimTag_
 
-inline StorageId_ fromPrimStorage(PrimTag_ tag) {return (StorageId_) tag >> PRIMTAGSTORAGEIDSHIFT ; }
-inline   ShapeId_ fromPrimShapeId(PrimTag_ tag) {return (ShapeId_)   tag &  PRIMTAGFABRICIDBITMASK; }
-inline  PrimType_ primTagType    (PrimTag_ tag) {return              tag &  PRIMTAGTYPEBITMASK    ; }
+inline StorageId_ fromPrimStorage(PrimTag_ tag) {return (StorageId_) (tag >> PRIMTAGSTORAGEIDSHIFT ); }
+inline   ShapeId_ fromPrimShapeId(PrimTag_ tag) {return (ShapeId_)   (tag &  PRIMTAGFABRICIDBITMASK); }
+inline  PrimType_ primTagType    (PrimTag_ tag) {return              (tag &  PRIMTAGTYPEBITMASK    ); }
 
 inline       bool primTagIsBezier(PrimTag_ tag) {return primTagType(tag) == PRIMTAGISBEZIER   ; }
 inline       bool primTagIsFacet (PrimTag_ tag) {return primTagType(tag) == PRIMTAGISFACET    ; }
@@ -914,8 +913,15 @@ inline bool crossesEllipseAlong(   bool axis
 
 inline Bezier_ loadBezier(Dag *dag, PrimTag_ tag) {
     BezierId_ bezierId = primTagBezierId(tag);
+    // DEBUG_IF(printf("bezierId %i\n", bezierId);)
     Bezier_ bez = *((Bezier_ *)(dag->dagPrimBezierHeap + (bezierId * BEZIERSIZEINFLOATS)));
-    bez.s67 = (Space2_)(0,0);
+    bez.s67 = (Space2_)(0,0); // not needed but I hate having random data in registers.
+    return bez;
+}
+
+inline Bezier_ loadBezierId(Dag *dag, int bezierId) {
+    Bezier_ bez = *((Bezier_ *)(dag->dagPrimBezierHeap + (bezierId * BEZIERSIZEINFLOATS)));
+    bez.s67 = (Space2_)(0,0); // not needed but I hate having random data in registers.
     return bez;
 }
 
@@ -1146,7 +1152,7 @@ inline void toggleShapeActive( ShapeStack *stack
                              ,   ShapeId_  newShapeId
                              ) {
     bool done = false;
-    int i = 0;
+    int i = stack->stOffset;
     while (i < stack->stSize && !done) {
         ShapeId_ oldShapeId = stack->stVector[i];
         if (newShapeId == oldShapeId) {
@@ -1186,9 +1192,8 @@ inline Point2_ traverseDecorateTree(        Dag *dag
     Point2_ anchor;
     Space_ parentCut  = (-MAXFLOAT);
     Space_ parentLine = (-MAXFLOAT);
-    int count = 10;
     bool axis = false; // is vertical
-    while (!done && count > 0) {
+    while (!done) {
         if (treeId == NULLDECOTAGID) {
             //DEBUG_IF(printf("nullDecoTagId\n");)
             anchor = pointAlongAxis(axis, parentCut, parentLine);
@@ -1209,10 +1214,8 @@ inline Point2_ traverseDecorateTree(        Dag *dag
                 treeId = tree.decoTagMoreCut;
             }
         }
-        count -= 1;
         axis = !axis;
     }
-    //DEBUG_IF(printf("decorated anchor %v2f ", anchor);showShapeStack(shapeStack);)
     return anchor;
 }
 
@@ -1227,7 +1230,9 @@ inline void modifyItemStackIfCrossed(     Space_  limit
                                     , PrimTagId_  primTagId
                                     ) {
     PrimTag_ primTag = dag->dagPrimTagHeap[(int)primTagId];
-    if (crossesPrim(limit, bzStack, dag, primTag, start, end)) {
+    bool crosses = crossesPrim(limit, bzStack, dag, primTag, start, end);
+    //DEBUG_IF(printf("crossesPrim %i shapeId %i result %i\n",primTagId, primTagShapeId(primTag), crosses);)
+    if (crosses) {
         toggleShapeActive (stack, primTagShapeId(primTag));
     }
 }
@@ -1270,7 +1275,7 @@ inline void traverseCTBox(        Space_  limit
     pushTreeStack(spine, treeId);
     while (!emptyTreeStack(spine)) {
         treeId = popTreeStack(spine);
-        // DEBUG_IF(printf("confineTreeId %i\n", treeId);)
+        //DEBUG_IF(printf("treeId %i\n", treeId);)
         // DEBUG_IF(showShapeStack(shapeStack);)
         if (treeId != NULLCONFINETAGID) {
             ConfineTag tree = dag->dagTreeConfineHeap[(int)treeId];
@@ -1300,20 +1305,20 @@ inline void queryConfineTreePoint(     Space_   limit
                                  ,     Point2_  ray
                                  ) {
     Point2_ anchor = traverseDecorateTree(dag, shapeStack, ray, rootDecoTagId(root));
+    DEBUG_IF(printf("afterDecorate anchor %v2f ", anchor);showShapeStack(shapeStack);)
     traverseCTBox(limit, dag, bzStack, shapeStack, spine, anchor, ray, rootConfineTagId(root));
-    // DEBUG_IF(printf("anchor %v2f ", anchor);showShapeStack(shapeStack);)
+    DEBUG_IF(printf("after CTBox ", anchor);showShapeStack(shapeStack);)
 }
 
 // ------------------- functions matching Graphics.Gudni.Raster.Dag.Fabric.Traverse -------------------
 
 inline void initShapeStack(ShapeStack *shapeStack) {
+  shapeStack->stOffset = 0;
   shapeStack->stSize = 0;
 }
 
 #define RANGEBITMASK  0x7FFF
 #define RANGEMAYBEBIT 0x8000
-
-
 
 inline   bool rangeMaybe(StackRange_ mRange) {return ((mRange.x & RANGEMAYBEBIT) == RANGEMAYBEBIT  ) ;}
 inline Index_ rangeMin  (StackRange_ mRange) {return (Index_) (mRange.x & RANGEBITMASK) ;}
@@ -1326,7 +1331,12 @@ inline StackRange_ makeStackRange(bool maybe, Index_ rangeMin, Index_ rangeMax) 
 }
 
 inline StackRange_ shapeStackRange(ShapeStack *stack) {
-   return makeStackRange(true, 0, stack->stSize);
+   return makeStackRange(true, stack->stOffset, stack->stSize);
+}
+
+inline StackRange_ holdShapeStack(ShapeStack *stack) {
+   // this is just for storing the shape stack but will pass the range test.
+   return makeStackRange(false, stack->stOffset, stack->stSize);
 }
 
 inline StackRange_ justRange(Index_ mn, Index_ mx) {
@@ -1348,9 +1358,11 @@ inline int findSubt( ShapeStack *stack
                    , int i
                    ) {
     ShapeId_ x = stack->stVector[i-1];
-    while ( i > minLimit || x >= cutPoint ) {
+    DEBUG_IF(printf("findSubt i %i cutPoint %i x %i\n", i, cutPoint, x);)
+    while ( i > minLimit && x >= cutPoint) {
         i = i - 1;
-        x = stack->stVector[i];
+        x = stack->stVector[i-1];
+        DEBUG_IF(printf("findSubt i %i cutPoint %i x %i\n", i, cutPoint, x);)
     }
     return i;
 }
@@ -1421,7 +1433,12 @@ inline void pushColor( TraverseState *state
 inline Color_ popColor( TraverseState *state
                       ) {
     state->tsColorSize -= 1;
-    return state->tsColorStack[state->tsColorSize];
+    if (state->tsColorSize >= 0) {
+        return state->tsColorStack[state->tsColorSize];
+    }
+    else {
+        return emptyQuery();
+    }
 }
 
 inline ShapeId_ limitMax(ShapeId2_ limits) {return limits.y;}
@@ -1473,102 +1490,115 @@ inline Color_ traverseFabric(       Space_  limit
              DEBUG_IF(printf("pop -> tagId %i mRange %i, %i, %i stage %i ray %v2f\n", tagId, rangeMaybe(mRange), rangeMin(mRange), rangeMax(mRange), stage, ray);)
              done = false;
         } // if done
-        if (!hasRange(mRange)) {
-          //DEBUG_IF(printf("not has range tagId %i mRange %i, %i, %i ray %v2f\n", tagId, rangeMaybe(mRange), rangeMin(mRange), rangeMax(mRange), ray);)
-          DEBUG_IF(printf("not has range\n");)
-          pushColor(state, emptyQuery());
-          done = true;
-        }
-        else {
-            if (tagId == NULLFABRICTAGID) {
-                DEBUG_IF(printf("tagId null mRange %i, %i, %i stage %i ray %v2f\n", rangeMaybe(mRange), rangeMin(mRange), rangeMax(mRange), stage, ray);)
-                pushColor(state, insideShape());
-                done = true;
-             }
-             else {
-                 DEBUG_IF(printf("%i \n ", tagId);)
-                 FabricTag_ tag = loadFabricTag(dag, tagId);
-                 //DEBUG_IF(showFabricTagType(tag);)
-                 //DEBUG_IF(printf("mRange %i, %i, %i stage %i ray %v2f\n", rangeMaybe(mRange), rangeMin(mRange), rangeMax(mRange), stage, ray);)
-                 if (fabTagIsLeaf(tag)) {
-                     pushColor(state, querySubstanceColor(dag, tag, ray));
-                     done = true;
-                 } // fabTagIsLeaf
-                 else if (fabTagIsUnaryPre(tag)) {
-                     if (fabTagIsTree(tag)) {
-                         TreeRoot_ root = loadTreeRoot(dag, fabTagTreeId(tag));
-                         queryConfineTreePoint(limit, dag, &(state->tsBzStack), &(state->tsShapeStack), &(state->tsTreeStack), root, ray);
-                         // go
-                         tagId = fabTagChildId(tag);
-                         mRange = shapeStackRange(&(state->tsShapeStack));
-                         stage = FIRSTSTAGE;
-                         // ray = ray
-                     }
-                     else { // must be transformer
-                         // go
-                         tagId  = fabTagChildId(tag);
-                         mRange = nothingRange();
-                         stage  = FIRSTSTAGE;
-                         ray    = rayApplyTransform(limit, flatness, dag, &(state->tsBzStack), tag, ray);
-                     }
-                 } // fabTagIsUnaryPre
-                 else if (fabTagIsUnaryPost(tag)) {
+        if (tagId == NULLFABRICTAGID) {
+            DEBUG_IF(printf("NULL insideShape() mRange %i, %i, %i stage %i ray %v2f\n", rangeMaybe(mRange), rangeMin(mRange), rangeMax(mRange), stage, ray);)
+            pushColor(state, hasRange(mRange) ? insideShape() : emptyQuery() );
+            done = true;
+         }
+         else {
+             DEBUG_IF(printf("%i \n ", tagId);)
+             FabricTag_ tag = loadFabricTag(dag, tagId);
+             //DEBUG_IF(printf("mRange %i, %i, %i stage %i ray %v2f\n", rangeMaybe(mRange), rangeMin(mRange), rangeMax(mRange), stage, ray);)
+             if (fabTagIsLeaf(tag)) {
+                 pushColor(state, querySubstanceColor(dag, tag, ray));
+                 done = true;
+             } // fabTagIsLeaf
+             else if (fabTagIsUnaryPre(tag)) {
+                 if (fabTagIsTree(tag)) {
                      switch (stage) {
                          case FIRSTSTAGE:
-                             pushFabric(state, tagId, nothingRange(), SECONDSTAGE, ray);
-                             //go
+                             // store the full shape stack range so that we can come back to it.
+                             pushFabric(state, tagId, holdShapeStack(&(state->tsShapeStack)), SECONDSTAGE, ray);
+                             DEBUG_IF(printf("before tree mRange %i, %i, %i stack offset %i size %i\n",rangeMaybe(mRange), rangeMin(mRange), rangeMax(mRange),state->tsShapeStack.stOffset,state->tsShapeStack.stSize);)
+                             state->tsShapeStack.stOffset = state->tsShapeStack.stSize;
+                             state->tsShapeStack.stSize   = 0;
+                             queryConfineTreePoint(limit, dag, &(state->tsBzStack), &(state->tsShapeStack), &(state->tsTreeStack), loadTreeRoot(dag, fabTagTreeId(tag)), ray);
+                             // go
                              tagId = fabTagChildId(tag);
-                             // mRange = mRange
-                             // stage = stage
+                             mRange = shapeStackRange(&(state->tsShapeStack));
+                             stage = FIRSTSTAGE;
+                             DEBUG_IF(printf("after tree mRange %i, %i, %i stack offset %i size %i\n",rangeMaybe(mRange), rangeMin(mRange), rangeMax(mRange),state->tsShapeStack.stOffset,state->tsShapeStack.stSize);)
                              // ray = ray
                              break;
                          case SECONDSTAGE:
-                             pushColor(state, applyFilter(dag, tag, popColor(state)));
+                             // retrieve the old full shape stack range.
+                             state->tsShapeStack.stOffset = rangeMin(mRange);
+                             state->tsShapeStack.stSize   = rangeMax(mRange);
                              done = true;
                              break;
-                      } // switch stage
-                 } // fabTagIsUnaryPost
-                 else if (fabTagIsBinaryOp(tag)) {
-                     ShapeId_ cutPoint = loadFabricCutPoint(dag, tagId);
-                     switch (stage) {
-                         case FIRSTSTAGE:
-                             //DEBUG_IF(printf("%i FIRSTSTAGE\n", tagId);)
-                             splitWithCutPoint(state, cutPoint, mRange, &aboveRange, &belowRange);
-                             pushFabric(state, tagId, belowRange, SECONDSTAGE, ray);
+                     }
+                 }
+                 else { // must be transformer
+                     // go
+                     tagId  = fabTagChildId(tag);
+                     mRange = nothingRange();
+                     stage  = FIRSTSTAGE;
+                     ray    = rayApplyTransform(limit, flatness, dag, &(state->tsBzStack), tag, ray);
+                 }
+             } // fabTagIsUnaryPre
+             else if (fabTagIsUnaryPost(tag)) {
+                 switch (stage) {
+                     case FIRSTSTAGE:
+                         pushFabric(state, tagId, nothingRange(), SECONDSTAGE, ray);
+                         //go
+                         tagId = fabTagChildId(tag);
+                         // mRange = mRange
+                         // stage = stage
+                         // ray = ray
+                         break;
+                     case SECONDSTAGE:
+                         pushColor(state, applyFilter(dag, tag, popColor(state)));
+                         done = true;
+                         break;
+                  } // switch stage
+             } // fabTagIsUnaryPost
+             else if (fabTagIsBinaryOp(tag)) {
+                 ShapeId_ cutPoint = loadFabricCutPoint(dag, tagId);
+                 switch (stage) {
+                     case FIRSTSTAGE:
+                         DEBUG_IF(printf("%i FIRSTSTAGE\n", tagId);)
+                         splitWithCutPoint(state, cutPoint, mRange, &aboveRange, &belowRange);
+                         DEBUG_IF(printf("%i aboveRange %i %i %i belowRange %i %i %i \n", tagId, rangeMaybe(aboveRange), rangeMin(aboveRange), rangeMax(aboveRange), rangeMaybe(belowRange), rangeMin(belowRange), rangeMax(belowRange));)
+                         pushFabric(state, tagId, belowRange, SECONDSTAGE, ray);
+                         if (hasRange(aboveRange)) {
                              //go
                              tagId = fabTagAboveId(tag);
                              mRange = aboveRange;
                              // stage = stage
                              // ray = ray
-                             break;
-                         case SECONDSTAGE:
-                             aboveQ = popColor(state);
-                             pushColor(state, aboveQ);
-                             //DEBUG_IF(printf("%i SECONDSTAGE aboveQ ", tagId);showColor(aboveQ);printf("\n");)
-                             if (traverseStop(tag, aboveQ)) {
-                                 done = true;
-                             }
-                             else {
-                                 pushFabric(state, tagId, nothingRange(), THIRDSTAGE, ray);
-                                 //go
-                                 tagId = fabTagBelowId(tag);
-                                 // mRange = mRange
-                                 stage = FIRSTSTAGE;
-                                 // ray = ray
-                             }
-                             break;
-                         case THIRDSTAGE:
-                             belowQ = popColor(state);
-                             aboveQ = popColor(state);
-                             DEBUG_IF(printf("%i THIRDSTAGE aboveQ ", tagId);showColor(aboveQ);printf("\n");)
-                             DEBUG_IF(printf("              belowQ "       );showColor(belowQ);printf("\n");)
-                             pushColor(state, traverseCombine(tag, aboveQ, belowQ));
+                         }
+                         else {
+                             pushColor(state, emptyQuery());
                              done = true;
-                             break;
-                     } // switch stage
-                 } // fabTagIsBinaryOp
-            } // else fabricTagId != NULLFABRICTAGID
-        } // else hasRange
+                         }
+                         break;
+                     case SECONDSTAGE:
+                         aboveQ = popColor(state);
+                         pushColor(state, aboveQ);
+                         //DEBUG_IF(printf("%i SECONDSTAGE aboveQ ", tagId);showColor(aboveQ);printf("\n");)
+                         if (traverseStop(tag, aboveQ)) {
+                             done = true;
+                         }
+                         else {
+                             pushFabric(state, tagId, nothingRange(), THIRDSTAGE, ray);
+                             //go
+                             tagId = fabTagBelowId(tag);
+                             // mRange = mRange
+                             stage = FIRSTSTAGE;
+                             // ray = ray
+                         }
+                         break;
+                     case THIRDSTAGE:
+                         belowQ = popColor(state);
+                         aboveQ = popColor(state);
+                         DEBUG_IF(printf("%i THIRDSTAGE aboveQ ", tagId);showColor(aboveQ);printf("\n");)
+                         DEBUG_IF(printf("              belowQ "       );showColor(belowQ);printf("\n");)
+                         pushColor(state, traverseCombine(tag, aboveQ, belowQ));
+                         done = true;
+                         break;
+                 } // switch stage
+             } // fabTagIsBinaryOp
+        } // else fabricTagId != NULLFABRICTAGID
         DEBUG_IF(printf("LOOP\n");)
         //DEBUG_IF(showColorStack(state);)
         //DEBUG_IF(showFabricStack(dag, state);)
@@ -1626,7 +1656,7 @@ inline void initDag
     dag->dagTreeDecoHeap    = treeDecoHeap   ;
     dag->dagCrossingHeap    = crossingHeap   ;
     dag->dagPictHeap        = pictHeap       ;
-    dag->dagRandomField      = randomHeap     ;
+    dag->dagRandomField     = randomHeap     ;
     dag->dagRandomCursor    = thread & RANDOMFIELDMASK;
 }
 
@@ -1679,6 +1709,7 @@ __kernel void traverseDagKernel
         // DEBUG_IF(printf("sizeOf (ConfineTag) %i\n", sizeof(ConfineTag));)
         // DEBUG_IF(showConfineTagHeap(7, treeConfineHeap);)
         // DEBUG_IF(printf("----------inTraverseDagKernel-----------%i %i\n", get_global_id(0),get_global_id(1));)
+        // DEBUG_IF(showBezierHeap(60,&dag);)
         Color_ color = traverseFabric(  CROSSSPLITLIMIT
                                      ,  TAXICABFLATNESS
                                      , &state
@@ -1692,6 +1723,14 @@ __kernel void traverseDagKernel
                          , color
                          , target
                          );
+    }
+}
+
+void showBezierHeap(int size, Dag *dag) {
+    printf("BezierHeap \n");
+    for (int i = 0; i < size; i++) {
+        Bezier_ bez = loadBezierId(dag, i);
+        printf("    %i: ",i);showBezier(bez);printf("\n");
     }
 }
 
@@ -1741,7 +1780,6 @@ void showFabricStack(Dag *dag, TraverseState *state) {
   for (int i = state->tsSize - 1; i >= 0; i--) {
       tag = loadFabricTag(dag, state->tsFabricTagIds[i]);
       printf("%i>>  %i ", i, state->tsFabricTagIds[i]);
-      // showFabricTagType(tag);
       printf(" mRange %i, %i, %i stage %i ray %v2f \n"
             , rangeMaybe(state->tsRanges[i])
             , rangeMin(state->tsRanges[i])
@@ -1785,29 +1823,4 @@ void showBezier(Bezier_ bez) {
 
 void showAffine(Affine_ a) {
   printf("AffineO\n   %3.3f %3.3f %3.3f\n   %3.3f %3.3f %3.3f\n   %3.3f %3.3f %3.3f\n",a.s0,a.s1,a.s2,a.s3,a.s4,a.s5,a.s6,a.s7,a.s8);
-}
-
-void showFabricTagType(FabricTag_ tag) {
-       if (fabTagIsConstant         (tag)) {printf("CONSTANT   ");}
-  else if (fabTagIsTexture          (tag)) {printf("TEXTURE    ");}
-  else if (fabTagIsLinear           (tag)) {printf("LINEAR     ");}
-  else if (fabTagIsQuadrance        (tag)) {printf("QUADRANCE  ");}
-  else if (fabTagIsTree             (tag)) {printf("TREE       ");}
-  else if (fabTagIsTransformAffine  (tag)) {printf("AFFINE     ");}
-  else if (fabTagIsTransformFacet   (tag)) {printf("FACET      ");}
-  else if (fabTagIsTransformConvolve(tag)) {printf("CONVOLVE   ");}
-  else if (fabTagIsSqrt             (tag)) {printf("SQRT       ");}
-  else if (fabTagIsInvert           (tag)) {printf("INVERT     ");}
-  else if (fabTagIsCos              (tag)) {printf("COS        ");}
-  else if (fabTagIsSin              (tag)) {printf("SIN        ");}
-  else if (fabTagIsClamp            (tag)) {printf("CLAMP      ");}
-  else if (fabTagIsComposite        (tag)) {printf("COMPOSITE  ");}
-  else if (fabTagIsMult             (tag)) {printf("MULT       ");}
-  else if (fabTagIsAdd              (tag)) {printf("ADD        ");}
-  else if (fabTagIsFloatOr          (tag)) {printf("FLOATOR    ");}
-  else if (fabTagIsFloatXor         (tag)) {printf("FLOATXOR   ");}
-  else if (fabTagIsMin              (tag)) {printf("MIN        ");}
-  else if (fabTagIsMax              (tag)) {printf("MAX        ");}
-  else if (fabTagIsHSVAdjust        (tag)) {printf("HSVADJUST  ");}
-  else if (fabTagIsTranparent       (tag)) {printf("TRANSPARENT");}
 }

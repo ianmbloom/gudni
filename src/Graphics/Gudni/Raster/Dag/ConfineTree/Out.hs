@@ -47,13 +47,16 @@ outConfineTree treeId =
    if treeId == nullConfineTagId
    then return $ text "X"
    else do tree <- loadTreeTagS treeId
+           prim <- loadPrimS (tree ^. confineTagPrimTagId)
            less <- outConfineTree (tree ^. confineTagLessCut)
            more <- outConfineTree (tree ^. confineTagMoreCut)
-           return $ ( text (show treeId) <+> text "prim" <+>
-                      text (show (tree ^. confineTagPrimTagId)) <+>
+           return $ ( text (show treeId) <+>
                       text "--" <+>
                       doc (tree ^. confineTagCut) <+>
-                      doc (tree ^. confineTagOverhang)
+                      doc (tree ^. confineTagOverhang) <+>
+                      text "--" <+>
+                      doc (tree ^. confineTagPrimTagId) <+>
+                      doc prim
                     )
                     $$
                     nest 4 ( less $$ more)

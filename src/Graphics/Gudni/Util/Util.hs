@@ -42,6 +42,7 @@ module Graphics.Gudni.Util.Util
   , withLift
   , withIO
   , lpad
+  , rpad
   , putStrList
   , orNothing
   , titleLine
@@ -199,6 +200,10 @@ lpad :: Int -> String -> String
 lpad i m = let l = i - length m
            in replicate l ' ' ++ m
 
+rpad :: Int -> String -> String
+rpad i m = let l = i - length m
+           in m ++ replicate l ' '
+           
 putStrList :: (Show a) => [a] -> IO ()
 putStrList ls =
   do

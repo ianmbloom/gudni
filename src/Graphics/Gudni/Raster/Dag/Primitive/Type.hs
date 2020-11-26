@@ -37,8 +37,15 @@ data Primitive s = Prim
   } deriving (Show, Generic)
 makeLenses ''Primitive
 
-instance Out s => Out (PrimType  s)
-instance Out s => Out (Primitive s)
+instance Out s => Out (Primitive s) where
+    doc (Prim shapeId ty) = text "Prim" <+> doc shapeId <+> doc ty 
+instance Out s => Out (PrimType s) where
+    doc prim = case prim of
+                    PrimBezier  bez   -> doc bez
+                    PrimFacet   facet -> doc facet
+                    PrimRect    rect  -> doc rect
+                    PrimEllipse box   -> doc box
+    docPrec _ = doc
 
 instance Space s => HasSpace (Primitive s) where
     type SpaceOf (Primitive s) = s

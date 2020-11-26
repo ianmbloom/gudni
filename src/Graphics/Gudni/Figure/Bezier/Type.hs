@@ -34,8 +34,7 @@ module Graphics.Gudni.Figure.Bezier.Type
   )
 where
 
-import Graphics.Gudni.Base.Reversible
-import Graphics.Gudni.Base.Chain
+import Graphics.Gudni.Base
 
 import Graphics.Gudni.Figure.Principle.Space
 import Graphics.Gudni.Figure.Principle.Axis
@@ -56,7 +55,9 @@ import Text.PrettyPrint.GenericPretty
 
 data Bezier s = Bezier {unBezier :: V3 (Point2 s)} deriving (Eq, Ord, Generic)
 instance (Out s) => Out (V3 s)
-instance (Out s) => Out (Bezier s)
+instance (Out s) => Out (Bezier s) where
+    doc (Bez s o e) = text "Bez" <+> doc s <+> doc o <+> doc e
+    docPrec _ = doc
 
 pattern Bez x y z = Bezier (V3 x y z)
 

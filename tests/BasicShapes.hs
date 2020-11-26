@@ -20,20 +20,48 @@ basicShapes =
     [ ("randomCurves",
       \ playhead step ->
       let range = makePoint 2 2
-          randomCurves = evalRand (sequence . replicate 8 $ fuzzyCurve range 5) (mkStdGen $ step) :: [ShapeTree Int SubSpace]
+          randomCurves = evalRand (sequence . replicate 3 $ fuzzyCurve range 10) (mkStdGen $ step) :: [ShapeTree Int SubSpace]
       in  place .
           scaleBy 200 .
-          rotateBy  (playhead @@ deg)
+          rotateBy (playhead @@ deg)
           $
           overlap randomCurves
        )
+     ,
+     ("onTriangles",
+     \ playhead step ->
+     translateByXY 10 10 .
+     --rotateBy (playhead @@ deg) .
+     scaleBy 100
+     $
+     overlap [ withColor (transparent 0.5 red) .
+               mask
+               $
+               triangle
+               ,
+               withColor (transparent 0.5 cyan) .
+               mask
+               $
+               triangleOff
+               ,
+               withColor (transparent 0.5 purple) .
+               mask
+               $
+               triangle
+               ,
+               withColor (transparent 0.5 green) .
+               mask
+               $
+               triangle
+             ]
+      )
       ,
       ("twoTriangles",
       \ playhead step ->
       scaleBy 7 .
       translateByXY 1 1
       $
-      overlap [ withColor (transparent 0.75 red) .
+      overlap [ withColor (transparent 0.5 red) .
                 translateByXY 0 0 .
                 rotateBy (playhead @@ deg) .
                 scaleBy 10 .
@@ -41,29 +69,29 @@ basicShapes =
                 $
                 triangle
                 ,
-                withColor (transparent 0.75 cyan) .
+                withColor (transparent 0.5 cyan) .
                 translateByXY 1 1 .
                 rotateBy (playhead @@ deg) .
                 scaleBy 10 .
                 mask
                 $
                 triangle
-                -- ,
-                -- withColor (transparent 0.5 purple) .
-                -- translateByXY 2 2  .
-                -- rotateBy (playhead @@ deg) .
-                -- scaleBy 10 .
-                -- mask
-                -- $
-                -- triangle
-                -- ,
-                -- withColor (transparent 0.5 green) .
-                -- translateByXY 3 3  .
-                -- rotateBy (playhead @@ deg) .
-                -- scaleBy 10 .
-                -- mask
-                -- $
-                -- triangle
+                ,
+                withColor (transparent 0.5 purple) .
+                translateByXY 2 2  .
+                rotateBy (playhead @@ deg) .
+                scaleBy 10 .
+                mask
+                $
+                triangle
+                ,
+                withColor (transparent 0.5 green) .
+                translateByXY 3 3  .
+                rotateBy (playhead @@ deg) .
+                scaleBy 10 .
+                mask
+                $
+                triangle
               ]
        )
       ,
@@ -193,6 +221,14 @@ triangle =
     [ straightXY 0 0
     , straightXY 1 0
     , straightXY 0 1
+    ]
+
+triangleOff :: Space s => Shape s
+triangleOff =
+    Shape . pure . fromSegments $
+    [ straightXY 0.25 0.25
+    , straightXY 1.25 0.25
+    , straightXY 0.25 1.25
     ]
 
 triangle2 :: Space s => Shape s
