@@ -84,7 +84,7 @@ initialModel =
           }
     , _stateShapeAngle = 0 @@ deg -- @@ rad -- 0 @@ rad
     , _stateTraceStep = 0
-    , _stateCurrentTest = flip findTest allTests "randomCurves"  -- "onTriangles" -- "twoTriangles" -- "bigTriangle" -- "randomCurves" -- "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
+    , _stateCurrentTest = flip findTest allTests "randomCurves"  -- "benchmark1" -- "onTriangles" -- "twoTriangles" -- "bigTriangle" -- "randomCurves" -- "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
     , _stateDecorationType = True
     , _stateDecorationLimit = 0
     }
@@ -123,9 +123,9 @@ instance Model ConfineTreeState where
             liftIO $ putStrLn "Before withSerialized Fabric"
             testScene <- withSerializedFabric (Just canvas) pixelPile fabric $ \storage root ->
                 evalStateT (evalRandT (
-                     do  out <- lift $ outFabric root
-                         liftIO $ putStrLn "**** outFabric *******************************************"
-                         liftIO $ putStrLn $ render out
+                     do  -- out <- lift $ outFabric root
+                         -- liftIO $ putStrLn "**** outFabric *******************************************"
+                         -- liftIO $ putStrLn $ render out
                          -- (tree, decoTree, sweepTrace) <- liftIO $ buildConfineTree (state ^. stateDecorationType )
                          --                                                           (state ^. stateTraceStep      )
                          --                                                           (state ^. stateDecorationLimit)

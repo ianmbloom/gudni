@@ -101,13 +101,13 @@ buildConfineTree :: forall s m
                  -> m (ConfineTree s, DecorateTree s, SweepTrace s)
 buildConfineTree getBox getPrim decorateType traceLimit decorationLimit slice primTagIdPile =
   do   treeBare <- -- tcP "bareTree" .
-                   trWith (show . confineTreeCountOverlaps) "confineTreeCountOverlaps" .
-                   trWith (show . confineTreeDepth) "confineTreeDepth" .
-                   trWith (show . logBase 2 . (fromIntegral :: Int -> Float) . confineTreeSize) "confineTreeSizeLog" .
+                   -- trWith (show . confineTreeCountOverlaps) "confineTreeCountOverlaps" .
+                   -- trWith (show . confineTreeDepth) "confineTreeDepth" .
+                   -- trWith (show . logBase 2 . (fromIntegral :: Int -> Float) . confineTreeSize) "confineTreeSizeLog" .
                    trWith (show . confineTreeSize) "confineTreeSize" <$>
                    addPileToConfineTree getBox True slice primTagIdPile Nothing
        let numItems = confineTreeSize treeBare
-       liftIO $ putStrLn $ "decorateType " ++ show decorateType ++ " limit " ++ show decorationLimit
+       --liftIO $ putStrLn $ "decorateType " ++ show decorateType ++ " limit " ++ show decorationLimit
        (treeDecorated2, trace) <- runStateT (sweepConfineTree (lift . getBox  )
                                                               (lift . getPrim )
                                                               crossStep
@@ -122,18 +122,18 @@ buildConfineTree getBox getPrim decorateType traceLimit decorationLimit slice pr
                                                               treeBare
                                                             ) initialTrace
 
-       liftIO $ putStrLn $ "sweepCrossSteps: " ++ show (trace ^. sweepCrossSteps)
-       liftIO $ putStrLn $ "averageConsidered " ++ showFl' 4 (fromIntegral (trace ^. sweepCrossSteps) / fromIntegral numItems :: Double)
-       liftIO $ putStrLn ""
+       -- liftIO $ putStrLn $ "sweepCrossSteps: " ++ show (trace ^. sweepCrossSteps)
+       -- liftIO $ putStrLn $ "averageConsidered " ++ showFl' 4 (fromIntegral (trace ^. sweepCrossSteps) / fromIntegral numItems :: Double)
+       -- liftIO $ putStrLn ""
 
        (treeDecorated, decorationCount) <- runStateT (buildDecorateTree (lift . getPrim) (modify (+1)) decorationLimit treeBare) 0
        --conConfineTree .= treeDecorated
        let total = decorationCount
-       liftIO $ putStrLn $ "steps per node    " ++ showFl' 4 (fromIntegral decorationCount / fromIntegral numItems :: Double)
-       liftIO $ putStrLn ""
+       -- liftIO $ putStrLn $ "steps per node    " ++ showFl' 4 (fromIntegral decorationCount / fromIntegral numItems :: Double)
+       -- liftIO $ putStrLn ""
        let treesEqual = treeDecorated == treeDecorated2
-       liftIO $ putStrLn $ "trees equal " ++ show treesEqual
-       if treesEqual then return () else error "trees not equal."
+       --liftIO $ putStrLn $ "trees equal " ++ show treesEqual
+       --if treesEqual then return () else error "trees not equal."
        let dTree = {-trP "treeDecorated\n" $ -}
                    if decorateType
                    then treeDecorated

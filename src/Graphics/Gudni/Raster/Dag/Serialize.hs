@@ -116,7 +116,7 @@ serializeFabric :: ( MonadIO m
                 -> Fabric (PicturePass style)
                 -> DagMonad (SpaceOf style) (UniqueT m) FabricTagId
 serializeFabric mCanvas fabric =
-    do liftIO $ liftIO $ putStrLn $ "===================== Serialize Fabric Start ====================="
+    do liftIO $ liftIO $ putStrLn $ "===================== Serialize Fabric Start " ++ show (fabricDepth fabric) ++ " ====================="
        f' <- extractPrimPass fabric
        liftIO $ liftIO $ putStrLn $ "===================== Serialize Fabric End ======================="
        return f'

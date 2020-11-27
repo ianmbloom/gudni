@@ -212,8 +212,8 @@ buildLeaf leaf =
 
 substanceForStorage :: FSubstance (PicturePass style) -> FSubstance (ForStorage (SpaceOf style))
 substanceForStorage leaf =
-  case leaf of
-    FConst    q -> FConst    q
-    FTexture  t -> FTexture  t
-    FLinear     -> FLinear
-    FQuadrance  -> FQuadrance
+    case leaf of
+        FConst    q -> FConst    q
+        FTexture  t -> FTexture  t
+        FLinear     -> FLinear
+        FQuadrance  -> FQuadrance

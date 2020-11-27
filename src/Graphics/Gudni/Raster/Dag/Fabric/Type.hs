@@ -29,6 +29,7 @@ module Graphics.Gudni.Raster.Dag.Fabric.Type
   , FLeaf(..)
   , FTreeLeaf(..)
   , ForStorage(..)
+  , fabricDepth
   )
 where
 
@@ -88,7 +89,6 @@ deriving instance ( Show (SpaceOf     i)
                   , Show (FTex        i)
                   ) => Show (FTreeLeaf i)
 
-
 instance ( Out (SpaceOf       i)
          , Out (FRootType     i)
          , Out (FChildType    i)
@@ -138,3 +138,10 @@ instance ( Out (FSubstance i)
           FTreeSubstance substance ->
                text "FTreeSubstance" <+> doc substance
     docPrec _ = doc
+
+fabricDepth :: (FChildType i~Fabric i) => Fabric i -> Int
+fabricDepth fabric =
+    case fabric of
+        FCombine ty above below -> max (fabricDepth above) (fabricDepth below) + 1
+        FTransform t child -> fabricDepth child + 1
+        FLeaf leaf -> 1
