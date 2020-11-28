@@ -37,10 +37,11 @@ pointIsInsideBox box point =
 bezierWithinBox :: forall s
                . ( Space s
                  )
-               => Box s
+               => s
+               -> Box s
                -> Bezier s
                -> [Bezier s]
-bezierWithinBox box bez =
+bezierWithinBox limit box bez =
   go bez
   where
   axis :: Vertical
@@ -64,7 +65,7 @@ bezierWithinBox box bez =
                  isK = isKnobAbsolute axis bez || isKnobAbsolute (perpendicularTo axis) bez
              in
              if  -- curve size remains greater than the limit
-                 size >= crossSplitLimit &&
+                 size >= limit &&
                  not (pointIsInsideBox box (bez ^. bzStart) || pointIsInsideBox box (bez ^. bzEnd))
                  || isK -- or the curve creates a knob, meaning there could be more than one cross point
              then -- must split
@@ -74,10 +75,11 @@ bezierWithinBox box bez =
 bezierIsWithinBox :: forall s
                   . ( Space s
                     )
-                  => Box s
+                  => s
+                  -> Box s
                   -> Bezier s
                   -> Bool
-bezierIsWithinBox box bez =
+bezierIsWithinBox limit box bez =
   go bez
   where
   axis :: Vertical
@@ -101,7 +103,7 @@ bezierIsWithinBox box bez =
                  isK = isKnobAbsolute axis bez || isKnobAbsolute (perpendicularTo axis) bez
              in
              if  -- curve size remains greater than the limit
-                 size >= crossSplitLimit &&
+                 size >= limit &&
                  not (pointIsInsideBox box (bez ^. bzStart) || pointIsInsideBox box (bez ^. bzEnd))
                  || isK -- or the curve creates a knob, meaning there could be more than one cross point
              then -- must split

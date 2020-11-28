@@ -80,13 +80,14 @@ loadTreeTag  treeId = fromPileS treeConfinePile . unConfineTagId $ treeId
 loadDecoTag  treeId = fromPileS treeDecoPile    . unDecoTagId    $ treeId
 
 storeTree :: (MonadIO m, Space s, Storable s)
-          => (PrimTagId -> m (Box s))
+          => s
+          -> (PrimTagId -> m (Box s))
           -> (PrimTagId -> m (Primitive s))
           -> Slice PrimTagId
           -> Pile PrimTagId
           -> StateT (TreeStorage s) m (Reference (TreeRoot s))
-storeTree getBox getPrim slice primTagPile =
-    do (confineTree, decoTree, _) <- lift $ buildConfineTree getBox getPrim True 0 0 slice primTagPile
+storeTree limit getBox getPrim slice primTagPile =
+    do (confineTree, decoTree, _) <- lift $ buildConfineTree limit getBox getPrim True 0 0 slice primTagPile
        -- store tree in confinePile and decoPile
        confineRoot <- storeConfineTree confineTree
        decoRoot    <- storeDecoTree decoTree

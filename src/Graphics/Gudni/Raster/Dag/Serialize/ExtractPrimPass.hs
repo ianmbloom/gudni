@@ -92,12 +92,13 @@ transBoundary trans box =
           FConvolve scale -> addMarginsBox scale box
 
 buildMaybeTree :: (DagConstraints s m)
-               => Maybe (Slice PrimTagId)
+               => s
+               -> Maybe (Slice PrimTagId)
                -> FabricTagId
                -> DagMonad s m FabricTagId
-buildMaybeTree mSlice childId =
+buildMaybeTree limit mSlice childId =
   case mSlice of
-      Just slice -> do treeId <- addTreeS slice
+      Just slice -> do treeId <- addTreeS limit slice
                        leafId <- addFabricS (FLeaf $ FTree treeId childId)
                        return leafId
       Nothing -> return childId
@@ -118,11 +119,12 @@ extractPrimPass :: forall m style
                 .  ( MonadIO m
                    , IsStyle style
                    )
-                => Fabric (PicturePass style)
+                => (SpaceOf style)
+                -> Fabric (PicturePass style)
                 -> DagMonad (SpaceOf style) (UniqueT m) FabricTagId
-extractPrimPass fabric =
+extractPrimPass limit fabric =
     do (mSlice, _, childId, _) <- go fabric
-       buildMaybeTree mSlice childId
+       buildMaybeTree limit mSlice childId
     where
     go :: Fabric (PicturePass style)
        -> DagMonad (SpaceOf style) (UniqueT m)
@@ -162,7 +164,7 @@ extractPrimPass fabric =
                 do  fabricTagId <- allocateFabricTagS
                     (mSlice, mBox, childId, childShapeId) <- go child
                     let tBox = fmap (transBoundary trans) mBox
-                    leafId <- buildMaybeTree mSlice childId
+                    leafId <- buildMaybeTree limit mSlice childId
                     setFabricS fabricTagId (FTransform trans leafId)
                     return ( Nothing
                            , tBox

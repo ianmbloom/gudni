@@ -20,18 +20,18 @@ import Linear.Metric
 import Control.Applicative
 import Control.Lens
 
-primIsWithinBox :: Space s => Box s -> Primitive s -> Bool
-primIsWithinBox boundary (Prim fabricTagId ty) =
+primIsWithinBox :: Space s => s -> Box s -> Primitive s -> Bool
+primIsWithinBox limit boundary (Prim fabricTagId ty) =
   case ty of
-      PrimBezier  bez   -> bezierIsWithinBox boundary bez
-      PrimFacet   facet -> facetIsWithinBox  boundary facet
+      PrimBezier  bez   -> bezierIsWithinBox limit boundary bez
+      PrimFacet   facet -> facetIsWithinBox  limit boundary facet
       PrimRect    box   -> includesBox       boundary box
       PrimEllipse box   -> includesBox       boundary box
 
-primsWithinBox :: Space s => Box s -> Primitive s -> [Primitive s]
-primsWithinBox boundary prim@(Prim fabricTagId ty) =
+primsWithinBox :: Space s => s -> Box s -> Primitive s -> [Primitive s]
+primsWithinBox limit boundary prim@(Prim fabricTagId ty) =
     case ty of
-        PrimBezier bez -> map (Prim fabricTagId . PrimBezier) $ bezierWithinBox boundary bez
-        _ -> if primIsWithinBox boundary prim
+        PrimBezier bez -> map (Prim fabricTagId . PrimBezier) $ bezierWithinBox limit boundary bez
+        _ -> if primIsWithinBox limit boundary prim
              then [prim]
              else []

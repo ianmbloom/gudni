@@ -544,7 +544,8 @@ inline Box_ boxOfBezier(Bezier_ bez) {
                 );
 }
 
-inline bool crossesBezierAlong (  Space_  limit
+inline bool crossesBezierAlong (    bool  debugFlag
+                               ,  Space_  limit
                                , BzStack *bzStack
                                ,    bool  axis
                                ,  Space_  start
@@ -571,17 +572,18 @@ inline bool crossesBezierAlong (  Space_  limit
                 if (done) {
                     popBezier(bzStack, &bez, &box);
                 }
-                // DEBUG_IF(printf("      ret %i ", returnValue);showBezier(bez);printf("\n");)
                 splitBezier(0.5, bez, &lessBez, &moreBez);
                 Space_ size = max (maxAlong(axis, box) - minAlong(axis, box), maxAthwart(axis, box) - minAthwart(axis, box));
                 bool   slopeLTEZero = bezierSlopeLTEZero(axis, bez);
                 bool   offBaseline = baseline != maxAthwart(axis, box);
                 bool   isK = isKnobAbsolute(axis, bez) || isKnobAbsolute(!axis, bez);
+                bool   insideLimits = start > minAlong(axis, box) || end <= maxAlong(axis, box);
+                // DEBUG_IF(if (debugFlag) {printf("    go bez ");showBezier(bez);printf(" isK %i offBaseline %i insideLimits %i size %f limit %f ret %i\n", isK, offBaseline, insideLimits, size, limit, returnValue);})
                 if  ( (size >= limit &&
                       (
                        // curve size remains greater than the limit
-                       offBaseline &&
-                       (start > minAlong(axis, box) || end <= maxAlong(axis, box)) // and the start or end points are somewhere inside curve limits
+                       offBaseline && insideLimits
+                       // and the start or end points are somewhere inside curve limits
                       ))
                       || isK
                     ) {
@@ -615,7 +617,7 @@ inline bool crossesBezierAlong (  Space_  limit
             }
         } // if outsideOfRange init
         else {
-           //DEBUG_IF(printf("out   ret %i ", returnValue);showBezier(bez);printf("\n");)
+           //DEBUG_IF(if(debugFlag) {printf("out   ret %i ", returnValue);showBezier(bez);printf("\n");})
         }
     }
     return returnValue;
@@ -886,9 +888,9 @@ bool crossesBezTriAlong(  Space_  limit
                        ,  BezTri_ t
                        ) {
     return
-    crossesBezierAlong(limit, bzStack, axis, start, baseline, end, bezierBezTri0(t)) !=
-    crossesBezierAlong(limit, bzStack, axis, start, baseline, end, bezierBezTri1(t)) !=
-    crossesBezierAlong(limit, bzStack, axis, start, baseline, end, bezierBezTri2(t));
+    crossesBezierAlong(false, limit, bzStack, axis, start, baseline, end, bezierBezTri0(t) ) !=
+    crossesBezierAlong(false, limit, bzStack, axis, start, baseline, end, bezierBezTri1(t) ) !=
+    crossesBezierAlong(false, limit, bzStack, axis, start, baseline, end, bezierBezTri2(t) );
 }
 
 inline bool crossesFacetAlong (  Space_ limit
@@ -950,7 +952,8 @@ inline Box_ loadBox(Dag *dag, PrimTag_ tag) {
     return *((Box_ *)(dag->dagPrimBoxHeap + (rectId * BOXSIZEINFLOATS)));
 }
 
-inline bool crossesPrimAlong(   Space_  limit
+inline bool crossesPrimAlong(     bool  debugFlag
+                            ,   Space_  limit
                             ,  BzStack *bzStack
                             ,     bool  axis
                             ,      Dag *dag
@@ -962,8 +965,8 @@ inline bool crossesPrimAlong(   Space_  limit
    bool ret;
    if (primTagIsBezier(tag)) {
        Bezier_ bez = loadBezier(dag, tag);
-       ret = crossesBezierAlong(limit, bzStack, axis, start, baseline, end, bez);
-       // DEBUG_IF(printf("primTagIsBezier ret %i axis %i start %f baseline %f end %f ",ret,axis,start,baseline,end);showBezier(bez);printf("\n");)
+       ret = crossesBezierAlong(debugFlag, limit, bzStack, axis, start, baseline, end, bez);
+       DEBUG_IF(if (debugFlag) {printf("primTagIsBezier ret %i axis %i start %f baseline %f end %f ",ret,axis,start,baseline,end);showBezier(bez);printf("\n");})
    }
    else if (primTagIsFacet(tag)) {
        ret = crossesFacetAlong(limit, bzStack, axis, start, baseline, end, loadFacet(dag, tag));
@@ -979,7 +982,8 @@ inline bool crossesPrimAlong(   Space_  limit
 
 inline Point2_ interimPoint(Point2_ start, Point2_ end) {return (Point2_)(start.x, end.y);}
 
-inline bool crossesPrim(   Space_  limit
+inline bool crossesPrim(     bool debugFlag
+                       ,   Space_  limit
                        ,  BzStack *bzStack
                        ,      Dag *dag
                        , PrimTag_  primTag
@@ -987,8 +991,8 @@ inline bool crossesPrim(   Space_  limit
                        ,  Point2_  end
                        ) {
     Point2_ iP = interimPoint(start, end);
-    return  crossesPrimAlong (limit, bzStack, VERTICALAXIS  , dag, start.y, start.x,  iP.y, primTag) !=
-            crossesPrimAlong (limit, bzStack, HORIZONTALAXIS, dag,    iP.x,    iP.y, end.x, primTag)    ;
+    return  crossesPrimAlong (debugFlag, limit, bzStack, VERTICALAXIS  , dag, start.y, start.x,  iP.y, primTag) !=
+            crossesPrimAlong (debugFlag, limit, bzStack, HORIZONTALAXIS, dag,    iP.x,    iP.y, end.x, primTag)    ;
 }
 
 // ------------------- functions from Graphics.Gudni.Figure.Facet.Barycentric -------------------
@@ -1245,8 +1249,9 @@ inline void modifyItemStackIfCrossed(     Space_  limit
                                     , PrimTagId_  primTagId
                                     ) {
     PrimTag_ primTag = dag->dagPrimTagHeap[(int)primTagId];
-    bool crosses = crossesPrim(limit, bzStack, dag, primTag, start, end);
-    //DEBUG_IF(printf("crossesPrim %i shapeId %i result %i\n",primTagId, primTagShapeId(primTag), crosses);)
+    bool debugFlag = primTagId == 0;
+    bool crosses = crossesPrim(debugFlag, limit, bzStack, dag, primTag, start, end);
+    DEBUG_IF(printf("crossesPrim %i shapeId %i result %i\n",primTagId, primTagShapeId(primTag), crosses);)
     if (crosses) {
         toggleShapeActive (stack, primTagShapeId(primTag));
     }
@@ -1320,7 +1325,7 @@ inline void queryConfineTreePoint(     Space_   limit
                                  ,     Point2_  ray
                                  ) {
     Point2_ anchor = traverseDecorateTree(dag, shapeStack, ray, rootDecoTagId(root));
-    DEBUG_IF(printf("afterDecorate anchor %v2f ", anchor);showShapeStack(shapeStack);)
+    DEBUG_IF(printf("afterDecorate anchor %v2f ray %v2f", anchor, ray);showShapeStack(shapeStack);)
     traverseCTBox(limit, dag, bzStack, shapeStack, spine, anchor, ray, rootConfineTagId(root));
     DEBUG_IF(printf("after CTBox ", anchor);showShapeStack(shapeStack);)
 }
@@ -1698,14 +1703,17 @@ __kernel void traverseDagKernel
     ,            Tile_   tile            //
     ,              int   columnDepth     //
     ,             int2   bitmapSize      //
+    ,              int   samplesPerPixel //
     ,              int   frameCount      //
+    //, LMEM     Color_   *samplePool      //
     , GMEM       uint   *target          //
     ) {
     int2  pos = (int2)( get_global_id(0) + boxLeft(tile)
                       , get_global_id(1) + boxTop(tile)
                       );
+    int sample = get_global_id(2);
     //DEBUG_IF(printf("---pos %v2i get_global_id(0) %i get_global_id(1) %i get_local_id(0) %i get_local_id(1) %i\n", pos, get_global_id(0) ,get_global_id(1), get_local_id(0), get_local_id(1));)
-    long thread = (bitmapSize.x * (bitmapSize.y * frameCount + pos.x)) + pos.x;
+    long thread = (samplesPerPixel * (bitmapSize.x * (bitmapSize.y * frameCount + pos.x)) + pos.x) + sample;
     Dag dag;
     TraverseState state;
     if (pos.x < bitmapSize.x && pos.y < bitmapSize.y) {

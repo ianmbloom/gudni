@@ -39,7 +39,8 @@ addCrossingM :: forall axis s m
                 , Monad m
                 , Space s
                 )
-             => (PrimTagId -> m (Primitive s))
+             => s
+             -> (PrimTagId -> m (Primitive s))
              -> m ()
              -> axis
              -> Athwart axis s
@@ -48,16 +49,17 @@ addCrossingM :: forall axis s m
              -> ShapeStack
              -> PrimTagId
              -> m ShapeStack
-addCrossingM getPrim op axis parentCut parentLine tree stack primTagId =
+addCrossingM limit getPrim op axis parentCut parentLine tree stack primTagId =
     do op
        prim <- getPrim primTagId
-       return $ passPrimAlong (perpendicularTo axis) parentCut parentLine (tree ^. confineCut) primTagId prim stack
+       return $ passPrimAlong limit (perpendicularTo axis) parentCut parentLine (tree ^. confineCut) primTagId prim stack
 
 sweepConfineTree :: forall s m
                  . ( Space s
                    , MonadIO m
                    )
-                 => (PrimTagId -> m (Box s))
+                 => s
+                 -> (PrimTagId -> m (Box s))
                  -> (PrimTagId -> m (Primitive s))
                  -> m ()
                  -> m ()
@@ -70,7 +72,8 @@ sweepConfineTree :: forall s m
                  -> Int
                  -> ConfineTree s
                  -> m (DecorateTree s)
-sweepConfineTree getBox
+sweepConfineTree limit
+                 getBox
                  getPrim
                  crossingOp
                  branchStep
@@ -82,22 +85,24 @@ sweepConfineTree getBox
                  popPathOp
                  depthLimit
                  mTree =
-   do (dTree, _, _) <- sweep Vertical
-                              0
-                              True
-                              (toAlong Horizontal minBound)
-                              (toAlong Vertical   minBound)
-                              ( makeBox minBound
-                                        minBound
-                                        maxBound
-                                        maxBound )
-                              mTree
-                              []
+   do (dTree, _, _) <- sweep limit
+                             Vertical
+                             0
+                             True
+                             (toAlong Horizontal minBound)
+                             (toAlong Vertical   minBound)
+                             ( makeBox minBound
+                                       minBound
+                                       maxBound
+                                       maxBound )
+                             mTree
+                             []
       return dTree
    where
    sweep :: forall axis
          . (Axis axis, axis~PerpendicularTo(PerpendicularTo axis))
-         => axis
+         => s
+         -> axis
          -> Int
          -> Bool
          -> Athwart axis s
@@ -106,7 +111,8 @@ sweepConfineTree getBox
          -> Branch axis s
          -> [PrimTagId]
          -> m (DecoTree axis s, [PrimTagId], Int)
-   sweep axis
+   sweep limit
+         axis
          depth
          moreSide
          parentCut
@@ -117,7 +123,7 @@ sweepConfineTree getBox
        let lessSide = not moreSide
            ind x = return () -- liftIO $ putStrLn $ concat (replicate depth "      ") ++ "sweep " ++ x
 
-           addCrossings overhangs tree primStack = foldM (addCrossingM getPrim crossingOp axis parentCut parentLine tree) primStack overhangs
+           addCrossings overhangs tree primStack = foldM (addCrossingM limit getPrim crossingOp axis parentCut parentLine tree) primStack overhangs
            handleOverhangs :: String -> [PrimTagId] -> m [PrimTagId]
            handleOverhangs mess primStack =
                do  (keep, discard) <- partitionM (overhangs axis boundary) primStack
@@ -138,8 +144,8 @@ sweepConfineTree getBox
                    cut = tree ^. confineCut
                    lessBox = set (maxBox . athwart axis) cut boundary
                    moreBox = set (minBox . athwart axis) cut boundary
-                   sweepLess = sweep (perpendicularTo axis) (depth + 1) False parentLine cut lessBox (tree ^. confineLessCut)
-                   sweepMore = sweep (perpendicularTo axis) (depth + 1) True  parentLine cut moreBox (tree ^. confineMoreCut)
+                   sweepLess = sweep limit (perpendicularTo axis) (depth + 1) False parentLine cut lessBox (tree ^. confineLessCut)
+                   sweepMore = sweep limit (perpendicularTo axis) (depth + 1) True  parentLine cut moreBox (tree ^. confineMoreCut)
                    goLessSide = do indTag $ "lessSide ===="
                                    (dLess, fromLess, depthLess) <- sweepLess parentOverhangs
                                    indTag $ "        fromLess " ++ show fromLess

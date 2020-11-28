@@ -32,24 +32,24 @@ insideBox p box =
 limit :: Space s => s
 limit = 1 / 16
 
-insideBezierTri :: Space s => Point2 s -> BezTri s -> Bool
-insideBezierTri point =
+insideBezierTri :: Space s => s -> Point2 s -> BezTri s -> Bool
+insideBezierTri limit point =
   foldl1 (/=) .
-  fmap (crossesBezierAlong Vertical minBound (point ^. pX) (point ^. pY)) .
+  fmap (crossesBezierAlong False limit Vertical minBound (point ^. pX) (point ^. pY)) .
   bezTriToBeziers
 
-traverseFacetUntil :: forall s . (Space s) => s -> Point2 s -> Facet s -> Facet s
-traverseFacetUntil threshold point =
+traverseFacetUntil :: forall s . (Space s) => s -> s -> Point2 s -> Facet s -> Facet s
+traverseFacetUntil limit flatness point =
   go
   where
   go :: Facet s -> Facet s
   go facet =
-      if shouldSubdivideFacet threshold facet
-      then go (traverseFacet point facet)
+      if shouldSubdivideFacet flatness facet
+      then go (traverseFacet limit point facet)
       else facet
 
-traverseFacet :: (Space s) => Point2 s -> Facet s -> Facet s
-traverseFacet point facet =
+traverseFacet :: (Space s) => s -> Point2 s -> Facet s -> Facet s
+traverseFacet limit point facet =
   let output = facet ^. facetOutput
       sideOut = sideBezTris output
       centerOut = centerBezTri  sideOut
@@ -57,7 +57,7 @@ traverseFacet point facet =
       input = facet ^. facetInput
       sideIn = sideTris input
       centerIn = centerTri input
-      isInside = fmap (insideBezierTri point) sideOut
+      isInside = fmap (insideBezierTri limit point) sideOut
       next
          | isInside ^. _x = (Facet (sideOut ^. _x) (sideIn ^. _x))
          | isInside ^. _y = (Facet (sideOut ^. _y) (sideIn ^. _y))

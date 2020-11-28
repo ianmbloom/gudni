@@ -86,6 +86,7 @@ runTraverseDagKernel rasterizer
                      target =
     let tileWidth  = tr "tileWidth " $ fromIntegral . fromAlong Horizontal $ tile ^. widthBox
         tileHeight = tr "tileHeight" $ fromIntegral . fromAlong Vertical   $ tile ^. heightBox
+        samplesPerPixel = 1
     in
     announceKernel "traverseDagKernel" $
         do  randomHeap <- bufferFromVector "randomHeap      " (rasterizer ^. dagOpenCLRandomField)
@@ -105,11 +106,12 @@ runTraverseDagKernel rasterizer
                       (unRef . unFabricTagId $ dagRoot)
                       tile
                       (toCInt $ rasterizer ^. dagOpenCLDeviceSpec  . specColumnDepth)
-                      (tr "canvasSize ^^^^^^^^^^^^^^^^^^^^^^^^" $ fmap (toCInt . fromIntegral) canvasSize)
+                      (fmap (toCInt . fromIntegral) canvasSize)
+                      (toCInt samplesPerPixel)
                       (toCInt frameCount)
                       target
-                      (Work2D tileWidth tileHeight)
-                      (WorkGroup [tileWidth, 1]) :: CL ()
+                      (Work3D tileWidth tileHeight samplesPerPixel)
+                      (WorkGroup [tileWidth `div` samplesPerPixel, 1, samplesPerPixel]) :: CL ()
 
 runTraverseDagKernelTiles :: forall s token target
                           .  (  KernelArgs

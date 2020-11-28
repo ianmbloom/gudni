@@ -28,6 +28,7 @@ import Graphics.Gudni.Raster.Serial.Pile
 import Graphics.Gudni.Raster.Dag.FromLayout
 import Graphics.Gudni.Raster.Dag.Serialize
 import Graphics.Gudni.Raster.Dag.State
+import Graphics.Gudni.Raster.Dag.Constants
 import Graphics.Gudni.Raster.TextureReference
 
 import Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
@@ -46,8 +47,9 @@ instance Rasterizer DagOpenCLState where
     rasterFrame rasterizer canvasSize pictureMap scene frameCount queries target =
         do (pictureMemoryMap, pixelPile) <- liftIO $ collectPictureMemory pictureMap
            fabric <- sceneToFabric pictureMemoryMap scene
-           let canvas = sizeToBox . fmap fromIntegral $ canvasSize
-           withSerializedFabric (Just canvas) pixelPile fabric $ \storage root ->
+           let limit = realToFrac cROSSsPLITlIMIT
+               canvas = sizeToBox . fmap fromIntegral $ canvasSize
+           withSerializedFabric limit (Just canvas) pixelPile fabric $ \storage root ->
                liftIO $ runCL (rasterizer ^. dagOpenCLState) $
                    withBuffersInCommon storage $ \bic ->
                        withOutputBuffer canvasSize target $ \ outputBuffer ->

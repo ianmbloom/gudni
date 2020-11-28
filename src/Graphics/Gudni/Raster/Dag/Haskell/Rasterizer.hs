@@ -32,6 +32,7 @@ import Graphics.Gudni.Raster.Dag.Serialize
 import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Traverse
 import Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
+import Graphics.Gudni.Raster.Dag.Constants
 import Graphics.Gudni.Raster.TextureReference
 
 import CLUtil
@@ -48,10 +49,11 @@ instance Rasterizer DagHaskellState where
     rasterFrame rasterizer canvasSize pictureMap scene frameCount queries target =
       do (pictureMemoryMap, pixelPile) <- liftIO $ collectPictureMemory pictureMap
          fabric <- sceneToFabric pictureMemoryMap scene
-         let canvas = sizeToBox . fmap fromIntegral $ canvasSize
-         withSerializedFabric (Just canvas) pixelPile fabric $ \storage root ->
+         let limit = realToFrac cROSSsPLITlIMIT
+             canvas = sizeToBox . fmap fromIntegral $ canvasSize
+         withSerializedFabric limit (Just canvas) pixelPile fabric $ \storage root ->
              evalStateT (evalRandT (
-                 do let traversePixel loc = traverseFabric (fmap fromIntegral loc) root
+                 do let traversePixel loc = traverseFabric limit (fmap fromIntegral loc) root
                     img <- createImageM traversePixel canvasSize
                     copyImageToTarget img target
              ) (mkStdGen frameCount)) storage

@@ -84,14 +84,14 @@ allocateFabricCombineTagS :: (DagConstraints s m) =>                            
 setFabricS                :: (DagConstraints s m) => FabricTagId -> Fabric (ForStorage s) -> DagMonad s m ()
 addFabricS                :: (DagConstraints s m) =>                Fabric (ForStorage s) -> DagMonad s m FabricTagId
 storePrimS                :: (DagConstraints s m) => Primitive s                          -> DagMonad s m PrimTagId
-addTreeS                  :: (DagConstraints s m) => Slice PrimTagId                      -> DagMonad s m (Reference (TreeRoot s))
+addTreeS                  :: (DagConstraints s m) => s -> Slice PrimTagId                 -> DagMonad s m (Reference (TreeRoot s))
 allocateFabricTagS         = overStateT dagFabricStorage allocateFabricTag
 allocateFabricCombineTagS  = overStateT dagFabricStorage allocateFabricCombineTag
 setFabricS location fabric = overStateT dagFabricStorage $ storeFabric location fabric
 addFabricS fabric          = overStateT dagFabricStorage $ addFabric            fabric
 storePrimS prim            = overStateT dagPrimStorage   $ storePrim   prim
-addTreeS   slice           = do pile <- use dagPrimTagIds
-                                overStateT dagTreeStorage $ storeTree loadBoxS loadPrimS slice pile
+addTreeS limit slice       = do pile <- use dagPrimTagIds
+                                overStateT dagTreeStorage $ storeTree limit loadBoxS loadPrimS slice pile
 
 loadFabricS    :: (DagConstraints s m) => FabricTagId            -> DagMonad s m (Fabric (ForStorage s))
 loadTransformS :: (DagConstraints s m) => FabricTag              -> DagMonad s m (FTransformer s)

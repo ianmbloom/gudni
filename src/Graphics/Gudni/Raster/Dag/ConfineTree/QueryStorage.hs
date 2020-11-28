@@ -31,10 +31,13 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.State
 
-modifyItemStackIfCrossed :: (Space s, Storable s, MonadIO m) => Point2 s -> Point2 s -> PrimTagId -> StateT ShapeStack (DagMonad s m) ()
-modifyItemStackIfCrossed start end primTagId =
+modifyItemStackIfCrossed :: (Space s, Storable s, MonadIO m) => s -> Point2 s -> Point2 s -> PrimTagId -> StateT ShapeStack (DagMonad s m) ()
+modifyItemStackIfCrossed limit start end primTagId =
   do prim <- lift $ loadPrimS primTagId
-     when (crossesPrim start end prim) $ modify (toggleShapeActive (prim ^. primShapeId))
+     let debugFlag = (end == Point2 2.22 0.44 && primTagId == PrimTagId 0)
+         crosses = crossesPrim debugFlag limit start end prim
+     when debugFlag $ liftIO $ putStrLn $ "crossesPrim " ++ show primTagId ++ " shapeId " ++ show (prim ^. primShapeId) ++ " result " ++ show crosses
+     when crosses $ modify (toggleShapeActive (prim ^. primShapeId))
 
 buildStack :: (MonadIO m) => Slice ShapeId -> StateT (Point2 s, ShapeStack) (DagMonad s m) ()
 buildStack slice = do newStack <- mapSliceM (lift . fromPileS (dagTreeStorage . treeCrossingPile)) slice
@@ -46,14 +49,14 @@ holdAnchor anchor = modify (set _1 anchor)
 getAnchorStack :: (Space s, Storable s, MonadIO m) => Point2 s -> DecoTagId s -> DagMonad s m (Point2 s, ShapeStack)
 getAnchorStack point decoTree = execStateT (traverseDecorateTreeTag buildStack holdAnchor point decoTree) (zeroPoint, [])
 
-secondLeg :: (Space s, Storable s, MonadIO m) => Point2 s -> Point2 s -> ConfineTagId s -> ShapeStack -> DagMonad s m ShapeStack
-secondLeg anchor point confineTagId anchorStack = execStateT (traverseCTagBetweenPoints (modifyItemStackIfCrossed anchor point) anchor point confineTagId) anchorStack
+secondLeg :: (Space s, Storable s, MonadIO m) => s -> Point2 s -> Point2 s -> ConfineTagId s -> ShapeStack -> DagMonad s m ShapeStack
+secondLeg limit anchor point confineTagId anchorStack = execStateT (traverseCTagBetweenPoints (modifyItemStackIfCrossed limit anchor point) anchor point confineTagId) anchorStack
 
-queryConfineTagPoint :: forall s m . (Space s, Storable s, MonadIO m) => TreeRoot s -> Point2 s -> DagMonad s m ShapeStack
-queryConfineTagPoint root point =
+queryConfineTagPoint :: forall s m . (Space s, Storable s, MonadIO m) => s -> TreeRoot s -> Point2 s -> DagMonad s m ShapeStack
+queryConfineTagPoint limit root point =
     do  let (confineTreeId, decoTreeId) = root
         (anchor, anchorStack) <- getAnchorStack point decoTreeId
-        when (point == Point2 2 2) $ liftIO $ putStrLn $ "afterDecorate point " ++ show point ++ " anchor " ++ show anchor ++ " \n" ++ show anchorStack
-        stack <- secondLeg anchor point confineTreeId anchorStack
-        when (point == Point2 2 2) $ liftIO $ putStrLn $ "after SecondLeg " ++ " \n" ++ show stack
+        when (point == Point2 2.22 0.44) $ liftIO $ putStrLn $ "afterDecorate point " ++ show point ++ " anchor " ++ show anchor ++ " \n" ++ show anchorStack
+        stack <- secondLeg limit anchor point confineTreeId anchorStack
+        when (point == Point2 2.22 0.44) $ liftIO $ putStrLn $ "after SecondLeg " ++ " \n" ++ show stack
         return stack

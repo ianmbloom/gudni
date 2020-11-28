@@ -62,7 +62,9 @@ instance (Out s) => Out (Bezier s) where
 pattern Bez x y z = Bezier (V3 x y z)
 
 instance Show s => Show (Bezier s) where
-  show (Bez v0 c v1) = "Bez (" ++ show v0 ++ ") (" ++ show c ++ ") (" ++ show v1 ++ ")"
+  show (Bez v0 c v1) = "Bez " ++ show (v0 ^. pX) ++ ", " ++ show (v0 ^. pY)
+                     ++ " : " ++ show (c ^.  pX) ++ ", " ++ show (c ^.  pY)
+                     ++ " : " ++ show (v1 ^. pX) ++ ", " ++ show (v1 ^. pY)
 
 -- | Lens for the start point of a bezier.
 bzStart :: Lens' (Bezier s) (Point2 s)

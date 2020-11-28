@@ -212,10 +212,11 @@ traverseFabric :: forall m ray q
                   , Answer q
                   , SpaceOf q ~ SpaceOf ray
                   )
-               => ray
+               => SpaceOf ray
+               -> ray
                -> FabricTagId
                -> RayMonad (SpaceOf ray) m q
-traverseFabric initRay fabricTagId =
+traverseFabric limit initRay fabricTagId =
     evalStateT (do debugIf initRay $ "======================== start thread" ++ show initRay
                    q <- go fabricTagId Nothing FirstStage initRay
                    debugIf initRay $ "======================== end   thread" ++ show initRay
@@ -253,7 +254,7 @@ traverseFabric initRay fabricTagId =
                                                        FirstStage ->
                                                            do pushFabric tagId Nothing SecondStage ray
                                                               root <- loadTreeRootT (fabTagTreeId tag)
-                                                              newStack <- Stack . V.fromList <$> (lift $ rayTraverseTree root ray)
+                                                              newStack <- Stack . V.fromList <$> (lift $ rayTraverseTree limit root ray)
                                                               pushShapeStack newStack
                                                               let newRange = makeStackRange newStack
                                                               go (fabTagChildId tag) newRange FirstStage ray
@@ -262,8 +263,8 @@ traverseFabric initRay fabricTagId =
                                                               popGo
                                               else -- must be transformer
                                                    do transform <- loadTransformT tag
-                                                      let transformedRay = rayApplyTransform transform ray
-                                                      go (fabTagChildId tag) Nothing FirstStage  transformedRay
+                                                      let transformedRay = rayApplyTransform limit transform ray
+                                                      go (fabTagChildId tag) Nothing FirstStage transformedRay
                     | fabTagIsUnaryPost tag = case fabricStage of
                                                   FirstStage ->
                                                       do pushFabric tagId Nothing SecondStage ray

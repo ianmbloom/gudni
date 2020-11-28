@@ -16,12 +16,13 @@ import Graphics.Gudni.Util.Debug
 import Control.Lens
 
 facetIsWithinBox :: Space s
-                 => Box s
+                 => s
+                 -> Box s
                  -> Facet s
                  -> Bool
-facetIsWithinBox boundary facet =
+facetIsWithinBox limit boundary facet =
    or .
-   fmap (bezierIsWithinBox boundary) .
+   fmap (bezierIsWithinBox limit boundary) .
    bezTriToBeziers .
    view facetOutput $
    facet

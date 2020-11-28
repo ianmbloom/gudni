@@ -100,8 +100,8 @@ bEZIERsIZEiNfLOATS   = 6         :: Int
 fACETsIZEiNfLOATS    = 18        :: Int
 bOXsIZEiNfLOATS      = 4         :: Int
 sOURCEfILEpADDING    = 90        :: Int   -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
-dEBUG0               = 400       :: Int
-dEBUG1               = 400       :: Int
+dEBUG0               = 444       :: Int
+dEBUG1               = 88        :: Int
 
 instance Out CULong where
     doc x = text . show $ x

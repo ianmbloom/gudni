@@ -47,7 +47,8 @@ combineShapeStacks = flip (foldl (flip toggleShapeActive))
 
 passPrimAlong :: ( Axis axis
                  , Space s)
-              => axis
+              => s
+              -> axis
               -> Along axis s
               -> Athwart axis s
               -> Along axis s
@@ -55,20 +56,21 @@ passPrimAlong :: ( Axis axis
               -> Primitive s
               -> ShapeStack
               -> ShapeStack
-passPrimAlong axis start baseline end primTagId prim =
-    if crossesPrimAlong axis start baseline end prim
+passPrimAlong limit axis start baseline end primTagId prim =
+    if crossesPrimAlong False limit axis start baseline end prim
     then toggleShapeActive (prim ^. primShapeId)
     else id
 
 passPrimBetweenPoints :: (Space s)
-                      => Point2 s
+                      => s
+                      -> Point2 s
                       -> Point2 s
                       -> PrimTagId
                       -> Primitive s
                       -> ShapeStack
                       -> ShapeStack
-passPrimBetweenPoints anchor point primTagId prim =
-    if crossesPrim anchor point prim
+passPrimBetweenPoints limit anchor point primTagId prim =
+    if crossesPrim False limit anchor point prim
     then toggleShapeActive (prim ^. primShapeId)
     else id
 
@@ -76,17 +78,18 @@ passPrim :: forall s m
          .  ( Space s
             , Monad m
             )
-         => Point2 s
+         => s
+         -> Point2 s
          -> Point2 s
          -> Box s
          -> PrimTagId
          -> Primitive s
          -> ShapeStack
          -> m ShapeStack
-passPrim anchor point box primTagId prim stack =
+passPrim limit anchor point box primTagId prim stack =
     let primBox = boxOf prim
     in
     if primBox ^. maxBox . pX >= box ^. minBox . pX &&
        primBox ^. maxBox . pY >= box ^. minBox . pY
-    then return $ passPrimBetweenPoints anchor point primTagId prim stack
+    then return $ passPrimBetweenPoints limit anchor point primTagId prim stack
     else return stack

@@ -23,8 +23,8 @@ import Linear.Metric
 import Control.Applicative
 import Control.Lens
 
-inverseFacet :: (Space s) => Facet s -> Point2 s -> Point2 s
-inverseFacet facet p = flip inverseTriangle p . traverseFacet p $ facet
+inverseFacet :: (Space s) => s -> Facet s -> Point2 s -> Point2 s
+inverseFacet limit facet p = flip inverseTriangle p . traverseFacet limit p $ facet
 
 inverseTriangle :: (Space s) => Facet s -> Point2 s -> Point2 s
 inverseTriangle (Facet output input) p =

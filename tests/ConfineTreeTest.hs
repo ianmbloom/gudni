@@ -30,6 +30,7 @@ import Graphics.Gudni.Raster.Dag.Primitive.Storage
 import Graphics.Gudni.Raster.Dag.FromLayout
 import Graphics.Gudni.Raster.Dag.Serialize
 import Graphics.Gudni.Raster.Dag.Fabric.Traverse
+import Graphics.Gudni.Raster.Dag.Constants
 import Graphics.Gudni.Raster.TextureReference
 
 import qualified Data.Map as M
@@ -75,12 +76,12 @@ initialModel =
           , _statePace        = 50
           , _stateLastTime    = 0
           , _stateDirection   = True
-          , _statePlayhead    = 18
+          , _statePlayhead    = 20
           , _stateFrameNumber = 0
           , _stateStep        = 53
           , _stateRepMode     = False
           , _stateRepDk       = False
-          , _stateCursor      = Point2 730 1140
+          , _stateCursor      = Point2 444 88
           }
     , _stateShapeAngle = 0 @@ deg -- @@ rad -- 0 @@ rad
     , _stateTraceStep = 0
@@ -116,12 +117,13 @@ instance Model ConfineTreeState where
                 canvas :: Box SubSpace
                 canvas = sizeToBox . fmap fromIntegral $ canvasSize
                 point  = state ^. stateBase . stateCursor
+                limit = realToFrac cROSSsPLITlIMIT
             liftIO $ putStrLn name
             pictureMap <- liftIO $ providePictureMap state
             (pictureMemoryMap, pixelPile) <- liftIO $ collectPictureMemory pictureMap
             fabric <- sceneToFabric pictureMemoryMap (Scene gray testShape)
             liftIO $ putStrLn "Before withSerialized Fabric"
-            testScene <- withSerializedFabric (Just canvas) pixelPile fabric $ \storage root ->
+            testScene <- withSerializedFabric limit (Just canvas) pixelPile fabric $ \storage root ->
                 evalStateT (evalRandT (
                      do  -- out <- lift $ outFabric root
                          -- liftIO $ putStrLn "**** outFabric *******************************************"
@@ -151,7 +153,7 @@ instance Model ConfineTreeState where
                          -- liftIO $ putStrLn "about to constructDag"
                          -- (dag :: Layout DefaultStyle) <- lift $ constructDag root
                          let curs :: Layout DefaultStyle
-                             curs = translateBy (Point2 200 200) . scaleBy 5 . withColor black $ mask circle
+                             curs = translateBy point . scaleBy 5 . withColor black $ mask circle
                          return $
                              overlap [  curs
                                         --,

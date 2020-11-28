@@ -28,7 +28,8 @@ modifyItemStackIfCrossedAlong :: ( Axis axis
                                  , Space s
                                  , Monad m
                                  )
-                              => m ()
+                              => s
+                              -> m ()
                               -> axis
                               -> Along axis s
                               -> Athwart axis s
@@ -36,9 +37,9 @@ modifyItemStackIfCrossedAlong :: ( Axis axis
                               -> PrimTagId
                               -> Primitive s
                               -> StateT ShapeStack m ()
-modifyItemStackIfCrossedAlong crossOp lineAxis start baseline end primTagId prim =
+modifyItemStackIfCrossedAlong limit crossOp lineAxis start baseline end primTagId prim =
   do lift crossOp
-     if crossesPrimAlong lineAxis start baseline end prim
+     if crossesPrimAlong False limit lineAxis start baseline end prim
      then modify (toggleShapeActive (prim ^. primShapeId))
      else return ()
 
@@ -46,12 +47,13 @@ buildDecorateTree :: forall s m
                   .  ( Space s
                      , Monad m
                      )
-                  => (PrimTagId -> m (Primitive s))
+                  => s
+                  -> (PrimTagId -> m (Primitive s))
                   -> m ()
                   -> Int
                   -> ConfineTree s
                   -> m (DecorateTree s)
-buildDecorateTree getPrim crossOp limit mRoot =
+buildDecorateTree limit getPrim crossOp depthLimit mRoot =
     fst <$> go Vertical (toAlong Horizontal minBound) (toAlong Vertical minBound) mRoot
     where
     go :: (Axis axis, axis~PerpendicularTo(PerpendicularTo(axis)))
@@ -68,7 +70,7 @@ buildDecorateTree getPrim crossOp limit mRoot =
                          cut = tree ^. confineCut
                          collector primTagId =
                               do prim <- lift $ getPrim primTagId
-                                 modifyItemStackIfCrossedAlong crossOp parentAxis parentCut parentLine cut primTagId prim
+                                 modifyItemStackIfCrossedAlong limit crossOp parentAxis parentCut parentLine cut primTagId prim
                      in
                      do  crossings <- execStateT (traverseCTAlong collector
                                                                   parentAxis
@@ -80,7 +82,7 @@ buildDecorateTree getPrim crossOp limit mRoot =
                          (lessTree, lessDepth) <- go (perpendicularTo axis) parentLine (tree ^. confineCut) (tree ^. confineLessCut)
                          (moreTree, moreDepth) <- go (perpendicularTo axis) parentLine (tree ^. confineCut) (tree ^. confineMoreCut)
                          let depth = 1 + max lessDepth moreDepth
-                             this  = if depth <= limit
+                             this  = if depth <= depthLimit
                                      then DecoLeaf
                                      else DecoBranch
                                               { _decoCut       = tree ^. confineCut

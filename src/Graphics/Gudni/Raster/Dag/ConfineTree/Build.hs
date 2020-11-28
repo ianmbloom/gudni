@@ -91,7 +91,8 @@ buildConfineTree :: forall s m
                  .  ( Space s
                     , MonadIO m
                     )
-                 => (PrimTagId -> m (Box s))
+                 => s
+                 -> (PrimTagId -> m (Box s))
                  -> (PrimTagId -> m (Primitive s))
                  -> Bool
                  -> Int
@@ -99,7 +100,7 @@ buildConfineTree :: forall s m
                  -> Slice PrimTagId
                  -> Pile PrimTagId
                  -> m (ConfineTree s, DecorateTree s, SweepTrace s)
-buildConfineTree getBox getPrim decorateType traceLimit decorationLimit slice primTagIdPile =
+buildConfineTree limit getBox getPrim decorateType traceLimit decorationLimit slice primTagIdPile =
   do   treeBare <- -- tcP "bareTree" .
                    -- trWith (show . confineTreeCountOverlaps) "confineTreeCountOverlaps" .
                    -- trWith (show . confineTreeDepth) "confineTreeDepth" .
@@ -108,7 +109,8 @@ buildConfineTree getBox getPrim decorateType traceLimit decorationLimit slice pr
                    addPileToConfineTree getBox True slice primTagIdPile Nothing
        let numItems = confineTreeSize treeBare
        --liftIO $ putStrLn $ "decorateType " ++ show decorateType ++ " limit " ++ show decorationLimit
-       (treeDecorated2, trace) <- runStateT (sweepConfineTree (lift . getBox  )
+       (treeDecorated2, trace) <- runStateT (sweepConfineTree limit
+                                                              (lift . getBox  )
                                                               (lift . getPrim )
                                                               crossStep
                                                               branchStep
@@ -126,7 +128,7 @@ buildConfineTree getBox getPrim decorateType traceLimit decorationLimit slice pr
        -- liftIO $ putStrLn $ "averageConsidered " ++ showFl' 4 (fromIntegral (trace ^. sweepCrossSteps) / fromIntegral numItems :: Double)
        -- liftIO $ putStrLn ""
 
-       (treeDecorated, decorationCount) <- runStateT (buildDecorateTree (lift . getPrim) (modify (+1)) decorationLimit treeBare) 0
+       (treeDecorated, decorationCount) <- runStateT (buildDecorateTree limit (lift . getPrim) (modify (+1)) decorationLimit treeBare) 0
        --conConfineTree .= treeDecorated
        let total = decorationCount
        -- liftIO $ putStrLn $ "steps per node    " ++ showFl' 4 (fromIntegral decorationCount / fromIntegral numItems :: Double)

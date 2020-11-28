@@ -32,14 +32,14 @@ collectIfVisited getPrim primTagId =
   do prim <- lift $ getPrim primTagId
      modify (TPrim primTagId prim:)
 
-collectIfCrossed :: (Space s, Monad m) => Point2 s -> Point2 s -> TPrim s -> StateT [TPrim s] m ()
-collectIfCrossed start end prim =
-  when (crossesPrim start end (prim ^. tPrim)) $ modify (prim:)
+collectIfCrossed :: (Space s, Monad m) => s -> Point2 s -> Point2 s -> TPrim s -> StateT [TPrim s] m ()
+collectIfCrossed limit start end prim =
+  when (crossesPrim False limit start end (prim ^. tPrim)) $ modify (prim:)
 
-modifyItemStackIfCrossed :: (Space s, Monad m) => (PrimTagId -> m (Primitive s)) -> Point2 s -> Point2 s -> PrimTagId -> StateT ShapeStack m ()
-modifyItemStackIfCrossed getPrim start end primTagId =
+modifyItemStackIfCrossed :: (Space s, Monad m) => s -> (PrimTagId -> m (Primitive s)) -> Point2 s -> Point2 s -> PrimTagId -> StateT ShapeStack m ()
+modifyItemStackIfCrossed limit getPrim start end primTagId =
   do prim <- lift $ getPrim primTagId
-     when (crossesPrim start end prim) $ modify (toggleShapeActive (prim ^. primShapeId))
+     when (crossesPrim False limit start end prim) $ modify (toggleShapeActive (prim ^. primShapeId))
 
 buildStack :: (Monad m) => ShapeStack -> StateT (Point2 s, ShapeStack) m ()
 buildStack branchShapeStack = modify (over _2 (combineShapeStacks branchShapeStack))
@@ -50,31 +50,31 @@ holdAnchor anchor = modify (set _1 anchor)
 getAnchorStack :: (Space s) => Point2 s -> DecorateTree s -> (Point2 s, ShapeStack)
 getAnchorStack point decoTree = execState (traverseDecorateTree buildStack holdAnchor point decoTree) (zeroPoint, [])
 
-secondLeg :: (Space s, Monad m) => (PrimTagId -> m (Primitive s)) -> Point2 s -> Point2 s -> ConfineTree s -> ShapeStack -> m ShapeStack
-secondLeg getPrim anchor point confineTree anchorStack = execStateT (traverseCTBetweenPoints (modifyItemStackIfCrossed getPrim anchor point) anchor point confineTree) anchorStack
+secondLeg :: (Space s, Monad m) => s -> (PrimTagId -> m (Primitive s)) -> Point2 s -> Point2 s -> ConfineTree s -> ShapeStack -> m ShapeStack
+secondLeg limit getPrim anchor point confineTree anchorStack = execStateT (traverseCTBetweenPoints (modifyItemStackIfCrossed limit getPrim anchor point) anchor point confineTree) anchorStack
 
-queryConfineTreePoint :: forall s m . (Space s, Monad m) => (PrimTagId -> m (Primitive s)) -> ConfineTree s -> DecorateTree s -> Point2 s -> m ShapeStack
-queryConfineTreePoint getPrim confineTree decoTree point =
+queryConfineTreePoint :: forall s m . (Space s, Monad m) => s -> (PrimTagId -> m (Primitive s)) -> ConfineTree s -> DecorateTree s -> Point2 s -> m ShapeStack
+queryConfineTreePoint limit getPrim confineTree decoTree point =
     do  let (anchor, anchorStack) = getAnchorStack point decoTree
-        stack <- secondLeg getPrim anchor point confineTree anchorStack
+        stack <- secondLeg limit getPrim anchor point confineTree anchorStack
         return stack
 
-queryConfineTreePointWithInfo :: forall s m . (Space s, Monad m) => (PrimTagId -> m (Primitive s)) -> ConfineTree s -> DecorateTree s -> Point2 s -> m (Point2 s, ShapeStack, ShapeStack, [TPrim s])
-queryConfineTreePointWithInfo getPrim confineTree decoTree point =
+queryConfineTreePointWithInfo :: forall s m . (Space s, Monad m) => s -> (PrimTagId -> m (Primitive s)) -> ConfineTree s -> DecorateTree s -> Point2 s -> m (Point2 s, ShapeStack, ShapeStack, [TPrim s])
+queryConfineTreePointWithInfo limit getPrim confineTree decoTree point =
     do let (anchor, anchorStack) = execState (traverseDecorateTree buildStack holdAnchor point decoTree) (zeroPoint, [])
        consideredPrims <- execStateT (traverseCTBetweenPoints (collectIfVisited getPrim) anchor point confineTree) []
-       stack <- secondLeg getPrim anchor point confineTree anchorStack
+       stack <- secondLeg limit getPrim anchor point confineTree anchorStack
        return (anchor, anchorStack, stack, consideredPrims)
 
-collectIfPrimWithinBox :: (Space s, Monad m) => (PrimTagId -> m (Primitive s)) -> Box s -> PrimTagId -> StateT [TPrim s] m ()
-collectIfPrimWithinBox getPrim box primTagId =
+collectIfPrimWithinBox :: (Space s, Monad m) => s -> (PrimTagId -> m (Primitive s)) -> Box s -> PrimTagId -> StateT [TPrim s] m ()
+collectIfPrimWithinBox limit getPrim box primTagId =
     do prim <- lift $ getPrim primTagId
-       modify (map (TPrim primTagId) (primsWithinBox box prim) ++)
+       modify (map (TPrim primTagId) (primsWithinBox limit box prim) ++)
 
-queryConfineTreeBox :: forall s m . (Space s, Monad m) => (PrimTagId -> m (Primitive s)) -> ConfineTree s -> DecorateTree s -> Box s -> m (ShapeStack, [TPrim s])
-queryConfineTreeBox getPrim confineTree decoTree box =
+queryConfineTreeBox :: forall s m . (Space s, Monad m) => s -> (PrimTagId -> m (Primitive s)) -> ConfineTree s -> DecorateTree s -> Box s -> m (ShapeStack, [TPrim s])
+queryConfineTreeBox limit getPrim confineTree decoTree box =
   do  let point = box ^. minBox
           (anchor, anchorStack) = getAnchorStack point decoTree
-      stack <- secondLeg getPrim anchor point confineTree anchorStack
-      primsInBox <- execStateT (traverseCTBox (collectIfPrimWithinBox getPrim box) box confineTree) []
+      stack <- secondLeg limit getPrim anchor point confineTree anchorStack
+      primsInBox <- execStateT (traverseCTBox (collectIfPrimWithinBox limit getPrim box) box confineTree) []
       return (stack, primsInBox)

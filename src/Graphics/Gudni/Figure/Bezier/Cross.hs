@@ -9,7 +9,6 @@ module Graphics.Gudni.Figure.Bezier.Cross
   , crossesBezierVertical
   , interimPoint
   , bezierSlopeLTEZero
-  , crossSplitLimit
   , bezAlong
   , bezAthwart
   )
@@ -20,9 +19,6 @@ import Graphics.Gudni.Figure.Bezier.Type
 import Graphics.Gudni.Util.Debug
 
 import Control.Lens
-
-crossSplitLimit :: (Space s) => s
-crossSplitLimit = 1 / 1024
 
 foldBez :: (Point2 s -> a) -> (a -> a -> a) -> Bezier s -> a
 foldBez f g = foldl1 g . fmap f . unBezier
@@ -57,33 +53,37 @@ outsideOfRange axis start baseline end box =
     start    >  box ^. maxBox . along   axis ||
     end      <= box ^. minBox . along   axis
 
+showB True = "1"
+showB False = "0"
 -- This is written with a little odd recursion using checkGo so that it matches the finite stack based GPU code better.
 crossesBezierAlong :: forall axis s
                    . (Axis axis, Space s)
-                   => axis
+                   => Bool
+                   -> s
+                   -> axis
                    -> Along axis s
                    -> Athwart axis s
                    -> Along axis s
                    -> Bezier s
                    -> Bool
-crossesBezierAlong axis start baseline end initBez =
-  --tc ("crossesBezierAlong " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
+crossesBezierAlong debugFlag limit axis start baseline end initBez =
+  trWhen debugFlag ("crossesBezierAlong " ++ show axis ++ " start " ++ show start ++ " baseline "++ show baseline ++ " end " ++ show end ++ " bez " ++ show initBez ) $
   if start == end
   then False
   else
   if start > end
-  then crossesBezierAlong axis end baseline start initBez
+  then crossesBezierAlong debugFlag limit axis end baseline start initBez
   else checkGo initBez
   where
   checkGo :: Bezier s -> Bool
   checkGo bez =
     let box = boxOf bez
-    in  if outsideOfRange axis start baseline end box
+    in  if trWhen debugFlag "        outsideOfRange" $
+           outsideOfRange axis start baseline end box
         then False
         else go bez box
   go :: Bezier s -> Box s -> Bool
   go bez box =
-     --tcDepth depth ("go " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
      let minAthwart = box ^. minBox . athwart axis
          maxAthwart = box ^. maxBox . athwart axis
          minAlong   = box ^. minBox . along   axis
@@ -92,12 +92,15 @@ crossesBezierAlong axis start baseline end initBez =
          slopeLTEZero = bezierSlopeLTEZero axis bez
          offBaseline = baseline /= maxAthwart
          isK = isKnobAbsolute axis bez || isKnobAbsolute (perpendicularTo axis) bez
+         insideLimits = start > box ^. minBox . along axis || end <= box ^. maxBox . along axis -- and the start or end points are somewhere inside curve limits
      in
-     if  size >= crossSplitLimit &&
+     trWhen debugFlag ("    go" {- ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end -}
+                       ++ " bez " ++ show bez ++ " isK " ++ showB isK ++ " offBaseline " ++ showB offBaseline ++ " insideLimits " ++ showB insideLimits ++ " size " ++ show size ++ " limit " ++ show (limit :: s) ++ " ret ") $
+     if  size >= limit &&
         (
          -- curve size remains greater than the limit
          offBaseline &&
-         (start > box ^. minBox . along axis || end <= box ^. maxBox . along axis) -- and the start or end points are somewhere inside curve limits
+         insideLimits
         )
         || isK -- or the curve creates a knob, meaning there could be more than one cross point
      then -- must split
@@ -116,19 +119,20 @@ crossesBezierAlong axis start baseline end initBez =
 -- This is an implementation of crossesBezierAlong that doesn't short circuit if the maximum side of the curve is on the baseline.
 crossesBezierAlongNoShort :: forall axis s
                           . (Axis axis, Space s)
-                          => axis
+                          => s
+                          -> axis
                           -> Along axis s
                           -> Athwart axis s
                           -> Along axis s
                           -> Bezier s
                           -> Bool
-crossesBezierAlongNoShort axis start baseline end bez =
+crossesBezierAlongNoShort limit axis start baseline end bez =
   --tc ("crossesBezierAlong " ++ show axis ++ " baseline "++ show baseline ++ " start " ++ show start ++ " end " ++ show end ++ " bez " ++ show bez ) $
   if start == end
   then False
   else
   if start > end
-  then crossesBezierAlong axis end baseline start bez
+  then crossesBezierAlongNoShort limit axis end baseline start bez
   else go bez
   where
   go :: Bezier s -> Bool
@@ -149,7 +153,7 @@ crossesBezierAlongNoShort axis start baseline end bez =
                  slopeLTEZero = bezierSlopeLTEZero axis bez
                  isK = isKnobAbsolute axis bez || isKnobAbsolute (perpendicularTo axis) bez
              in
-             if  size >= crossSplitLimit &&
+             if  size >= limit &&
                 (
                  -- curve size remains greater than the limit
                  (start > minAlong || end <= maxAlong) -- and the start or end points are somewhere inside curve limits
@@ -162,17 +166,17 @@ crossesBezierAlongNoShort axis start baseline end bez =
                       barrier    = if barrierMin then minAlong else maxAlong
                   in  start <= barrier && end > barrier
 
-crossesBezier :: (Space s) => Point2 s -> Point2 s -> Bezier s -> Bool
-crossesBezier start end bez =
+crossesBezier :: (Space s) => Bool -> s -> Point2 s -> Point2 s -> Bezier s -> Bool
+crossesBezier debugFlag limit start end bez =
     let iP = interimPoint start end
     in
-    crossesBezierAlong Vertical   (start ^. pY) (start ^. pX) (iP  ^. pY) bez /=
-    crossesBezierAlong Horizontal (iP    ^. pX) (iP    ^. pY) (end ^. pX) bez
+    crossesBezierAlong debugFlag limit Vertical   (start ^. pY) (start ^. pX) (iP  ^. pY) bez /=
+    crossesBezierAlong debugFlag limit Horizontal (iP    ^. pX) (iP    ^. pY) (end ^. pX) bez
 
-crossesBezierHorizontal :: (Space s) => Point2 s -> Point2 s -> Bezier s -> Bool
-crossesBezierHorizontal start end bez =
-    crossesBezierAlong Horizontal (start ^. pX) (end ^. pY) (end ^. pX) bez
+crossesBezierHorizontal :: (Space s) => Bool -> s -> Point2 s -> Point2 s -> Bezier s -> Bool
+crossesBezierHorizontal debugFlag limit start end bez =
+    crossesBezierAlong debugFlag limit Horizontal (start ^. pX) (end ^. pY) (end ^. pX) bez
 
-crossesBezierVertical :: (Space s) => Point2 s -> Point2 s -> Bezier s -> Bool
-crossesBezierVertical start end bez =
-    crossesBezierAlong Vertical   (start ^. pY) (start ^. pX) (end  ^. pY) bez
+crossesBezierVertical :: (Space s) => Bool -> s -> Point2 s -> Point2 s -> Bezier s -> Bool
+crossesBezierVertical debugFlag limit start end bez =
+    crossesBezierAlong debugFlag limit Vertical   (start ^. pY) (start ^. pX) (end  ^. pY) bez

@@ -80,12 +80,13 @@ import Data.Tuple
 withSerializedFabric :: ( MonadIO m
                         , IsStyle style
                         )
-                     => Maybe (Box (SpaceOf style))
+                     => SpaceOf style
+                     -> Maybe (Box (SpaceOf style))
                      -> PixelPile
                      -> Fabric (PicturePass style)
                      -> (DagStorage (SpaceOf style) -> FabricTagId -> m a)
                      -> m a
-withSerializedFabric mCanvas pixelPile fabric code =
+withSerializedFabric limit mCanvas pixelPile fabric code =
     do  primStorage   <- initPrimStorage
         fabricStorage <- initFabricStorage
         treeStorage   <- initTreeStorage
@@ -98,7 +99,7 @@ withSerializedFabric mCanvas pixelPile fabric code =
                         , _dagPixelPile     = pixelPile
                         }
         liftIO $ putStrLn "serializeFabric"
-        (fabricTagId, state') <- evalUniqueT (runStateT (serializeFabric mCanvas fabric) initState)
+        (fabricTagId, state') <- evalUniqueT (runStateT (serializeFabric limit mCanvas fabric) initState)
         liftIO $ putStrLn "before code"
         result <- code state' fabricTagId
         liftIO $ putStrLn "after code"
@@ -112,11 +113,12 @@ withSerializedFabric mCanvas pixelPile fabric code =
 serializeFabric :: ( MonadIO m
                    , IsStyle style
                    )
-                => Maybe (Box (SpaceOf style))
+                => SpaceOf style
+                -> Maybe (Box (SpaceOf style))
                 -> Fabric (PicturePass style)
                 -> DagMonad (SpaceOf style) (UniqueT m) FabricTagId
-serializeFabric mCanvas fabric =
+serializeFabric limit mCanvas fabric =
     do liftIO $ liftIO $ putStrLn $ "===================== Serialize Fabric Start " ++ show (fabricDepth fabric) ++ " ====================="
-       f' <- extractPrimPass fabric
+       f' <- extractPrimPass limit fabric
        liftIO $ liftIO $ putStrLn $ "===================== Serialize Fabric End ======================="
        return f'

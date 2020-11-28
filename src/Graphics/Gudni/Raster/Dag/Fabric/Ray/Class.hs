@@ -30,11 +30,11 @@ randomVector = error "convolve not implemented"
 
 type RayMonad s m = RandT StdGen (DagMonad s m)
 
-transformPoint :: Space s => FTransformer s -> Point2 s -> Point2 s
-transformPoint trans ray =
+transformPoint :: Space s => s -> FTransformer s -> Point2 s -> Point2 s
+transformPoint limit trans ray =
   case trans of
       FAffine   forward _ -> applyAffine forward ray
-      FFacet    facet     -> inverseFacet  facet  ray
+      FFacet    facet     -> inverseFacet limit facet ray
       FFilter   filt      -> ray
       FConvolve scale     -> ray ^+^ randomVector scale
 
@@ -43,13 +43,13 @@ class ( HasSpace r
       , Storable (Bezier (SpaceOf r))
       , Storable (Facet (SpaceOf r))
       ) => Ray r where
-    rayToPoint        :: r -> Point2 (SpaceOf r)
-    rayTraverseTree   :: MonadIO m => TreeRoot (SpaceOf r) -> r -> RayMonad (SpaceOf r) m ShapeStack
-    rayApplyTransform :: FTransformer (SpaceOf r) -> r -> r
-    rayApplyFacet     :: Facet (SpaceOf r) -> r -> r
+    rayToPoint        ::                                                         r -> Point2 (SpaceOf r)
+    rayTraverseTree   :: MonadIO m => (SpaceOf r) -> TreeRoot     (SpaceOf r) -> r -> RayMonad (SpaceOf r) m ShapeStack
+    rayApplyTransform ::              (SpaceOf r) -> FTransformer (SpaceOf r) -> r -> r
+    rayApplyFacet     ::              (SpaceOf r) -> Facet        (SpaceOf r) -> r -> r
 
 instance (Space s, Storable s) => Ray (Point2 s) where
-    rayToPoint              ray = ray
-    rayTraverseTree   root  ray = lift $ queryConfineTagPoint root (rayToPoint ray)
-    rayApplyTransform trans ray = transformPoint trans ray
-    rayApplyFacet     facet ray = inverseFacet facet ray
+    rayToPoint                    ray = ray
+    rayTraverseTree   limit root  ray = lift $ queryConfineTagPoint limit root (rayToPoint ray)
+    rayApplyTransform limit trans ray = transformPoint limit trans ray
+    rayApplyFacet     limit facet ray = inverseFacet limit facet ray
