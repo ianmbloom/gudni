@@ -1,32 +1,26 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleContexts    #-}
 
 module Graphics.Gudni.Raster.Dag.Storage
    ( DagStorage(..)
-   , dagPrimStorage
    , dagFabricStorage
    , dagTreeStorage
    , dagPrimTagIds
    , dagPixelPile
-
    , DagMonad(..)
+   , inTree
    , DagConstraints(..)
-   , allocateFabricTagS
-   , allocateFabricCombineTagS
-   , setFabricS
-   , addFabricS
-   , storePrimS
+   , fabricCodeStart
+   , storageCodeStart
    , addTreeS
-   , loadFabricS
-   , loadTransformS
-   , loadFilterS
-   , loadSubstanceS
    , loadFabricTagS
-   , loadFabricCutS
-   , loadPrimS
-   , loadTreeRootS
-   , loadTreeTagS
-   , loadDecoTagS
+   , loadColorS
+   , loadAffineS
+   , loadFacetS
+   , loadConvolveS
+   , loadPixelS
    )
 where
 
@@ -34,35 +28,36 @@ import Graphics.Gudni.Figure
 
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Build
-import Graphics.Gudni.Raster.Dag.ConfineTree.Tag
-import Graphics.Gudni.Raster.Dag.Primitive.WithTag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Primitive.Type
-import Graphics.Gudni.Raster.Dag.Primitive.Storage
-import Graphics.Gudni.Raster.Dag.Primitive.Tag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Storage
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Tag
 import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Storage
 import Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Substance.Storage
-import Graphics.Gudni.Raster.Dag.Fabric.Ray.Transformer
-import Graphics.Gudni.Raster.Dag.Fabric.Ray.Filter
+import Graphics.Gudni.Raster.Dag.Fabric.Transformer.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Filter.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Tag
 import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
+import Graphics.Gudni.Raster.Serial.BytePile
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Util.Util
+import Graphics.Gudni.Util.Debug
 
 import Control.Monad.State
 import Control.Lens
 import qualified Data.Map as M
 import Foreign.Storable
+import Foreign.C.Types (CChar)
 
 data DagStorage s = DagStorage
-    { -- | Piles storing all of the items (beziers, facets and other primitives) that define the scene.
-      _dagPrimStorage      :: PrimStorage s
-      -- | Piles storing the fabric structure, substances and descriptions.
-    , _dagFabricStorage    :: FabricStorage s
+    { -- | Piles storing the fabric structure, substances and descriptions.
+      _dagFabricStorage    :: FabricStorage s
       -- | Piles storing the confineTrees
     , _dagTreeStorage      :: TreeStorage s
       -- | Pile of primitive tags used to build trees.
@@ -74,44 +69,54 @@ makeLenses ''DagStorage
 
 type DagMonad s m = StateT (DagStorage s) m
 
+inTree :: (MonadState (DagStorage s) m, MonadIO m, Storable s, Space s) => StateT (TreeStorage s) m a -> m a
+inTree = overStateT dagTreeStorage
+
 type DagConstraints s m = ( MonadIO m
                           , Space s
                           , Storable s
                           )
 
-allocateFabricTagS        :: (DagConstraints s m) =>                                         DagMonad s m FabricTagId
-allocateFabricCombineTagS :: (DagConstraints s m) =>                                         DagMonad s m FabricTagId
-setFabricS                :: (DagConstraints s m) => FabricTagId -> Fabric (ForStorage s) -> DagMonad s m ()
-addFabricS                :: (DagConstraints s m) =>                Fabric (ForStorage s) -> DagMonad s m FabricTagId
-storePrimS                :: (DagConstraints s m) => Primitive s                          -> DagMonad s m PrimTagId
-addTreeS                  :: (DagConstraints s m) => s -> Slice PrimTagId                 -> DagMonad s m (Reference (TreeRoot s))
-allocateFabricTagS         = overStateT dagFabricStorage allocateFabricTag
-allocateFabricCombineTagS  = overStateT dagFabricStorage allocateFabricCombineTag
-setFabricS location fabric = overStateT dagFabricStorage $ storeFabric location fabric
-addFabricS fabric          = overStateT dagFabricStorage $ addFabric            fabric
-storePrimS prim            = overStateT dagPrimStorage   $ storePrim   prim
-addTreeS limit slice       = do pile <- use dagPrimTagIds
-                                overStateT dagTreeStorage $ storeTree limit loadBoxS loadPrimS slice pile
+fabricCodeStart :: DagConstraints s m => DagMonad s m FabricTagId
+fabricCodeStart = storageCodeStart <$> use id
 
-loadFabricS    :: (DagConstraints s m) => FabricTagId            -> DagMonad s m (Fabric (ForStorage s))
-loadTransformS :: (DagConstraints s m) => FabricTag              -> DagMonad s m (FTransformer s)
-loadFilterS    :: (DagConstraints s m) => FabricTag              -> DagMonad s m FFilter
-loadSubstanceS :: (DagConstraints s m) => FabricTag              -> DagMonad s m (FSubstance (ForStorage s))
-loadFabricTagS :: (DagConstraints s m) => FabricTagId            -> DagMonad s m FabricTag
-loadFabricCutS :: (DagConstraints s m) => FabricTagId            -> DagMonad s m ShapeId
-loadPrimS      :: (DagConstraints s m) => PrimTagId              -> DagMonad s m (Primitive s)
-loadBoxS       :: (DagConstraints s m) => PrimTagId              -> DagMonad s m (Box s)
-loadTreeRootS  :: (DagConstraints s m) => Reference (TreeRoot s) -> DagMonad s m (TreeRoot s)
-loadTreeTagS   :: (DagConstraints s m) => ConfineTagId        s  -> DagMonad s m (ConfineTag s)
-loadDecoTagS   :: (DagConstraints s m) => DecoTagId           s  -> DagMonad s m (DecoTag    s)
-loadFabricS    fabricTagId = overStateT dagFabricStorage $ loadFabric      fabricTagId
-loadTransformS fabricTag   = overStateT dagFabricStorage $ loadTransform   fabricTag
-loadFilterS    fabricTag   = overStateT dagFabricStorage $ return $ loadFilter      fabricTag
-loadSubstanceS fabricTag   = overStateT (dagFabricStorage . fabricHeapPile) $ loadSubstance fabricTag
-loadFabricTagS fabricTagId = overStateT dagFabricStorage $ loadFabricTag      fabricTagId
-loadFabricCutS fabricTagId = overStateT dagFabricStorage $ loadFabricShapeCutPoint fabricTagId
-loadPrimS      primTagId   = overStateT dagPrimStorage   $ loadPrim  primTagId
-loadBoxS       primTagId   = boxOf <$>                     loadPrimS primTagId
-loadTreeRootS  treeId      = overStateT dagTreeStorage   $ loadTreeRoot treeId
-loadTreeTagS   treeId      = overStateT dagTreeStorage   $ loadTreeTag  treeId
-loadDecoTagS   treeId      = overStateT dagTreeStorage   $ loadDecoTag  treeId
+storageCodeStart :: DagStorage s -> FabricTagId
+storageCodeStart = FabricTagId . (subtract 1) . view (dagFabricStorage . fabricTagPile . pileCursor)
+
+addTreeS :: (DagConstraints s m) => s -> Int -> Slice PrimTagId -> DagMonad s m (DecoTagId s, ConfineTagId s)
+addTreeS limit decorationLimit slice =
+    do pile <- use dagPrimTagIds
+       inTree $ buildConfineTree limit decorationLimit slice pile
+
+loadFabricTagS  :: (DagConstraints s m) => FabricTagId    -> DagMonad s m FabricTag
+loadFabricTagS  fabricTagId = overStateT dagFabricStorage $ loadFabricTag      fabricTagId
+
+loadColorS :: (MonadIO m, Storable s, Space s) => FabricTag -> DagMonad s m (Color s)
+loadColorS tag =
+    do (AsBytes (color :: Color s)) <- fromPileS (dagFabricStorage . fabricHeapPile) (Ref . fabTagSubstanceRef $ tag)
+       return color
+
+loadTransS :: (MonadIO m, Storable s, CanLoad CChar a) => FabricTag -> DagMonad s m a
+loadTransS tag = fromPileS (dagFabricStorage . fabricHeapPile) (Ref . unTransformId . fabTagTransformId $ tag)
+
+loadAffineS :: (MonadIO m, Storable s) => FabricTag -> DagMonad s m (FTransformer s)
+loadAffineS tag =
+    do (AsBytes ((forward, back) :: (Affine s, Affine s))) <- loadTransS tag
+       return $ FAffine forward back
+
+loadFacetS :: (MonadIO m, Storable s) => FabricTag -> DagMonad s m (FTransformer s)
+loadFacetS tag =
+    do (AsBytes (facet :: Facet s)) <- loadTransS tag
+       return $ FFacet facet
+
+loadConvolveS :: (MonadIO m, Storable s) => FabricTag -> DagMonad s m (FTransformer s)
+loadConvolveS tag =
+    do (AsBytes (scale :: s)) <- loadTransS tag
+       return (FConvolve scale)
+
+loadPixelS :: (DagConstraints s m) => FabricTag -> Point2 s -> DagMonad s m (Color s)
+loadPixelS tag point =
+  do let pixel = fmap floor point
+     (AsBytes memRef) <- fromPileS (dagFabricStorage . fabricHeapPile) (Ref . fromIntegral . fabTagSubstanceRef $ tag)
+     pixelPile <- use dagPixelPile
+     lift $ getPixelColor pixelPile memRef pixel

@@ -28,15 +28,12 @@ module Graphics.Gudni.Raster.Serial.Reference
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Raster.Dag.Constants
 
 import Foreign.Storable
 import Foreign.C.Types(CUInt)
-
-import Text.PrettyPrint.GenericPretty
-import Text.PrettyPrint
-
-import GHC.Ptr
+import Foreign.Ptr
 
 type Reference_ = CUInt
 instance Out Reference_ where

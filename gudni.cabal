@@ -70,7 +70,6 @@ library
                      , Graphics.Gudni.Util.Debug
                      , Graphics.Gudni.Util.FlattenTree
                      , Graphics.Gudni.Util.MonadUnique
-                     , Graphics.Gudni.Util.RandomField
                      , Graphics.Gudni.Util.Segment
                      , Graphics.Gudni.Util.StorableM
                      , Graphics.Gudni.Util.Subdividable
@@ -83,40 +82,39 @@ library
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Decorate
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Depth
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Query
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.QueryStorage
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Sweep
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.SweepTrace
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.TraverseStorage
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Type
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Tag
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Storage
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Out
 
                      , Graphics.Gudni.Raster.Dag.Constants
                      , Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
-                     , Graphics.Gudni.Raster.Dag.Fabric.Combine.Query
+                     , Graphics.Gudni.Raster.Dag.Fabric.Combine.Tag
+                     , Graphics.Gudni.Raster.Dag.Fabric.Combine.Apply
                      , Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
                      , Graphics.Gudni.Raster.Dag.Fabric.Ray.Answer
-                     , Graphics.Gudni.Raster.Dag.Fabric.Ray.Filter
-                     , Graphics.Gudni.Raster.Dag.Fabric.Ray.Transformer
+                     , Graphics.Gudni.Raster.Dag.Fabric.Filter.Type
+                     , Graphics.Gudni.Raster.Dag.Fabric.Filter.Tag
+                     , Graphics.Gudni.Raster.Dag.Fabric.Transformer.Type
+                     , Graphics.Gudni.Raster.Dag.Fabric.Transformer.Storage
                      , Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
-                     , Graphics.Gudni.Raster.Dag.Fabric.Substance.Query
                      , Graphics.Gudni.Raster.Dag.Fabric.Substance.Storage
                      , Graphics.Gudni.Raster.Dag.Fabric.Type
                      , Graphics.Gudni.Raster.Dag.Fabric.Tag
                      , Graphics.Gudni.Raster.Dag.Fabric.Traverse
                      , Graphics.Gudni.Raster.Dag.Fabric.Out
                      , Graphics.Gudni.Raster.Dag.Fabric.Storage
+                     , Graphics.Gudni.Raster.Dag.Fabric.Serialize
                      , Graphics.Gudni.Raster.Dag.FromLayout
 
-                     , Graphics.Gudni.Raster.Dag.Primitive.Cross
-                     , Graphics.Gudni.Raster.Dag.Primitive.Stack
-                     , Graphics.Gudni.Raster.Dag.Primitive.Storage
-                     , Graphics.Gudni.Raster.Dag.Primitive.Tag
-                     , Graphics.Gudni.Raster.Dag.Primitive.Type
-                     , Graphics.Gudni.Raster.Dag.Primitive.WithinBox
-                     , Graphics.Gudni.Raster.Dag.Primitive.WithTag
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Constants
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Cross
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Stack
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Storage
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Tag
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.WithinBox
 
                      , Graphics.Gudni.Raster.Dag.Haskell.Rasterizer
 
@@ -130,7 +128,6 @@ library
                      , Graphics.Gudni.Raster.Dag.TagTypes
                      , Graphics.Gudni.Raster.Dag.Storage
                      , Graphics.Gudni.Raster.Dag.State
-                     , Graphics.Gudni.Raster.Dag.Serialize.ExtractPrimPass
                      , Graphics.Gudni.Raster.Dag.Serialize
                      , Graphics.Gudni.Raster.TextureReference
                      , Graphics.Gudni.Raster.Class
@@ -518,7 +515,6 @@ executable paragraph-example
 executable confinetree
     other-modules:     GudniTests
                        BasicShapes
-                       DrawSweepTrace
   if flag(benchmarks)
     build-depends:   gudni
                    , base

@@ -1,147 +1,103 @@
 {-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE ConstraintKinds      #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 
 module Graphics.Gudni.Raster.Dag.ConfineTree.Storage
   ( TreeStorage(..)
-  , treeRootPile
+  , TreeMonad(..)
+  , TreeConstraints(..)
   , treeConfinePile
   , treeDecoPile
   , treeCrossingPile
+  , treePrimStorage
   , initTreeStorage
   , freeTreeStorage
-  , storeTree
-  , loadTreeRoot
-  , loadTreeTag
+
+  , addConfineTag
+  , overwriteConfineTag
+  , loadConfineTag
+
+  , addDecoTag
   , loadDecoTag
+
+  , addTreePrim
+  , loadTreePrim
   )
 where
 
 import Graphics.Gudni.Figure
 
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Storage
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.TagTypes
+
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
-import Graphics.Gudni.Raster.Dag.Primitive.Type
-import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.ConfineTree.Tag
-import Graphics.Gudni.Raster.Dag.ConfineTree.Type
-import Graphics.Gudni.Raster.Dag.ConfineTree.Build
 
-import Graphics.Gudni.Util.StorableM
+import Graphics.Gudni.Util.Util
 
 import Foreign.Storable
 import Control.Monad.IO.Class
 import Control.Monad.State
 import Control.Lens
-import qualified Data.Map as M
 
 data TreeStorage s
     = TreeStorage
-      -- | A list of every confineTree
-    { _treeRootPile     :: Pile (TreeRoot s)
-    , _treeConfinePile  :: Pile (ConfineTag s)
+      -- | A list of every confineTree node
+    { _treeConfinePile  :: Pile (ConfineTag s)
+      -- | A list of every decoTree node
     , _treeDecoPile     :: Pile (DecoTag s)
-    , _treeCrossingPile :: Pile ShapeId
-    -- This is here temporarily.
-    -- , _confineTreeMap   :: M.Map (Reference (ConfineTag s)) (ConfineTree  s)
-    -- , _decoTreeMap      :: M.Map (Reference (DecoTag    s)) (DecorateTree s)
+      -- | A pile of every fabricTagId used in a decoCrossing
+    , _treeCrossingPile :: Pile FabricTagId
+      -- | Piles storing all of the items (beziers, facets and other primitives) that define the scene.
+    , _treePrimStorage  :: PrimStorage s
     }
 makeLenses ''TreeStorage
 
-initTreeStorage :: ( MonadIO m
-                   , Storable s
-                   , Num s
+type TreeMonad s m = StateT (TreeStorage s) m
+
+type TreeConstraints s m = ( MonadIO m
+                           , Space s
+                           , Storable s
+                           )
+
+initTreeStorage :: ( TreeConstraints s m
                    )
                 => m (TreeStorage s)
 initTreeStorage =
-    do rootPile     <- newPile
-       confinePile  <- newPile
+    do confinePile  <- newPile
        decoPile     <- newPile
        crossingPile <- newPile
-       return $ TreeStorage rootPile
-                            confinePile
+       primStorage   <- initPrimStorage
+       return $ TreeStorage confinePile
                             decoPile
                             crossingPile
+                            primStorage
 
-freeTreeStorage :: MonadIO m => TreeStorage s -> m ()
+freeTreeStorage :: (TreeConstraints s m) => TreeStorage s -> m ()
 freeTreeStorage storage =
-    do freePile (storage ^. treeRootPile    )
-       freePile (storage ^. treeConfinePile )
+    do freePile (storage ^. treeConfinePile )
        freePile (storage ^. treeDecoPile    )
        freePile (storage ^. treeCrossingPile)
+       freePrimStorage (storage ^. treePrimStorage)
 
-loadTreeRoot :: (Storable s, MonadIO m) => Reference (TreeRoot s) -> StateT (TreeStorage s) m (TreeRoot s)
-loadTreeTag  :: (Storable s, MonadIO m) => ConfineTagId    s  -> StateT (TreeStorage s) m (ConfineTag s)
-loadDecoTag  :: (Storable s, Num s, MonadIO m) => DecoTagId       s  -> StateT (TreeStorage s) m (DecoTag    s)
-loadTreeRoot treeId = fromPileS treeRootPile                     $ treeId
-loadTreeTag  treeId = fromPileS treeConfinePile . unConfineTagId $ treeId
-loadDecoTag  treeId = fromPileS treeDecoPile    . unDecoTagId    $ treeId
+addConfineTag       :: (TreeConstraints s m) => ConfineTag s                   -> TreeMonad s m (ConfineTagId s)
+overwriteConfineTag :: (TreeConstraints s m) => ConfineTagId s -> ConfineTag s -> TreeMonad s m ()
+loadConfineTag      :: (TreeConstraints s m) => ConfineTagId s                 -> TreeMonad s m (ConfineTag s)
+addConfineTag                 tag = ConfineTagId <$> addToPileS treeConfinePile tag
+overwriteConfineTag confineId tag = toPileS   treeConfinePile (unConfineTagId confineId) tag
+loadConfineTag      confineId     = fromPileS treeConfinePile . unConfineTagId $ confineId
 
-storeTree :: (MonadIO m, Space s, Storable s)
-          => s
-          -> (PrimTagId -> m (Box s))
-          -> (PrimTagId -> m (Primitive s))
-          -> Slice PrimTagId
-          -> Pile PrimTagId
-          -> StateT (TreeStorage s) m (Reference (TreeRoot s))
-storeTree limit getBox getPrim slice primTagPile =
-    do (confineTree, decoTree, _) <- lift $ buildConfineTree limit getBox getPrim True 0 0 slice primTagPile
-       -- store tree in confinePile and decoPile
-       confineRoot <- storeConfineTree confineTree
-       decoRoot    <- storeDecoTree decoTree
-       root        <- addToPileS treeRootPile (confineRoot, decoRoot)
-       -- currently storing the tree twice with this map for haskell side compatibility
-       --confineTreeMap %= M.insert confineRoot confineTree
-       --decoTreeMap    %= M.insert decoRoot    decoTree)
-       return root
+addDecoTag  :: (TreeConstraints s m) => DecoTag s                      -> TreeMonad s m (DecoTagId s)
+loadDecoTag :: (TreeConstraints s m) => DecoTagId    s  -> TreeMonad s m (DecoTag    s)
+addDecoTag  tag    = DecoTagId <$> addToPileS treeDecoPile   tag
+loadDecoTag decoId =               fromPileS  treeDecoPile . unDecoTagId $ decoId
 
-storeConfineTree :: forall m s
-                 .  ( Storable s
-                    , MonadIO m
-                    )
-                 => ConfineTree s
-                 -> StateT (TreeStorage s) m (ConfineTagId s)
-storeConfineTree = go Vertical
-    where
-    go :: (Axis axis) => axis -> Maybe (Confine axis s) -> StateT (TreeStorage s) m (ConfineTagId s)
-    go axis mTree =
-      case mTree of
-        Just tree -> do less <- go (perpendicularTo axis) (tree ^. confineLessCut)
-                        more <- go (perpendicularTo axis) (tree ^. confineMoreCut)
-                        let treeTag = ConfineTag { _confineTagPrimTagId  = tree ^. confinePrimTagId
-                                                 , _confineTagHorizontal = isHorizontal axis
-                                                 , _confineTagCut        = fromAthwart axis (tree ^. confineCut     )
-                                                 , _confineTagOverhang   = fromAthwart axis (tree ^. confineOverhang)
-                                                 , _confineTagLessCut    = less
-                                                 , _confineTagMoreCut    = more
-                                                 }
-                        thisId <- ConfineTagId <$> addToPileS treeConfinePile treeTag
-                        return thisId
-        Nothing -> return nullConfineTagId
-
-storeDecoTree :: forall m s
-              .  ( Storable s
-                 , Space s
-                 , MonadIO m
-                 )
-              => DecorateTree s
-              -> StateT (TreeStorage s) m (DecoTagId s)
-storeDecoTree = go Vertical
-    where
-    go :: forall axis . (Axis axis) => axis -> DecoTree axis s -> StateT (TreeStorage s) m (DecoTagId s)
-    go axis tree =
-      case tree of
-          DecoBranch {} -> do less <- go (perpendicularTo axis) (tree ^?! decoLessCut)
-                              more <- go (perpendicularTo axis) (tree ^?! decoMoreCut)
-                              slice <- foldIntoPileS treeCrossingPile (tree ^?! decoCrossings)
-                              let treeTag = DecoTag { _decoTagCut        = fromAthwart axis (tree ^?! decoCut)
-                                                    , _decoTagHorizontal = isHorizontal axis
-                                                    , _decoTagCrossings  = slice
-                                                    , _decoTagLessCut    = less
-                                                    , _decoTagMoreCut    = more
-                                                    }
-                              thisId <- DecoTagId <$> addToPileS treeDecoPile treeTag
-                              return thisId
-          DecoLeaf -> return nullDecoTagId
+addTreePrim  :: (TreeConstraints s m) => Primitive s -> TreeMonad s m PrimTagId
+loadTreePrim :: (TreeConstraints s m) => PrimTagId   -> TreeMonad s m (Primitive s)
+addTreePrim  prim      = overStateT treePrimStorage $ storePrim prim
+loadTreePrim primTagId = overStateT treePrimStorage $ loadPrim  primTagId

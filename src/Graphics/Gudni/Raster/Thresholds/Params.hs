@@ -29,7 +29,6 @@ import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Raster.Thresholds.Serialize
 import Graphics.Gudni.Raster.Thresholds.ReorderTable
 import Graphics.Gudni.Raster.TextureReference
-import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
 
 import Graphics.Gudni.Raster.Serial.Slice

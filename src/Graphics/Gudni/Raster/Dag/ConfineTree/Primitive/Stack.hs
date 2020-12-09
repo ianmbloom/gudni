@@ -11,8 +11,9 @@
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 
-module Graphics.Gudni.Raster.Dag.Primitive.Stack
-  ( toggleShapeActive
+module Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Stack
+  ( ShapeStack(..)
+  , toggleShapeActive
   , combineShapeStacks
   , passPrimAlong
   , passPrimBetweenPoints
@@ -24,23 +25,24 @@ import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Facet
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Primitive.Type
-import Graphics.Gudni.Raster.Dag.Primitive.Cross
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Cross
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
-import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Util.Debug
 
 import Linear.Metric
 import Control.Applicative
 import Control.Lens
 
-toggleShapeActive :: ShapeId -> ShapeStack -> ShapeStack
-toggleShapeActive shapeId stack =
+type ShapeStack = [FabricTagId]
+
+toggleShapeActive :: FabricTagId -> ShapeStack -> ShapeStack
+toggleShapeActive tagId stack =
     case stack of
-        (x:xs) | shapeId <  x -> shapeId:x:xs
-               | shapeId == x -> xs
-               | shapeId >  x -> x:toggleShapeActive shapeId xs
-        [] -> [shapeId]
+        (x:xs) | tagId >  x -> tagId:x:xs
+               | tagId == x -> xs
+               | tagId <  x -> x:toggleShapeActive tagId xs
+        [] -> [tagId]
 
 combineShapeStacks :: ShapeStack -> ShapeStack -> ShapeStack
 combineShapeStacks = flip (foldl (flip toggleShapeActive))
@@ -57,8 +59,8 @@ passPrimAlong :: ( Axis axis
               -> ShapeStack
               -> ShapeStack
 passPrimAlong limit axis start baseline end primTagId prim =
-    if crossesPrimAlong False limit axis start baseline end prim
-    then toggleShapeActive (prim ^. primShapeId)
+    if crossesPrimAlong limit axis start baseline end prim
+    then toggleShapeActive (prim ^. primFabricTagId)
     else id
 
 passPrimBetweenPoints :: (Space s)
@@ -70,8 +72,8 @@ passPrimBetweenPoints :: (Space s)
                       -> ShapeStack
                       -> ShapeStack
 passPrimBetweenPoints limit anchor point primTagId prim =
-    if crossesPrim False limit anchor point prim
-    then toggleShapeActive (prim ^. primShapeId)
+    if crossesPrim limit anchor point prim
+    then toggleShapeActive (prim ^. primFabricTagId)
     else id
 
 passPrim :: forall s m

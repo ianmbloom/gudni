@@ -1,4 +1,3 @@
---{-# LANGUAGE UndecidableInstances  #-} -- Show (SpaceOf leaf)
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE Rank2Types            #-}
@@ -9,6 +8,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE UndecidableInstances  #-}
+
 
 -----------------------------------------------------------------------------
 -- |
@@ -26,9 +26,10 @@
 module Graphics.Gudni.Raster.Dag.Fabric.Type
   ( FabricType(..)
   , Fabric(..)
+  , showFabricHead
   , FLeaf(..)
   , FTreeLeaf(..)
-  , ForStorage(..)
+  , FStacker(..)
   , fabricDepth
   )
 where
@@ -39,76 +40,104 @@ import Graphics.Gudni.Layout.WithBox
 
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Filter.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
-import Graphics.Gudni.Raster.Dag.Fabric.Ray.Transformer
-import Graphics.Gudni.Raster.Dag.ConfineTree.Tag
+import Graphics.Gudni.Raster.Dag.Fabric.Transformer.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice
 
 import Control.Lens
 
 class HasSpace i => FabricType i where
-    type FRootType      i :: *
-    type FChildType     i :: *
-    type FLeafType      i :: *
-    type FCombinerType  i :: *
+    type FChildType  i :: *
+    type FBinaryType i :: *
+    type FPostType   i :: *
+    type FPreType    i :: *
+    type FLeafType   i :: *
 
 data Fabric i where
-    FCombine   :: FCombinerType i          -> FChildType i -> FChildType i -> Fabric i
-    FTransform :: FTransformer (SpaceOf i) -> FChildType i                 -> Fabric i
-    FLeaf      :: FLeafType i                                              -> Fabric i
+    FBinary    :: FBinaryType i -> FChildType i -> FChildType i -> Fabric i
+    FUnaryPost :: FPostType   i -> FChildType i                 -> Fabric i
+    FUnaryPre  :: FPreType    i -> FChildType i                 -> Fabric i
+    FLeaf      :: FLeafType   i                                 -> Fabric i
 
 data FLeaf i where
     FShape     :: WithBox (Shape (SpaceOf i)) -> FLeaf i
     FSubstance :: FSubstance i                -> FLeaf i
 
 data FTreeLeaf i where
-    FTree          :: Reference (TreeRoot (SpaceOf i)) -> FabricTagId -> FTreeLeaf i
-    FTreeSubstance :: FSubstance i                                    -> FTreeLeaf i
+    FTree          :: DecoTagId (SpaceOf i) -> ConfineTagId (SpaceOf i) -> FTreeLeaf i
+    FTreeSubstance :: FSubstance i                                      -> FTreeLeaf i
 
-data ForStorage s
+data FStacker = FStacker FabricTagId
 
-instance Space s => HasSpace (ForStorage s) where
-    type SpaceOf       (ForStorage s) = s
+showFabricHead :: ( Show (FBinaryType i)
+                  , Show (FPostType   i)
+                  , Show (FPreType    i)
+                  , Show (FLeafType   i)
+                  )
+               => Fabric i
+               -> String
+showFabricHead fabric =
+    case fabric of
+      FBinary    ty _ _ -> "FBinary   " ++ show ty
+      FUnaryPost ty _   -> "FUnaryPost" ++ show ty
+      FUnaryPre  ty _   -> "FUnaryPre " ++ show ty
+      FLeaf      ty     -> "FLeaf     " ++ show ty
 
-instance Space s => FabricType (ForStorage s) where
-    type FRootType     (ForStorage s) = FabricTagId
-    type FChildType    (ForStorage s) = FabricTagId
-    type FLeafType     (ForStorage s) = FTreeLeaf (ForStorage s)
-    type FCombinerType (ForStorage s) = (FCombineType, ShapeId)
 
 deriving instance ( Show (SpaceOf i)
-                  , Show (FChildType     i)
-                  , Show (FLeafType      i)
-                  , Show (FCombinerType  i)
+                  , Show (FChildType  i)
+                  , Show (FBinaryType i)
+                  , Show (FPostType   i)
+                  , Show (FPreType    i)
+                  , Show (FLeafType   i)
                   ) => Show (Fabric i)
 
-deriving instance ( Show (SpaceOf     i)
-                  , Show (FChildType  i)
-                  , Show (FQuery      i)
-                  , Show (FTex        i)
+deriving instance ( Show (SpaceOf      i)
+                  , Show (FChildType   i)
+                  , Show (FQuery       i)
+                  , Show (FTex         i)
+                  , Show (WithBox (Shape (SpaceOf i)))
+                  ) => Show (FLeaf i)
+
+deriving instance ( Show (SpaceOf      i)
+                  , Show (FChildType   i)
+                  , Show (FQuery       i)
+                  , Show (FTex         i)
                   ) => Show (FTreeLeaf i)
 
-instance ( Out (SpaceOf       i)
-         , Out (FRootType     i)
-         , Out (FChildType    i)
-         , Out (FLeafType     i)
-         , Out (FCombinerType i)
+
+instance ( Out (SpaceOf     i)
+         , Out (FChildType  i)
+         , Out (FBinaryType i)
+         , Out (FPostType   i)
+         , Out (FPreType    i)
+         , Out (FLeafType   i)
          ) => Out (Fabric i) where
     doc tree =
         case tree of
-            FCombine ty a b ->
-                 text "FCombine" <+> doc ty
+            FBinary ty a b ->
+                 text "FBinary" <+> doc ty
                  $$
                  nest 4 ( doc a )
                  $$
                  nest 4 ( doc b )
-            FTransform trans child ->
-                 text "FTrans" <+> doc trans
+            FUnaryPost post child ->
+                 text "FUnaryPost" <+> doc post
+                 $$
+                 nest 4 ( doc child )
+            FUnaryPre pre child ->
+                 text "FUnaryPre" <+> doc pre
                  $$
                  nest 4 ( doc child )
             FLeaf leaf ->
                  doc leaf
+    docPrec _ = doc
+
+instance Out FStacker where
+    doc (FStacker tagId) = text "Stacker" <+> doc tagId
     docPrec _ = doc
 
 instance (Chain f, Out s) => ( Out (Outline_ f s )) where
@@ -133,8 +162,8 @@ instance ( Out (FSubstance i)
          ) => Out (FTreeLeaf i) where
     doc tree =
       case tree of
-          FTree treeId child ->
-               text "FTree" <+> text (show treeId) $$ doc child
+          FTree treeId decoId ->
+               text "FTree" <+> text (show treeId) <+> text (show decoId)
           FTreeSubstance substance ->
                text "FTreeSubstance" <+> doc substance
     docPrec _ = doc
@@ -142,6 +171,7 @@ instance ( Out (FSubstance i)
 fabricDepth :: (FChildType i~Fabric i) => Fabric i -> Int
 fabricDepth fabric =
     case fabric of
-        FCombine ty above below -> max (fabricDepth above) (fabricDepth below) + 1
-        FTransform t child -> fabricDepth child + 1
+        FBinary _ above below -> max (fabricDepth above) (fabricDepth below) + 1
+        FUnaryPost t child -> fabricDepth child + 1
+        FUnaryPre  t child -> fabricDepth child + 1
         FLeaf leaf -> 1

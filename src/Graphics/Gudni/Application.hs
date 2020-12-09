@@ -81,8 +81,6 @@ import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Raster.Serial.Pile
 
-import Graphics.Gudni.Util.RandomField
-
 import qualified Data.Vector.Storable as VS
 import qualified Data.Sequence as S
 import Data.Foldable
@@ -92,32 +90,32 @@ import System.Info
 class ( HasStyle s
       )
       => Model s where
-  -- | Construct a Scene from the state of type `s`
-  constructScene   :: s -> String -> FontMonad (StyleOf s) IO (Scene (Layout (StyleOf s)))
-  -- | Update the state based on the elapsed time and a list of inputs
-  updateModelState :: Int -> SimpleTime -> [Input (TokenOf (StyleOf s))] -> s -> s
-  -- | Do tasks in the IO monad based and update the current state.
-  ioTask           :: MonadIO m => s -> m s
-  ioTask state = return state
-  -- | Set the initial display to FullScreen or a specific window size in pixels.
-  screenSize       :: s -> ScreenMode
-  -- | Determine if the application will enter the event loop.
-  -- for debugging purposes you can set this to False and render one frame and quit.
-  shouldLoop       :: s -> Bool
-  shouldLoop _ = True
-  -- | Path to the Truetype font file that is initially loaded.
-  fontFile         :: s -> IO String
-  fontFile _ = findDefaultFont
-  -- | Bitmap texture data provided from the state for the rendered scene.
-  providePictureMap :: s -> IO PictureMap
-  providePictureMap _ = noPictures
-  -- | Do something with the output of the rasterizer.
-  handleOutput :: s -> DrawTarget -> StateT InterfaceState IO s
-  handleOutput state target = do
-      presentTarget target
-      return state
-  dumpState :: s -> [Input (TokenOf (StyleOf s))] -> IO ()
-  dumpState _ _ = return ()
+    -- | Construct a Scene from the state of type `s`
+    constructScene   :: s -> String -> FontMonad (StyleOf s) IO (Scene (Layout (StyleOf s)))
+    -- | Update the state based on the elapsed time and a list of inputs
+    updateModelState :: Int -> SimpleTime -> [Input (TokenOf (StyleOf s))] -> s -> s
+    -- | Do tasks in the IO monad based and update the current state.
+    ioTask           :: MonadIO m => s -> m s
+    ioTask state = return state
+    -- | Set the initial display to FullScreen or a specific window size in pixels.
+    screenSize       :: s -> ScreenMode
+    -- | Determine if the application will enter the event loop.
+    -- for debugging purposes you can set this to False and render one frame and quit.
+    shouldLoop       :: s -> Bool
+    shouldLoop _ = True
+    -- | Path to the Truetype font file that is initially loaded.
+    fontFile         :: s -> IO String
+    fontFile _ = findDefaultFont
+    -- | Bitmap texture data provided from the state for the rendered scene.
+    providePictureMap :: s -> IO PictureMap
+    providePictureMap _ = noPictures
+    -- | Do something with the output of the rasterizer.
+    handleOutput :: s -> DrawTarget -> StateT InterfaceState IO s
+    handleOutput state target = do
+        presentTarget target
+        return state
+    dumpState :: s -> [Input (TokenOf (StyleOf s))] -> IO ()
+    dumpState _ _ = return ()
 
 data ApplicationState r s = AppState
     { -- | The state maintained specific to the interface type.
@@ -228,9 +226,9 @@ runApplication :: ( Show s
                   )
                => s
                -> IO ()
-runApplication = runApplicationDagOpenCL
+-- runApplication = runApplicationDagOpenCL
 --runApplication = runApplicationDagHaskell
---runApplication = runApplicationThresholdOpenCL
+runApplication = runApplicationThresholdOpenCL
 
 -- | Convert a `Timespec` to the `SimpleTime` (a double in seconds from application start)
 toSimpleTime :: TimeSpec -> SimpleTime

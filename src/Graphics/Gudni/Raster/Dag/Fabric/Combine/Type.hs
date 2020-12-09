@@ -1,18 +1,9 @@
-{-# LANGUAGE UndecidableInstances  #-} -- Show (SpaceOf leaf)
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE Rank2Types            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE DeriveGeneric         #-}
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.ShapeTree
+-- Module      :  Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -20,8 +11,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- A Substance is basically one of stock ways that a shape or area can be filled.
--- This includes textures that are access to an image.
+-- Basic color combination type.
 
 module Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
    ( FCombineType(..)

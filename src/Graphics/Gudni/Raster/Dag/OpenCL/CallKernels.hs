@@ -89,20 +89,17 @@ runTraverseDagKernel rasterizer
         samplesPerPixel = 1
     in
     announceKernel "traverseDagKernel" $
-        do  randomHeap <- bufferFromVector "randomHeap      " (rasterizer ^. dagOpenCLRandomField)
-            runKernel (rasterizer ^. dagOpenCLTraverseDagKernel)
+        do  runKernel (rasterizer ^. dagOpenCLTraverseDagKernel)
                       (bic ^. bicPrimBezierHeap  )
                       (bic ^. bicPrimFacetHeap   )
                       (bic ^. bicPrimBoxHeap     )
                       (bic ^. bicPrimTagHeap     )
                       (bic ^. bicFabricTagHeap   )
                       (bic ^. bicFabricHeap      )
-                      (bic ^. bicTreeRootHeap    )
                       (bic ^. bicTreeConfineHeap )
                       (bic ^. bicTreeDecoHeap    )
                       (bic ^. bicCrossingPile    )
                       (bic ^. bicPictHeap        )
-                      randomHeap
                       (unRef . unFabricTagId $ dagRoot)
                       tile
                       (toCInt $ rasterizer ^. dagOpenCLDeviceSpec  . specColumnDepth)

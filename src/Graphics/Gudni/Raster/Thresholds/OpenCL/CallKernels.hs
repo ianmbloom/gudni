@@ -408,7 +408,6 @@ runRenderThresholdsKernel params buffersInCommon blockSection target =
                       (buffersInCommon ^. bicFacetHeap           )
                       (buffersInCommon ^. bicPictHeap            )
                       (buffersInCommon ^. bicDescriptions        )
-                      (buffersInCommon ^. bicRandoms             )
                       (params ^. rpSerialState . serBackgroundColor)
                       (toCInt $ params ^. rpRasterState . rasterDeviceSpec . specColumnDepth)
                       (toCInt . fromIntegral <$> params ^. rpBitmapSize)

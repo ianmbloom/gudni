@@ -43,6 +43,8 @@ data WithBox a
              }
 makeLenses ''WithBox
 
+deriving instance (Show a, Show (SpaceOf a)) => Show (WithBox a)
+
 instance SimpleTransformable a => SimpleTransformable (WithBox a) where
   translateBy delta  (WithBox item box) = WithBox (translateBy delta item) (translateBox delta box)
   stretchBy   size   (WithBox item box) = WithBox (stretchBy size item) (stretchBox size box)

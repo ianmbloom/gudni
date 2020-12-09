@@ -1,15 +1,10 @@
-{-# LANGUAGE UndecidableInstances  #-} -- Show (SpaceOf leaf)
+{-# LANGUAGE UndecidableInstances  #-}
 {-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE Rank2Types            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE DeriveGeneric         #-}
-
+--
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Gudni.Raster.ShapeTree
@@ -42,6 +37,9 @@ data FSubstance i where
      FLinear    ::                FSubstance i
      FQuadrance ::                FSubstance i
      deriving (Generic)
+
+instance HasSpace i => HasSpace (FSubstance i) where
+    type SpaceOf (FSubstance i) = SpaceOf i
 
 deriving instance (Show (FQuery i), Show (FTex i)) => Show (FSubstance i)
 

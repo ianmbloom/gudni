@@ -46,7 +46,6 @@ import Data.Kind
 import Numeric.Interval
 import Linear
 import Linear.Affine
-import Linear
 import qualified Data.Vector as V
 import Data.Hashable
 import Control.Lens hiding ((...))

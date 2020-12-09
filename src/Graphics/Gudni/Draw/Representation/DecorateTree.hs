@@ -15,11 +15,10 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
-import Graphics.Gudni.Raster.Dag.ConfineTree.Tag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
-import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Primitive.Stack
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Stack
 import Graphics.Gudni.Raster.Dag.Fabric.Traverse
 import Graphics.Gudni.Raster.Dag.Storage
 import Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
@@ -77,7 +76,7 @@ constructDecorateTree =
          layerStack <- error "constructDecorateTree not implemented" -- constructLayerStack anchor layers
          if treeId == nullDecoTagId
          then return $ overlap [rectangleAround anchor, layerStack]
-         else do tree <- loadDecoTagS treeId
+         else do tree <- inTree $ loadDecoTag treeId
                  branchLayout <- goBranch axis depth parentCut parentLine layers boundary tree
                  return $ overlap [rectangleAround anchor, layerStack, branchLayout]
 
@@ -94,7 +93,7 @@ constructDecorateTree =
            -> DagMonad (SpaceOf style) m (Layout style)
   goBranch axis depth parentCut parentLine layers boundary tree =
                   let cut      = toAthwart axis (tree ^. decoTagCut)
-                      anchor = pointAlongAxis (perpendicularTo axis) parentCut parentLine
+                      anchor   = pointAlongAxis (perpendicularTo axis) parentCut parentLine
                       endPoint = pointAlongAxis axis parentLine cut
                   in
                   if widthOf boundary > 0 && heightOf boundary > 0

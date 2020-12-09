@@ -17,8 +17,8 @@ import Graphics.Gudni.ShapeTree.Traverse
 import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
-import Graphics.Gudni.Raster.Dag.Fabric.Ray.Transformer
-import Graphics.Gudni.Raster.Dag.Fabric.Ray.Filter
+import Graphics.Gudni.Raster.Dag.Fabric.Transformer.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Filter.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.TextureReference
 
@@ -42,10 +42,11 @@ instance HasSpace style => HasSpace (LayoutStart style) where
     type SpaceOf (LayoutStart style) = SpaceOf style
 
 instance HasSpace style => FabricType (LayoutStart style) where
-    type FRootType     (LayoutStart style) = Fabric (LayoutStart style)
-    type FChildType    (LayoutStart style) = Fabric (LayoutStart style)
-    type FLeafType     (LayoutStart style) = FLeaf  (LayoutStart style)
-    type FCombinerType (LayoutStart style) = ProximityMeld style FCombineType
+    type FChildType  (LayoutStart style) = Fabric (LayoutStart style)
+    type FBinaryType (LayoutStart style) = ProximityMeld style FCombineType
+    type FPostType   (LayoutStart style) = FFilter
+    type FPreType    (LayoutStart style) = FTransformer (SpaceOf style)
+    type FLeafType   (LayoutStart style) = FLeaf (LayoutStart style)
 
 instance HasSpace style => SubstanceType (LayoutStart style) where
     type FTex      (LayoutStart style) = NamedTexture
@@ -55,6 +56,7 @@ buildFacets = undefined
 
 buildTransform :: ( FabricType i
                   , FChildType i ~ Fabric i
+                  , FPreType i ~ FTransformer (SpaceOf i)
                   )
                => Transformer (SpaceOf i)
                -> Fabric i
@@ -63,8 +65,8 @@ buildTransform = go
   where
   go transform =
       case transform of
-          Rotate a -> FTransform $ FAffine (affineRotate (negateAngle a)) (affineRotate a)
-          Project curve -> FTransform (FFacet (buildFacets curve))
+          Rotate a      -> FUnaryPre $ FAffine (affineRotate (negateAngle a)) (affineRotate a)
+          Project curve -> FUnaryPre . FFacet . buildFacets $ curve
           CombineTransform a b -> go a . go b
           Simple simple -> buildSimpleTransform simple
 
@@ -74,6 +76,7 @@ safeInvert x = 1 / x
 
 buildSimpleTransform :: ( FabricType i
                         , FChildType i ~ Fabric i
+                        , FPreType i ~ FTransformer (SpaceOf i)
                         )
                      => SimpleTransformer (SpaceOf i)
                      -> Fabric i
@@ -82,9 +85,9 @@ buildSimpleTransform = go
     where
     go simple =
      case simple of
-         IdentityTransform -> FTransform $ FAffine  affineIdentity                        affineIdentity
-         Translate p       -> FTransform $ FAffine (affineTranslate (negate          p)) (affineTranslate p)
-         Stretch p         -> FTransform $ FAffine (affineStretch   (fmap safeInvert p)) (affineStretch   p)
+         IdentityTransform -> FUnaryPre $ FAffine  affineIdentity                        affineIdentity
+         Translate p       -> FUnaryPre $ FAffine (affineTranslate (negate          p)) (affineTranslate p)
+         Stretch p         -> FUnaryPre $ FAffine (affineStretch   (fmap safeInvert p)) (affineStretch   p)
          CombineSimple a b -> go a . go b
 
 -- | On each shape in the shape tree run add the appropriate data to the appropriate buffers and the TileTree.
@@ -107,8 +110,8 @@ compoundRCombiner :: HasDefault style
                   -> Fabric (LayoutStart style)
 compoundRCombiner meld above below =
     case meld ^. proxMeld of
-       CompoundAdd      -> FCombine (set proxMeld FFloatOr meld) above below
-       CompoundSubtract -> FCombine (set proxMeld FMask    meld) (FTransform (FFilter FInvert) above) below
+       CompoundAdd      -> FBinary (set proxMeld FFloatOr meld) above below
+       CompoundSubtract -> FBinary (set proxMeld FMask    meld) (FUnaryPost FInvert above) below
 
 -- | For each shape in the shapeTree serialize the substance metadata and serialize the compound subtree.
 rSubstance :: forall m item token style
@@ -130,32 +133,38 @@ rSubstance meld _ (SMask mToken substance subTree) =
                                                           rShape
                                                           defaultValue
                                                           subTree
-       return $ FCombine (noProx FMask) parentMask (FLeaf . FSubstance $ rSubstance)
+       return $ FBinary (noProx FMask) parentMask (FLeaf . FSubstance $ rSubstance)
 
 
-compressAffine :: (FabricType i, FChildType i ~ Fabric i) => Fabric i -> Fabric i
+compressAffine :: ( FabricType i
+                  , FChildType i ~ Fabric i
+                  , FPreType i ~ FTransformer (SpaceOf i)
+                  ) => Fabric i -> Fabric i
 compressAffine = go
   where
   go tree =
       case tree of
-        FCombine comb a b -> FCombine comb (go a) (go b)
-        FTransform (FAffine aF aB) (FTransform (FAffine bF bB) child) ->
-            go (FTransform (FAffine (composeAffine aF bF) (composeAffine aB bB)) child)
-        FTransform t child -> FTransform t (go child)
+        FBinary comb a b -> FBinary comb (go a) (go b)
+        FUnaryPre (FAffine aF aB) (FUnaryPre (FAffine bF bB) child) ->
+            go (FUnaryPre (FAffine (composeAffine aF bF) (composeAffine aB bB)) child)
+        FUnaryPre  t child -> FUnaryPre  t (go child)
+        FUnaryPost f child -> FUnaryPost f (go child)
         FLeaf l -> FLeaf l
 
-removeAffineIdentity :: IsStyle style
+removeAffineIdentity :: ( IsStyle style )
                      => Fabric (LayoutStart style)
                      -> Fabric (LayoutStart style)
 removeAffineIdentity = go
   where
   go tree =
       case tree of
-        FCombine comb a b -> FCombine comb (go a) (go b)
-        FTransform (FAffine aF aB) child -> if aF == affineIdentity
-                                            then go child
-                                            else FTransform (FAffine aF aB) (go child)
-        FTransform t child -> FTransform t child
+        FBinary comb a b -> FBinary comb (go a) (go b)
+        FUnaryPre (FAffine aF aB) child ->
+            if aF == affineIdentity
+            then go child
+            else FUnaryPre (FAffine aF aB) (go child)
+        FUnaryPre  t child -> FUnaryPre  t child
+        FUnaryPost t child -> FUnaryPost t child
         FLeaf l -> FLeaf l
 
 data PicturePass style
@@ -164,10 +173,11 @@ instance HasSpace style => HasSpace (PicturePass style) where
     type SpaceOf (PicturePass style) = SpaceOf style
 
 instance HasSpace style => FabricType (PicturePass style) where
-    type FRootType     (PicturePass style) = Fabric (PicturePass style)
-    type FChildType    (PicturePass style) = Fabric (PicturePass style)
-    type FLeafType     (PicturePass style) = FLeaf (PicturePass style)
-    type FCombinerType (PicturePass style) = ProximityMeld style FCombineType
+    type FChildType  (PicturePass style) = Fabric (PicturePass style)
+    type FBinaryType (PicturePass style) = ProximityMeld style FCombineType
+    type FPostType   (PicturePass style) = FFilter
+    type FPreType    (PicturePass style) = FTransformer (SpaceOf style)
+    type FLeafType   (PicturePass style) = FLeaf (PicturePass style)
 
 instance HasSpace style => SubstanceType (PicturePass style) where
     type FTex      (PicturePass style) = PictureMemoryReference
@@ -192,14 +202,15 @@ assignPictures pictureMemoryMap = go
     where
     go tree =
         case tree of
-            FCombine   ty a b      -> FCombine ty (go a) (go b)
-            FTransform trans child -> FTransform trans $ go child
+            FBinary ty a b        -> FBinary ty (go a) (go b)
+            FUnaryPre  pre  child -> FUnaryPre  pre  $ go child
+            FUnaryPost post child -> FUnaryPost post $ go child
             FLeaf      leaf        -> FLeaf $
                  case leaf of
                      FShape shape -> FShape shape
                      FSubstance substance -> FSubstance $ assignPictUsage pictureMemoryMap substance
 
-overlapCombiner (ProximityMeld prox style Overlap) above below = FCombine (ProximityMeld prox style FComposite) above below
+overlapCombiner (ProximityMeld prox style Overlap) above below = FBinary (ProximityMeld prox style FComposite) above below
 
 layoutToFabric :: forall m style
                .  ( Monad m
@@ -215,7 +226,7 @@ layoutToFabric pictureMemoryMap backgroundColor layout =
      case mFull of
        Nothing -> return background
        Just full -> return .
-                    flip (FCombine (noProx FComposite)) background .
+                    flip (FBinary (noProx FComposite)) background .
                     assignPictures pictureMemoryMap .
                     -- removeAffineIdentity .
                     compressAffine .

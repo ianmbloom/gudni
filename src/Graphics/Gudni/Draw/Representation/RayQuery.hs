@@ -62,11 +62,10 @@ constructRayQuery :: forall style m
                      , MonadIO m
                      )
                   => SpaceOf style
-                  -> FabricTagId
                   -> Point2 (SpaceOf style)
                   -> RayMonad (SpaceOf style) m (Layout style)
-constructRayQuery limit root point =
-  do (ColorStack stack) <- traverseFabric limit point root :: RayMonad (SpaceOf style) m (ColorStack (SpaceOf style))
+constructRayQuery limit point =
+  do (ColorStack stack) <- traverseFabric limit point (Point2 0 0) :: RayMonad (SpaceOf style) m (ColorStack (SpaceOf style))
      return $ ringStack point $ reverse stack
 
 sizeCircle :: Space s => s
@@ -77,11 +76,10 @@ constructRayColor :: forall style m
                      , MonadIO m
                      )
                   => SpaceOf style
-                  -> FabricTagId
                   -> Point2 (SpaceOf style)
                   -> RayMonad (SpaceOf style) m (Layout style)
-constructRayColor limit root point =
-  do (color :: Color (SpaceOf style)) <- traverseFabric limit point root
+constructRayColor limit point =
+  do (color :: Color (SpaceOf style)) <- traverseFabric limit point (Point2 0 0)
      return $ translateBy point $
               overlap [ withColor black $ hatch 1 4
                       , withColor color . scaleBy sizeCircle . mask $ circle

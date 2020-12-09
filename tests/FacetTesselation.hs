@@ -32,6 +32,7 @@ import Graphics.Gudni.Draw
 import Graphics.Gudni.Util.Subdividable
 import Graphics.Gudni.Util.Segment
 import Graphics.Gudni.Util.Debug
+import Graphics.Gudni.Raster.Dag.Constants
 
 import Control.Lens
 import Control.Monad.State
@@ -76,10 +77,11 @@ instance Model FacetState where
            facets :: [Facet SubSpace]
            --facets = pure $ triangleToFacet triangle triangle
            facets = pure $ pairsToFacet pairTriangle triangle
+           limit = realToFrac cROSSsPLITlIMIT
            untilThreshold :: [Facet SubSpace]
-           untilThreshold = fmap (traverseFacetUntil 0.5 point) $ facets
+           untilThreshold = fmap (traverseFacetUntil limit 0.5 point) $ facets
            traversed :: [Facet SubSpace]
-           traversed = fmap (traverseFacet point) $ facets
+           traversed = fmap (traverseFacet limit point) $ facets
            tesselatedFacets :: [Facet SubSpace]
            tesselatedFacets = {-trP "tesselated" $-} join . fmap (subdivideFacetSteps 1) $ facets
            fullyTesselated :: [Facet SubSpace]

@@ -28,7 +28,6 @@ module Graphics.Gudni.Raster.Dag.OpenCL.PrepareBuffers
   , bicPrimTagHeap
   , bicFabricTagHeap
   , bicFabricHeap
-  , bicTreeRootHeap
   , bicTreeConfineHeap
   , bicTreeDecoHeap
   , bicCrossingPile
@@ -46,9 +45,10 @@ import Graphics.Gudni.Interface
 import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.ConfineTree.Tag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
-import Graphics.Gudni.Raster.Dag.Primitive.Storage
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Storage
 import Graphics.Gudni.Raster.Dag.Fabric.Storage
 import Graphics.Gudni.Raster.Dag.Storage
 import Graphics.Gudni.Raster.Dag.State
@@ -65,7 +65,6 @@ import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
 
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Util.CTypeConversion
 
@@ -107,10 +106,9 @@ data BuffersInCommon s =
     , _bicPrimTagHeap      :: CLBuffer PrimTag
     , _bicFabricTagHeap    :: CLBuffer FabricTag
     , _bicFabricHeap       :: CLBuffer CChar
-    , _bicTreeRootHeap     :: CLBuffer (TreeRoot s)
     , _bicTreeConfineHeap  :: CLBuffer (ConfineTag s)
     , _bicTreeDecoHeap     :: CLBuffer (DecoTag s)
-    , _bicCrossingPile     :: CLBuffer ShapeId
+    , _bicCrossingPile     :: CLBuffer FabricTagId
     , _bicPictHeap         :: CLBuffer CFloat
     }
 makeLenses ''BuffersInCommon
@@ -129,13 +127,12 @@ createBuffersInCommon :: (Storable s, Space s)
                       => DagStorage s
                       -> CL (BuffersInCommon s)
 createBuffersInCommon storage =
-    do  primBezierHeap   <- bufferFromPile   "primBezierHeap  " (storage ^. dagPrimStorage   . primBezierPile  )
-        primFacetHeap    <- bufferFromPile   "primFacetHeap   " (storage ^. dagPrimStorage   . primFacetPile   )
-        primBoxHeap      <- bufferFromPile   "primBoxHeap     " (storage ^. dagPrimStorage   . primBoxPile     )
-        primTagHeap      <- bufferFromPile   "primTagHeap     " (storage ^. dagPrimStorage   . primTagPile     )
+    do  primBezierHeap   <- bufferFromPile   "primBezierHeap  " (storage ^. dagTreeStorage . treePrimStorage . primBezierPile  )
+        primFacetHeap    <- bufferFromPile   "primFacetHeap   " (storage ^. dagTreeStorage . treePrimStorage . primFacetPile   )
+        primBoxHeap      <- bufferFromPile   "primBoxHeap     " (storage ^. dagTreeStorage . treePrimStorage . primBoxPile     )
+        primTagHeap      <- bufferFromPile   "primTagHeap     " (storage ^. dagTreeStorage . treePrimStorage . primTagPile     )
         fabricTagHeap    <- bufferFromPile   "fabricTagHeap   " (storage ^. dagFabricStorage . fabricTagPile   )
         fabricHeap       <- bufferFromPile   "fabricHeap      " (storage ^. dagFabricStorage . fabricHeapPile  )
-        treeRootHeap     <- bufferFromPile   "treeRootHeap    " (storage ^. dagTreeStorage   . treeRootPile    )
         treeConfineHeap  <- bufferFromPile   "treeConfineHeap " (storage ^. dagTreeStorage   . treeConfinePile )
         treeDecoHeap     <- bufferFromPile   "treeDecoHeap    " (storage ^. dagTreeStorage   . treeDecoPile    )
         treeCrossingPile <- bufferFromPile   "treeCrossingPile" (storage ^. dagTreeStorage   . treeCrossingPile)
@@ -147,7 +144,6 @@ createBuffersInCommon storage =
                   , _bicPrimTagHeap      = primTagHeap
                   , _bicFabricTagHeap    = fabricTagHeap
                   , _bicFabricHeap       = fabricHeap
-                  , _bicTreeRootHeap     = treeRootHeap
                   , _bicTreeConfineHeap  = treeConfineHeap
                   , _bicTreeDecoHeap     = treeDecoHeap
                   , _bicCrossingPile     = treeCrossingPile
@@ -164,7 +160,6 @@ releaseBuffersInCommon bic =
         releaseBuffer "bicPrimTagHeap     " ( bic ^. bicPrimTagHeap      )
         releaseBuffer "bicFabricTagHeap   " ( bic ^. bicFabricTagHeap    )
         releaseBuffer "bicFabricHeap      " ( bic ^. bicFabricHeap       )
-        releaseBuffer "bicTreeRootHeap    " ( bic ^. bicTreeRootHeap     )
         releaseBuffer "bicTreeConfineHeap " ( bic ^. bicTreeConfineHeap  )
         releaseBuffer "bicTreeDecoHeap    " ( bic ^. bicTreeDecoHeap     )
         releaseBuffer "bicCrossingPile    " ( bic ^. bicCrossingPile     )

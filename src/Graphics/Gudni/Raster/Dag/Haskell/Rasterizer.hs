@@ -51,9 +51,9 @@ instance Rasterizer DagHaskellState where
          fabric <- sceneToFabric pictureMemoryMap scene
          let limit = realToFrac cROSSsPLITlIMIT
              canvas = sizeToBox . fmap fromIntegral $ canvasSize
-         withSerializedFabric limit (Just canvas) pixelPile fabric $ \storage root ->
+         withSerializedFabric limit 0 (Just canvas) pixelPile fabric $ \storage ->
              evalStateT (evalRandT (
-                 do let traversePixel loc = traverseFabric limit (fmap fromIntegral loc) root
+                 do let traversePixel loc = traverseFabric limit (Point2 10 10) (fmap fromIntegral loc)
                     img <- createImageM traversePixel canvasSize
                     copyImageToTarget img target
              ) (mkStdGen frameCount)) storage

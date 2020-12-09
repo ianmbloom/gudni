@@ -50,11 +50,13 @@ constructDag :: ( MonadIO m
              => FabricTagId
              -> DagMonad (SpaceOf style) m (Layout style)
 constructDag fabricTagId =
+    error "not implemented for instruction version"
+    {-
     do if fabricTagId == nullFabricTagId
        then return . withColor black $ hatch 1 30
        else do fabric <- loadFabricS fabricTagId
                case fabric of
-                   FCombine ty a b ->
+                   FBinary ty a b ->
                        do aLayout <- constructDag a
                           bLayout <- constructDag b
                           return $ rack [ scaler . withColor blue . blurb $ show fabricTagId ++ " Comb " ++ show ty
@@ -62,7 +64,12 @@ constructDag fabricTagId =
                                                 , bLayout
                                                 ]
                                         ]
-                   FTransform trans child ->
+                   FUnaryPre trans child ->
+                       do childLayout <- constructDag child
+                          return $ rack [ scaler . withColor blue . blurb $ show fabricTagId ++ " Trans " ++ show trans
+                                        , childLayout
+                                        ]
+                   FUnaryPost trans child ->
                        do childLayout <- constructDag child
                           return $ rack [ scaler . withColor blue . blurb $ show fabricTagId ++ " Trans " ++ show trans
                                         , childLayout
@@ -88,7 +95,8 @@ constructDag fabricTagId =
                                                    -- ,
                                                    subst
                                                  ]
-
+     -}
+{-
 constructSubstance :: ( MonadIO m
                       , IsStyle style
                       )
@@ -100,3 +108,4 @@ constructSubstance substance =
       FTexture   t -> return . withColor (blueish   gray) $ hatch 1 30
       FLinear      -> return . withColor (yellowish gray) $ hatch 1 30
       FQuadrance   -> return . withColor (yellowish gray) $ hatch 1 30
+-}

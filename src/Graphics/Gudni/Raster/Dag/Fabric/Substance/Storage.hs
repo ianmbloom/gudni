@@ -11,7 +11,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.ShapeTree
+-- Module      :  Graphics.Gudni.Raster.Dag.Fabric.Substance.Storage
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -19,8 +19,8 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- A Substance is basically one of stock ways that a shape or area can be filled.
--- This includes textures that are access to an image.
+-- Functions for storing and loading substance tags and their corresponding
+-- Description data.
 
 module Graphics.Gudni.Raster.Dag.Fabric.Substance.Storage
   ( storeSubstance
@@ -44,7 +44,7 @@ import Foreign.Storable
 import Control.Monad.IO.Class
 
 storeSubstance :: ( MonadIO m
-                  , Storable (SpaceOf i)
+                  --, Storable (SpaceOf (FSubstance i))
                   , Storable (FTex i)
                   , Storable (FQuery i)
                   )

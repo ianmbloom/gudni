@@ -46,7 +46,6 @@ import Graphics.Gudni.Raster.Thresholds.Enclosure
 import Graphics.Gudni.Raster.Thresholds.ReorderTable
 import Graphics.Gudni.Raster.Thresholds.TileTree
 
-import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Raster.Class
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile

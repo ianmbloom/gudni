@@ -3,7 +3,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.Dag.Fabric.Ray.Filter
+-- Module      :  Graphics.Gudni.Raster.Dag.Fabric.Filter.Type
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -11,10 +11,9 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- A Substance is basically one of stock ways that a shape or area can be filled.
--- This includes textures that are access to an image.
+-- Unary post filters that can be applied to answers, usually to Colors
 
-module Graphics.Gudni.Raster.Dag.Fabric.Ray.Filter
+module Graphics.Gudni.Raster.Dag.Fabric.Filter.Type
   ( FFilter(..)
   )
 where

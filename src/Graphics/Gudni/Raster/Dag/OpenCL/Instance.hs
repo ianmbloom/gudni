@@ -20,7 +20,6 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface.Query
 import Graphics.Gudni.Interface.DrawTarget
-import Graphics.Gudni.Util.RandomField
 
 import Graphics.Gudni.Raster.Class
 import Graphics.Gudni.Raster.Serial.Slice
@@ -29,6 +28,7 @@ import Graphics.Gudni.Raster.Dag.FromLayout
 import Graphics.Gudni.Raster.Dag.Serialize
 import Graphics.Gudni.Raster.Dag.State
 import Graphics.Gudni.Raster.Dag.Constants
+import Graphics.Gudni.Raster.Dag.Storage
 import Graphics.Gudni.Raster.TextureReference
 
 import Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
@@ -49,13 +49,14 @@ instance Rasterizer DagOpenCLState where
            fabric <- sceneToFabric pictureMemoryMap scene
            let limit = realToFrac cROSSsPLITlIMIT
                canvas = sizeToBox . fmap fromIntegral $ canvasSize
-           withSerializedFabric limit (Just canvas) pixelPile fabric $ \storage root ->
-               liftIO $ runCL (rasterizer ^. dagOpenCLState) $
-                   withBuffersInCommon storage $ \bic ->
-                       withOutputBuffer canvasSize target $ \ outputBuffer ->
-                           runTraverseDagKernelTiles rasterizer
-                                                     bic
-                                                     root
-                                                     canvasSize
-                                                     frameCount
-                                                     outputBuffer
+           withSerializedFabric limit 0 (Just canvas) pixelPile fabric $ \storage ->
+               do let start = storageCodeStart storage
+                  liftIO $ runCL (rasterizer ^. dagOpenCLState) $
+                      withBuffersInCommon storage $ \bic ->
+                          withOutputBuffer canvasSize target $ \ outputBuffer ->
+                              runTraverseDagKernelTiles rasterizer
+                                                        bic
+                                                        start
+                                                        canvasSize
+                                                        frameCount
+                                                        outputBuffer

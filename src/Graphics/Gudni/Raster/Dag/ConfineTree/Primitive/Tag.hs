@@ -16,7 +16,7 @@
 --
 -- Constructors for attaching metadata to shapes∘
 
-module Graphics.Gudni.Raster.Dag.Primitive.Tag
+module Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Tag
     ( makeFacetPrimTag
     , makeBezierPrimTag
     , makeRectPrimTag
@@ -29,21 +29,23 @@ module Graphics.Gudni.Raster.Dag.Primitive.Tag
     , primTagBezierId
     , primTagFacetId
     , primTagBoxId
-    , primTagShapeId
+    , primTagFabricTagId
     )
 where
 
 import Graphics.Gudni.Figure
 
-import Graphics.Gudni.ShapeTree.STree
+--import Graphics.Gudni.ShapeTree.STree
 
-import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.StorableM
-
-import Graphics.Gudni.Raster.Serial.Reference
-import Graphics.Gudni.Raster.Dag.Constants
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Constants
 import Graphics.Gudni.Raster.Dag.TagTypes
+import Graphics.Gudni.Raster.Serial.Reference
+
+
 import Graphics.Gudni.Raster.Thresholds.SubstanceInfo
+
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
 
 import Data.Bits
 import Numeric
@@ -55,41 +57,41 @@ type PrimType_ = PrimTag_
 makePrimStorage :: StorageId_ -> PrimTag_
 makePrimStorage i = (fromIntegral i `shiftL` pRIMtAGsTORAGEiDsHIFT) .&. pRIMtAGsTORAGEiDbITMASK
 
-makePrimShapeId :: ShapeId_ -> PrimTag_
-makePrimShapeId i = fromIntegral i .&. pRIMtAGfABRICiDbITMASK
+makePrimFabricTagId :: Reference FabricTag -> PrimTag_
+makePrimFabricTagId i = fromIntegral i .&. pRIMtAGfABRICiDbITMASK
 
 fromPrimStorage :: PrimTag_ -> StorageId_
 fromPrimStorage i = fromIntegral $ i `shiftR` pRIMtAGsTORAGEiDsHIFT
 
-fromPrimShapeId :: PrimTag_ -> ShapeId_
-fromPrimShapeId i = fromIntegral $ i .&. pRIMtAGfABRICiDbITMASK
+fromPrimFabricTagId :: PrimTag_ -> Reference FabricTag
+fromPrimFabricTagId i = fromIntegral $ i .&. pRIMtAGfABRICiDbITMASK
 
 primTagType :: PrimTag -> PrimType_
 primTagType tag = unPrimTag tag .&. pRIMtAGtYPEbITMASK
 
 
 -- Facets point to ShapeIds
-makeFacetPrimTag :: FacetId s -> ShapeId -> PrimTag
-makeFacetPrimTag facetId shapeId =
+makeFacetPrimTag :: FacetId s -> FabricTagId -> PrimTag
+makeFacetPrimTag facetId fabricTagId =
     PrimTag $ pRIMtAGiSfACET
            .|. (makePrimStorage . unRef . unFacetId $ facetId )
-           .|. (makePrimShapeId . unShapeId $ shapeId )
+           .|. (makePrimFabricTagId . unFabricTagId $ fabricTagId )
 
 -- Other shapes point to compoundTagIds
-makeBasicPrim :: StorageId_ -> ShapeId -> PrimType_ -> PrimTag
-makeBasicPrim storageId shapeId ty =
+makeBasicPrim :: StorageId_ -> FabricTagId -> PrimType_ -> PrimTag
+makeBasicPrim storageId fabricTagId ty =
     PrimTag $  ty
            .|. makePrimStorage storageId
-           .|. (makePrimShapeId . unShapeId $ shapeId)
+           .|. (makePrimFabricTagId . unFabricTagId $ fabricTagId)
 
-makeBezierPrimTag :: BezierId s -> ShapeId -> PrimTag
-makeBezierPrimTag bezId shapeId =  makeBasicPrim (unRef . unBezierId $ bezId) shapeId pRIMtAGiSbEZIER
+makeBezierPrimTag :: BezierId s -> FabricTagId -> PrimTag
+makeBezierPrimTag bezId fabricTagId =  makeBasicPrim (unRef . unBezierId $ bezId) fabricTagId pRIMtAGiSbEZIER
 
-makeRectPrimTag :: BoxId s -> ShapeId -> PrimTag
-makeRectPrimTag rectId shapeId =  makeBasicPrim (unRef . unBoxId $ rectId) shapeId pRIMtAGiSrECTANGLE
+makeRectPrimTag :: BoxId s -> FabricTagId -> PrimTag
+makeRectPrimTag rectId fabricTagId =  makeBasicPrim (unRef . unBoxId $ rectId) fabricTagId pRIMtAGiSrECTANGLE
 
-makeElipsePrimTag :: BoxId s -> ShapeId -> PrimTag
-makeElipsePrimTag rectId shapeId = makeBasicPrim (unRef . unBoxId $ rectId) shapeId pRIMtAGiSeLIPSE
+makeElipsePrimTag :: BoxId s -> FabricTagId -> PrimTag
+makeElipsePrimTag rectId fabricTagId = makeBasicPrim (unRef . unBoxId $ rectId) fabricTagId pRIMtAGiSeLIPSE
 
 primTagIsBezier :: PrimTag -> Bool
 primTagIsBezier    tag = primTagType tag == pRIMtAGiSbEZIER
@@ -109,8 +111,8 @@ primTagFacetId = FacetId . Ref . fromPrimStorage . unPrimTag
 primTagBoxId :: PrimTag -> BoxId s
 primTagBoxId = BoxId . Ref . fromPrimStorage . unPrimTag
 
-primTagShapeId :: PrimTag -> ShapeId
-primTagShapeId = ShapeId . fromPrimShapeId . unPrimTag
+primTagFabricTagId :: PrimTag -> FabricTagId
+primTagFabricTagId = FabricTagId . fromPrimFabricTagId . unPrimTag
 
 instance Show PrimTag where
-  show tag = show (primTagType tag `shiftR` 60, primTagBezierId tag, primTagShapeId tag)
+  show tag = show (primTagType tag `shiftR` 60, primTagBezierId tag, primTagFabricTagId tag)

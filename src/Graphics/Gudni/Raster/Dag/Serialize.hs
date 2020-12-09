@@ -36,18 +36,17 @@ import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.TextureReference
 
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
-import Graphics.Gudni.Raster.Dag.Primitive.WithTag
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Primitive.Type
-import Graphics.Gudni.Raster.Dag.Primitive.Storage
-import Graphics.Gudni.Raster.Dag.Primitive.Tag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Storage
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Tag
 import Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Storage
 import Graphics.Gudni.Raster.Dag.Fabric.Tag
 import Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
 import Graphics.Gudni.Raster.Dag.Storage
 import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
-import Graphics.Gudni.Raster.Dag.Serialize.ExtractPrimPass
+import Graphics.Gudni.Raster.Dag.Fabric.Serialize
 
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice
@@ -81,44 +80,29 @@ withSerializedFabric :: ( MonadIO m
                         , IsStyle style
                         )
                      => SpaceOf style
+                     -> Int
                      -> Maybe (Box (SpaceOf style))
                      -> PixelPile
                      -> Fabric (PicturePass style)
-                     -> (DagStorage (SpaceOf style) -> FabricTagId -> m a)
+                     -> (DagStorage (SpaceOf style) ->  m a)
                      -> m a
-withSerializedFabric limit mCanvas pixelPile fabric code =
-    do  primStorage   <- initPrimStorage
-        fabricStorage <- initFabricStorage
+withSerializedFabric limit decorationLimit mCanvas pixelPile fabric code =
+    do  fabricStorage <- initFabricStorage
         treeStorage   <- initTreeStorage
         primTagIdPile <- liftIO newPile
         let initState = DagStorage
-                        { _dagPrimStorage   = primStorage
-                        , _dagFabricStorage = fabricStorage
+                        { _dagFabricStorage = fabricStorage
                         , _dagTreeStorage   = treeStorage
                         , _dagPrimTagIds    = primTagIdPile
                         , _dagPixelPile     = pixelPile
                         }
         liftIO $ putStrLn "serializeFabric"
-        (fabricTagId, state') <- evalUniqueT (runStateT (serializeFabric limit mCanvas fabric) initState)
+        state' <- execStateT (serializeFabric limit decorationLimit fabric) initState
         liftIO $ putStrLn "before code"
-        result <- code state' fabricTagId
+        result <- code state'
         liftIO $ putStrLn "after code"
         liftIO $
-            do freePrimStorage   $ state' ^. dagPrimStorage
-               freeFabricStorage $ state' ^. dagFabricStorage
+            do freeFabricStorage $ state' ^. dagFabricStorage
                freeTreeStorage   $ state' ^. dagTreeStorage
                liftIO . freePile $ state' ^. dagPrimTagIds
         return result
-
-serializeFabric :: ( MonadIO m
-                   , IsStyle style
-                   )
-                => SpaceOf style
-                -> Maybe (Box (SpaceOf style))
-                -> Fabric (PicturePass style)
-                -> DagMonad (SpaceOf style) (UniqueT m) FabricTagId
-serializeFabric limit mCanvas fabric =
-    do liftIO $ liftIO $ putStrLn $ "===================== Serialize Fabric Start " ++ show (fabricDepth fabric) ++ " ====================="
-       f' <- extractPrimPass limit fabric
-       liftIO $ liftIO $ putStrLn $ "===================== Serialize Fabric End ======================="
-       return f'

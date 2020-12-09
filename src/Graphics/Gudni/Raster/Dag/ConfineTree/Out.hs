@@ -10,6 +10,7 @@
 
 module Graphics.Gudni.Raster.Dag.ConfineTree.Out
   ( outConfineTree
+  , extractConfineTreeFabrics
   , outDecoTree
   )
 where
@@ -17,14 +18,12 @@ where
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 
-import Graphics.Gudni.Raster.Dag.ConfineTree.Tag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.Fabric.Tag
-import Graphics.Gudni.Raster.Dag.Storage
-
--- import Graphics.Gudni.Raster.Serial.Slice
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
@@ -33,21 +32,21 @@ import Control.Monad.State
 import Control.Monad.IO.Class
 import Control.Lens
 import Foreign.Storable
+import qualified Data.Set as S
+import Data.List
 
 
 outConfineTree :: forall m s
                .  ( Show s
-                  , Space s
-                  , Storable s
-                  , MonadIO m
+                  , TreeConstraints s m
                   )
                => ConfineTagId s
-               -> DagMonad s m Doc
+               -> TreeMonad s m Doc
 outConfineTree treeId =
    if treeId == nullConfineTagId
    then return $ text "X"
-   else do tree <- loadTreeTagS treeId
-           prim <- loadPrimS (tree ^. confineTagPrimTagId)
+   else do tree <- loadConfineTag treeId
+           prim <- loadTreePrim (tree ^. confineTagPrimTagId)
            less <- outConfineTree (tree ^. confineTagLessCut)
            more <- outConfineTree (tree ^. confineTagMoreCut)
            return $ ( text (show treeId) <+>
@@ -61,6 +60,23 @@ outConfineTree treeId =
                     $$
                     nest 4 ( less $$ more)
 
+extractConfineTreeFabrics :: forall m s
+                          .  ( TreeConstraints s m
+                             )
+                          => ConfineTagId s
+                          -> TreeMonad s m [FabricTagId]
+extractConfineTreeFabrics treeId = reverse . S.toList <$> go treeId S.empty
+  where
+  go :: ConfineTagId s -> S.Set FabricTagId -> TreeMonad s m (S.Set FabricTagId)
+  go treeId set =
+       if treeId == nullConfineTagId
+       then return set
+       else do tree <- loadConfineTag treeId
+               prim <- loadTreePrim (tree ^. confineTagPrimTagId)
+               let set0 = S.insert (prim ^. primFabricTagId) set
+               set1 <- go (tree ^. confineTagLessCut) set0
+               go (tree ^. confineTagMoreCut) set1
+
 outDecoTree :: forall m s
             .  ( Show s
                , Space s
@@ -68,11 +84,11 @@ outDecoTree :: forall m s
                , MonadIO m
                )
             => DecoTagId s
-            -> DagMonad s m Doc
+            -> TreeMonad s m Doc
 outDecoTree decoId =
   if decoId == nullDecoTagId
   then return $ text "X"
-  else do tree <- loadDecoTagS decoId
+  else do tree <- loadDecoTag decoId
           less <- outDecoTree (tree ^. decoTagLessCut)
           more <- outDecoTree (tree ^. decoTagMoreCut)
           return $ ( text (show decoId) <+>

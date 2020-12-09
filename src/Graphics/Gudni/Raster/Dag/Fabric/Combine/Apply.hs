@@ -11,7 +11,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.ShapeTree
+-- Module      :  Graphics.Gudni.Raster.Dag.Fabric.Combine.Apply
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -19,10 +19,9 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- A Substance is basically one of stock ways that a shape or area can be filled.
--- This includes textures that are access to an image.
+-- Functions for combining colors according to the various combination types.
 
-module Graphics.Gudni.Raster.Dag.Fabric.Combine.Query
+module Graphics.Gudni.Raster.Dag.Fabric.Combine.Apply
    ( combineColor
    )
 where

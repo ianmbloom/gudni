@@ -28,13 +28,15 @@ module Graphics.Gudni.Raster.Serial.Pile
   , foldIntoPile
   , CanLoad (..)
   , pileCursor
-
+  , pileEndSlice
   , ptrFromIndex
   , addToPileS
   , foldIntoPileS
   , allocatePileS
   , toPileS
   , fromPileS
+  , pileCursorS
+  , pileEndSliceS
   , newPile
   , newPileSize
   , freePile
@@ -89,6 +91,9 @@ pileAllocated plFunc (Pile cursor allocated ptr) = (\ allocated' -> Pile cursor 
 
 newPile :: forall t m . (Storable t, MonadIO m) => m (Pile t)
 newPile = newPileSize dEFAULTpILEaLLOCATION
+
+pileEndSlice :: Pile t -> Slice t
+pileEndSlice pile = Slice (pile ^. pileCursor) 0
 
 -- | Create a new pile.
 newPileSize :: forall t m . (Storable t, MonadIO m) => Reference_ -> m (Pile t)
@@ -221,6 +226,14 @@ fromPileS :: ( Storable a
 fromPileS lens ref =
   do pile <- use lens
      fromPile pile ref
+
+pileCursorS lens =
+    do pile <- use lens
+       return (pile ^. pileCursor)
+
+pileEndSliceS lens =
+    do pile <- use lens
+       return $ pileEndSlice pile
 
 -- | Convert a pile to a list.
 pileToList :: forall t m . (Storable t, MonadIO m) => Pile t -> m [t]

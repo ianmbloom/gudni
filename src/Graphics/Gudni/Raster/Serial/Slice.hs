@@ -23,6 +23,7 @@
 
 module Graphics.Gudni.Raster.Serial.Slice
   ( Slice (..)
+  , emptySlice
   , combineSlices
   , mapSliceM_
   , mapSliceM
@@ -52,6 +53,9 @@ data Slice t = Slice
   { sliceStart   :: !(Reference t)
   , sliceLength  :: !(Reference t)
   } deriving (Eq)
+
+emptySlice :: Slice t
+emptySlice = Slice 0 0
 
 mapSliceM_ :: Monad m => (Reference i -> m ()) -> Slice i -> m ()
 mapSliceM_ body slice = let len = sliceLength slice

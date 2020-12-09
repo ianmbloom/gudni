@@ -24,7 +24,6 @@ import Graphics.Gudni.Interface.GLInterop
 
 import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.Thresholds.ReorderTable
-import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
 
@@ -192,8 +191,6 @@ setupOpenCL enableProfiling useCLGLInterop src =
               sortThresholdsKernel     <- getKernelAndDump device program "sortThresholdsKernel"
               renderThresholdsKernel   <- getKernelAndDump device program "renderThresholdsKernel"
               pointQueryKernel         <- getKernelAndDump device program "pointQueryKernel"
-              -- Generate a random field for the stochastic aliasing of the rasterizer.
-              randomField <- makeRandomField rANDOMFIELDsIZE
               -- Return a Library constructor with relevant information about the device for the rasterizer.
               return $ RasterState
                   { -- | The OpenCL state
@@ -215,5 +212,4 @@ setupOpenCL enableProfiling useCLGLInterop src =
                   , _rasterUseGLInterop = useCLGLInterop
                   , _rasterDeviceSpec   = deviceSpec
                   , _rasterReorderTable = reorderTable
-                  , _rasterRandomField  = randomField
                   }

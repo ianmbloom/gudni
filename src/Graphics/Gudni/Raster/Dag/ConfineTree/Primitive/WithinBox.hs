@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 
-module Graphics.Gudni.Raster.Dag.Primitive.WithinBox
+module Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.WithinBox
   ( primIsWithinBox
   , primsWithinBox
   )
@@ -11,14 +11,7 @@ where
 import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Bezier
 import Graphics.Gudni.Figure.Facet
-import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Primitive.Type
-import Graphics.Gudni.Raster.Dag.ConfineTree.Type
-import Graphics.Gudni.Raster.Dag.Primitive.WithTag
-
-import Linear.Metric
-import Control.Applicative
-import Control.Lens
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
 
 primIsWithinBox :: Space s => s -> Box s -> Primitive s -> Bool
 primIsWithinBox limit boundary (Prim fabricTagId ty) =

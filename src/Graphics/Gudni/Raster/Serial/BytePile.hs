@@ -33,17 +33,11 @@ module Graphics.Gudni.Raster.Serial.BytePile
   )
 where
 
-import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.StorableM
-import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.Serial.Reference
-import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
+import Graphics.Gudni.Util.Debug
 
 import Data.List
-import Data.Vector.Storable ((!))
-import qualified Data.Vector.Storable as VS
-import qualified Data.Sequence as S
 
 import Control.Monad
 import Control.Monad.State.Class
@@ -52,10 +46,8 @@ import Control.Lens
 
 import Foreign.C.Types
 import Foreign.Storable
-import Foreign.Marshal.Alloc
 import Foreign.Marshal.Array(peekArray)
-
-import GHC.Ptr
+import Foreign.Ptr
 
 type BytePile = Pile CChar
 

@@ -375,11 +375,6 @@ inline REF queueSize(ThresholdQueue *tQ) {
     return tQ->qSlice.sLength;
 }
 
-
-#define RANDOMFIELDMASK RANDOMFIELDSIZE - 1
-
-#define RANDOM_POS int
-
 typedef struct ShapeState {
     ITEMTAG itemTagStack[MAXLAYERS];
         int itemCount;
@@ -434,8 +429,6 @@ typedef struct ParseState {
                int  sectionCount;
                int  frameCount;
                int  buildCount;
-        RANDOM_POS  randomFieldCursor;
-    CMEM     float *randomField;
 } ParseState;
 
 typedef struct Traversal {
@@ -640,15 +633,6 @@ void buildThresholdArray ( PMEM  ThresholdQueue *tQ
                          ,               float4  columnBox
                          );
 
-void initRandomField( ParseState *pS
-                    , CMEM float *randomField
-                    , int blockId
-                    , int columnDepth
-                    , int columnThread
-                    );
-
-float getRandom(ParseState *pS);
-
 inline Slice initQueueSlice();
 
 void initThresholdQueue( PMEM ThresholdQueue  *tQ
@@ -697,7 +681,6 @@ void storeQueueSlice( GMEM     Slice  *qSliceHeap
 
 void initParseState ( PMEM ParseState *pS
                     ,             int  frameCount
-                    , CMEM      float *randomField
                     , int blockId
                     , int columnDepth
                     , int columnThread
@@ -814,7 +797,6 @@ void copyBlock
                            , GMEM       HardFacet *facetHeap
                            , GMEM           COLOR *pictureData
                            , GMEM           uchar *descriptionHeap
-                           , CMEM           float *randomField
                            ,                COLOR  backgroundColor
                            ,                 int2  bitmapSize
                            ,                  int  frameCount
@@ -1700,24 +1682,6 @@ void buildThresholdArray ( PMEM  ThresholdQueue *tQ
     } // for n
 }
 
-void initRandomField( ParseState *pS
-                    , CMEM float *randomField
-                    , int blockId
-                    , int columnDepth
-                    , int columnThread
-                    ) {
-  // find a random starting point in the field passed on the absolute start position of the columnThread.
-  int uniqueStart       = (int) ((((long)blockId) << columnDepth + columnThread) * LARGE_PRIME) & RANDOMFIELDMASK;
-  pS->randomFieldCursor = uniqueStart;
-  pS->randomField       = randomField;
-}
-
-float getRandom(ParseState *pS) {
-    pS->randomFieldCursor = (pS->randomFieldCursor + 1) & RANDOMFIELDMASK;
-    float random = pS->randomField[pS->randomFieldCursor];
-    return random;
-}
-
 inline Slice initQueueSlice() {
     Slice qSlice;
     qSlice.sStart  = MAXTHRESHOLDS;
@@ -1815,7 +1779,6 @@ void storeQueueSlice( GMEM     Slice  *qSliceHeap
 
 void initParseState ( PMEM ParseState *pS
                     ,             int  frameCount
-                    , CMEM      float *randomField
                     , int blockId
                     , int columnDepth
                     , int columnThread
@@ -1831,7 +1794,6 @@ void initParseState ( PMEM ParseState *pS
 
     pS->frameCount = frameCount;
     pS->buildCount = 0;
-    initRandomField(pS, randomField, blockId, columnDepth, columnThread);
 }
 
 // Create a binary value where the rightmost n bits are set to 1.
@@ -1885,9 +1847,7 @@ float8 sectionColor ( PMEM     ParseState *pS
         color = compositeLayers( shS
                                , cS
                                );
-        float random = getRandom(pS);
-        float4 adjustedArea = (float4) (area + (area * random * STOCHASTIC_FACTOR));
-        return (float8)(color * adjustedArea, adjustedArea);
+        return (float8)(color * area, (float4) area);
     }
     else { // don't waste time calculating the color of insignificant sections.
         //DEBUG_IF(printf("no time sectionStart %v2f sectionEnd %v2f \n", pS->sectionStart, pS->sectionEnd);showShapeState(shS, cS);)
@@ -2143,7 +2103,6 @@ void prepThresholdArray( PMEM ThresholdQueue *tQ
                            , GMEM       HardFacet *facetHeap
                            , GMEM           COLOR *pictureData
                            , GMEM           uchar *descriptionHeap
-                           , CMEM           float *randomField
                            ,                COLOR  backgroundColor
                            ,                 int2  bitmapSize
                            ,                  int  frameCount
@@ -2157,7 +2116,6 @@ void prepThresholdArray( PMEM ThresholdQueue *tQ
     ParseState pS;
     initParseState( &pS
                   ,  frameCount
-                  ,  randomField
                   ,  blockId
                   ,  columnDepth
                   ,  columnThread
@@ -2923,7 +2881,6 @@ __kernel void renderThresholdsKernel
     , GMEM    HardFacet *facetHeap
     , GMEM        COLOR *pictureData
     , GMEM        uchar *descriptionHeap
-    , CMEM        float *randomField
     ,             COLOR  backgroundColor
     ,               int  columnDepth
     ,              int2  bitmapSize
@@ -2953,7 +2910,6 @@ __kernel void renderThresholdsKernel
                              ,  facetHeap
                              ,  pictureData
                              ,  descriptionHeap
-                             ,  randomField
                              ,  backgroundColor
                              ,  bitmapSize
                              ,  frameCount

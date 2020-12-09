@@ -1,8 +1,10 @@
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE TypeFamilies     #-}
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Graphics.Gudni.Raster.Dag.Primitive.Storage
+module Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Storage
   ( PrimStorage(..)
   , primBezierPile
   , primFacetPile
@@ -15,16 +17,18 @@ module Graphics.Gudni.Raster.Dag.Primitive.Storage
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree.STree
 
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Constants
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Tag
+
+import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Pile
-import Graphics.Gudni.Raster.Thresholds.SubstanceInfo
-import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Primitive.Type
-import Graphics.Gudni.Raster.Dag.Primitive.Tag
 
 import Foreign.Storable
+import Foreign.Ptr
 import Control.Monad.IO.Class
 import Control.Monad.State
 import Control.Lens
@@ -70,20 +74,20 @@ storePrim :: ( Storable s
              , MonadIO m)
           => Primitive s
           -> StateT (PrimStorage s) m (PrimTagId)
-storePrim (Prim shapeId primType) =
+storePrim (Prim fabricTagId primType) =
   do tag <- case primType of
                 PrimBezier bez ->
                     do bezId <- addToPileS primBezierPile bez
-                       return $ makeBezierPrimTag (BezierId bezId) shapeId
+                       return $ makeBezierPrimTag (BezierId bezId) fabricTagId
                 PrimFacet facet ->
                     do facetId <- addToPileS primFacetPile facet
-                       return $ makeFacetPrimTag (FacetId facetId) shapeId
+                       return $ makeFacetPrimTag (FacetId facetId) fabricTagId
                 PrimRect box ->
                     do boxId <- addToPileS primBoxPile box
-                       return $ makeRectPrimTag (BoxId boxId) shapeId
+                       return $ makeRectPrimTag (BoxId boxId) fabricTagId
                 PrimEllipse box ->
                     do boxId <- addToPileS primBoxPile box
-                       return $ makeElipsePrimTag (BoxId boxId) shapeId
+                       return $ makeElipsePrimTag (BoxId boxId) fabricTagId
      primTagId <- addToPileS primTagPile tag
      return $ PrimTagId primTagId
 
@@ -94,16 +98,16 @@ loadPrim :: ( Storable s
          -> StateT (PrimStorage s) m (Primitive s)
 loadPrim primTagId =
   do tag <- fromPileS primTagPile (unPrimTagId primTagId)
-     let shapeId = primTagShapeId tag
+     let fabricTagId = primTagFabricTagId tag
          buildType
              | primTagIsBezier tag = do bez <- fromPileS primBezierPile (unBezierId . primTagBezierId $ tag)
                                         return $ PrimBezier  bez
              | primTagIsFacet  tag = do facet <- fromPileS primFacetPile (unFacetId . primTagFacetId $ tag)
                                         return $ PrimFacet   facet
-             | primTagIsRect   tag = do box <- fromPileS primBoxPile   (unBoxId . primTagBoxId $ tag)
+             | primTagIsRect   tag = do box <- fromPileS primBoxPile (unBoxId . primTagBoxId $ tag)
                                         return $ PrimRect    box
              | primTagIsElipse tag = do box <- fromPileS primBoxPile (unBoxId . primTagBoxId $ tag)
                                         return $ PrimEllipse box
              | otherwise = error "unsupported primType"
-     ty <- buildType
-     return $ Prim shapeId ty
+     primType <- buildType
+     return $ Prim fabricTagId primType

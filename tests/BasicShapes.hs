@@ -20,9 +20,9 @@ basicShapes =
     [ ("randomCurves",
       \ playhead step ->
       let range = makePoint 2 2
-          randomCurves = evalRand (sequence . replicate 3 $ fuzzyCurve range 10) (mkStdGen $ step) :: [ShapeTree Int SubSpace]
+          randomCurves = evalRand (sequence . replicate 8 $ fuzzyCurve range 10) (mkStdGen $ step) :: [ShapeTree Int SubSpace]
       in  place .
-          scaleBy 200 .
+          scaleBy 100 .
           rotateBy (playhead @@ deg)
           $
           overlap randomCurves
@@ -30,7 +30,7 @@ basicShapes =
      ,
      ("onTriangles",
      \ playhead step ->
-     translateByXY 10 10 .
+     --translateByXY 10 10 .
      --rotateBy (playhead @@ deg) .
      scaleBy 100
      $
@@ -43,16 +43,18 @@ basicShapes =
                mask
                $
                triangleOff
-               ,
-               withColor (transparent 0.5 purple) .
-               mask
-               $
-               triangle
-               ,
-               withColor (transparent 0.5 green) .
-               mask
-               $
-               triangle
+               -- ,
+               -- withColor (transparent 0.5 purple) .
+               -- translateByXY 0.5 0.5 .
+               -- mask
+               -- $
+               -- triangle
+               -- ,
+               -- withColor (transparent 0.5 green) .
+               -- translateByXY 1 1 .
+               -- mask
+               -- $
+               -- triangle
              ]
       )
       ,
@@ -226,9 +228,9 @@ triangle =
 triangleOff :: Space s => Shape s
 triangleOff =
     Shape . pure . fromSegments $
-    [ straightXY 0.25 0.25
-    , straightXY 1.25 0.25
-    , straightXY 0.25 1.25
+    [ straightXY 0.05 0.05
+    , straightXY 1.05 0.05
+    , straightXY 0.05 1.05
     ]
 
 triangle2 :: Space s => Shape s

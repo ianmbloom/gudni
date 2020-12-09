@@ -28,7 +28,6 @@ module Graphics.Gudni.Raster.Thresholds.OpenCL.PrepareBuffers
   , bicSubTagHeap
   , bicDescriptions
   , bicPictHeap
-  , bicRandoms
 
   , readBufferToPtr
   , withBuffersInCommon
@@ -77,7 +76,6 @@ import Graphics.Gudni.Raster.Serial.Pile
 
 import Graphics.Gudni.Util.Util
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Util.RandomField
 import Graphics.Gudni.Util.StorableM
 import Graphics.Gudni.Util.CTypeConversion
 
@@ -117,7 +115,6 @@ data BuffersInCommon = BuffersInCommon
   , _bicSubTagHeap     :: CLBuffer SubstanceTag
   , _bicDescriptions   :: CLBuffer CChar
   , _bicPictHeap       :: CLBuffer CFloat
-  , _bicRandoms        :: CLBuffer CFloat
   }
 makeLenses ''BuffersInCommon
 
@@ -145,7 +142,6 @@ createBuffersInCommon params =
         subTagBuffer      <- bufferFromPile   "subTagBuffer     " (params ^. rpSerialState . serSubstanceTagPile)
         descriptionBuffer <- bufferFromPile "descriptionBuffer" (params ^. rpSerialState . serDescriptionPile  )
         pixelPileBuffer   <- bufferFromPile   "pixelPileBuffer   " (params ^. rpPixelPile)
-        randoms           <- bufferFromVector "randoms          " (params ^. rpRasterState  . rasterRandomField  )
         return $  BuffersInCommon
                   { _bicGeometryHeap   = geoBuffer
                   , _bicFacetHeap      = facetBuffer
@@ -153,7 +149,6 @@ createBuffersInCommon params =
                   , _bicSubTagHeap     = subTagBuffer
                   , _bicDescriptions   = descriptionBuffer
                   , _bicPictHeap       = pixelPileBuffer
-                  , _bicRandoms        = randoms
                   }
 
 releaseBuffersInCommon :: BuffersInCommon -> CL ()
@@ -164,7 +159,6 @@ releaseBuffersInCommon bic =
         releaseBuffer "bicSubTagHeap   " $ bic ^. bicSubTagHeap
         releaseBuffer "bicDescriptions " $ bic ^. bicDescriptions
         releaseBuffer "bicPictHeap     " $ bic ^. bicPictHeap
-        releaseBuffer "bicRandoms      " $ bic ^. bicRandoms
         return ()
 
 newtype BlockId = BlockId {unBlockId :: Int} deriving (Eq, Ord, Num)

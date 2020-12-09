@@ -38,17 +38,13 @@ module Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
   , rasterUseGLInterop
   , rasterDeviceSpec
   , rasterReorderTable
-  , rasterRandomField
   )
 where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface.Query
 import Graphics.Gudni.Interface.DrawTarget
---import Graphics.Gudni.Raster.Serialize
 import Graphics.Gudni.Raster.Thresholds.ReorderTable
---import Graphics.Gudni.Raster.Thresholds.OpenCL.ProcessBuffers
-import Graphics.Gudni.Util.RandomField
 
 import Graphics.Gudni.Raster.Class
 import Graphics.Gudni.Raster.Serial.Slice
@@ -99,6 +95,5 @@ data RasterState = RasterState
   , _rasterUseGLInterop :: Bool
   , _rasterDeviceSpec   :: DeviceSpec
   , _rasterReorderTable :: ReorderTable
-  , _rasterRandomField  :: RandomField
   }
 makeLenses ''RasterState

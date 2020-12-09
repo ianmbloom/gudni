@@ -1,67 +1,54 @@
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE TypeSynonymInstances       #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE DeriveGeneric              #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE UndecidableSuperClasses    #-}
-{-# LANGUAGE MultiParamTypeClasses      #-}
-{-# LANGUAGE StandaloneDeriving         #-}
 
 module Graphics.Gudni.Raster.Dag.ConfineTree.Add
-  ( addBezierToConfineTree
+  ( addPrimToConfineTree
   )
 where
 
-import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
-import Graphics.Gudni.Raster.Dag.Primitive.WithTag
+import Graphics.Gudni.Figure.Principle
+
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
 import Graphics.Gudni.Raster.Dag.TagTypes
 
-import Graphics.Gudni.Util.Debug
 import Control.Lens
 
-addBezierToConfineTree :: forall s
-                       . (Space s)
-                       => Box s
-                       -> PrimTagId
-                       -> ConfineTree s
-                       -> ConfineTree s
-addBezierToConfineTree box primTagId =
+addPrimToConfineTree :: forall s m
+                     . ( TreeConstraints s m
+                       )
+                     => Box s
+                     -> PrimTagId
+                     -> ConfineTagId s
+                     -> TreeMonad s m (ConfineTagId s)
+addPrimToConfineTree box primTagId =
     go Vertical
     where
     go :: (Axis axis)
        => axis
-       -> Maybe (Confine axis s)
-       -> Maybe (Confine axis s)
-    go axis mTree =
-        --trP "goInsert" $
+       -> ConfineTagId s
+       -> TreeMonad s m (ConfineTagId s)
+    go axis treeId =
         let minCut = box ^. minBox . athwart axis
             maxCut = box ^. maxBox . athwart axis
         in
-        case mTree of
-            Nothing ->
-                Just $
-                Confine
-                    { _confinePrimTagId      = primTagId
-                    , _confineCut        = minCut
-                    , _confineOverhang   = minCut
-                    , _confineLessCut    = Nothing
-                    , _confineMoreCut    = Nothing
-                    }
-            Just tree ->
-                if --tr ("minCut " ++ show minCut ++ " < tree ^. confineCut " ++ show (tree ^. confineCut)) $
-                   minCut < tree ^. confineCut
-                then let less = go (perpendicularTo axis) (tree ^. confineLessCut)
-                     in  Just .
-                         over confineOverhang (max maxCut) .
-                         set confineLessCut less $
-                         tree
-                else let more = go (perpendicularTo axis) (tree ^. confineMoreCut)
-                     in  Just .
-                         set confineMoreCut more $
-                         tree
+        if treeId == nullConfineTagId
+        then do let treeTag = ConfineTag { _confineTagPrimTagId  = primTagId
+                                         , _confineTagHorizontal = isHorizontal axis
+                                         , _confineTagCut        = fromAthwart axis minCut
+                                         , _confineTagOverhang   = fromAthwart axis maxCut
+                                         , _confineTagLessCut    = nullConfineTagId
+                                         , _confineTagMoreCut    = nullConfineTagId
+                                         }
+                addConfineTag treeTag
+        else do tree <- loadConfineTag treeId
+                modifiedTag <- if minCut < toAthwart axis (tree ^. confineTagCut)
+                               then do less <- go (perpendicularTo axis) (tree ^. confineTagLessCut)
+                                       return $ over confineTagOverhang (max (fromAthwart axis maxCut)) .
+                                                set confineTagLessCut less $
+                                                tree
+                               else do more <- go (perpendicularTo axis) (tree ^. confineTagMoreCut)
+                                       return $ set confineTagMoreCut more tree
+                overwriteConfineTag treeId modifiedTag
+                return treeId

@@ -21,14 +21,12 @@ module Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
   , dagOpenCLTraverseDagKernel
   , dagOpenCLUseGLInterop
   , dagOpenCLDeviceSpec
-  , dagOpenCLRandomField
   )
 where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface.Query
 import Graphics.Gudni.Interface.DrawTarget
-import Graphics.Gudni.Util.RandomField
 
 import Graphics.Gudni.Raster.Class
 import Graphics.Gudni.Raster.Serial.Slice
@@ -59,7 +57,5 @@ data DagOpenCLState = DagOpenCLState
   , _dagOpenCLUseGLInterop :: Bool
     -- | Specifications
   , _dagOpenCLDeviceSpec   :: DeviceSpec
-    -- | Supply of random floats
-  , _dagOpenCLRandomField  :: RandomField
   }
 makeLenses ''DagOpenCLState

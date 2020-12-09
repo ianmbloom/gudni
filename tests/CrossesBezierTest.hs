@@ -18,6 +18,8 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Draw
 
+import Graphics.Gudni.Raster.Dag.Constants
+
 import Control.Lens
 import Control.Monad
 import Control.Monad.IfElse
@@ -83,7 +85,8 @@ showCross :: (Axis axis, IsStyle style)
           -> Bezier (SpaceOf style)
           -> Layout style
 showCross axis start end bez =
-    let doesCross = crossesBezierAlong False axis (start ^. along axis) (start ^. athwart axis) (end ^. along axis) bez
+    let limit = realToFrac cROSSsPLITlIMIT
+        doesCross = crossesBezierAlong limit axis (start ^. along axis) (start ^. athwart axis) (end ^. along axis) bez
         color = if doesCross then red else green
     in  withColor color . mask . stroke 0.3 . makeOpenCurve $ [line start end]
 

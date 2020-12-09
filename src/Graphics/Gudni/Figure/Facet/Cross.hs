@@ -26,7 +26,7 @@ crossesFacetAlong :: forall axis s
                   -> Bool
 crossesFacetAlong limit axis start baseline end facet =
    foldl1 (/=) .
-   fmap (crossesBezierAlong False limit axis start baseline end) .
+   fmap (crossesBezierAlong limit axis start baseline end) .
    bezTriToBeziers .
    view facetOutput $
    facet

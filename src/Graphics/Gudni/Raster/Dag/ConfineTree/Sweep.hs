@@ -5,17 +5,19 @@
 
 module Graphics.Gudni.Raster.Dag.ConfineTree.Sweep
   ( sweepConfineTree
-  , SweepStored(..)
   )
 where
 
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Stack
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
-import Graphics.Gudni.Raster.Dag.Primitive.WithTag
-import Graphics.Gudni.Raster.Dag.Primitive.Stack
-import Graphics.Gudni.Raster.Dag.Primitive.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
 import Graphics.Gudni.Raster.Dag.TagTypes
+
+import Graphics.Gudni.Raster.Serial.Pile
+
 import Graphics.Gudni.Util.Debug
 import Graphics.Gudni.Util.Util
 
@@ -24,67 +26,36 @@ import Control.Monad
 import Control.Monad.State
 import Control.Monad.IO.Class
 
-data SweepStored s = SweepStored
-    { ssBox    :: Box s
-    , ssPrims :: [TPrim s]
-    }
-
-instance Show s => Show (SweepStored s) where
-  show ss = "sto " ++ show (ssPrims ss)
 
 addCrossingM :: forall axis s m
              .  ( Axis axis
                 --, ToEitherAxis (PerpendicularTo axis)
                 , axis~PerpendicularTo(PerpendicularTo (axis))
-                , Monad m
-                , Space s
+                , TreeConstraints s m
                 )
              => s
-             -> (PrimTagId -> m (Primitive s))
-             -> m ()
              -> axis
              -> Athwart axis s
              -> Along axis s
-             -> Confine axis s
+             -> ConfineTagId s
              -> ShapeStack
              -> PrimTagId
-             -> m ShapeStack
-addCrossingM limit getPrim op axis parentCut parentLine tree stack primTagId =
-    do op
-       prim <- getPrim primTagId
-       return $ passPrimAlong limit (perpendicularTo axis) parentCut parentLine (tree ^. confineCut) primTagId prim stack
+             -> TreeMonad s m ShapeStack
+addCrossingM limit axis parentCut parentLine treeId stack primTagId =
+    do tree <- loadConfineTag treeId
+       prim <- loadTreePrim primTagId
+       return $ passPrimAlong limit (perpendicularTo axis) parentCut parentLine (toAthwart axis $ tree ^. confineTagCut) primTagId prim stack
 
 sweepConfineTree :: forall s m
-                 . ( Space s
-                   , MonadIO m
+                 . ( TreeConstraints s m
                    )
                  => s
-                 -> (PrimTagId -> m (Box s))
-                 -> (PrimTagId -> m (Primitive s))
-                 -> m ()
-                 -> m ()
-                 -> ([PrimTagId] -> [PrimTagId] -> m ())
-                 -> (Box s -> m ())
-                 -> ([PrimTagId] -> m ())
-                 -> m ()
-                 -> ((Point2 s, Point2 s) -> m ())
-                 -> m ()
                  -> Int
-                 -> ConfineTree s
-                 -> m (DecorateTree s)
+                 -> ConfineTagId s
+                 -> TreeMonad s m (DecoTagId s)
 sweepConfineTree limit
-                 getBox
-                 getPrim
-                 crossingOp
-                 branchStep
-                 overhangOp
-                 nothingOp
-                 pushBypassOp
-                 popBypassOp
-                 pushPathOp
-                 popPathOp
                  depthLimit
-                 mTree =
+                 treeId =
    do (dTree, _, _) <- sweep limit
                              Vertical
                              0
@@ -95,7 +66,7 @@ sweepConfineTree limit
                                        minBound
                                        maxBound
                                        maxBound )
-                             mTree
+                             treeId
                              []
       return dTree
    where
@@ -108,9 +79,9 @@ sweepConfineTree limit
          -> Athwart axis s
          -> Along axis s
          -> Box s
-         -> Branch axis s
+         -> ConfineTagId s
          -> [PrimTagId]
-         -> m (DecoTree axis s, [PrimTagId], Int)
+         -> TreeMonad s m (DecoTagId s, [PrimTagId], Int)
    sweep limit
          axis
          depth
@@ -118,125 +89,98 @@ sweepConfineTree limit
          parentCut
          parentLine
          boundary
-         mTree
+         treeId
          parentOverhangs =
        let lessSide = not moreSide
            ind x = return () -- liftIO $ putStrLn $ concat (replicate depth "      ") ++ "sweep " ++ x
 
-           addCrossings overhangs tree primStack = foldM (addCrossingM limit getPrim crossingOp axis parentCut parentLine tree) primStack overhangs
-           handleOverhangs :: String -> [PrimTagId] -> m [PrimTagId]
-           handleOverhangs mess primStack =
+           addCrossings overhangs tree primStack = foldM (addCrossingM limit axis parentCut parentLine tree) primStack overhangs
+           handleOverhangs :: [PrimTagId] -> TreeMonad s m [PrimTagId]
+           handleOverhangs primStack =
                do  (keep, discard) <- partitionM (overhangs axis boundary) primStack
-                   ind $ mess ++ "keep " ++ show keep ++ " discard " ++ show discard
-                   overhangOp keep discard
                    return keep
        in
-       case mTree of
-           Nothing ->
-               do  ind "Nothing "
-                   nothingOp boundary
-                   return (DecoLeaf, parentOverhangs, 0)
-           Just tree ->
-               let mess = "tag " ++ show (tree ^. confinePrimTagId) ++ " "
-                   indTag x = ind (mess ++ x)
-                   thisCurve = tree ^. confinePrimTagId
-                   cut :: Athwart axis s
-                   cut = tree ^. confineCut
-                   lessBox = set (maxBox . athwart axis) cut boundary
-                   moreBox = set (minBox . athwart axis) cut boundary
-                   sweepLess = sweep limit (perpendicularTo axis) (depth + 1) False parentLine cut lessBox (tree ^. confineLessCut)
-                   sweepMore = sweep limit (perpendicularTo axis) (depth + 1) True  parentLine cut moreBox (tree ^. confineMoreCut)
-                   goLessSide = do indTag $ "lessSide ===="
-                                   (dLess, fromLess, depthLess) <- sweepLess parentOverhangs
-                                   indTag $ "        fromLess " ++ show fromLess
-                                   (forMore, bypassMore) <- partitionM (overhangsCut axis cut) fromLess
-                                   indTag $ "         forMore " ++ show forMore
-                                   indTag $ "      bypassMore " ++ show bypassMore
-                                   pushBypassOp bypassMore
-                                   (dMore, fromMore, depthMore) <- sweepMore (thisCurve:forMore)
-                                   popBypassOp
-                                   indTag $ "        fromMore " ++ show fromMore
-                                   let continue = fromMore ++ bypassMore
-                                   primStack <- addCrossings continue tree []
-                                   indTag $ "       crossings " ++ show primStack
-                                   let depthMax = 1 + max depthLess depthMore
-                                   return (dLess, dMore, primStack, continue, depthMax)
-                   goMoreSide = do indTag $ "moreSide ===="
-                                   primStack <- addCrossings parentOverhangs tree []
-                                   indTag $ "       crossings " ++ show primStack
-                                   (bypassLess, forLess) <- partitionM (beyondCut axis cut) parentOverhangs
-                                   indTag $ "         forLess " ++ show forLess
-                                   indTag $ "      bypassLess " ++ show bypassLess
-                                   pushBypassOp bypassLess
-                                   (dLess, fromLess, depthLess) <- sweepLess forLess
-                                   popBypassOp
-                                   indTag $ "        fromLess " ++ show fromLess
-                                   let forMore = fromLess ++ bypassLess
-                                   indTag $ "         forMore " ++ show forMore
-                                   (dMore, fromMore, depthMore) <- sweepMore (thisCurve:forMore)
-                                   indTag $ "        fromMore " ++ show fromMore
-                                   let depthMax = 1 + max depthLess depthMore
-                                   return (dLess, dMore, primStack, fromMore, depthMax)
-               in
-               do pushPathOp (makePath (perpendicularTo axis) parentCut parentLine cut)
-                  indTag $ "moreSide " ++ show moreSide ++ " pCut " ++ show parentCut ++ " pLine " ++ show parentLine ++ " boundary " ++ show boundary
-                  indTag $ " parentOverhangs " ++ show parentOverhangs
-                  (mLess, mMore, primStack, fromMore, depth) <- if lessSide
-                                                                then goLessSide
-                                                                else goMoreSide
-                  popPathOp
-                  keep <- handleOverhangs mess fromMore
-                  branchStep
-                  let ret = if depth <= depthLimit
-                            then DecoLeaf
-                            else DecoBranch
-                                     { _decoCut = tree ^. confineCut
-                                     , _decoCrossings = primStack
-                                     , _decoLessCut = mLess
-                                     , _decoMoreCut = mMore
-                                     }
-                  return ( ret
-                         , keep
-                         , depth
-                         )
+       if treeId == nullConfineTagId
+       then return (nullDecoTagId, parentOverhangs, 0)
+       else do  tree <- loadConfineTag treeId
+                let thisCurve = tree ^. confineTagPrimTagId
+                    cut :: Athwart axis s
+                    cut = toAthwart axis $ tree ^. confineTagCut
+                    lessBox = set (maxBox . athwart axis) cut boundary
+                    moreBox = set (minBox . athwart axis) cut boundary
+                    sweepLess = sweep limit (perpendicularTo axis) (depth + 1) False parentLine cut lessBox (tree ^. confineTagLessCut)
+                    sweepMore = sweep limit (perpendicularTo axis) (depth + 1) True  parentLine cut moreBox (tree ^. confineTagMoreCut)
+                    goLessSide = do (dLess, fromLess, depthLess) <- sweepLess parentOverhangs
+                                    (forMore, bypassMore) <- partitionM (overhangsCut axis cut) fromLess
+                                    (dMore, fromMore, depthMore) <- sweepMore (thisCurve:forMore)
+                                    let continue = fromMore ++ bypassMore
+                                    primStack <- addCrossings continue treeId []
+                                    let depthMax = 1 + max depthLess depthMore
+                                    return (dLess, dMore, primStack, continue, depthMax)
+                    goMoreSide = do primStack <- addCrossings parentOverhangs treeId []
+                                    (bypassLess, forLess) <- partitionM (beyondCut axis cut) parentOverhangs
+                                    (dLess, fromLess, depthLess) <- sweepLess forLess
+                                    let forMore = fromLess ++ bypassLess
+                                    (dMore, fromMore, depthMore) <- sweepMore (thisCurve:forMore)
+                                    let depthMax = 1 + max depthLess depthMore
+                                    return (dLess, dMore, primStack, fromMore, depthMax)
+                (mLess, mMore, primStack, fromMore, depth) <- if lessSide
+                                                              then goLessSide
+                                                              else goMoreSide
+                keep <- handleOverhangs fromMore
+                ret <-
+                      if depth <= depthLimit
+                      then return nullDecoTagId
+                      else do slice <- foldIntoPileS treeCrossingPile primStack
+                              let treeTag = DecoTag { _decoTagCut        = tree ^. confineTagCut
+                                                    , _decoTagHorizontal = isHorizontal axis
+                                                    , _decoTagCrossings  = slice
+                                                    , _decoTagLessCut    = mLess
+                                                    , _decoTagMoreCut    = mMore
+                                                    }
+                              DecoTagId <$> addToPileS treeDecoPile treeTag
+                return ( ret
+                       , keep
+                       , depth
+                       )
 
-   collectOverhangs :: Axis axis => axis -> Branch axis s -> [PrimTagId] -> m [PrimTagId]
-   collectOverhangs axis mTree stack =
-     case mTree of
-       Nothing -> return stack
-       Just tree ->
-          fmap ((tree ^. confinePrimTagId):) $
-          collectOverhangs (perpendicularTo axis) (tree ^. confineLessCut) =<<
-          collectOverhangs (perpendicularTo axis) (tree ^. confineMoreCut) =<<
-          return stack
+   collectOverhangs :: Axis axis => axis -> ConfineTagId s -> [PrimTagId] -> TreeMonad s m [PrimTagId]
+   collectOverhangs axis treeId stack =
+     if treeId == nullConfineTagId
+     then return stack
+     else do tree <- loadConfineTag treeId
+             fmap ((tree ^. confineTagPrimTagId):) $
+                  collectOverhangs (perpendicularTo axis) (tree ^. confineTagLessCut) =<<
+                  collectOverhangs (perpendicularTo axis) (tree ^. confineTagMoreCut) =<<
+                  return stack
 
    overhangsCut :: Axis axis
                 => axis
                 -> Athwart axis s
                 -> PrimTagId
-                -> m Bool
+                -> TreeMonad s m Bool
    overhangsCut axis cut primTagId =
-       do box <- getBox primTagId
+       do box <- boxOf <$> loadTreePrim primTagId
           return $ box ^. maxBox . athwart axis >= cut
 
    beyondCut :: Axis axis
              => axis
              -> Athwart axis s
              -> PrimTagId
-             -> m Bool
+             -> TreeMonad s m Bool
    beyondCut axis cut primTagId =
-       do box <- getBox primTagId
+       do box <- boxOf <$> loadTreePrim primTagId
           return $ box ^. minBox . athwart axis >= cut
 
    overhangs :: Axis axis
              => axis
              -> Box s
              -> PrimTagId
-             -> m Bool
+             -> TreeMonad s m Bool
    overhangs axis
              boundary
              primTagId =
-       do  box <- getBox primTagId
+       do  box <- boxOf <$> loadTreePrim primTagId
            let overhangsAthwart = box ^. maxBox . athwart axis >= boundary ^. maxBox . athwart axis
                overhangsAlong   = box ^. maxBox . along   axis >= boundary ^. maxBox . along   axis
            return $ overhangsAthwart || overhangsAlong

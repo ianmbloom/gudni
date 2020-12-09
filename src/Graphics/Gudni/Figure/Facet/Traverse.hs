@@ -35,7 +35,7 @@ limit = 1 / 16
 insideBezierTri :: Space s => s -> Point2 s -> BezTri s -> Bool
 insideBezierTri limit point =
   foldl1 (/=) .
-  fmap (crossesBezierAlong False limit Vertical minBound (point ^. pX) (point ^. pY)) .
+  fmap (crossesBezierAlong limit Vertical minBound (point ^. pX) (point ^. pY)) .
   bezTriToBeziers
 
 traverseFacetUntil :: forall s . (Space s) => s -> s -> Point2 s -> Facet s -> Facet s

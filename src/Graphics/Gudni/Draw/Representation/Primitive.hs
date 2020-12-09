@@ -20,7 +20,7 @@ import Graphics.Gudni.Draw.ArrowHead
 import Graphics.Gudni.Draw.Text
 
 import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Primitive.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
 import Linear.V3
 
 makeList :: a -> [a]
