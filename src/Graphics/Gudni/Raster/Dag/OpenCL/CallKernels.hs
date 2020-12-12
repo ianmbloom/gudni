@@ -79,7 +79,7 @@ runTraverseDagKernel :: forall s token target
                      -> CL ()
 runTraverseDagKernel rasterizer
                      bic
-                     dagRoot
+                     codePointer
                      tile
                      canvasSize
                      frameCount
@@ -100,15 +100,17 @@ runTraverseDagKernel rasterizer
                       (bic ^. bicTreeDecoHeap    )
                       (bic ^. bicCrossingPile    )
                       (bic ^. bicPictHeap        )
-                      (unRef . unFabricTagId $ dagRoot)
+                      (unRef . unFabricTagId $ codePointer)
                       tile
                       (toCInt $ rasterizer ^. dagOpenCLDeviceSpec  . specColumnDepth)
                       (fmap (toCInt . fromIntegral) canvasSize)
                       (toCInt samplesPerPixel)
                       (toCInt frameCount)
                       target
-                      (Work3D tileWidth tileHeight samplesPerPixel)
-                      (WorkGroup [tileWidth `div` samplesPerPixel, 1, samplesPerPixel]) :: CL ()
+                      (Work2D tileWidth tileHeight)
+                      (WorkGroup [32,16]) :: CL ()
+                      -- (Work3D tileWidth tileHeight samplesPerPixel)
+                      -- (WorkGroup [tileWidth `div` samplesPerPixel, 1, samplesPerPixel]) :: CL ()
 
 runTraverseDagKernelTiles :: forall s token target
                           .  (  KernelArgs

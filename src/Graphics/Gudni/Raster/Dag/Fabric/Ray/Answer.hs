@@ -44,7 +44,7 @@ class Storable (SpaceOf q) => Answer q where
     outsideShape    :: q
     insideShape     :: q
     traverseStop    :: FCombineType -> q -> Bool
-    traverseCombine :: FCombineType -> q -> q -> q
+    applyCombine :: FCombineType -> q -> q -> q
     applyFilter     :: FFilter -> q -> q
     linearQuery     :: Point2 (SpaceOf q) -> q
     quadranceQuery  :: Point2 (SpaceOf q) -> q
@@ -62,7 +62,7 @@ instance (Storable s, Space s) => Answer (Color s) where
         FMask      -> isClear  color
         -- any other type of combination can't short circuit.
         _          -> False
-    traverseCombine combiner a b = combineColor combiner a b
+    applyCombine combiner a b = combineColor combiner a b
     applyFilter filt =
         case filt of
             FSqrt   -> Color . fmap sqrt        . view unColor
@@ -93,7 +93,7 @@ instance (Storable s, Space s) => Answer (ColorStack s) where
     outsideShape =  ColorStack []
     insideShape = ColorStack []
     traverseStop _ _ = False -- never stop, no short circuits
-    traverseCombine fCombine (ColorStack a) (ColorStack b) =
+    applyCombine fCombine (ColorStack a) (ColorStack b) =
         ColorStack $
             case fCombine of
                 FMask -> a ++ b --  fmap (multiplyColor (compositeStack a)) b

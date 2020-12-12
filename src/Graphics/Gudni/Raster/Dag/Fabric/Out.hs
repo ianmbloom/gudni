@@ -62,10 +62,10 @@ outFabric =
            | fabTagIsTexture     tag = return $ textTag tag
            | fabTagIsFunction    tag = return $ textTag tag
            | fabTagIsBinary      tag = return $ textTag tag
-           | fabTagIsDecoTree    tag = do decoOut <- inTree $ outDecoTree (fabTagDecoId tag)
+           | fabTagIsDecoTree    tag = do decoOut <- return $ text "..." -- inTree $ outDecoTree (fabTagDecoId tag)
                                           return $ hangTag tag decoOut
            | fabTagIsConfineTree tag = do let confineId = fabTagConfineId tag
-                                          confineOut <- inTree $ outConfineTree confineId
+                                          confineOut <- return $ text "..." -- inTree $ outConfineTree confineId
                                           fabricList <- inTree $ extractConfineTreeFabrics confineId
                                           primFabrics <- mapM jumpFab fabricList
                                           return $ hangTag tag (confineOut

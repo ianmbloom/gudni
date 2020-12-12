@@ -75,16 +75,16 @@ initialModel =
           , _statePace        = 50
           , _stateLastTime    = 0
           , _stateDirection   = True
-          , _statePlayhead    = 205.659
+          , _statePlayhead    = 10
           , _stateFrameNumber = 0
           , _stateStep        = 53
           , _stateRepMode     = False
           , _stateRepDk       = False
-          , _stateCursor      = Point2 444 88
+          , _stateCursor      = Point2 512 58
           }
     , _stateShapeAngle = 0 @@ deg -- @@ rad -- 0 @@ rad
     , _stateTraceStep = 0
-    , _stateCurrentTest = flip findTest allTests  "randomCurves"  --"onTriangles" -- "benchmark1" -- "twoTriangles" -- "bigTriangle" -- "randomCurves" -- "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
+    , _stateCurrentTest = flip findTest allTests  "randomCurves" -- "onTriangles"  -- "onTriangles" -- "benchmark1" -- "twoTriangles" -- "bigTriangle" -- "randomCurves" -- "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
     , _stateDecorationType = True
     , _stateDecorationLimit = 0
     }
@@ -101,7 +101,7 @@ instance HasStyle ConfineTreeState where
 
 instance Model ConfineTreeState where
     screenSize state = --FullScreen
-                       Window $ Point2 512 512
+                       Window $ Point2 256 256
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =
@@ -121,7 +121,7 @@ instance Model ConfineTreeState where
             pictureMap <- liftIO $ providePictureMap state
             (pictureMemoryMap, pixelPile) <- liftIO $ collectPictureMemory pictureMap
             fabric <- sceneToFabric pictureMemoryMap (Scene gray testShape)
-            liftIO . putStrLn . render . doc $ fabric
+            -- liftIO . putStrLn . render . doc $ fabric
             liftIO $ putStrLn "Before withSerialized Fabric"
             testScene <- withSerializedFabric limit 0 (Just canvas) pixelPile fabric $ \storage ->
                 evalStateT (evalRandT (
@@ -145,19 +145,19 @@ instance Model ConfineTreeState where
                          -- traceConstructed :: Layout DefaultStyle
                          -- traceConstructed <- constructSweepTrace sweepTrace
 
-                         let traversePixel loc = traverseFabric limit (locationToSubSpace loc) (Point2 10 10)
-                         img <- createImageM traversePixel canvasSize
-                         let imageLayout :: Layout DefaultStyle
-                             imageLayout = withTexture (NewTexture "pictureFrozen" (PictureFrozen img)) $ mask $ rectangle $ fmap fromIntegral canvasSize
+                         -- let traversePixel loc = traverseFabric limit (locationToSubSpace loc) (Point2 10 10)
+                         -- img <- createImageM traversePixel canvasSize
+                         -- let imageLayout :: Layout DefaultStyle
+                         --     imageLayout = withTexture (NewTexture "pictureFrozen" (PictureFrozen img)) $ mask $ rectangle $ fmap fromIntegral canvasSize
 
                          -- liftIO $ putStrLn "about to constructDag"
                          -- (dag :: Layout DefaultStyle) <- lift $ constructDag root
-                         let curs :: Layout DefaultStyle
-                             curs = translateBy point . scaleBy 5 . withColor black $ mask circle
+                         -- let curs :: Layout DefaultStyle
+                         --     curs = translateBy point . scaleBy 5 . withColor black $ mask circle
                          return $
-                             overlap [  curs
-                                        ,
-                                        imageLayout
+                             overlap [  --curs
+                                        -- ,
+                                        -- imageLayout
                                         -- ,
                                         -- withColor black . mask . rectangle $ fmap (+3) $ fmap fromIntegral canvasSize
                                         -- ,
@@ -174,8 +174,8 @@ instance Model ConfineTreeState where
                                         -- traceConstructed
                                         -- ,
                                         -- dag
-                                        ,
-                                        translateByXY 100 0 $ testShape
+                                        -- ,
+                                        testShape
                                      ]
                 ) (mkStdGen frameNumber)) storage
             liftIO $ putStrLn $ "sizeOf Haskell DecoTag    " ++ show (sizeOf (undefined :: DecoTag    SubSpace))

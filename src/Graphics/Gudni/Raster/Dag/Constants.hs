@@ -15,11 +15,10 @@ module Graphics.Gudni.Raster.Dag.Constants
     ( tAXICABfLATNESS
     , cROSSsPLITlIMIT
     , oPAQUEtHRESHOLD
-    , rANDOMFIELDsIZE
     , bEZIERsTACKsIZE
-    , sHAPEsTACKsIZE
     , fABRICsTACKsIZE
-    , cOLORsTACKsIZE
+    , rAYsTACKsIZE
+    , aNSWERsTACKsIZE
     , cONFINEtREEsTACKsIZE
     , bEZIERsIZEiNfLOATS
     , fACETsIZEiNfLOATS
@@ -30,7 +29,7 @@ module Graphics.Gudni.Raster.Dag.Constants
 
 
     , nULLrEFERENCE
-    , nULLdECOtADiD
+    , nULLdECOtAGiD
     , nULLcONFINEtAGiD
 
     , CodeCounter_
@@ -47,9 +46,9 @@ module Graphics.Gudni.Raster.Dag.Constants
     , fABRICiSdECOtREE
     , fABRICiScONFINEtREE
     , fABRICiSsTACKER
-    , fABRICiStRANSFORMaFFINE
-    , fABRICiStRANSFORMfACET
-    , fABRICiStRANSFORMcONVOLVE
+    , fABRICiSaFFINE
+    , fABRICiSfACET
+    , fABRICiScONVOLVE
     , fABRICiScOMPOSITE
     , fABRICiSmULT
     , fABRICiSaDD
@@ -79,18 +78,19 @@ import Text.PrettyPrint
 tAXICABfLATNESS      = (1/16384) :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
 cROSSsPLITlIMIT      = (1/16384) :: Float
 oPAQUEtHRESHOLD      = (1/256)   :: Float
-rANDOMFIELDsIZE      = 4096      :: Int   -- must be a power of 2
-bEZIERsTACKsIZE      = 4         :: Int
-sHAPEsTACKsIZE       = 64        :: Int
-fABRICsTACKsIZE      = 64        :: Int
-cOLORsTACKsIZE       = 64        :: Int
-cONFINEtREEsTACKsIZE = 64        :: Int
-bEZIERsIZEiNfLOATS   = 6         :: Int
-fACETsIZEiNfLOATS    = 18        :: Int
-bOXsIZEiNfLOATS      = 4         :: Int
-sOURCEfILEpADDING    = 90        :: Int   -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
-dEBUG0               = 444       :: Int
-dEBUG1               = 88        :: Int
+
+bEZIERsTACKsIZE      = 4   :: Int -- this should be 2 for quadratic and 4 for cubic beziers
+fABRICsTACKsIZE      = 64  :: Int
+rAYsTACKsIZE         = 8   :: Int
+aNSWERsTACKsIZE      = 64  :: Int
+cONFINEtREEsTACKsIZE = 64  :: Int
+
+bEZIERsIZEiNfLOATS   = 6  :: Int
+fACETsIZEiNfLOATS    = 18 :: Int
+bOXsIZEiNfLOATS      = 4  :: Int
+sOURCEfILEpADDING    = 90 :: Int   -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
+dEBUG0               = 2  :: Int
+dEBUG1               = 2  :: Int
 
 instance Out CULong where
     doc x = text . show $ x
@@ -99,7 +99,7 @@ instance Out CULong where
 type CodeCounter_ = CInt
 
 nULLrEFERENCE    = 0xFFFFFFFF :: CUInt
-nULLdECOtADiD    = 0xFFFFFFFF :: CUInt
+nULLdECOtAGiD    = 0xFFFFFFFF :: CUInt
 nULLcONFINEtAGiD = 0xFFFFFFFF :: CUInt
 
 -- Fabric Tag Bit Layout
@@ -109,49 +109,49 @@ nULLcONFINEtAGiD = 0xFFFFFFFF :: CUInt
 -- Desc | type  | subtype  | high        | low        |
 --      |       |          |             |            |
 
-type FabricTag_   = CUInt
-type TransformId_ = FabricTag_
+type FabricTag_    = CUInt
+type TransformId_  = FabricTag_
 type SubstanceTag_ = FabricTag_
 
 -- Bit 63 - 60
-fABRICtYPEbITMASK         = 0xF0000000 :: CUInt -- & with this to get the fabric type
+fABRICtYPEbITMASK   = 0xF0000000 :: CUInt -- & with this to get the fabric type
 -- Basic fabric types
-fABRICiSrETURN            = 0x00000000 :: CUInt
-fABRICiScONSTANT          = 0x10000000 :: CUInt
-fABRICiStEXTURE           = 0x20000000 :: CUInt
-fABRICiSfUNCTION          = 0x30000000 :: CUInt
-fABRICiSbINARY            = 0x40000000 :: CUInt
-fABRICiSdECOtREE          = 0x50000000 :: CUInt
-fABRICiScONFINEtREE       = 0x60000000 :: CUInt
-fABRICiSsTACKER           = 0x70000000 :: CUInt
-fABRICiStRANSFORMaFFINE   = 0x80000000 :: CUInt
-fABRICiStRANSFORMfACET    = 0x90000000 :: CUInt
-fABRICiStRANSFORMcONVOLVE = 0xA0000000 :: CUInt
-fABRICiSuNARYpOST         = 0xB0000000 :: CUInt
+fABRICiSrETURN      = 0x00000000 :: CUInt
+fABRICiScONSTANT    = 0x10000000 :: CUInt
+fABRICiStEXTURE     = 0x20000000 :: CUInt
+fABRICiSfUNCTION    = 0x30000000 :: CUInt
+fABRICiSbINARY      = 0x40000000 :: CUInt
+fABRICiSdECOtREE    = 0x50000000 :: CUInt
+fABRICiScONFINEtREE = 0x60000000 :: CUInt
+fABRICiSsTACKER     = 0x70000000 :: CUInt
+fABRICiSaFFINE      = 0x80000000 :: CUInt
+fABRICiSfACET       = 0x90000000 :: CUInt
+fABRICiScONVOLVE    = 0xA0000000 :: CUInt
+fABRICiSuNARYpOST   = 0xB0000000 :: CUInt
 
 -- Binary
-fABRICiScOMPOSITE         = 0x00000000 :: CUInt
-fABRICiSmULT              = 0x00000001 :: CUInt
-fABRICiSaDD               = 0x00000002 :: CUInt
-fABRICiSfLOAToR           = 0x00000003 :: CUInt
-fABRICiSfLOATxOR          = 0x00000004 :: CUInt
-fABRICiSmIN               = 0x00000005 :: CUInt
-fABRICiSmAX               = 0x00000006 :: CUInt
-fABRICiShSVaDJUST         = 0x00000007 :: CUInt
-fABRICiStRANSPARENT       = 0x00000008 :: CUInt
+fABRICiScOMPOSITE   = 0x00000000 :: CUInt
+fABRICiSmULT        = 0x00000001 :: CUInt
+fABRICiSaDD         = 0x00000002 :: CUInt
+fABRICiSfLOAToR     = 0x00000003 :: CUInt
+fABRICiSfLOATxOR    = 0x00000004 :: CUInt
+fABRICiSmIN         = 0x00000005 :: CUInt
+fABRICiSmAX         = 0x00000006 :: CUInt
+fABRICiShSVaDJUST   = 0x00000007 :: CUInt
+fABRICiStRANSPARENT = 0x00000008 :: CUInt
 
 -- Unary Post
-fABRICiSsQRT              = 0x00000000 :: CUInt
-fABRICiSiNVERT            = 0x00000001 :: CUInt
-fABRICiScOS               = 0x00000002 :: CUInt
-fABRICiSsIN               = 0x00000003 :: CUInt
-fABRICiScLAMP             = 0x00000004 :: CUInt
+fABRICiSsQRT        = 0x00000000 :: CUInt
+fABRICiSiNVERT      = 0x00000001 :: CUInt
+fABRICiScOS         = 0x00000002 :: CUInt
+fABRICiSsIN         = 0x00000003 :: CUInt
+fABRICiScLAMP       = 0x00000004 :: CUInt
 
 -- Function Substances
-fABRICiSlINEAR            = 0x00000000 :: CUInt
-fABRICiSqUADRANCE         = 0x00000001 :: CUInt
+fABRICiSlINEAR      = 0x00000000 :: CUInt
+fABRICiSqUADRANCE   = 0x00000001 :: CUInt
 
 -- Bit 59 - 0
-fABRICtAGdATAbITMASK      = 0x0FFFFFFF :: CUInt -- & with this to get the whole data section of the tag
+fABRICtAGdATAbITMASK = 0x0FFFFFFF :: CUInt -- & with this to get the whole data section of the tag
 
-nULLfABRICtAGiD           = fABRICtAGdATAbITMASK
+nULLfABRICtAGiD      = fABRICtAGdATAbITMASK

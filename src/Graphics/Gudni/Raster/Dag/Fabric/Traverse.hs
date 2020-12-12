@@ -104,16 +104,11 @@ peekStack mess lens =
 
 pushAnswer :: (Answer q, MonadIO m) => q -> StateT (TraverseState ray q) m ()
 popAnswer  :: (Answer q, MonadIO m) =>      StateT (TraverseState ray q) m q
-peekAnswer :: (Answer q, MonadIO m) =>      StateT (TraverseState ray q) m q
 pushAnswer = pushStack tSAnswerStack
 popAnswer  = do isEmpty <- emptyStack tSAnswerStack
                 if isEmpty
                 then return outsideShape
                 else popStack "tSAnswerStack" tSAnswerStack
-peekAnswer = do isEmpty <- emptyStack tSAnswerStack
-                if isEmpty
-                then return outsideShape
-                else peekStack "tSAnswerStack" tSAnswerStack
 
 emptyFabric :: Monad m => StateT (TraverseState ray q) m Bool
 emptyFabric = emptyStack tSFabricStack
@@ -219,7 +214,7 @@ traverseFabric limit checkRay initRay =
         | fabTagIsBinary      tag = do belowColor <- popAnswer
                                        aboveColor <- popAnswer
                                        let combineType = fabTagCombineType tag
-                                       pushAnswer (traverseCombine combineType aboveColor belowColor)
+                                       pushAnswer (applyCombine combineType aboveColor belowColor)
         | fabTagIsDecoTree    tag = do tSCodePointer -= 1
                                        confineTag <- loadNextInstruction
                                        let decoId    = fabTagDecoId    tag

@@ -44,7 +44,7 @@ module Graphics.Gudni.Raster.Dag.Fabric.Tag
     , makeFabTagLinear               --
     , makeFabTagQuadrance            --
 
-    , fabTagIsReturn                  --
+    , fabTagIsReturn                 --
     , fabTagIsConstant               --
     , fabTagIsTexture                --
     , fabTagIsFunction               --
@@ -134,9 +134,9 @@ makeFabTagTransform ty transformId =
 makeFabTagAffine   :: TransformId -> FabricTag
 makeFabTagFacet    :: TransformId -> FabricTag
 makeFabTagConvolve :: TransformId -> FabricTag
-makeFabTagAffine   = makeFabTagTransform fABRICiStRANSFORMaFFINE
-makeFabTagFacet    = makeFabTagTransform fABRICiStRANSFORMfACET
-makeFabTagConvolve = makeFabTagTransform fABRICiStRANSFORMcONVOLVE
+makeFabTagAffine   = makeFabTagTransform fABRICiSaFFINE
+makeFabTagFacet    = makeFabTagTransform fABRICiSfACET
+makeFabTagConvolve = makeFabTagTransform fABRICiScONVOLVE
 
 makeFabTagFilter :: FabricSubType_ -> FabricTag
 makeFabTagFilter ty =
@@ -226,9 +226,9 @@ fabTagIsUnaryPost   = matchNodeType fABRICiSuNARYpOST
 fabTagIsDecoTree    = matchNodeType fABRICiSdECOtREE
 fabTagIsConfineTree = matchNodeType fABRICiScONFINEtREE
 fabTagIsStacker     = matchNodeType fABRICiSsTACKER
-fabTagIsAffine      = matchNodeType fABRICiStRANSFORMaFFINE
-fabTagIsFacet    = matchNodeType fABRICiStRANSFORMfACET
-fabTagIsConvolve = matchNodeType fABRICiStRANSFORMcONVOLVE
+fabTagIsAffine      = matchNodeType fABRICiSaFFINE
+fabTagIsFacet       = matchNodeType fABRICiSfACET
+fabTagIsConvolve    = matchNodeType fABRICiScONVOLVE
 
 fabTagSubType :: FabricTag -> FabricSubType_
 fabTagSubType fabricTag = unFabricTag fabricTag .&. fABRICtAGdATAbITMASK
