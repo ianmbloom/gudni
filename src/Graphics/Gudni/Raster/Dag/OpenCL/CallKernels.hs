@@ -15,6 +15,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface
 import Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.Dag.OpenCL.PrepareBuffers
+import Graphics.Gudni.Raster.Dag.Constants
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.State
 
@@ -75,6 +76,7 @@ runTraverseDagKernel :: forall s token target
                      -> Tile
                      -> Point2 PixelSpace
                      -> Int
+                     -> Point2 PixelSpace
                      -> target
                      -> CL ()
 runTraverseDagKernel rasterizer
@@ -83,9 +85,17 @@ runTraverseDagKernel rasterizer
                      tile
                      canvasSize
                      frameCount
+                     cursor
                      target =
-    let tileWidth  = tr "tileWidth " $ fromIntegral . fromAlong Horizontal $ tile ^. widthBox
-        tileHeight = tr "tileHeight" $ fromIntegral . fromAlong Vertical   $ tile ^. heightBox
+    let tileWidth       = tr "tileWidth      " $ fromIntegral . fromAlong Horizontal $ tile ^. widthBox
+        tileHeight      = tr "tileHeight     " $ fromIntegral . fromAlong Vertical   $ tile ^. heightBox
+        tileArea        = tileWidth * tileHeight
+        computeSize     = tr "computeSize    " $ rasterizer ^. dagOpenCLDeviceSpec . specComputeSize
+        computeDepth    = tr "computeDepth   " $ rasterizer ^. dagOpenCLDeviceSpec . specComputeDepth
+        workHeightDepth = tr "workHeightDepth" $ computeDepth `div` 2
+        workWidthDepth  = tr "workWidthDepth " $ computeDepth - workHeightDepth
+        workHeight      = tr "workHeight     " $ 2 ^ workHeightDepth
+        workWidth       = tr "workWidth      " $ 2 ^ workWidthDepth
         samplesPerPixel = 1
     in
     announceKernel "traverseDagKernel" $
@@ -102,13 +112,17 @@ runTraverseDagKernel rasterizer
                       (bic ^. bicPictHeap        )
                       (unRef . unFabricTagId $ codePointer)
                       tile
-                      (toCInt $ rasterizer ^. dagOpenCLDeviceSpec  . specColumnDepth)
+                      (toCInt $ rasterizer ^. dagOpenCLDeviceSpec  . specComputeDepth)
                       (fmap (toCInt . fromIntegral) canvasSize)
                       (toCInt samplesPerPixel)
                       (toCInt frameCount)
+                      (toCInt $ fromIntegral $ cursor ^. pX)
+                      (toCInt $ fromIntegral $ cursor ^. pY)
+                      -- (Local (tileArea * fABRICsTACKsIZE) :: LocalMem Reference_       )
+                      -- (Local (tileArea * fABRICsTACKsIZE) :: LocalMem (Point2 SubSpace))
                       target
                       (Work2D tileWidth tileHeight)
-                      (WorkGroup [32,16]) :: CL ()
+                      (WorkGroup [workWidth,workHeight]) :: CL ()
                       -- (Work3D tileWidth tileHeight samplesPerPixel)
                       -- (WorkGroup [tileWidth `div` samplesPerPixel, 1, samplesPerPixel]) :: CL ()
 
@@ -125,6 +139,7 @@ runTraverseDagKernelTiles :: forall s token target
                           -> FabricTagId
                           -> Point2 PixelSpace
                           -> Int
+                          -> Point2 PixelSpace
                           -> target
                           -> CL ()
 runTraverseDagKernelTiles rasterizer
@@ -132,6 +147,7 @@ runTraverseDagKernelTiles rasterizer
                           dagRoot
                           canvasSize
                           frameCount
+                          cursor
                           target =
   let tileWidth   = toAlong Horizontal $ rasterizer ^. dagOpenCLDeviceSpec . specMaxTileSize
       tileHeight  = toAlong Vertical   $ rasterizer ^. dagOpenCLDeviceSpec . specMaxTileSize
@@ -150,4 +166,5 @@ runTraverseDagKernelTiles rasterizer
                                       tile
                                       canvasSize
                                       frameCount
+                                      cursor
                                       target

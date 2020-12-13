@@ -14,8 +14,8 @@
 module Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
   ( DeviceSpec(..)
   , specMaxTileSize
-  , specColumnsPerBlock
-  , specColumnDepth
+  , specComputeSize
+  , specComputeDepth
   , DagOpenCLState(..)
   , dagOpenCLState
   , dagOpenCLTraverseDagKernel
@@ -40,11 +40,11 @@ import Control.Lens
 
 data DeviceSpec = DeviceSpec
     { -- | Determined proper square tile size for this device. Should be a power of two.
-      _specMaxTileSize          :: PixelSpace
+      _specMaxTileSize :: PixelSpace
       -- | The number of threads to execute per tile. This must be >= specMaxTileSize and a power of two.
-    , _specColumnsPerBlock      :: Int
+    , _specComputeSize :: Int
       -- | The compute depth is the adjusted log2 of the threads per tile (see Kernels.cl, function initTileState)
-    , _specColumnDepth          :: Int
+    , _specComputeDepth :: Int
     } deriving (Show)
 makeLenses ''DeviceSpec
 

@@ -50,7 +50,7 @@ outFabric =
          do do tag <- loadFabricTagS (FabricTagId . fromIntegral $ cursor)
                dc <- (text (rpad 4 $ show cursor) <+>) <$> marshallTag tag
                (dc $$) <$> if fabTagIsReturn tag
-                           then return $ text "--- ---"
+                           then return $ text "-----------"
                            else go (cursor - 1)
        textTag tag = text (show tag)
        hangTag tag = hang (textTag tag) 4

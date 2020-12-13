@@ -46,7 +46,7 @@ makeLenses ''DagHaskellState
 instance Rasterizer DagHaskellState where
     setupRasterizer = return DagHaskellState
     prepareTarget _ = prepareTargetSDL False
-    rasterFrame rasterizer canvasSize pictureMap scene frameCount queries target =
+    rasterFrame rasterizer canvasSize pictureMap scene frameCount queries _ target =
       do (pictureMemoryMap, pixelPile) <- liftIO $ collectPictureMemory pictureMap
          fabric <- sceneToFabric pictureMemoryMap scene
          let limit = realToFrac cROSSsPLITlIMIT

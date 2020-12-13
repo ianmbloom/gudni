@@ -45,5 +45,6 @@ class Rasterizer r where
                 -> Scene (Layout style)
                 -> Int
                 -> [(PointQuery (SpaceOf style))]
+                -> Point2 PixelSpace
                 -> DrawTarget
                 -> FontMonad style m ()

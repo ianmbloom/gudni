@@ -24,7 +24,7 @@ import Control.Lens
 instance Rasterizer RasterState where
     setupRasterizer = setupOpenCL False False embeddedOpenCLSource
     prepareTarget rasterizer = prepareTargetSDL (rasterizer ^. rasterUseGLInterop)
-    rasterFrame rasterizer canvasSize pictureMap (Scene color layout) frameCount queries target =
+    rasterFrame rasterizer canvasSize pictureMap (Scene color layout) frameCount queries _ target =
         do  tree <- fromLayout layout
             withSerializedScene rasterizer canvasSize pictureMap (Scene color tree) $
                  \ pictDataPile serialState ->

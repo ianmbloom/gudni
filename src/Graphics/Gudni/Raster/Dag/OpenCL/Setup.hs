@@ -56,63 +56,62 @@ oPAQUEwHITE = fmap realToFrac . view unColor $ (opaqueWhite :: Color SubSpace)
 -- | List of definition pragmas to be added to the beggining of the Kernels.cl file.
 cppDefines :: DeviceSpec -> [CppDefinition]
 cppDefines spec =
-  [ Cpp "tAXICABfLATNESS"             (CppFloat  tAXICABfLATNESS           )
-  , Cpp "cROSSsPLITlIMIT"             (CppFloat  cROSSsPLITlIMIT           )
-  , Cpp "oPAQUEtHRESHOLD"             (CppFloat  oPAQUEtHRESHOLD           )
-  , Cpp "bEZIERsTACKsIZE"             (CppInt    bEZIERsTACKsIZE           )
-  , Cpp "fABRICsTACKsIZE"             (CppInt    fABRICsTACKsIZE           )
-  , Cpp "rAYsTACKsIZE"                (CppInt    rAYsTACKsIZE              )
-  , Cpp "aNSWERsTACKsIZE"             (CppInt    aNSWERsTACKsIZE           )
-  , Cpp "cONFINEtREEsTACKsIZE"        (CppInt    cONFINEtREEsTACKsIZE      )
-  , Cpp "bEZIERsIZEiNfLOATS"          (CppInt    bEZIERsIZEiNfLOATS        )
-  , Cpp "fACETsIZEiNfLOATS"           (CppInt    fACETsIZEiNfLOATS         )
-  , Cpp "bOXsIZEiNfLOATS"             (CppInt    bOXsIZEiNfLOATS           )
-  , Cpp "cLEARbLACK"                  (CppFloat4 cLEARbLACK                )
-  , Cpp "oPAQUEwHITE"                 (CppFloat4 oPAQUEwHITE               )
-  , Cpp "nULLdECOtAGiD"               (CppHex32  nULLdECOtAGiD             )
-  , Cpp "nULLcONFINEtAGiD"            (CppHex32  nULLcONFINEtAGiD          )
-  , Cpp "pRIMtAGtYPEbITMASK"          (CppHex64  pRIMtAGtYPEbITMASK        )
-  , Cpp "pRIMtAGiSbEZIER"             (CppHex64  pRIMtAGiSbEZIER           )
-  , Cpp "pRIMtAGiSfACET"              (CppHex64  pRIMtAGiSfACET            )
-  , Cpp "pRIMtAGiSrECTANGLE"          (CppHex64  pRIMtAGiSrECTANGLE        )
-  , Cpp "pRIMtAGiSeLIPSE"             (CppHex64  pRIMtAGiSeLIPSE           )
-  , Cpp "pRIMtAGsTORAGEiDbITMASK"     (CppHex64  pRIMtAGsTORAGEiDbITMASK   )
-  , Cpp "pRIMtAGsTORAGEiDsHIFT"       (CppInt    pRIMtAGsTORAGEiDsHIFT     )
-  , Cpp "pRIMtAGfABRICiDbITMASK"      (CppHex64  pRIMtAGfABRICiDbITMASK    )
-  , Cpp "fABRICtYPEbITMASK"           (CppHex32  fABRICtYPEbITMASK         )
-  , Cpp "fABRICiSrETURN"              (CppHex32  fABRICiSrETURN            )
-  , Cpp "fABRICiScONSTANT"            (CppHex32  fABRICiScONSTANT          )
-  , Cpp "fABRICiStEXTURE"             (CppHex32  fABRICiStEXTURE           )
-  , Cpp "fABRICiSfUNCTION"            (CppHex32  fABRICiSfUNCTION          )
-  , Cpp "fABRICiSbINARY"              (CppHex32  fABRICiSbINARY            )
-  , Cpp "fABRICiSuNARYpOST"           (CppHex32  fABRICiSuNARYpOST         )
-  , Cpp "fABRICiSdECOtREE"            (CppHex32  fABRICiSdECOtREE          )
-  , Cpp "fABRICiScONFINEtREE"         (CppHex32  fABRICiScONFINEtREE       )
-  , Cpp "fABRICiSsTACKER"             (CppHex32  fABRICiSsTACKER           )
-  , Cpp "fABRICiSaFFINE"              (CppHex32  fABRICiSaFFINE            )
-  , Cpp "fABRICiSfACET"               (CppHex32  fABRICiSfACET             )
-  , Cpp "fABRICiScONVOLVE"            (CppHex32  fABRICiScONVOLVE          )
-  , Cpp "fABRICiScOMPOSITE"           (CppHex32  fABRICiScOMPOSITE         )
-  , Cpp "fABRICiSmULT"                (CppHex32  fABRICiSmULT              )
-  , Cpp "fABRICiSaDD"                 (CppHex32  fABRICiSaDD               )
-  , Cpp "fABRICiSfLOAToR"             (CppHex32  fABRICiSfLOAToR           )
-  , Cpp "fABRICiSfLOATxOR"            (CppHex32  fABRICiSfLOATxOR          )
-  , Cpp "fABRICiSmIN"                 (CppHex32  fABRICiSmIN               )
-  , Cpp "fABRICiSmAX"                 (CppHex32  fABRICiSmAX               )
-  , Cpp "fABRICiShSVaDJUST"           (CppHex32  fABRICiShSVaDJUST         )
-  , Cpp "fABRICiStRANSPARENT"         (CppHex32  fABRICiStRANSPARENT       )
-  , Cpp "fABRICiSsQRT"                (CppHex32  fABRICiSsQRT              )
-  , Cpp "fABRICiSiNVERT"              (CppHex32  fABRICiSiNVERT            )
-  , Cpp "fABRICiScOS"                 (CppHex32  fABRICiScOS               )
-  , Cpp "fABRICiSsIN"                 (CppHex32  fABRICiSsIN               )
-  , Cpp "fABRICiScLAMP"               (CppHex32  fABRICiScLAMP             )
-  , Cpp "fABRICiSlINEAR"              (CppHex32  fABRICiSlINEAR            )
-  , Cpp "fABRICiSqUADRANCE"           (CppHex32  fABRICiSqUADRANCE         )
-  , Cpp "fABRICtAGdATAbITMASK"        (CppHex32  fABRICtAGdATAbITMASK      )
-  , Cpp "nULLfABRICtAGiD"             (CppHex32  nULLfABRICtAGiD           )
-  , Cpp "dEBUGoUTPUT"                 (CppNothing) -- uncomment this to turn on simple debugging output
-  , Cpp "dEBUG0"                      (CppInt dEBUG0 ) -- determines the column for DEBUG_IF macro
-  , Cpp "dEBUG1"                      (CppInt dEBUG1 ) -- determines the row    for DEBUG_IF macro
+  [ Cpp "tAXICABfLATNESS"         (CppFloat  tAXICABfLATNESS         )
+  , Cpp "cROSSsPLITlIMIT"         (CppFloat  cROSSsPLITlIMIT         )
+  , Cpp "oPAQUEtHRESHOLD"         (CppFloat  oPAQUEtHRESHOLD         )
+  , Cpp "bEZIERsTACKsIZE"         (CppInt    bEZIERsTACKsIZE         )
+  , Cpp "fABRICsTACKsIZE"         (CppInt    fABRICsTACKsIZE         )
+  , Cpp "aNSWERsTACKsIZE"         (CppInt    aNSWERsTACKsIZE         )
+  , Cpp "cONFINEsTACKsIZE"        (CppInt    cONFINEsTACKsIZE        )
+  , Cpp "bEZIERsIZEiNfLOATS"      (CppInt    bEZIERsIZEiNfLOATS      )
+  , Cpp "fACETsIZEiNfLOATS"       (CppInt    fACETsIZEiNfLOATS       )
+  , Cpp "bOXsIZEiNfLOATS"         (CppInt    bOXsIZEiNfLOATS         )
+  , Cpp "cLEARbLACK"              (CppFloat4 cLEARbLACK              )
+  , Cpp "oPAQUEwHITE"             (CppFloat4 oPAQUEwHITE             )
+  , Cpp "nULLdECOtAGiD"           (CppHex32  nULLdECOtAGiD           )
+  , Cpp "nULLcONFINEtAGiD"        (CppHex32  nULLcONFINEtAGiD        )
+  , Cpp "pRIMtAGtYPEbITMASK"      (CppHex64  pRIMtAGtYPEbITMASK      )
+  , Cpp "pRIMtAGiSbEZIER"         (CppHex64  pRIMtAGiSbEZIER         )
+  , Cpp "pRIMtAGiSfACET"          (CppHex64  pRIMtAGiSfACET          )
+  , Cpp "pRIMtAGiSrECTANGLE"      (CppHex64  pRIMtAGiSrECTANGLE      )
+  , Cpp "pRIMtAGiSeLIPSE"         (CppHex64  pRIMtAGiSeLIPSE         )
+  , Cpp "pRIMtAGsTORAGEiDbITMASK" (CppHex64  pRIMtAGsTORAGEiDbITMASK )
+  , Cpp "pRIMtAGsTORAGEiDsHIFT"   (CppInt    pRIMtAGsTORAGEiDsHIFT   )
+  , Cpp "pRIMtAGfABRICiDbITMASK"  (CppHex64  pRIMtAGfABRICiDbITMASK  )
+  , Cpp "fABRICtYPEbITMASK"       (CppHex32  fABRICtYPEbITMASK       )
+  , Cpp "fABRICiSrETURN"          (CppHex32  fABRICiSrETURN          )
+  , Cpp "fABRICiScONSTANT"        (CppHex32  fABRICiScONSTANT        )
+  , Cpp "fABRICiStEXTURE"         (CppHex32  fABRICiStEXTURE         )
+  , Cpp "fABRICiSfUNCTION"        (CppHex32  fABRICiSfUNCTION        )
+  , Cpp "fABRICiSbINARY"          (CppHex32  fABRICiSbINARY          )
+  , Cpp "fABRICiSuNARYpOST"       (CppHex32  fABRICiSuNARYpOST       )
+  , Cpp "fABRICiSdECOtREE"        (CppHex32  fABRICiSdECOtREE        )
+  , Cpp "fABRICiScONFINEtREE"     (CppHex32  fABRICiScONFINEtREE     )
+  , Cpp "fABRICiSsTACKER"         (CppHex32  fABRICiSsTACKER         )
+  , Cpp "fABRICiSaFFINE"          (CppHex32  fABRICiSaFFINE          )
+  , Cpp "fABRICiSfACET"           (CppHex32  fABRICiSfACET           )
+  , Cpp "fABRICiScONVOLVE"        (CppHex32  fABRICiScONVOLVE        )
+  , Cpp "fABRICiScOMPOSITE"       (CppHex32  fABRICiScOMPOSITE       )
+  , Cpp "fABRICiSmULT"            (CppHex32  fABRICiSmULT            )
+  , Cpp "fABRICiSaDD"             (CppHex32  fABRICiSaDD             )
+  , Cpp "fABRICiSfLOAToR"         (CppHex32  fABRICiSfLOAToR         )
+  , Cpp "fABRICiSfLOATxOR"        (CppHex32  fABRICiSfLOATxOR        )
+  , Cpp "fABRICiSmIN"             (CppHex32  fABRICiSmIN             )
+  , Cpp "fABRICiSmAX"             (CppHex32  fABRICiSmAX             )
+  , Cpp "fABRICiShSVaDJUST"       (CppHex32  fABRICiShSVaDJUST       )
+  , Cpp "fABRICiStRANSPARENT"     (CppHex32  fABRICiStRANSPARENT     )
+  , Cpp "fABRICiSsQRT"            (CppHex32  fABRICiSsQRT            )
+  , Cpp "fABRICiSiNVERT"          (CppHex32  fABRICiSiNVERT          )
+  , Cpp "fABRICiScOS"             (CppHex32  fABRICiScOS             )
+  , Cpp "fABRICiSsIN"             (CppHex32  fABRICiSsIN             )
+  , Cpp "fABRICiScLAMP"           (CppHex32  fABRICiScLAMP           )
+  , Cpp "fABRICiSlINEAR"          (CppHex32  fABRICiSlINEAR          )
+  , Cpp "fABRICiSqUADRANCE"       (CppHex32  fABRICiSqUADRANCE       )
+  , Cpp "fABRICtAGdATAbITMASK"    (CppHex32  fABRICtAGdATAbITMASK    )
+  , Cpp "nULLfABRICtAGiD"         (CppHex32  nULLfABRICtAGiD         )
+  , Cpp "dEBUGoUTPUT"             (CppNothing) -- uncomment this to turn on simple debugging output
+  , Cpp "dEBUG0"                  (CppInt dEBUG0 ) -- determines the column for DEBUG_IF macro
+  , Cpp "dEBUG1"                  (CppInt dEBUG1 ) -- determines the row    for DEBUG_IF macro
   ]
 -- | Embedded source with implanted definition pragmas.
 addDefinesToSource :: DeviceSpec -> BS.ByteString -> String
@@ -122,23 +121,23 @@ addDefinesToSource spec src = appendCppDefines sOURCEfILEpADDING (cppDefines spe
 determineRasterSpec :: CLDeviceID -> IO DeviceSpec
 determineRasterSpec device =
   do  -- | Compute units are the number of wavefront processors on the GPU
-      computeUnits  <- clGetDeviceMaxComputeUnits       device
+      computeUnits  <- clGetDeviceMaxComputeUnits device
       -- | Maximum group dimension of a kernel call based on the device.
-      maxGroupSize  <- fromIntegral <$> clGetDeviceMaxWorkGroupSize      device
+      maxGroupSize  <- fromIntegral <$> clGetDeviceMaxWorkGroupSize device
       -- | Maximum local memory size of the device.
-      localMemSize  <- clGetDeviceLocalMemSize          device
+      localMemSize  <- clGetDeviceLocalMemSize device
       -- | Maximum constant buffer size of the device.
       maxBufferSize <- clGetDeviceMaxConstantBufferSize device
       -- | Total global memory size of the device.
-      globalMemSize <- clGetDeviceGlobalMemSize         device
+      globalMemSize <- clGetDeviceGlobalMemSize device
       -- | Maximum memory size that can be allocated for each global memory buffer
-      maxMemAllocSize <- clGetDeviceMaxMemAllocSize     device
+      maxMemAllocSize <- clGetDeviceMaxMemAllocSize device
       -- The maximum number of threads that each tile can store is the maximum allocation size
-      let computeSize       = maxGroupSize :: Int
-          computeDepth      = adjustedLog computeSize
-      return DeviceSpec { _specMaxTileSize       = fromIntegral computeSize
-                        , _specColumnsPerBlock   = computeSize
-                        , _specColumnDepth       = adjustedLog computeSize
+      let computeSize  = maxGroupSize :: Int
+          computeDepth = adjustedLog computeSize
+      return DeviceSpec { _specMaxTileSize = fromIntegral computeSize
+                        , _specComputeSize = computeSize
+                        , _specComputeDepth = adjustedLog computeSize
                         }
 
 -- | Order Devices based on the number of compute units

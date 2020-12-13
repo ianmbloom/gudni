@@ -232,7 +232,8 @@ typedef struct PictUse {
 
 typedef struct FabricStack {
    FabricTagId_ fsStack[fABRICsTACKsIZE];
-            int fsSize;
+        Point2_ fsRayStack[fABRICsTACKsIZE];
+           int  fsSize;
 } FabricStack;
 
 typedef struct AnswerStack {
@@ -240,15 +241,9 @@ typedef struct AnswerStack {
             int asSize;
 } AnswerStack;
 
-typedef struct RayStack {
-        Point2_ rsStack[rAYsTACKsIZE];
-            int rsCountStack[rAYsTACKsIZE];
-            int rsSize;
-} RayStack;
-
 typedef struct TreeStack {
-     ConfineTagId_ trStack[cONFINEtREEsTACKsIZE];
-               int trSize                       ;
+     ConfineTagId_ trStack[cONFINEsTACKsIZE];
+               int trSize;
 } TreeStack;
 
 typedef struct BzStack {
@@ -260,7 +255,6 @@ typedef struct BzStack {
 
 typedef struct TraverseState {
       FabricStack  tSFabricStack;
-         RayStack  tSRayStack   ;
       AnswerStack  tSAnswerStack;
         TreeStack  tSTreeStack  ;
           BzStack  tSBzStack    ;
@@ -269,26 +263,28 @@ typedef struct TraverseState {
 // ------------------- boilerplate for various stack types -----------------
 
 // ----- FabricStack
-inline void initFabricStack(FabricStack *stack) {
+inline void resetFabricStack(FabricStack *stack) {
     stack->fsSize = 0;
 }
 
-inline FabricTagId_ popFabricStack(FabricStack *stack) {
+inline void popFabricStack(FabricStack *stack, FabricTagId_ *codePointer, Point2_ *ray) {
     stack->fsSize -= 1;
-    return stack->fsStack[stack->fsSize];
+    *codePointer = stack->fsStack[stack->fsSize];
+    *ray = stack->fsRayStack[stack->fsSize];
 }
 
-inline void pushFabricStack(FabricStack *stack, FabricTagId_ tagId) {
+inline void pushFabricStack(FabricStack *stack, FabricTagId_ tagId, Point2_ ray) {
     stack->fsStack[stack->fsSize] = tagId;
+    stack->fsRayStack[stack->fsSize] = ray;
     stack->fsSize += 1;
 }
 
 inline bool emptyFabricStack(FabricStack *stack) {
-    return stack->fsSize == 0;
+    return stack->fsSize <= 0;
 }
 
 // ----- AnswerStack
-inline void initAnswerStack(AnswerStack *stack) {
+inline void resetAnswerStack(AnswerStack *stack) {
     stack->asSize = 0;
 }
 
@@ -306,52 +302,9 @@ inline bool emptyAnswerStack(AnswerStack *stack) {
     return stack->asSize == 0;
 }
 
-// ----- RayStack
-inline void initRayStack(RayStack *stack) {
-    stack->rsSize = 0;
-}
-
-inline void peekRayStack(RayStack *stack, Point2_ *ray, int *count) {
-    *ray = stack->rsStack[stack->rsSize-1];
-    *count = stack->rsCountStack[stack->rsSize-1];
-}
-
-inline void popRayStack(RayStack *stack, Point2_ *ray, int *count) {
-    stack->rsSize -= 1;
-    *ray = stack->rsStack[stack->rsSize];
-    *count = stack->rsCountStack[stack->rsSize];
-}
-
-inline void pushRayStack(RayStack *stack, Point2_ ray, int count) {
-    stack->rsStack[stack->rsSize] = ray;
-    stack->rsCountStack[stack->rsSize] = count;
-    stack->rsSize += 1;
-}
-
-inline void alterRayCount(RayStack *stack, int count) {
-    stack->rsCountStack[stack->rsSize - 1] += count;
-}
-
-inline void setRayCount(RayStack *stack, int count) {
-    stack->rsCountStack[stack->rsSize - 1] = count;
-}
-
-inline int peekRayCount(RayStack *stack) {
-   if (stack->rsSize <= 0) {
-      return 0;
-   }
-   else {
-      return stack->rsCountStack[stack->rsSize - 1];
-   }
-}
-
-inline bool emptyRayStack(RayStack *stack) {
-    return stack->rsSize == 0;
-}
-
 // ----- TreeStack
 
-inline void initTreeStack(TreeStack *stack) {
+inline void resetTreeStack(TreeStack *stack) {
     stack->trSize = 0;
 }
 
@@ -370,11 +323,10 @@ inline bool emptyTreeStack(TreeStack *stack) {
 }
 
 // ----- Init all
-inline void initTraverseState(TraverseState *tS) {
-  initFabricStack(&tS->tSFabricStack);
-  initRayStack   (&tS->tSRayStack   );
-  initAnswerStack(&tS->tSAnswerStack);
-  initTreeStack  (&tS->tSTreeStack  );
+
+inline void resetTraverseState(TraverseState *tS) {
+  resetFabricStack(&(tS->tSFabricStack));
+  resetAnswerStack(&(tS->tSAnswerStack));
 }
 
 // ------------------- functions from Graphics.Gudni.Figure.Facet.Type -----------------------
@@ -402,8 +354,7 @@ void showDecoTagHeap(int size, GMEM DecoTag  *treeDecoHeap);
 void showDecoTag(DecoTag tag);
 void showConfineTagHeap(int size, GMEM ConfineTag  *treeConfineHeap);
 void showConfineTag(ConfineTag tag);
-void showFabricStack(FabricStack *stack);
-void showCurrentFabricStack(Dag *dag, TraverseState *state);
+void showFabricStack(Dag *dag, TraverseState *state);
 void showAnswer(Color_ color);
 void showAnswerStack(TraverseState *state);
 void showBezier(Bezier_ bez);
@@ -442,7 +393,7 @@ inline Point2_ centerBox(Box_ box) {return mid(minBox(box),  maxBox(box)) ;}
 #define FabricSubType_     FabricTag_
 #define FabricData_        FabricTag_
 
-inline FabricNodeType_ fabTagNodeType(FabricTag_ tag) {return tag & fABRICtYPEbITMASK           ;}
+inline FabricNodeType_ fabTagNodeType(FabricTag_ tag) {return (tag & fABRICtYPEbITMASK)           ;}
 inline bool matchNodeType (FabricNodeSubType_ ty, FabricTag_ tag) {return fabTagNodeType(tag) == ty;}
 inline      FabricTag_ fabTagSubType (FabricTag_ tag) {return tag & fABRICtAGdATAbITMASK        ;}
 inline      FabricTag_ fromFabData   (FabricTag_ tag) {return tag & fABRICtAGdATAbITMASK        ;}
@@ -1237,11 +1188,12 @@ inline Color_ applyCombine(FabricTag_ tag, Color_ a, Color_ b) {
 
 // ------------------- functions matching Graphics.Gudni.Raster.Dag.ConfineTree.Decorate -------------------
 
-inline void insertTagId(FabricStack *stack, int i, FabricTagId_ tagId) {
+inline void insertTagId(FabricStack *stack, int i, FabricTagId_ tagId, Point2_ ray) {
     for (int j = min(fABRICsTACKsIZE-1,stack->fsSize); j > i; j--) {
         stack->fsStack[j] = stack->fsStack[j-1];
     }
     stack->fsStack[i] = tagId;
+    stack->fsRayStack[stack->fsSize] = ray;
     stack->fsSize = min(fABRICsTACKsIZE,stack->fsSize+1);
 }
 
@@ -1252,56 +1204,58 @@ inline void deleteTagId(FabricStack *stack, int i) {
     stack->fsSize -= 1;
 }
 
+inline bool sameRay(Point2_ a, Point2_ b) {
+    return (a.x == b.x) && (a.y == b.y); //  all(isequal(a,b));
+}
 inline void toggleShapeActive(  FabricStack *stack
-                             ,          int *restriction
-                             , FabricTagId_  newFabricTagId
+                             , FabricTagId_  newFabId
+                             ,      Point2_  newRay
                              ) {
     bool done = false;
     int i = stack->fsSize;
-    int k = *restriction;
+    dEBUGiF(printf("toggleShapeActive i %i newFabId %i newRay %v2f\n",i, newFabId, newRay);)
     while (i > 0 && !done) {
-        FabricTagId_ oldFabricTagId = stack->fsStack[i-1];
-        dEBUGiF(printf("i %i k %i\n", i, k);)
-        if (newFabricTagId == oldFabricTagId) {
+        FabricTagId_ oldFabId = stack->fsStack[i-1];
+        Point2_      oldRay   = stack->fsRayStack[i-1];
+        bool same = sameRay(newRay,oldRay);
+        dEBUGiF(printf("toggleShapeActive i %i oldFabId %i newRay %v2f \n",i, oldFabId, oldRay);)
+        if (newFabId == oldFabId && same) {
             // it is the same exact tag so delete it from the stack
             deleteTagId(stack,i-1);
-            *restriction -= 1;
             done = true;
         }
-        else if (newFabricTagId > oldFabricTagId || k <= 0) {
-            insertTagId(stack,i,newFabricTagId);
-            *restriction += 1;
+        else if (newFabId > oldFabId || !same) {
+            insertTagId(stack,i,newFabId, newRay);
             done = true;
         }
         i--;
-        k--;
     }
     if (!done) { // if we reach the bottom just insert on the end.
-        dEBUGiF(printf("!done i %i\n",i);)
-        insertTagId(stack,i,newFabricTagId);
-        *restriction += 1;
+        dEBUGiF(printf("toggleShapeActive !done i %i\n",i);)
+        insertTagId(stack,i,newFabId, newRay);
+
     }
 
 }
 
 inline void combineFabricStacks (         Dag *dag
                                 , FabricStack *stack
-                                ,        int  *stackRestriction
-                                ,    DecoTag   tree
+                                ,     DecoTag  tree
+                                ,     Point2_  ray
                                 ) {
+    dEBUGiF(printf("combineFabricStacks start %i length %i \n", sliceStart(tree.decoTagCrossings), sliceLength(tree.decoTagCrossings));)
     for ( uint i = sliceStart(tree.decoTagCrossings)
         ; i < (sliceStart(tree.decoTagCrossings) + sliceLength(tree.decoTagCrossings))
         ; i ++
         ) {
-       toggleShapeActive(stack, stackRestriction, dag->dagCrossingHeap[(int)i]);
+       toggleShapeActive(stack, dag->dagCrossingHeap[(int)i], ray);
     }
 }
 
 inline Point2_ traverseDecorateTree(         Dag *dag
                                    , FabricStack *fabricStack
-                                   ,         int *stackRestriction
                                    ,     Point2_  ray
-                                   ,  DecoTagId_  treeId
+                                   ,  DecoTagId_  decoTreeId
                                    ) {
     bool done = false;
     Point2_ anchor;
@@ -1309,25 +1263,25 @@ inline Point2_ traverseDecorateTree(         Dag *dag
     Space_ parentLine = (-MAXFLOAT);
     bool axis = false; // is vertical
     while (!done) {
-        if (treeId == nULLdECOtAGiD) {
-            //dEBUGiF(printf("nullDecoTagId\n");)
+        if (decoTreeId == nULLdECOtAGiD) {
+            dEBUGiF(printf("        nullDecoTagId\n");)
             anchor = pointAlongAxis(axis, parentCut, parentLine);
             done = true;
         }
         else {
-            DecoTag tree = dag->dagTreeDecoHeap[(int)treeId];
-            //axis = tree.decoTagHorizontal;
+            DecoTag tree = dag->dagTreeDecoHeap[(int)decoTreeId];
+            axis = tree.decoTagHorizontal == 1;
             Space_ cut = tree.decoTagCut;
-            combineFabricStacks(dag, fabricStack, stackRestriction, tree);
+            combineFabricStacks(dag, fabricStack, tree, ray);
             parentCut  = parentLine;
             parentLine = cut;
             if (athwart(axis, ray) < cut) {
-                treeId = tree.decoTagLessCut;
+                decoTreeId = tree.decoTagLessCut;
             }
             else {
-                treeId = tree.decoTagMoreCut;
+                decoTreeId = tree.decoTagMoreCut;
             }
-            dEBUGiF(printf("decoTreeId %i stackRestriction %i\n", treeId, *stackRestriction);)
+            dEBUGiF(printf("        decoTreeId %i\n", decoTreeId);)
         }
         axis = !axis;
     }
@@ -1340,17 +1294,16 @@ inline void modifyItemStackIfCrossed(      Space_  limit
                                     ,         Dag *dag
                                     ,     BzStack *bzStack
                                     , FabricStack *stack
-                                    ,        int  *stackRestriction
                                     ,     Point2_  start
-                                    ,     Point2_  end
+                                    ,     Point2_  ray
                                     ,  PrimTagId_  primTagId
                                     ) {
     PrimTag_ primTag = dag->dagPrimTagHeap[(int)primTagId];
     bool debugFlag = primTagId == 0;
-    bool crosses = crossesPrim(debugFlag, limit, bzStack, dag, primTag, start, end);
-    //dEBUGiF(printf("crossesPrim %i shapeId %i result %i\n",primTagId, primTagFabricTagId(primTag), crosses);)
+    bool crosses = crossesPrim(debugFlag, limit, bzStack, dag, primTag, start, ray);
+    //dEBUGiF(printf("crossesPrim %i primFabricTagId %i result %i\n",primTagId, primTagFabricTagId(primTag), crosses);)
     if (crosses) {
-        toggleShapeActive (stack, stackRestriction, primTagFabricTagId(primTag));
+        toggleShapeActive (stack, primTagFabricTagId(primTag), ray);
     }
 }
 
@@ -1364,19 +1317,19 @@ inline void traverseCTBox(        Space_  limit
                          ,           Dag *dag
                          ,       BzStack *bzStack
                          ,   FabricStack *fabricStack
-                         ,           int *stackRestriction
                          ,     TreeStack *spine
                          ,       Point2_  anchor
                          ,       Point2_  ray
-                         , ConfineTagId_  treeId
+                         , ConfineTagId_  confineTreeId
                          ) {
-    initTreeStack(spine);
     Box_ box = boxAroundPoints(anchor, ray);
-    pushTreeStack(spine, treeId);
+    resetTreeStack(spine);
+    pushTreeStack(spine, confineTreeId);
     while (!emptyTreeStack(spine)) {
-        treeId = popTreeStack(spine);
-        if (treeId != nULLcONFINEtAGiD) {
-            ConfineTag tree = dag->dagTreeConfineHeap[(int)treeId];
+        confineTreeId = popTreeStack(spine);
+        //dEBUGiF(printf("confineTreeId %i \n", confineTreeId);)
+        if (confineTreeId != nULLcONFINEtAGiD) {
+            ConfineTag tree = dag->dagTreeConfineHeap[(int)confineTreeId];
             bool axis = tree.confineTagHorizontal == 1;
             if (athwart(axis, maxBox(box)) > tree.confineTagCut) {
                 pushTreeStack(spine, tree.confineTagMoreCut);
@@ -1388,7 +1341,6 @@ inline void traverseCTBox(        Space_  limit
                                     , dag
                                     , bzStack
                                     , fabricStack
-                                    , stackRestriction
                                     , anchor
                                     , ray
                                     , tree.confineTagPrimTagId
@@ -1399,22 +1351,24 @@ inline void traverseCTBox(        Space_  limit
 
 // ------------------- functions matching Graphics.Gudni.Raster.Dag.ConfineTree.Query -------------------
 
-inline int queryConfineTreePoint(        Space_  limit
+inline void queryConfineTreePoint(        Space_  limit
                                  ,           Dag *dag
+                                 , TraverseState *tS
                                  ,       BzStack *bzStack
                                  ,   FabricStack *fabricStack
-                                 ,           int *stackRestriction
                                  ,     TreeStack *spine
                                  ,    DecoTagId_  decoId
                                  , ConfineTagId_  confineId
                                  ,       Point2_  ray
                                  ) {
-    Point2_ anchor = traverseDecorateTree(dag, fabricStack, stackRestriction, ray, decoId);
-    dEBUGiF(printf("afterDecorate stackRestriction %i\n", *stackRestriction);)
-    //dEBUGiF(printf("afterDecorate anchor %v2f ray %v2f", anchor, ray);showFabricStack(fabricStack);)
-    traverseCTBox(limit, dag, bzStack, fabricStack, stackRestriction, spine, anchor, ray, confineId);
-    dEBUGiF(printf("afterTraverseCT stackRestriction %i\n", *stackRestriction);)
-    //dEBUGiF(printf("after CTBox ", anchor);showFabricStack(fabricStack);)
+    dEBUGiF(printf("beforeDecorate\n");)
+    dEBUGiF(showFabricStack(dag,tS);)
+    Point2_ anchor = traverseDecorateTree(dag, fabricStack, ray, decoId);
+    dEBUGiF(printf("afterDecorate\n");)
+    dEBUGiF(showFabricStack(dag,tS);)
+    traverseCTBox(limit, dag, bzStack, fabricStack, spine, anchor, ray, confineId);
+    dEBUGiF(printf("afterTraverseCT\n");)
+    dEBUGiF(showFabricStack(dag,tS);)
 }
 
 // ------------------- functions matching Graphics.Gudni.Raster.Dag.Fabric.Traverse -------------------
@@ -1422,62 +1376,29 @@ inline int queryConfineTreePoint(        Space_  limit
 inline void pushAnswer( TraverseState *tS
                       , Color_ color
                       ) {
-    pushAnswerStack(&tS->tSAnswerStack,color);
+    pushAnswerStack(&(tS->tSAnswerStack),color);
 }
 
 inline Color_ popAnswer( TraverseState *tS
                        ) {
-    if (emptyAnswerStack(&tS->tSAnswerStack)) {
+    if (emptyAnswerStack(&(tS->tSAnswerStack))) {
         return outsideShape();
     }
     else {
-        return popAnswerStack(&tS->tSAnswerStack);
+        return popAnswerStack(&(tS->tSAnswerStack));
     }
 }
 
-inline bool emptyFabric(TraverseState *tS) {return emptyRayStack(&tS->tSRayStack);}
-
-inline void pushFabric(TraverseState *tS, Point2_ ray, FabricTagId_ code) {
-       bool rayIsNew;
-       int rayCount;
-       if (emptyRayStack(&tS->tSRayStack)) {
-          rayIsNew = true;
-       }
-       else {
-          Point2_ oldRay;
-          peekRayStack(&tS->tSRayStack, &oldRay, &rayCount);
-          rayIsNew = (ray.x == oldRay.x && ray.y == oldRay.y); // possibly coded is all(isequal(ray,oldRay));
-       }
-       pushFabricStack(&tS->tSFabricStack, code);
-       if (rayIsNew) {
-          pushRayStack(&tS->tSRayStack, ray, 1);
-       }
-       else {
-          // popRayStack (&tS->tSRayStack, &ray, &rayCount    );
-          // pushRayStack(&tS->tSRayStack,  ray,  rayCount + 1);
-          alterRayCount(&tS->tSRayStack, 1); // increment the rayCount
-       }
+inline bool emptyFabric(TraverseState *tS) {
+    return emptyFabricStack(&(tS->tSFabricStack));
 }
 
-inline void popFabric(TraverseState *tS, Point2_ *ray, FabricTagId_ *codePointer) {
-    if (!emptyRayStack(&tS->tSRayStack)) {
-       int rayCount;
-       popRayStack(&tS->tSRayStack, ray, &rayCount);
-       if (rayCount > 1) {
-           pushRayStack(&tS->tSRayStack, *ray, rayCount - 1);
-       }
-       *codePointer = popFabricStack(&tS->tSFabricStack);
-    }
+inline void popFabric(TraverseState *tS, FabricTagId_ *codePointer, Point2_ *ray) {
+    popFabricStack(&(tS->tSFabricStack), codePointer, ray);
 }
 
-inline void insertFabric( TraverseState *tS
-                        , FabricTagId_ tagId
-                        ) {
-  int restriction = peekRayCount(&tS->tSRayStack);
-  dEBUGiF(printf("restriction %i\n",restriction);)
-  toggleShapeActive(&tS->tSFabricStack, &restriction, tagId);
-  dEBUGiF(printf("insertFabric sizeChange %i\n", restriction);)
-  setRayCount(&tS->tSRayStack, restriction);
+inline void pushFabric(TraverseState *tS, FabricTagId_ codePointer, Point2_ ray) {
+    pushFabricStack(&(tS->tSFabricStack), codePointer, ray);
 }
 
 inline void rayTraverseTree(       Space_  limit
@@ -1487,62 +1408,61 @@ inline void rayTraverseTree(       Space_  limit
                            , ConfineTagId_  confineId
                            ,       Point2_  ray
                            ) {
-    int restriction = peekRayCount(&tS->tSRayStack);
-    queryConfineTreePoint(limit
-                         , dag
-                         , &tS->tSBzStack
-                         , &tS->tSFabricStack
-                         , &restriction
-                         , &tS->tSTreeStack
-                         ,  decoId
-                         ,  confineId
-                         ,  ray
-                         );
-    dEBUGiF(printf("queryConfineTreePoint restriction %i\n", restriction);)
-    setRayCount(&tS->tSRayStack,restriction);
+      queryConfineTreePoint(  limit
+                           ,  dag
+                           ,  tS
+                           , &(tS->tSBzStack)
+                           , &(tS->tSFabricStack)
+                           , &(tS->tSTreeStack)
+                           ,  decoId
+                           ,  confineId
+                           ,  ray
+                           );
 }
 
 inline Color_ traverseFabric( Space_ limit
                             , Space_ flatness
                             , Dag *dag
                             , TraverseState *tS
-                            , Point2_ ray
                             , FabricTagId_ codePointer
+                            , Point2_ ray
                             ) {
-    initTraverseState(tS);
-    pushRayStack(&tS->tSRayStack,ray,0);
+    resetTraverseState(tS);
     bool done = false;
     Color_ aboveAnswer, belowAnswer;
     FabricTag_ confineTag;
     while (!done) {
          FabricTag_ tag = loadFabricTag(dag, codePointer);
+         dEBUGiF(printf("after load codePointer %i tag %x\n", codePointer, tag);)
          if (fabTagIsReturn(tag)) {
             if (!emptyFabric(tS)) {
-                popFabric(tS, &ray, &codePointer);
+                popFabric(tS, &codePointer, &ray);
                 dEBUGiF(printf("after return codePointer %i tag %x\n", codePointer, tag);)
-                dEBUGiF(showCurrentFabricStack(dag,tS);)
+                dEBUGiF(showFabricStack(dag,tS);)
             }
             else {
                done = true;
             }
          }
          else {
+             dEBUGiF(printf("beforeMarshall codePointer %i tag %x\n", codePointer, tag);)
+             dEBUGiF(showFabricStack(dag,tS);)
              switch (fabTagNodeType(tag)) {
                  case fABRICiScONSTANT:
                       pushAnswer(tS, constantQuery(dag, tag));
                       break;
                  case fABRICiStEXTURE:
-                      pushAnswer(tS, textureQuery(dag, tag, ray));
+                      // pushAnswer(tS, textureQuery(dag, tag, ray));
                       break;
                  case fABRICiSfUNCTION:
-                      switch (fabTagSubType(tag)) {
-                         case fABRICiSlINEAR:
-                              pushAnswer(tS, linearQuery(ray));
-                              break;
-                         case fABRICiSqUADRANCE:
-                              pushAnswer(tS, quadranceQuery(ray));
-                              break;
-                      }
+                      // switch (fabTagSubType(tag)) {
+                      //    case fABRICiSlINEAR:
+                      //         pushAnswer(tS, linearQuery(ray));
+                      //         break;
+                      //    case fABRICiSqUADRANCE:
+                      //         pushAnswer(tS, quadranceQuery(ray));
+                      //         break;
+                      // }
                       break;
                  case fABRICiSbINARY:
                       belowAnswer = popAnswer(tS);
@@ -1550,8 +1470,8 @@ inline Color_ traverseFabric( Space_ limit
                       pushAnswer(tS, applyCombine(tag, aboveAnswer, belowAnswer));
                       break;
                  case fABRICiSuNARYpOST:
-                      aboveAnswer = popAnswer(tS);
-                      pushAnswer(tS, applyFilter(tag, aboveAnswer));
+                      // aboveAnswer = popAnswer(tS);
+                      // pushAnswer(tS, applyFilter(tag, aboveAnswer));
                       break;
                  case fABRICiSdECOtREE:
                       codePointer -= 1;
@@ -1559,20 +1479,24 @@ inline Color_ traverseFabric( Space_ limit
                       rayTraverseTree(limit, dag, tS, fabTagDecoId(tag), fabTagConfineId(confineTag),ray);
                       break;
                  case fABRICiSsTACKER:
-                      insertFabric(tS,fabTagStackerId(tag));
+                      //pushFabric(tS, fabTagStackerId(tag), ray);
+                      toggleShapeActive(&(tS->tSFabricStack),fabTagStackerId(tag),ray);
                       break;
                  case fABRICiSaFFINE:
                       ray = applyAffine(loadAffine(dag, tag), ray);
                       break;
                  case fABRICiSfACET:
-                      ray = inverseFacet(limit, flatness, &tS->tSBzStack, loadFacet(dag, tag),  ray);
+                      // ray = inverseFacet(limit, flatness, &(tS->tSBzStack), loadFacet(dag, tag),  ray);
                       break;
                  case fABRICiScONVOLVE:
-                      ray = ray + (getRandom2(dag) * loadConvolve(dag, tag));
+                      // ray = ray + (getRandom2(dag) * loadConvolve(dag, tag));
                       break;
+                 default:
+                     dEBUGiF(printf("MARSHALL DEFAULT codePointer %i tag %x\n", codePointer, tag);)
+                     break;
              }
              dEBUGiF(printf("afterMarshall codePointer %i tag %x\n", codePointer, tag);)
-             dEBUGiF(showCurrentFabricStack(dag,tS);)
+             dEBUGiF(showFabricStack(dag,tS);)
              codePointer -= 1;
              done = false;
          }
@@ -1629,7 +1553,7 @@ inline void initDag
     dag->dagTreeDecoHeap    = treeDecoHeap   ;
     dag->dagCrossingHeap    = crossingHeap   ;
     dag->dagPictHeap        = pictHeap       ;
-    MWC64XVEC2_SeedStreams(dag->dagRandomSeed, thread, 0);
+    //MWC64XVEC2_SeedStreams(dag->dagRandomSeed, thread, 0);
 }
 
 __kernel void traverseDagKernel
@@ -1649,58 +1573,63 @@ __kernel void traverseDagKernel
     ,              int2   bitmapSize       //
     ,               int   samplesPerPixel  //
     ,               int   frameCount       //
+    ,               int   cx               //
+    ,               int   cy               //
+    // , LMEM FabricTagId_  *fabricStackPool  //
+    // , LMEM      Point2_  *rayStackPool     //
     //, LMEM      Color_   *samplePool     //
     , GMEM          uint *target           //
     ) {
     int2  pos = (int2)( get_global_id(0) + boxLeft(tile)
                       , get_global_id(1) + boxTop(tile)
                       );
-    int sample = get_global_id(2);
+    // int sample = get_global_id(2);
     //dEBUGiF(printf("---pos %v2i get_global_id(0) %i get_global_id(1) %i get_local_id(0) %i get_local_id(1) %i\n", pos, get_global_id(0) ,get_global_id(1), get_local_id(0), get_local_id(1));)
-    long thread = (samplesPerPixel * (bitmapSize.x * (bitmapSize.y * frameCount + pos.x)) + pos.x) + sample;
     Dag dag;
-    TraverseState state;
+    TraverseState tS;
     Color_ accColor = cLEARbLACK;
     if (pos.x < bitmapSize.x && pos.y < bitmapSize.y) {
-        // dEBUGiF(printf("sizeOf (DecoTag) %i\n", sizeof(DecoTag));)
-        // dEBUGiF(showDecoTagHeap(7, treeDecoHeap);)
-        // dEBUGiF(printf("sizeOf (ConfineTag) %i\n", sizeof(ConfineTag));)
-        // dEBUGiF(showConfineTagHeap(7, treeConfineHeap);)
-        // dEBUGiF(printf("----------inTraverseDagKernel-----------%i %i\n", get_global_id(0),get_global_id(1));)
-        // dEBUGiF(showBezierHeap(60,&dag);)
-        for (int sample = 0; sample < samplesPerPixel; sample++) {
-            initDag( &dag             //
-                   ,  primBezierHeap  //
-                   ,  primFacetHeap   //
-                   ,  primBoxHeap     //
-                   ,  primTagHeap     //
-                   ,  fabricTagHeap   //
-                   ,  fabricHeap      //
-                   ,  treeConfineHeap //
-                   ,  treeDecoHeap    //
-                   ,  crossingPile    //
-                   ,  pictHeap        //
-                   ,  thread          //
-                   );
-            float2 ray = convert_float2(pos); // + getRandom2(&dag);
-            dEBUGiF(printf("sample %i ray %v2f \n",sample, ray);)
-            accColor += traverseFabric(  cROSSsPLITlIMIT
-                                      ,  tAXICABfLATNESS
-                                      , &dag
-                                      , &state
-                                      ,  ray
-                                      ,  startCodePointer
-                                      );
-        } // for samlpe
-        dEBUGiF(printf("pos %v2i accColor %v4f bitmapSize %v2i \n", pos, accColor, bitmapSize);)
-        if (pos.x == (dEBUG0-1) || pos.y == (dEBUG1-1)) {accColor = oPAQUEwHITE;}
-        // else {accColor=(Color_)(0.0,0.5,0.5,1.0);}
-        writePixelGlobal ( pos
-                         , bitmapSize
-                         , accColor/(float)samplesPerPixel
-                         , target
-                         );
+         // dEBUGiF(printf("sizeOf (DecoTag) %i\n", sizeof(DecoTag));)
+         // dEBUGiF(showDecoTagHeap(7, treeDecoHeap);)
+         // dEBUGiF(printf("sizeOf (ConfineTag) %i\n", sizeof(ConfineTag));)
+         // dEBUGiF(showConfineTagHeap(7, treeConfineHeap);)
+         // dEBUGiF(printf("----------inTraverseDagKernel-----------%i %i\n", get_global_id(0),get_global_id(1));)
+         // dEBUGiF(showBezierHeap(60,&dag);)
+         for (int sample = 0; sample < samplesPerPixel; sample++) {
+             long thread = (samplesPerPixel * (bitmapSize.x * (bitmapSize.y * frameCount + pos.x)) + pos.x) + sample;
+             initDag( &dag             //
+                    ,  primBezierHeap  //
+                    ,  primFacetHeap   //
+                    ,  primBoxHeap     //
+                    ,  primTagHeap     //
+                    ,  fabricTagHeap   //
+                    ,  fabricHeap      //
+                    ,  treeConfineHeap //
+                    ,  treeDecoHeap    //
+                    ,  crossingPile    //
+                    ,  pictHeap        //
+                    ,  thread          //
+                    );
+             float2 ray = convert_float2(pos); // + getRandom2(&dag);
+             dEBUGiF(printf("sample %i ray %v2f \n", sample, ray);)
+             accColor += traverseFabric(  cROSSsPLITlIMIT
+                                       ,  tAXICABfLATNESS
+                                       , &dag
+                                       , &tS
+                                       ,  startCodePointer
+                                       ,  ray
+                                       );
+         } // for sample
+         dEBUGiF(printf("pos %v2i accColor %v4f bitmapSize %v2i \n", pos, accColor, bitmapSize);)
+         if (pos.x == dEBUG0 || pos.y == dEBUG1) {accColor = composite((Color_)(0.0,0.0,1.0,0.25),accColor);}
+         // else {accColor=(Color_)(0.0,0.5,0.5,1.0);}
+         writePixelGlobal ( pos
+                          , bitmapSize
+                          , accColor/(float)samplesPerPixel
+                          , target
+                          );
     }
+    //barrier(CLK_LOCAL_MEM_FENCE);
 }
 
 /*
@@ -1866,26 +1795,13 @@ void showConfineTag(ConfineTag tag) {
     printf ("  confineTagMoreCut   %2i "       , (long) &tag.confineTagMoreCut   - (long)&tag);if (tag.confineTagMoreCut == nULLcONFINEtAGiD) {printf("null\n");} else {printf("%i  \n", tag.confineTagMoreCut);}
 }
 
-void showFabricStack(FabricStack *stack) {
-  printf("fabricStack\n");
-  for (int i = stack->fsSize - 1; i >= 0; i--){
-      printf("%i== %i \n",i, stack->fsStack[i]);
-  }
-}
-
-void showCurrentFabricStack(Dag *dag, TraverseState *tS) {
-    FabricTag_ tag;
-    printf("    fabricStack %i rays %i\n", tS->tSFabricStack.fsSize, tS->tSRayStack.rsSize);
-    int level = tS->tSFabricStack.fsSize-1;
-    FabricTagId_ tagId;
-    for (int r = tS->tSRayStack.rsSize - 1; r >= 0; r--) {
-        printf("     ray %v2f count %i\n", tS->tSRayStack.rsStack[r], tS->tSRayStack.rsCountStack[r]);
-        for (int j = tS->tSRayStack.rsCountStack[r]; j > 0; j--) {
-            tagId = tS->tSFabricStack.fsStack[level];
-            tag = loadFabricTag(dag, tagId);
-            printf("        %i,%i>> %i:%x\n", level, j-1, tagId, tag);
-        }
+void showFabricStack(Dag *dag, TraverseState *tS) {
+    printf("fabricStack %i\n", tS->tSFabricStack.fsSize);
+    for (int i = tS->tSFabricStack.fsSize - 1; i >= 0; i--) {
+        FabricTagId_ tagId = tS->tSFabricStack.fsStack[i];
+        printf("        i %i >> tagId %i tag %x ray %v2f \n", i, tagId, loadFabricTag(dag, tagId), tS->tSFabricStack.fsRayStack[i]);
     }
+    showAnswerStack(tS);
 }
 
 void showAnswer(Color_ color) {
@@ -1893,9 +1809,9 @@ void showAnswer(Color_ color) {
 }
 
 void showAnswerStack(TraverseState *tS) {
-  printf("colorStack %i\n", tS->tSAnswerStack.asSize);
+  printf("answerStack %i\n", tS->tSAnswerStack.asSize);
   for (int i = tS->tSAnswerStack.asSize - 1; i >= 0; i--) {
-    printf("    %i}}\n"); //  %v4f\n",i,tS->tSAnswerStack.asStack[i]);
+    printf("    %i}}} %v4f\n",i,tS->tSAnswerStack.asStack[i]);
   }
 }
 

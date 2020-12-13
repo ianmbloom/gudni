@@ -109,6 +109,8 @@ class ( HasStyle s
     -- | Bitmap texture data provided from the state for the rendered scene.
     providePictureMap :: s -> IO PictureMap
     providePictureMap _ = noPictures
+    getCursor :: s -> Point2 PixelSpace
+    getCursor _ = zeroPoint
     -- | Do something with the output of the rasterizer.
     handleOutput :: s -> DrawTarget -> StateT InterfaceState IO s
     handleOutput state target = do
@@ -269,7 +271,7 @@ processState :: ( Show s
                 )
              => SimpleTime
              -> [Input (TokenOf (StyleOf s))]
-             -> ApplicationMonad r s (Scene (Layout (StyleOf s)))
+             -> ApplicationMonad r s (Scene (Layout (StyleOf s)), Point2 PixelSpace)
 processState elapsedTime inputs =
     do  frame <- fromIntegral <$> use appCycle
         markAppTime "Advance State"
@@ -280,8 +282,9 @@ processState elapsedTime inputs =
         liftIO $ dumpState finalState inputs
         status <- use appStatus
         scene <- lift $ constructScene finalState status
+        let cursor = getCursor finalState
         markAppTime "Build State"
-        return scene
+        return (scene, cursor)
 
 -- | Prepare and render the shapetree to a bitmap via the OpenCL kernel.
 drawFrame :: ( Rasterizer r
@@ -292,9 +295,10 @@ drawFrame :: ( Rasterizer r
              )
           => Int
           -> Scene (Layout (StyleOf s))
+          -> Point2 PixelSpace
           -> [PointQuery (SpaceOf (StyleOf s))]
           -> ApplicationMonad r s (DrawTarget, [PointQueryResult (TokenOf (StyleOf s))])
-drawFrame frameCount scene queries =
+drawFrame frameCount scene cursor queries =
     do  --appMessage "ResetJob"
         rasterizer <- use appRasterizer
         target <- withIO appBackend (prepareTarget rasterizer)
@@ -302,7 +306,7 @@ drawFrame frameCount scene queries =
         state <- use appState
         pictureMap <- liftIO $ providePictureMap state
         markAppTime "Build TileTree"
-        lift $ rasterFrame rasterizer canvasSize pictureMap scene frameCount queries target
+        lift $ rasterFrame rasterizer canvasSize pictureMap scene frameCount queries cursor target
         return (target, []) --  toList queryResults)
 
 -- Final phase of the event loop.
@@ -351,11 +355,11 @@ loop preppedInputs =
       unless (any isQuit preppedInputs) $
           do  elapsedTime <- getElapsedTime
               beginCycle
-              scene <- processState elapsedTime preppedInputs
+              (scene, cursor) <- processState elapsedTime preppedInputs
               frameCount <- fromIntegral <$> use appCycle
               newInputs <- withIO appBackend checkInputs
               let queries = pullQueries newInputs
-              (target, queryResults) <- drawFrame frameCount scene (map (over pointQueryPos (fmap realToFrac)) queries)
+              (target, queryResults) <- drawFrame frameCount scene cursor (map (over pointQueryPos (fmap realToFrac)) queries)
               let newPreppedInputs = tr "preppedInputs" $ attachQueryResults newInputs queryResults
               state  <- use appState
               state' <- withIO appBackend $ handleOutput state target

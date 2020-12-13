@@ -44,7 +44,7 @@ import Graphics.Gudni.Interface.InterfaceSDL
 instance Rasterizer DagOpenCLState where
     setupRasterizer = setupOpenCL False False embeddedOpenCLSource
     prepareTarget rasterizer = prepareTargetSDL (rasterizer ^. dagOpenCLUseGLInterop)
-    rasterFrame rasterizer canvasSize pictureMap scene frameCount queries target =
+    rasterFrame rasterizer canvasSize pictureMap scene frameCount queries cursor target =
         do (pictureMemoryMap, pixelPile) <- liftIO $ collectPictureMemory pictureMap
            fabric <- sceneToFabric pictureMemoryMap scene
            let limit = realToFrac cROSSsPLITlIMIT
@@ -59,4 +59,5 @@ instance Rasterizer DagOpenCLState where
                                                         start
                                                         canvasSize
                                                         frameCount
+                                                        cursor
                                                         outputBuffer

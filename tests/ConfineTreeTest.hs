@@ -80,11 +80,11 @@ initialModel =
           , _stateStep        = 53
           , _stateRepMode     = False
           , _stateRepDk       = False
-          , _stateCursor      = Point2 512 58
+          , _stateCursor      = Point2 128 96
           }
     , _stateShapeAngle = 0 @@ deg -- @@ rad -- 0 @@ rad
     , _stateTraceStep = 0
-    , _stateCurrentTest = flip findTest allTests  "randomCurves" -- "onTriangles"  -- "onTriangles" -- "benchmark1" -- "twoTriangles" -- "bigTriangle" -- "randomCurves" -- "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
+    , _stateCurrentTest = flip findTest allTests "onTriangles"  -- "randomCurves" -- "onTriangles" -- "benchmark1" -- "twoTriangles" -- "bigTriangle" -- "randomCurves" -- "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
     , _stateDecorationType = True
     , _stateDecorationLimit = 0
     }
@@ -101,7 +101,7 @@ instance HasStyle ConfineTreeState where
 
 instance Model ConfineTreeState where
     screenSize state = --FullScreen
-                       Window $ Point2 256 256
+                       Window $ Point2 64 64
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState frame elapsedTime inputs state =
@@ -185,6 +185,7 @@ instance Model ConfineTreeState where
                 treeScene  = transformFromState (state ^. stateBase) testShape
                 withStatus = if False then overlap [statusTree, treeScene] else treeScene
             return $ withBackgroundColor gray withStatus
+    getCursor state = fmap floor $ state ^. stateBase . stateCursor
     providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target
                                     return state

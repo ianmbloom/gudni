@@ -17,9 +17,8 @@ module Graphics.Gudni.Raster.Dag.Constants
     , oPAQUEtHRESHOLD
     , bEZIERsTACKsIZE
     , fABRICsTACKsIZE
-    , rAYsTACKsIZE
     , aNSWERsTACKsIZE
-    , cONFINEtREEsTACKsIZE
+    , cONFINEsTACKsIZE
     , bEZIERsIZEiNfLOATS
     , fACETsIZEiNfLOATS
     , bOXsIZEiNfLOATS
@@ -75,22 +74,21 @@ import Foreign.C.Types (CInt, CUInt, CULong)
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
 
-tAXICABfLATNESS      = (1/16384) :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
-cROSSsPLITlIMIT      = (1/16384) :: Float
-oPAQUEtHRESHOLD      = (1/256)   :: Float
+tAXICABfLATNESS  = (1/16384) :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
+cROSSsPLITlIMIT  = (1/16384) :: Float
+oPAQUEtHRESHOLD  = (1/256)   :: Float
 
-bEZIERsTACKsIZE      = 4   :: Int -- this should be 2 for quadratic and 4 for cubic beziers
-fABRICsTACKsIZE      = 64  :: Int
-rAYsTACKsIZE         = 8   :: Int
-aNSWERsTACKsIZE      = 64  :: Int
-cONFINEtREEsTACKsIZE = 64  :: Int
+bEZIERsTACKsIZE  = 4  :: Int -- this should be 2 for quadratic and 4 for cubic beziers
+fABRICsTACKsIZE  = 8  :: Int
+aNSWERsTACKsIZE  = 8  :: Int
+cONFINEsTACKsIZE = 64 :: Int
 
-bEZIERsIZEiNfLOATS   = 6  :: Int
-fACETsIZEiNfLOATS    = 18 :: Int
-bOXsIZEiNfLOATS      = 4  :: Int
-sOURCEfILEpADDING    = 90 :: Int   -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
-dEBUG0               = 2  :: Int
-dEBUG1               = 2  :: Int
+bEZIERsIZEiNfLOATS =  6 :: Int
+fACETsIZEiNfLOATS  = 18 :: Int
+bOXsIZEiNfLOATS    =  4 :: Int
+sOURCEfILEpADDING  = 90 :: Int   -- number of lines at the head of the openCL source file reserved to be replaced by haskell generated preprocessor defines
+dEBUG0             =  4 :: Int
+dEBUG1             =  4 :: Int
 
 instance Out CULong where
     doc x = text . show $ x
