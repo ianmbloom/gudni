@@ -77,58 +77,58 @@ library
                      , Graphics.Gudni.Util.Shuffle
                      , Graphics.Gudni.Util.TreeOrderTable
 
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Add
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Build
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Decorate
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Depth
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Query
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Sweep
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Type
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Storage
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Out
+                     , Graphics.Gudni.Raster.ConfineTree.Add
+                     , Graphics.Gudni.Raster.ConfineTree.Build
+                     , Graphics.Gudni.Raster.ConfineTree.Decorate
+                     , Graphics.Gudni.Raster.ConfineTree.Depth
+                     , Graphics.Gudni.Raster.ConfineTree.Query
+                     , Graphics.Gudni.Raster.ConfineTree.Sweep
+                     , Graphics.Gudni.Raster.ConfineTree.Traverse
+                     , Graphics.Gudni.Raster.ConfineTree.Type
+                     , Graphics.Gudni.Raster.ConfineTree.Storage
+                     , Graphics.Gudni.Raster.ConfineTree.Out
 
-                     , Graphics.Gudni.Raster.Dag.Constants
-                     , Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
-                     , Graphics.Gudni.Raster.Dag.Fabric.Combine.Tag
-                     , Graphics.Gudni.Raster.Dag.Fabric.Combine.Apply
-                     , Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
-                     , Graphics.Gudni.Raster.Dag.Fabric.Ray.Answer
-                     , Graphics.Gudni.Raster.Dag.Fabric.Filter.Type
-                     , Graphics.Gudni.Raster.Dag.Fabric.Filter.Tag
-                     , Graphics.Gudni.Raster.Dag.Fabric.Transformer.Type
-                     , Graphics.Gudni.Raster.Dag.Fabric.Transformer.Storage
-                     , Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
-                     , Graphics.Gudni.Raster.Dag.Fabric.Substance.Storage
-                     , Graphics.Gudni.Raster.Dag.Fabric.Type
-                     , Graphics.Gudni.Raster.Dag.Fabric.Tag
-                     , Graphics.Gudni.Raster.Dag.Fabric.Traverse
-                     , Graphics.Gudni.Raster.Dag.Fabric.Out
-                     , Graphics.Gudni.Raster.Dag.Fabric.Storage
-                     , Graphics.Gudni.Raster.Dag.Fabric.Serialize
-                     , Graphics.Gudni.Raster.Dag.FromLayout
+                     , Graphics.Gudni.Raster.Constants
+                     , Graphics.Gudni.Raster.Fabric.Combine.Type
+                     , Graphics.Gudni.Raster.Fabric.Combine.Tag
+                     , Graphics.Gudni.Raster.Fabric.Combine.Apply
+                     , Graphics.Gudni.Raster.Fabric.Ray.Class
+                     , Graphics.Gudni.Raster.Fabric.Ray.Answer
+                     , Graphics.Gudni.Raster.Fabric.Filter.Type
+                     , Graphics.Gudni.Raster.Fabric.Filter.Tag
+                     , Graphics.Gudni.Raster.Fabric.Transformer.Type
+                     , Graphics.Gudni.Raster.Fabric.Transformer.Storage
+                     , Graphics.Gudni.Raster.Fabric.Substance.Type
+                     , Graphics.Gudni.Raster.Fabric.Substance.Storage
+                     , Graphics.Gudni.Raster.Fabric.Type
+                     , Graphics.Gudni.Raster.Fabric.Tag
+                     , Graphics.Gudni.Raster.Fabric.Traverse
+                     , Graphics.Gudni.Raster.Fabric.Out
+                     , Graphics.Gudni.Raster.Fabric.Storage
+                     , Graphics.Gudni.Raster.Fabric.Serialize
+                     , Graphics.Gudni.Raster.FromLayout
 
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Constants
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Cross
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Stack
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Storage
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Tag
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
-                     , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.WithinBox
+                     , Graphics.Gudni.Raster.ConfineTree.Primitive.Constants
+                     , Graphics.Gudni.Raster.ConfineTree.Primitive.Cross
+                     , Graphics.Gudni.Raster.ConfineTree.Primitive.Stack
+                     , Graphics.Gudni.Raster.ConfineTree.Primitive.Storage
+                     , Graphics.Gudni.Raster.ConfineTree.Primitive.Tag
+                     , Graphics.Gudni.Raster.ConfineTree.Primitive.Type
+                     , Graphics.Gudni.Raster.ConfineTree.Primitive.WithinBox
 
-                     , Graphics.Gudni.Raster.Dag.Haskell.Rasterizer
+                     , Graphics.Gudni.Raster.Haskell.Rasterizer
 
-                     , Graphics.Gudni.Raster.Dag.OpenCL.CallKernels
-                     , Graphics.Gudni.Raster.Dag.OpenCL.EmbeddedOpenCLSource
-                     , Graphics.Gudni.Raster.Dag.OpenCL.PrepareBuffers
-                     , Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
-                     , Graphics.Gudni.Raster.Dag.OpenCL.Setup
-                     , Graphics.Gudni.Raster.Dag.OpenCL.Instance
+                     , Graphics.Gudni.Raster.OpenCL.CallKernels
+                     , Graphics.Gudni.Raster.OpenCL.EmbeddedOpenCLSource
+                     , Graphics.Gudni.Raster.OpenCL.PrepareBuffers
+                     , Graphics.Gudni.Raster.OpenCL.Rasterizer
+                     , Graphics.Gudni.Raster.OpenCL.Setup
+                     , Graphics.Gudni.Raster.OpenCL.Instance
 
-                     , Graphics.Gudni.Raster.Dag.TagTypes
-                     , Graphics.Gudni.Raster.Dag.Storage
-                     , Graphics.Gudni.Raster.Dag.State
-                     , Graphics.Gudni.Raster.Dag.Serialize
+                     , Graphics.Gudni.Raster.TagTypes
+                     , Graphics.Gudni.Raster.Storage
+                     , Graphics.Gudni.Raster.State
+                     , Graphics.Gudni.Raster.Serialize
                      , Graphics.Gudni.Raster.TextureReference
                      , Graphics.Gudni.Raster.Class
 
@@ -250,30 +250,11 @@ library
                      , Graphics.Gudni.Raster.Serial.BytePile
                      , Graphics.Gudni.Raster.Serial.CopyPile
 
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.CallKernels
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.EmbeddedOpenCLSource
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.PrepareBuffers
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.ProcessBuffers
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.Instance
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.Setup
-
-                     , Graphics.Gudni.Raster.Thresholds.Constants
-                     , Graphics.Gudni.Raster.Thresholds.Enclosure
-                     , Graphics.Gudni.Raster.Thresholds.ItemInfo
-                     , Graphics.Gudni.Raster.Thresholds.Params
-                     , Graphics.Gudni.Raster.Thresholds.ReorderTable
-                     , Graphics.Gudni.Raster.Thresholds.Serialize
-                     , Graphics.Gudni.Raster.Thresholds.Strand
-                     , Graphics.Gudni.Raster.Thresholds.StrandReference
-                     , Graphics.Gudni.Raster.Thresholds.SubstanceInfo
-                     , Graphics.Gudni.Raster.Thresholds.TileTree
-
-                     , Graphics.Gudni.Raster.OpenCL.Buffer
-                     , Graphics.Gudni.Raster.OpenCL.CppDefines
-                     , Graphics.Gudni.Raster.OpenCL.DeviceQuery
-                     , Graphics.Gudni.Raster.OpenCL.Instances
-                     , Graphics.Gudni.Raster.OpenCL.KernelQuery
+                     , Graphics.Gudni.Raster.OpenCL.Util.Buffer
+                     , Graphics.Gudni.Raster.OpenCL.Util.CppDefines
+                     , Graphics.Gudni.Raster.OpenCL.Util.DeviceQuery
+                     , Graphics.Gudni.Raster.OpenCL.Util.KernelArg
+                     , Graphics.Gudni.Raster.OpenCL.Util.KernelQuery
 
                      , Graphics.Gudni.ShapeTree.STree
                      , Graphics.Gudni.ShapeTree.FinalTree

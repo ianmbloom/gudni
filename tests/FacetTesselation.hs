@@ -32,7 +32,7 @@ import Graphics.Gudni.Draw
 import Graphics.Gudni.Util.Subdividable
 import Graphics.Gudni.Util.Segment
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Raster.Dag.Constants
+import Graphics.Gudni.Raster.Constants
 
 import Control.Lens
 import Control.Monad.State

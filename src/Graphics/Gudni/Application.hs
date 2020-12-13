@@ -16,7 +16,6 @@
 
 module Graphics.Gudni.Application
   ( runApplication
-  , runApplicationThresholdOpenCL
   , runApplicationDagOpenCL
   , runApplicationDagHaskell
   , Model(..)
@@ -62,12 +61,9 @@ import Graphics.Gudni.Interface.Time
 import Graphics.Gudni.Interface.FontLibrary
 import Graphics.Gudni.Interface.Query
 
-
-import Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
-import Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
-import Graphics.Gudni.Raster.Dag.Haskell.Rasterizer
-import Graphics.Gudni.Raster.Thresholds.OpenCL.Instance
-import Graphics.Gudni.Raster.Dag.OpenCL.Instance
+import Graphics.Gudni.Raster.OpenCL.Rasterizer
+import Graphics.Gudni.Raster.Haskell.Rasterizer
+import Graphics.Gudni.Raster.OpenCL.Instance
 
 
 import Graphics.Gudni.ShapeTree
@@ -184,18 +180,6 @@ startApplication rasterizer state =
                         -- when the loop exits close the application.
                         closeApplication
 
-runApplicationThresholdOpenCL :: ( Show s
-                                 , Model s
-                                 , HasStyle s
-                                 , Show (TokenOf (StyleOf s))
-                                 , SpaceOf (StyleOf s) ~ SubSpace
-                                 )
-                              => s
-                              -> IO ()
-runApplicationThresholdOpenCL state =
-    do (rasterizer :: RasterState) <- setupRasterizer
-       startApplication rasterizer state
-
 runApplicationDagOpenCL :: ( Show s
                            , Model s
                            , HasStyle s
@@ -230,7 +214,6 @@ runApplication :: ( Show s
                -> IO ()
 runApplication = runApplicationDagOpenCL
 --runApplication = runApplicationDagHaskell
---runApplication = runApplicationThresholdOpenCL
 
 -- | Convert a `Timespec` to the `SimpleTime` (a double in seconds from application start)
 toSimpleTime :: TimeSpec -> SimpleTime

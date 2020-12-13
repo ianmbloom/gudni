@@ -22,15 +22,15 @@ import Graphics.Gudni.Image
 
 import Graphics.Gudni.Util.Debug
 
-import Graphics.Gudni.Raster.Dag.Fabric.Out
-import Graphics.Gudni.Raster.Dag.ConfineTree.Type
-import Graphics.Gudni.Raster.Dag.ConfineTree.Build
-import Graphics.Gudni.Raster.Dag.ConfineTree.Type
-import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Storage
-import Graphics.Gudni.Raster.Dag.FromLayout
-import Graphics.Gudni.Raster.Dag.Serialize
-import Graphics.Gudni.Raster.Dag.Fabric.Traverse
-import Graphics.Gudni.Raster.Dag.Constants
+import Graphics.Gudni.Raster.Fabric.Out
+import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.ConfineTree.Build
+import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.ConfineTree.Primitive.Storage
+import Graphics.Gudni.Raster.FromLayout
+import Graphics.Gudni.Raster.Serialize
+import Graphics.Gudni.Raster.Fabric.Traverse
+import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.TextureReference
 
 import qualified Data.Map as M
@@ -84,7 +84,7 @@ initialModel =
           }
     , _stateShapeAngle = 0 @@ deg -- @@ rad -- 0 @@ rad
     , _stateTraceStep = 0
-    , _stateCurrentTest = flip findTest allTests "onTriangles"  -- "randomCurves" -- "onTriangles" -- "benchmark1" -- "twoTriangles" -- "bigTriangle" -- "randomCurves" -- "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
+    , _stateCurrentTest = 0 -- flip findTest allTests "onTriangles"  -- "randomCurves" -- "onTriangles" -- "benchmark1" -- "twoTriangles" -- "bigTriangle" -- "randomCurves" -- "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
     , _stateDecorationType = True
     , _stateDecorationLimit = 0
     }

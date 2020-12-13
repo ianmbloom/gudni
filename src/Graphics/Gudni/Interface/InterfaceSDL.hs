@@ -27,7 +27,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Interface.ScreenMode
-import Graphics.Gudni.Raster.OpenCL.DeviceQuery
+import Graphics.Gudni.Raster.OpenCL.Util.DeviceQuery
 import Graphics.Gudni.Util.Debug
 
 import qualified SDL

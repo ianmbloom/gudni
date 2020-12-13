@@ -12,12 +12,12 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 
-import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Fabric.Traverse
-import Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
-import Graphics.Gudni.Raster.Dag.Fabric.Type
-import Graphics.Gudni.Raster.Dag.Fabric.Storage
-import Graphics.Gudni.Raster.Dag.Storage
+import Graphics.Gudni.Raster.TagTypes
+import Graphics.Gudni.Raster.Fabric.Traverse
+import Graphics.Gudni.Raster.Fabric.Substance.Type
+import Graphics.Gudni.Raster.Fabric.Type
+import Graphics.Gudni.Raster.Fabric.Storage
+import Graphics.Gudni.Raster.Storage
 
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Elipse

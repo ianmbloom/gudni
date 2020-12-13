@@ -10,10 +10,10 @@ where
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 
-import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
-import Graphics.Gudni.Raster.Dag.Fabric.Ray.Answer
-import Graphics.Gudni.Raster.Dag.Fabric.Traverse
+import Graphics.Gudni.Raster.TagTypes
+import Graphics.Gudni.Raster.Fabric.Ray.Class
+import Graphics.Gudni.Raster.Fabric.Ray.Answer
+import Graphics.Gudni.Raster.Fabric.Traverse
 
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Elipse

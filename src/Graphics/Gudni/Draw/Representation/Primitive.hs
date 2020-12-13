@@ -19,8 +19,8 @@ import Graphics.Gudni.Draw.Rectangle
 import Graphics.Gudni.Draw.ArrowHead
 import Graphics.Gudni.Draw.Text
 
-import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.TagTypes
+import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
 import Linear.V3
 
 makeList :: a -> [a]

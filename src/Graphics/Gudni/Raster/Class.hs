@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies    #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.Dag.OpenCL.RasterState
+-- Module      :  Graphics.Gudni.Raster.OpenCL.RasterState
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --

@@ -37,7 +37,7 @@ import CLUtil.CL
 import CLUtil.State
 import CLUtil.KernelArgs
 
-import Graphics.Gudni.Raster.OpenCL.DeviceQuery
+import Graphics.Gudni.Raster.OpenCL.Util.DeviceQuery
 import Control.Parallel.OpenCL
 
 import Foreign.Marshal.Alloc (alloca)

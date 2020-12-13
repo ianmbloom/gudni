@@ -18,7 +18,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Draw
 
-import Graphics.Gudni.Raster.Dag.Constants
+import Graphics.Gudni.Raster.Constants
 
 import Control.Lens
 import Control.Monad
