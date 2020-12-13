@@ -222,7 +222,7 @@ typedef struct Dag
       GMEM      DecoTag  *dagTreeDecoHeap    ;
       GMEM FabricTagId_  *dagCrossingHeap    ;
       GMEM       Space_  *dagPictHeap        ;
-     mwc64xvec2_state_t  *dagRandomSeed      ;
+     mwc64xvec2_state_t   dagRandomSeed      ;
     } Dag;
 
 typedef struct PictUse {
@@ -1507,7 +1507,7 @@ inline Color_ traverseFabric( Space_ limit
 // ------------------- Run Kernel ---------------------
 
 inline Space2_ getRandom2(Dag *dag) {
-    uint2 point = MWC64XVEC2_NextUint2(dag->dagRandomSeed);
+    uint2 point = MWC64XVEC2_NextUint2(&dag->dagRandomSeed);
     Space2_ ret;
     ret.x = (Space_)((double)point.x / (double)0xFFFFFFFF);
     ret.y = (Space_)((double)point.y / (double)0xFFFFFFFF);
@@ -1553,7 +1553,7 @@ inline void initDag
     dag->dagTreeDecoHeap    = treeDecoHeap   ;
     dag->dagCrossingHeap    = crossingHeap   ;
     dag->dagPictHeap        = pictHeap       ;
-    //MWC64XVEC2_SeedStreams(dag->dagRandomSeed, thread, 0);
+    MWC64XVEC2_SeedStreams(&dag->dagRandomSeed, thread, 0);
 }
 
 __kernel void traverseDagKernel
@@ -1610,7 +1610,7 @@ __kernel void traverseDagKernel
                     ,  pictHeap        //
                     ,  thread          //
                     );
-             float2 ray = convert_float2(pos); // + getRandom2(&dag);
+             float2 ray = convert_float2(pos) + getRandom2(&dag);
              dEBUGiF(printf("sample %i ray %v2f \n", sample, ray);)
              accColor += traverseFabric(  cROSSsPLITlIMIT
                                        ,  tAXICABfLATNESS

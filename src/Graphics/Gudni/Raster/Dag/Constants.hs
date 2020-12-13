@@ -74,8 +74,8 @@ import Foreign.C.Types (CInt, CUInt, CULong)
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint
 
-tAXICABfLATNESS  = (1/16384) :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
-cROSSsPLITlIMIT  = (1/16384) :: Float
+tAXICABfLATNESS  = (1/4) :: Float -- minimum taxicab distance between (relative to the pixel size) where curve tesselation terminates
+cROSSsPLITlIMIT  = (1/268435456) :: Float
 oPAQUEtHRESHOLD  = (1/256)   :: Float
 
 bEZIERsTACKsIZE  = 4  :: Int -- this should be 2 for quadratic and 4 for cubic beziers
