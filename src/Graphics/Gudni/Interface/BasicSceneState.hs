@@ -18,8 +18,6 @@ module Graphics.Gudni.Interface.BasicSceneState
   , statePlayhead
   , stateFrameNumber
   , stateStep
-  , stateRepMode
-  , stateRepDk
   , stateCursor
   , transformFromState
   , simpleTransformFromState
@@ -53,8 +51,6 @@ data BasicSceneState = BasicSceneState
   , _statePlayhead    :: SubSpace
   , _stateFrameNumber :: Int
   , _stateStep        :: Int
-  , _stateRepMode     :: Bool
-  , _stateRepDk       :: Bool
   , _stateCursor      :: Point2 SubSpace
   } deriving (Generic, Show)
 makeLenses ''BasicSceneState
@@ -128,9 +124,7 @@ instance HandlesInput token BasicSceneState where
                          Key Number6 -> stateScale .= 32
                          Key Number0 -> stateScale .= 0.25
                          Key Number9 -> stateScale .= 0.125
-                         KeyCommand CommandTab -> stateRepMode %= not
-                         Key SymbolBackquote -> stateRepDk %= not
-                         _                 -> return ()
+                         _           -> return ()
              (InputMouse detection modifier clicks positionInfo) ->
                  case detection of
                    Released -> stateCursor .= fmap fromIntegral positionInfo

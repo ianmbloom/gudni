@@ -38,8 +38,6 @@ initialModel =
           , _statePlayhead    = 0
           , _stateFrameNumber = 0
           , _stateStep        = 0
-          , _stateRepMode     = False
-          , _stateRepDk       = False
           , _stateCursor      = Point2 0 0
           }
     }

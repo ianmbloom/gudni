@@ -15,7 +15,6 @@ where
 
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Layout
 
 import Graphics.Gudni.Util.Segment
@@ -32,12 +31,12 @@ defaultArrowHead :: (Loop f, Space s) => Point2 s -> ArrowDirection -> Shape_ f 
 defaultArrowHead size direction = Shape . pure . applyStretch size $ fromSegments [straightXY (-1) (-0.5), straightXY 0 0, straightXY (-1) 0.5]
 
 class (Space (SpaceOf t), HasSpace t, HasArcLength t, Reversible t) => CanArrow t where
-  withArrowHeadOffsetShape :: Shape (SpaceOf t) -> Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> CompoundTree (SpaceOf t)
+  withArrowHeadOffsetShape :: Shape (SpaceOf t) -> Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> CompoundLayout (SpaceOf t)
 
-  withArrowHeadOffset :: Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> CompoundTree (SpaceOf t)
+  withArrowHeadOffset :: Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> CompoundLayout (SpaceOf t)
   withArrowHeadOffset offset size direction = withArrowHeadOffsetShape (defaultArrowHead size direction) offset size direction
 
-  withArrowHead :: Point2 (SpaceOf t) -> ArrowDirection -> t -> CompoundTree (SpaceOf t)
+  withArrowHead :: Point2 (SpaceOf t) -> ArrowDirection -> t -> CompoundLayout (SpaceOf t)
   withArrowHead size direction t =
     let len = arcLength t
         t' = if direction == PointingForward then t else reverseItem t

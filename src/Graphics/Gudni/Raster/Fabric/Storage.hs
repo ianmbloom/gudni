@@ -16,7 +16,6 @@ module Graphics.Gudni.Raster.Fabric.Storage
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree.STree
 
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice

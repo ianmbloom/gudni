@@ -60,7 +60,6 @@ library
                      , Graphics.Gudni.Figure
                      , Graphics.Gudni.Interface
                      , Graphics.Gudni.Layout
-                     , Graphics.Gudni.ShapeTree
                      , Graphics.Gudni.Draw
                      , Graphics.Gudni.Image
 
@@ -68,7 +67,6 @@ library
                      , Graphics.Gudni.Util.CurvePair
                      , Graphics.Gudni.Util.MonadST
                      , Graphics.Gudni.Util.Debug
-                     , Graphics.Gudni.Util.FlattenTree
                      , Graphics.Gudni.Util.MonadUnique
                      , Graphics.Gudni.Util.Segment
                      , Graphics.Gudni.Util.StorableM
@@ -106,7 +104,6 @@ library
                      , Graphics.Gudni.Raster.Fabric.Out
                      , Graphics.Gudni.Raster.Fabric.Storage
                      , Graphics.Gudni.Raster.Fabric.Serialize
-                     , Graphics.Gudni.Raster.FromLayout
 
                      , Graphics.Gudni.Raster.ConfineTree.Primitive.Constants
                      , Graphics.Gudni.Raster.ConfineTree.Primitive.Cross
@@ -188,7 +185,6 @@ library
                      , Graphics.Gudni.Figure.Substance.Type
 
                      , Graphics.Gudni.Figure.Transform.Transformable
-                     , Graphics.Gudni.Figure.Transform.Transformer
                      , Graphics.Gudni.Figure.Transform.Projection
                      , Graphics.Gudni.Figure.Transform.Projection.BezierSpace
                      , Graphics.Gudni.Figure.Transform.Projection.Apply
@@ -234,7 +230,6 @@ library
                      , Graphics.Gudni.Layout.Empty
                      , Graphics.Gudni.Layout.Fill
                      , Graphics.Gudni.Layout.Font
-                     , Graphics.Gudni.Layout.FromLayout
                      , Graphics.Gudni.Layout.Grid
                      , Graphics.Gudni.Layout.Layout
                      , Graphics.Gudni.Layout.Mask
@@ -255,10 +250,6 @@ library
                      , Graphics.Gudni.Raster.OpenCL.Util.DeviceQuery
                      , Graphics.Gudni.Raster.OpenCL.Util.KernelArg
                      , Graphics.Gudni.Raster.OpenCL.Util.KernelQuery
-
-                     , Graphics.Gudni.ShapeTree.STree
-                     , Graphics.Gudni.ShapeTree.FinalTree
-                     , Graphics.Gudni.ShapeTree.Traverse
 
   -- LANGUAGE extensions used by modules in this package.
   other-extensions:    FlexibleContexts

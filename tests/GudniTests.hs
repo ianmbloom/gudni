@@ -11,7 +11,6 @@ import Graphics.Gudni.Interface
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Draw
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Application
 
 import Graphics.Gudni.Util.Debug
@@ -68,7 +67,7 @@ testList = [ ("openSquareOverlap3"  , openSquareOverlap3  ) --  0 -
            , ("overlappingSquares"  , overlappingSquares  ) -- 37 -
            , ("overlappingCircles"  , overlappingCircles  ) -- 38 -
            , ("millionFuzzyCircles" , millionFuzzyCircles ) -- 39 -
-           , ("bigGrid"             , bigGrid             )
+          -- , ("bigGrid"             , bigGrid             )
            ]
 
 findTest :: String -> [(String, a)] -> Int

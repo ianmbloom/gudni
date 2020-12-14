@@ -12,7 +12,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.ShapeTree
+-- Module      :  Graphics.Gudni.Raster.Fabric
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -20,8 +20,8 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- A ShapeTree is the main input data structure for the Gudni RasterState. A client program
--- generates a Scene which contains a ShapeTree for each frame that they wish to render.
+-- A Fabric is the main input data structure for the rasterizer. A client program
+-- generates a Fabric for each frame that they wish to render.
 
 module Graphics.Gudni.Raster.Fabric.Type
   ( FabricType(..)
@@ -107,7 +107,6 @@ deriving instance ( Show (SpaceOf      i)
                   , Show (FQuery       i)
                   , Show (FTex         i)
                   ) => Show (FTreeLeaf i)
-
 
 instance ( Out (SpaceOf     i)
          , Out (FChildType  i)

@@ -29,13 +29,11 @@ module Graphics.Gudni.Layout.Proximity
   , proxStyle
   , proxType
   , proxMeld
-  , ProximityCompoundTree(..)
   )
 where
 
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Layout.WithBox
 import Graphics.Gudni.Layout.Alignment
@@ -73,8 +71,6 @@ makeLenses ''ProximityMeld
 
 instance (HasDefault style, HasDefault meld) => HasDefault (ProximityMeld style meld) where
     defaultValue = ProximityMeld defaultValue defaultValue defaultValue
-
-type ProximityCompoundTree style = TransTree (ProximityMeld style Compound) (Maybe (WithBox (Shape (SpaceOf style))))
 
 instance Out Proximity where
   doc prox =

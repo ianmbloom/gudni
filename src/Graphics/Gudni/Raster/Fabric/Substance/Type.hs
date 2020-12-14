@@ -7,7 +7,7 @@
 --
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.ShapeTree
+-- Module      :  Graphics.Gudni.Raster.Substance.Type
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --

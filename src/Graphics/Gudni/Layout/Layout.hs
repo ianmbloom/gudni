@@ -32,7 +32,6 @@ module Graphics.Gudni.Layout.Layout
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Layout.Token
 import Graphics.Gudni.Layout.Fill
@@ -127,15 +126,6 @@ instance IsStyle style => HasToken (Layout style) where
 
 instance (IsStyle style, Show (TokenOf style)) => Tokenized (Layout style) where
   overToken fToken (Layout tree) = Layout . mapSItem (fmap (over sMaskToken fToken)) $ tree
-
-instance (IsStyle style) => IsLayout (Layout style) where
-  type UnPlaced (Layout style) = ShapeTree (TokenOf style) (SpaceOf style)
-  place = liftToLayoutTree
-  nextTo axis style alignment         meld = overLayouts (SMeld (ProximityMeld (NextTo (eitherAxis axis) alignment) style meld))
-  onTopOf style mAlignVert mAlignHori meld = overLayouts (SMeld (ProximityMeld (OnTopOf mAlignVert mAlignHori)      style meld))
-
-liftToLayoutTree :: (IsStyle style) => ShapeTree (TokenOf style) (SpaceOf style) -> Layout style
-liftToLayoutTree (ShapeTree tree) = Layout . mapBranchMeld (ProximityMeld defaultValue defaultValue) . mapSItem (fmap (overSRep liftToCompoundLayoutTree)) $ tree
 
 liftCompoundLayout f (CompoundLayout a) (CompoundLayout b) = CompoundLayout (f a b)
 

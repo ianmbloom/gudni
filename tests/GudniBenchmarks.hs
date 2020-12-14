@@ -46,7 +46,7 @@ makeLenses ''BenchmarkState
 initialModel pictureMap =
     BenchmarkState
     { _stateBase = BasicSceneState
-        { _stateScale       = 10
+        { _stateScale       = 1
         , _stateDelta       = Point2 20 20
         , _stateAngle       = 0 @@ rad
         , _statePaused      = True
@@ -57,12 +57,10 @@ initialModel pictureMap =
         , _statePlayhead    = 0
         , _stateFrameNumber = 0
         , _stateStep        = 100
-        , _stateRepMode     = False
-        , _stateRepDk       = False
         , _stateCursor      = Point2 0 0
         }
     , _statePictureMap  = pictureMap
-    , _stateCurrentTest = 8
+    , _stateCurrentTest = 0
     }
 
 getTest :: BenchmarkState -> (String, SubSpace -> Int -> Layout DefaultStyle)
@@ -73,20 +71,15 @@ instance HasStyle BenchmarkState where
 
 instance Model BenchmarkState where
     screenSize state = --FullScreen
-                       Window $ Point2 512 512
+                       Window $ Point2 32 32
     -- shouldLoop _ = False
     updateModelState frame elapsedTime inputs state =
         over stateBase (updateSceneState frame elapsedTime) $ foldl (flip processInput) state inputs
     constructScene state status =
-        do let testScene = (snd $ getTest state) (state ^. stateBase . statePlayhead) (state ^. stateBase . stateStep)
-               testName = (fst $ getTest state)
-               repMode = state ^. stateBase . stateRepMode
-               repDk   = state ^. stateBase . stateRepDk
+        do let testScene  = (snd $ getTest state) (state ^. stateBase . statePlayhead) (state ^. stateBase . stateStep)
+               testName   = (fst $ getTest state)
                statusTree = statusDisplay (state ^. stateBase) testName (lines status)
-           flatScene <- return $ withBackgroundColor gray $ transformFromState (state ^. stateBase) testScene
-           let tree = if repMode
-                      then undefined -- place . represent repDk $ flatScene ^. sceneShapeTree
-                      else transformFromState (state ^. stateBase) $ testScene
+               tree       = transformFromState (state ^. stateBase) $ testScene
                withStatus = if False then overlap [statusTree, tree] else tree
            return $ withBackgroundColor (light gray) withStatus
     providePictureMap state = return $ state ^. statePictureMap

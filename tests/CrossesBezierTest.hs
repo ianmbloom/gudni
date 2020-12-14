@@ -49,8 +49,6 @@ initialModel =
         , _statePlayhead    = 164
         , _stateFrameNumber = 0
         , _stateStep        = 45
-        , _stateRepMode     = False
-        , _stateRepDk       = False
         , _stateCursor      = Point2 0 0
         }
     }

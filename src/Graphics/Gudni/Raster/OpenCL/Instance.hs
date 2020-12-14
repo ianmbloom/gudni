@@ -17,6 +17,7 @@ module Graphics.Gudni.Raster.OpenCL.Instance
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface.Query
 import Graphics.Gudni.Interface.DrawTarget
@@ -30,16 +31,21 @@ import Graphics.Gudni.Raster.State
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.Storage
 import Graphics.Gudni.Raster.TextureReference
+import Graphics.Gudni.Raster.Fabric.Out
 
 import Graphics.Gudni.Raster.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.OpenCL.EmbeddedOpenCLSource
 import Graphics.Gudni.Raster.OpenCL.Setup
 import Graphics.Gudni.Raster.OpenCL.PrepareBuffers
 import Graphics.Gudni.Raster.OpenCL.CallKernels
-import CLUtil
-import Control.Lens
 
 import Graphics.Gudni.Interface.InterfaceSDL
+
+import CLUtil
+import Control.Lens
+import Control.Monad
+import Control.Monad.State
+import Control.Monad.IO.Class
 
 instance Rasterizer DagOpenCLState where
     setupRasterizer = setupOpenCL False False embeddedOpenCLSource
@@ -49,8 +55,12 @@ instance Rasterizer DagOpenCLState where
            fabric <- sceneToFabric pictureMemoryMap scene
            let limit = realToFrac cROSSsPLITlIMIT
                canvas = sizeToBox . fmap fromIntegral $ canvasSize
+           liftIO . putStrLn . render . doc $ fabric
            withSerializedFabric limit 0 (Just canvas) pixelPile fabric $ \storage ->
                do let start = storageCodeStart storage
+                  out <- evalStateT outFabric storage
+                  liftIO $ putStrLn "**** outFabric *******************************************"
+                  liftIO $ putStrLn $ render out
                   liftIO $ runCL (rasterizer ^. dagOpenCLState) $
                       withBuffersInCommon storage $ \bic ->
                           withOutputBuffer canvasSize target $ \ outputBuffer ->

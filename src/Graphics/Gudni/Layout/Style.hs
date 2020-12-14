@@ -32,6 +32,7 @@ where
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.StorableInstances
+import Graphics.Gudni.Raster.Fabric.Type
 
 import Graphics.Gudni.Layout.Token
 import Graphics.Gudni.Layout.Proximity
@@ -39,6 +40,7 @@ import Graphics.Gudni.Layout.WithBox
 import Graphics.Gudni.Layout.Alignment
 import Graphics.Gudni.Layout.Overlappable
 import Graphics.Gudni.Layout.Font
+
 import Graphics.Gudni.Util.Debug
 import Linear
 import Data.List
@@ -63,7 +65,13 @@ class ( HasToken style
     styleTextAlignY :: style -> Maybe Alignment
     styleGapX       :: style -> SpaceOf style
     styleGapY       :: style -> SpaceOf style
-    styleGlyph      :: Monad m => style -> CodePoint -> FontMonad style m (ProximityCompoundTree style)
+    styleGlyph      :: ( FLeafType i ~ FLeaf i
+                       , SpaceOf i ~ SpaceOf style
+                       , Monad m
+                       )
+                    => style
+                    -> CodePoint
+                    -> FontMonad style m (Fabric i)
 
 data DefaultStyle = Title | Heading | Normal | Wide deriving (Eq, Show, Generic)
 
@@ -89,9 +97,9 @@ instance IsStyle DefaultStyle where
           _    -> 0.1
   styleGlyph style codePoint =
     case style of
-      Title   -> scaleBy 1.5 <$> getGlyph codePoint
-      Heading -> scaleBy 1.2 <$> getGlyph codePoint
-      Normal  -> getGlyph codePoint
+      Title   -> scaleBy 1.5 . FLeaf . FShape <$> getGlyph codePoint
+      Heading -> scaleBy 1.2 . FLeaf . FShape <$> getGlyph codePoint
+      Normal  ->               FLeaf . FShape <$> getGlyph codePoint
       Wide    -> styleGlyph Normal codePoint
 
 instance Out DefaultStyle

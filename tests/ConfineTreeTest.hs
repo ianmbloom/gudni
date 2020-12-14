@@ -17,7 +17,6 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Application
 import Graphics.Gudni.Draw
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Image
 
 import Graphics.Gudni.Util.Debug
@@ -78,8 +77,6 @@ initialModel =
           , _statePlayhead    = 10
           , _stateFrameNumber = 0
           , _stateStep        = 53
-          , _stateRepMode     = False
-          , _stateRepDk       = False
           , _stateCursor      = Point2 128 96
           }
     , _stateShapeAngle = 0 @@ deg -- @@ rad -- 0 @@ rad

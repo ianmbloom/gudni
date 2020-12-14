@@ -17,11 +17,10 @@ module Graphics.Gudni.Draw.Fuzzy
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Draw.Elipse
 import Graphics.Gudni.Draw.Rectangle
-
+import Graphics.Gudni.Raster.Fabric.Type
 
 import Graphics.Gudni.Util.Segment
 import Graphics.Gudni.Util.Debug
@@ -67,7 +66,7 @@ fuzzyCurve :: ( Space s
               , RandomGen g)
            => Point2 s
            -> Int
-           -> Rand g (ShapeTree Int s)
+           -> Rand g (Fabric i)
 fuzzyCurve range len = do
   color <- getRandom
   token <- getRandomR(0,32768)

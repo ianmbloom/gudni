@@ -7,7 +7,6 @@ import Graphics.Gudni.Interface
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Draw
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Application
 
 import Graphics.Gudni.Util.Segment
@@ -20,7 +19,7 @@ basicShapes =
     [ ("randomCurves",
       \ playhead step ->
       let range = makePoint 2 2
-          randomCurves = evalRand (sequence . replicate 8 $ fuzzyCurve range 20) (mkStdGen $ step) :: [ShapeTree Int SubSpace]
+          randomCurves = evalRand (sequence . replicate 8 $ fuzzyCurve range 20) (mkStdGen $ step) :: [Layout DefaultStyle]
       in  place .
           scaleBy 100 .
           rotateBy (playhead @@ deg)

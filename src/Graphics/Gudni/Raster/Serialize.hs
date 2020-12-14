@@ -23,56 +23,55 @@ module Graphics.Gudni.Raster.Serialize
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Raster.Fabric.Type
-import Graphics.Gudni.Raster.FromLayout
-import Graphics.Gudni.Layout.Layout
+-- import Graphics.Gudni.Raster.FromLayout
+-- import Graphics.Gudni.Layout.Layout
 import Graphics.Gudni.Layout.Style
-import Graphics.Gudni.Layout.FromLayout
-import Graphics.Gudni.Layout.Proximity
-import Graphics.Gudni.Layout.WithBox
-
-import Graphics.Gudni.Raster.TextureReference
-
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.TagTypes
-import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
-import Graphics.Gudni.Raster.ConfineTree.Primitive.Storage
-import Graphics.Gudni.Raster.ConfineTree.Primitive.Tag
-import Graphics.Gudni.Raster.Fabric.Combine.Type
+-- import Graphics.Gudni.Layout.FromLayout
+-- import Graphics.Gudni.Layout.Proximity
+-- import Graphics.Gudni.Layout.WithBox
+--
+-- import Graphics.Gudni.Raster.TextureReference
+--
+-- import Graphics.Gudni.Raster.ConfineTree.Type
+-- import Graphics.Gudni.Raster.TagTypes
+-- import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
+-- import Graphics.Gudni.Raster.ConfineTree.Primitive.Storage
+-- import Graphics.Gudni.Raster.ConfineTree.Primitive.Tag
+-- import Graphics.Gudni.Raster.Fabric.Combine.Type
 import Graphics.Gudni.Raster.Fabric.Storage
-import Graphics.Gudni.Raster.Fabric.Tag
-import Graphics.Gudni.Raster.Fabric.Ray.Class
-import Graphics.Gudni.Raster.Storage
-import Graphics.Gudni.Raster.ConfineTree.Storage
-import Graphics.Gudni.Raster.Fabric.Serialize
-
-import Graphics.Gudni.Raster.Serial.Reference
-import Graphics.Gudni.Raster.Serial.Slice
+-- import Graphics.Gudni.Raster.Fabric.Tag
+-- import Graphics.Gudni.Raster.Fabric.Ray.Class
+-- import Graphics.Gudni.Raster.Storage
+-- import Graphics.Gudni.Raster.ConfineTree.Storage
+-- import Graphics.Gudni.Raster.Fabric.Serialize
+--
+-- import Graphics.Gudni.Raster.Serial.Reference
+-- import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
-
-import Graphics.Gudni.Util.Util
-import Graphics.Gudni.Util.MonadUnique
-import Graphics.Gudni.Util.Debug
-
-import Control.Monad
-import Control.Monad.State
-import Control.Monad.IO.Class
-import Control.Applicative
-import Control.Lens
-
-import Linear.V4
-
-import Foreign.Storable
-
-import qualified Data.Map      as M
-import qualified Data.Vector   as V
-import qualified Data.Vector.Unboxed as UV
-import qualified Data.Sequence as S
-import Data.Word
-import Data.Maybe
-import Data.List
-import Data.Tuple
+--
+-- import Graphics.Gudni.Util.Util
+-- import Graphics.Gudni.Util.MonadUnique
+-- import Graphics.Gudni.Util.Debug
+--
+-- import Control.Monad
+-- import Control.Monad.State
+-- import Control.Monad.IO.Class
+-- import Control.Applicative
+-- import Control.Lens
+--
+-- import Linear.V4
+--
+-- import Foreign.Storable
+--
+-- import qualified Data.Map      as M
+-- import qualified Data.Vector   as V
+-- import qualified Data.Vector.Unboxed as UV
+-- import qualified Data.Sequence as S
+-- import Data.Word
+-- import Data.Maybe
+-- import Data.List
+-- import Data.Tuple
 
 -- | Function for executing a new ConfineMonad
 withSerializedFabric :: ( MonadIO m

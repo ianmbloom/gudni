@@ -24,13 +24,12 @@ module Graphics.Gudni.Layout.Compound
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
-
 -- | Typeclass of shape representations that can be combined with other shapes.
 class Compoundable a where
   addOver      :: a -> a -> a
   subtractFrom :: a -> a -> a
 
+{-
 -- | Instance for combining simple compound shapes.
 instance Compoundable (STree (BranchTree_ Compound tag item)) where
   addOver      = SMeld CompoundAdd
@@ -39,3 +38,4 @@ instance Compoundable (STree (BranchTree_ Compound tag item)) where
 instance Compoundable (CompoundTree s) where
   addOver      = liftCompoundTree addOver
   subtractFrom = liftCompoundTree subtractFrom -- the subtracted shape must be above what is being subtracted in the stack.
+-}

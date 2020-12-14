@@ -22,8 +22,7 @@
 -- Stability   :  experimental
 -- Portability :  portable
 --
--- A ShapeTree is the main input data structure for the Gudni RasterState. A client program
--- generates a Scene which contains a ShapeTree for each frame that they wish to render.
+-- A shape is a container for multiple loops of bezier curve segments.
 
 module Graphics.Gudni.Figure.Shape.Type
   ( Shape_(..)

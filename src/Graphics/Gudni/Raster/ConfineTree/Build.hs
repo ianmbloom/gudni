@@ -6,9 +6,7 @@ module Graphics.Gudni.Raster.ConfineTree.Build
   )
 where
 
-
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Raster.TagTypes
 import Graphics.Gudni.Raster.ConfineTree.Type

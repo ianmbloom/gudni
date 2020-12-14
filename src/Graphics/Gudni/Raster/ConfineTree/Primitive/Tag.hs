@@ -35,8 +35,6 @@ where
 
 import Graphics.Gudni.Figure
 
---import Graphics.Gudni.ShapeTree.STree
-
 import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
 import Graphics.Gudni.Raster.ConfineTree.Primitive.Constants
 import Graphics.Gudni.Raster.TagTypes

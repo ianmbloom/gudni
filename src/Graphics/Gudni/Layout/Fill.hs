@@ -29,9 +29,7 @@ where
 
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Layout.Token
-
 
 import Control.Lens
 
@@ -52,13 +50,3 @@ withRadialGradient center innerRadius innerColor outerRadius outerColor =
 withLinearGradient :: (CanFill a) => Point2 (SpaceOf a) -> Color (SpaceOf a) -> Point2 (SpaceOf a) -> Color (SpaceOf a) -> UnFilled a -> a
 withLinearGradient start startColor end endColor =
   withFill (Linear $ LinearGradient start end startColor endColor)
-
-instance (Space s) => CanFill (ShapeTree token s) where
-    type UnFilled (ShapeTree token s) = CompoundTree s
-    withFill substance = ShapeTree . SLeaf . SItem . Just . SMask defaultValue substance
-
-instance Show token => HasToken (ShapeTree token s) where
-  type TokenOf (ShapeTree token s) = token
-
-instance Show token => Tokenized (ShapeTree token s) where
-  overToken fToken = overShapeTree (mapSItem (fmap (over sMaskToken fToken)))

@@ -61,13 +61,10 @@ import Graphics.Gudni.Interface.Time
 import Graphics.Gudni.Interface.FontLibrary
 import Graphics.Gudni.Interface.Query
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Raster.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.Haskell.Rasterizer
 import Graphics.Gudni.Raster.OpenCL.Instance
-
-
-import Graphics.Gudni.ShapeTree
-
 import Graphics.Gudni.Raster.Class
 
 import Graphics.Gudni.Figure
@@ -160,6 +157,7 @@ startApplication :: ( Show s
                     , HasStyle s
                     , Show (TokenOf (StyleOf s))
                     , SpaceOf (StyleOf s) ~ SubSpace
+                    , Out (StyleOf s)
                     )
                  => r
                  -> s
@@ -185,6 +183,7 @@ runApplicationDagOpenCL :: ( Show s
                            , HasStyle s
                            , Show (TokenOf (StyleOf s))
                            , SpaceOf (StyleOf s) ~ SubSpace
+                           , Out (StyleOf s)
                            )
                         => s
                         -> IO ()
@@ -197,6 +196,7 @@ runApplicationDagHaskell :: ( Show s
                             , HasStyle s
                             , Show (TokenOf (StyleOf s))
                             , SpaceOf (StyleOf s) ~ SubSpace
+                            , Out (StyleOf s)
                             )
                          => s
                          -> IO ()
@@ -209,6 +209,7 @@ runApplication :: ( Show s
                   , HasStyle s
                   , Show (TokenOf (StyleOf s))
                   , SpaceOf (StyleOf s) ~ SubSpace
+                  , Out (StyleOf s)
                   )
                => s
                -> IO ()
@@ -275,6 +276,7 @@ drawFrame :: ( Rasterizer r
              , Show (TokenOf (StyleOf s))
              , HasStyle s
              , SpaceOf (StyleOf s) ~ SubSpace
+             , Out (StyleOf s)
              )
           => Int
           -> Scene (Layout (StyleOf s))
@@ -330,6 +332,7 @@ loop :: ( Rasterizer r
         , HasStyle s
         , Show (TokenOf (StyleOf s))
         , (SpaceOf (StyleOf s)) ~ SubSpace
+        , Out (StyleOf s)
         )
      => [Input (TokenOf (StyleOf s))]
      -> ApplicationMonad r s ()

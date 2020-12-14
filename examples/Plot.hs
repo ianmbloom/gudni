@@ -80,8 +80,6 @@ main = runApplication $ PlotState
            , _statePlayhead    = 0
            , _stateFrameNumber = 0
            , _stateStep        = 69
-           , _stateRepMode     = False
-           , _stateRepDk       = False
            , _stateCursor      = Point2 0 0
            }
        ) 0.75

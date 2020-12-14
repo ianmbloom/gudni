@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies         #-}
 
 module Graphics.Gudni.Layout.Overlappable
   ( Overlappable(..)
@@ -9,23 +10,18 @@ module Graphics.Gudni.Layout.Overlappable
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Layout.Empty
+import Graphics.Gudni.Raster.Fabric.Type
 
 import Control.Applicative
 
 class Overlappable a where
   combine :: a -> a -> a
 
-instance (HasDefault (Meld i)) => Overlappable (STree i) where
-  combine = SMeld defaultValue
-
-instance Overlappable (ShapeTree token s) where
-  combine = liftShapeTree combine
-
-instance Overlappable (CompoundTree s) where
-  combine = liftCompoundTree combine
+instance (HasDefault (FBinaryType i), FChildType i ~ Fabric i) => Overlappable (Fabric i) where
+  combine = FBinary defaultValue
 
 instance {-# Overlappable #-} (Applicative f, Overlappable a) => Overlappable (f a) where
   combine = liftA2 (combine :: a -> a -> a)

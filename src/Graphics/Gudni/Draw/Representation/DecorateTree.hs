@@ -13,7 +13,6 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.Storage

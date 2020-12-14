@@ -30,8 +30,8 @@ data FCombineType
     | FMax
     | FHsvAdjust
     | FTransparent
-     --      | RGTE
-     --      | RGT
+     -- | RGTE
+     -- | RGT
     deriving (Show, Generic)
 
 instance Out FCombineType

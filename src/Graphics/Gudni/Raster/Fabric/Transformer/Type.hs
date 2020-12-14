@@ -37,6 +37,6 @@ instance Show s => Show (FTransformer s) where
 instance (Out s) => Out (FTransformer s) where
   doc trans =
      case trans of
-       FAffine forward _ -> doc forward
-       FFacet  f         -> doc f
-       FConvolve s       -> text "FConvolve" <+> doc s
+         FAffine forward _ -> doc forward
+         FFacet  f         -> doc f
+         FConvolve s       -> text "FConvolve" <+> doc s

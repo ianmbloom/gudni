@@ -23,14 +23,8 @@ module Graphics.Gudni.Raster.TextureReference
   , PictUsageId(..)
   , PictureMemoryReference(..)
   , PictureMemoryMap(..)
-  , ShapeTreePictureMemory(..)
-  , FinalTreePictureMemory
   , makePictureMap
-  , namePicturesInShapeTree
-  , pictureTextureSize
-  , substanceBoundaries
   , collectPictureMemory
-  , withScenePictureMemory
   , getPixelColor
   )
 where
@@ -38,8 +32,6 @@ where
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.StorableInstances
-import Graphics.Gudni.ShapeTree
-import Graphics.Gudni.Layout.FromLayout
 
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice
@@ -70,13 +62,13 @@ import Control.Monad.ListM
 import Linear.V4
 import Data.Word
 
-type PixelPile = Pile CFloat
-type PictMemId = CUInt
+type PixelPile   = Pile CFloat
+type PictMemId   = CUInt
 type PictUsageId = CUInt
-type MemOffset_ = Reference CFloat
+type MemOffset_  = Reference CFloat
 
 type PictureMemoryMap = M.Map PictureName PictureMemoryReference
-type PictureIdMap = M.Map PictureName PictMemId
+type PictureIdMap     = M.Map PictureName PictMemId
 
 -- | The starting memory offset and size of a picture.
 data PictureMemoryReference = PictureMemory
@@ -102,21 +94,6 @@ getPixelColor pixelPile (PictureMemory (Point2 w h) offset) (Point2 x y) =
         (AsBytes (colorWord8 :: V4 CFloat)) <- liftIO $ fromPile pixelPile pos
         return . Color . fmap realToFrac $ colorWord8
 
-pictureTextureSize :: PictureMemoryReference -> Point2 SubSpace
-pictureTextureSize = fmap pixelSpaceToSubSpace . pictSize
-
-substanceBoundaries :: Substance PictureMemoryReference s -> Maybe (Box SubSpace)
-substanceBoundaries (Texture pictMemReference) = Just (sizeToBox . pictureTextureSize $ pictMemReference)
-substanceBoundaries _ = Nothing
-
-type ShapeTreeNamed token s = TransTree Overlap (SMask token PictureName (FullCompoundTree s))
-type ShapeTreePictureMemory token s = TransTree Overlap (SMask token PictureMemoryReference (FullCompoundTree s))
-
-overRepSubstanceM :: Monad m => (a -> m b) -> SMask token a rep -> m (SMask token b rep)
-overRepSubstanceM f (SMask token a rep) =
-  do b <- mapMSubstanceTexture f a
-     return (SMask token b rep)
-
 nameTexture :: NamedTexture -> State PictureMap PictureName
 nameTexture namedTexture =
     case namedTexture of
@@ -124,10 +101,6 @@ nameTexture namedTexture =
            do modify (M.insert name image)
               return name
         SharedTexture name -> return name
-
-namePicturesInShapeTree :: FinalTree token style
-                        -> State PictureMap (FinalTreeNamed token style)
-namePicturesInShapeTree tree = mapMSLeaf (overRepSubstanceM nameTexture) tree
 
 accumulatePicture :: Picture
                   -> StateT PixelPile IO PictureMemoryReference
@@ -144,40 +117,6 @@ collectPictureMemory :: PictureMap -> IO (PictureMemoryMap, PixelPile)
 collectPictureMemory mapping =
   do pictPile <- newPile
      runStateT (mapM accumulatePicture mapping) pictPile
-
-assignPictUsage :: PictureMemoryMap -> SMask token PictureName rep -> SMask token PictureMemoryReference rep
-assignPictUsage mapping (SMask token substance rep) =
-     let substance' =
-             case substance of
-                 Texture name -> Texture ((M.!) mapping name)
-                 Solid color  -> Solid color
-                 Linear linearGradient -> Linear linearGradient
-                 Radial radialGradient -> Radial radialGradient
-     in  SMask token substance' rep
-
-type FinalTreeNamed token s = Tree Overlap (SMask token PictureName (Tree Compound (Shape s)))
-type FinalTreePictureMemory token s = Tree Overlap (SMask token PictureMemoryReference (Tree Compound (Shape s)))
-
-
-withScenePictureMemory :: forall token s m a
-                       .  ( MonadIO m
-                          )
-                       => PictureMap
-                       -> Scene (Maybe (FinalTree token s))
-                       -> (Scene (FinalTreePictureMemory token s) -> PixelPile -> m a)
-                       -> m a
-withScenePictureMemory pictureMap scene code =
-  case scene ^. sceneShapeTree of
-    Nothing -> error "no shapeTree"
-    Just shapeTree ->
-        do let (namedTree, pictureMap') = runState (namePicturesInShapeTree shapeTree) pictureMap
-           (pictureRefMap, pictDataPile) <- liftIO $ collectPictureMemory pictureMap'
-           let pictRefScene :: Scene (FinalTreePictureMemory token s)
-               pictRefScene = Scene (scene ^. sceneBackgroundColor) (mapSLeaf (assignPictUsage pictureRefMap) (namedTree::FinalTreeNamed token s))
-           result <- code pictRefScene pictDataPile
-           liftIO $ freePile pictDataPile
-           return result
-
 
 instance StorableM PictureMemoryReference where
   sizeOfM _ =

@@ -13,7 +13,6 @@ module Graphics.Gudni.Draw.Representation.Class
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Draw.ArrowHead
 import Graphics.Gudni.Draw.Elipse
@@ -61,28 +60,5 @@ instance (Functor f, Foldable f, Space s) => HasRepresentation (OpenCurve_ f s) 
 instance (Space s) => HasRepresentation (Shape s) where
     represent dk = overlap . fmap (overlap . fmap (represent dk) . view outlineSegments) . view shapeOutlines
 
-instance HasEmpty (ShapeTree token s) where
-   emptyItem = ShapeTree . SLeaf . SItem $ Nothing
-   isEmpty (ShapeTree (SLeaf (SItem Nothing))) = True
-   isEmpty _ = False
-
-instance HasEmpty (CompoundTree s) where
-   emptyItem = CompoundTree . SLeaf . SItem $ Nothing
-   isEmpty (CompoundTree (SLeaf (SItem Nothing))) = True
-   isEmpty _ = False
-
-instance (Space s, Show token) => HasRepresentation (FinalTree token s) where
-    represent dk tree = overlap . fmap (represent dk) . flatten $ tree
-
-
-
 instance (Space s) => HasRepresentation (Facet s) where
     represent dk = overlap . fmap (represent dk) . facetToBeziers
-
-
-{-
-instance (Space s, Space t, s~t) => HasRepresentation (HardFacet_ s t) where
-  represent hardFacet@(HardFacet face texture) =
-    let faceRep = withColor (light blue) overlap . fmap (
-    overlap (overlap (fmap
--}

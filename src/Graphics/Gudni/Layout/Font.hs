@@ -34,7 +34,6 @@ module Graphics.Gudni.Layout.Font
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Layout.WithBox
 import Graphics.Gudni.Layout.Proximity
@@ -73,13 +72,11 @@ instance Show CodePoint where
 data FontCache style =
   FontCache
   { -- | Map from CodePoints to cached glyphs.
-    _gCMap  :: M.Map CodePoint (ProximityCompoundTree style)
+    _gCMap  :: M.Map CodePoint (WithBox (Shape (SpaceOf style)))
     -- | Original font data structure. Contains an error message depending on how the font is loaded.
   , _gCFont :: Either String F.Font
   }
 makeLenses ''FontCache
-
-deriving instance (Show (ProximityCompoundTree style)) => Show (FontCache style)
 
 -- | An initial 'FontCache'
 emptyFontCache = FontCache M.empty (Left "No Font Loaded")
@@ -117,7 +114,7 @@ rightOrError (Right t) = t
 rightOrError (Left err) = error err
 
 -- | Retrieve a glyph from the glyphCache, read it from the font file if necessary.
-getGlyph :: forall style m . (MonadState (FontCache style) m, Monad m, HasSpace style) => CodePoint -> m (ProximityCompoundTree style)
+getGlyph :: forall style m . (MonadState (FontCache style) m, Monad m, HasSpace style) => CodePoint -> m (WithBox (Shape (SpaceOf style)))
 getGlyph codepoint =
   do  -- the current map from codepoints to previously decoded glyphs.
       dict <- use gCMap
@@ -156,8 +153,8 @@ getGlyph codepoint =
                 -- build the Glyph constructor including the metadata and the outlines.
                 glyphBox :: Box (SpaceOf style)
                 glyphBox = Box zeroPoint (Point2 (realToFrac advance * realToFrac fontScaleFactor) (realToFrac (ascent + descent) * realToFrac fontScaleFactor))
-                glyph :: ProximityCompoundTree style
-                glyph = SLeaf . SItem . Just $ WithBox shape glyphBox
+                glyph :: WithBox (Shape (SpaceOf style))
+                glyph = WithBox shape glyphBox
             in  do  -- insert the new glyph into the cache.
                     gCMap .= M.insert codepoint glyph dict
                     -- return it as well.
