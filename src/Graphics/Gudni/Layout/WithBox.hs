@@ -43,6 +43,5 @@ makeLenses ''WithBox
 
 deriving instance (Show a, Show (SpaceOf a)) => Show (WithBox a)
 
-
 instance HasSpace a => HasSpace (WithBox a) where
   type SpaceOf (WithBox a) = SpaceOf a

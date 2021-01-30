@@ -29,6 +29,7 @@ module Graphics.Gudni.Figure.Shape.Type
   , shapeOutlines
   , Shape(..)
   , ShapeFunctor(..)
+  , shapeSize
   )
 where
 
@@ -39,7 +40,7 @@ import Graphics.Gudni.Figure.Bezier.Type
 import Graphics.Gudni.Figure.Shape.Outline
 import Graphics.Gudni.Base.Chain
 import Control.Lens
-import Data.Vector as V
+import Data.Vector as V hiding (foldl)
 
 import Text.PrettyPrint.GenericPretty
 import Text.PrettyPrint hiding ((<>))
@@ -74,3 +75,6 @@ instance HasSpace a => HasSpace (ShapeFunctor a) where
     type SpaceOf (ShapeFunctor a) = SpaceOf a
 
 type Shape s = Shape_ ShapeFunctor s
+
+shapeSize :: Chain f => Shape_ f s -> Int
+shapeSize (Shape outlines) = foldl (+) 0 . fmap (chainLength . view outlineSegments) $ outlines

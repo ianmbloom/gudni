@@ -104,6 +104,9 @@ library
                      , Graphics.Gudni.Raster.Fabric.Out
                      , Graphics.Gudni.Raster.Fabric.Storage
                      , Graphics.Gudni.Raster.Fabric.Serialize
+                     , Graphics.Gudni.Raster.Fabric.Pull
+                     , Graphics.Gudni.Raster.Fabric.FromLayout
+                     , Graphics.Gudni.Raster.Fabric
 
                      , Graphics.Gudni.Raster.ConfineTree.Primitive.Constants
                      , Graphics.Gudni.Raster.ConfineTree.Primitive.Cross
@@ -125,7 +128,7 @@ library
                      , Graphics.Gudni.Raster.TagTypes
                      , Graphics.Gudni.Raster.Storage
                      , Graphics.Gudni.Raster.State
-                     , Graphics.Gudni.Raster.Serialize
+                     , Graphics.Gudni.Raster.WithSerialized
                      , Graphics.Gudni.Raster.TextureReference
                      , Graphics.Gudni.Raster.Class
 
@@ -180,11 +183,11 @@ library
                      , Graphics.Gudni.Figure.Shape.OpenCurve
 
                      , Graphics.Gudni.Figure.Substance.Color
-                     , Graphics.Gudni.Figure.Substance.Gradient
+                     , Graphics.Gudni.Figure.Substance.HSVColor
                      , Graphics.Gudni.Figure.Substance.Picture
-                     , Graphics.Gudni.Figure.Substance.Type
 
                      , Graphics.Gudni.Figure.Transform.Transformable
+                     , Graphics.Gudni.Figure.Transform.Apply
                      , Graphics.Gudni.Figure.Transform.Projection
                      , Graphics.Gudni.Figure.Transform.Projection.BezierSpace
                      , Graphics.Gudni.Figure.Transform.Projection.Apply
@@ -226,18 +229,18 @@ library
                      , Graphics.Gudni.Layout.Alignment
                      , Graphics.Gudni.Layout.ApplyProximity
                      , Graphics.Gudni.Layout.Collect
-                     , Graphics.Gudni.Layout.Compound
                      , Graphics.Gudni.Layout.Empty
                      , Graphics.Gudni.Layout.Fill
                      , Graphics.Gudni.Layout.Font
                      , Graphics.Gudni.Layout.Grid
-                     , Graphics.Gudni.Layout.Layout
-                     , Graphics.Gudni.Layout.Mask
                      , Graphics.Gudni.Layout.Overlappable
                      , Graphics.Gudni.Layout.Proximity
                      , Graphics.Gudni.Layout.Style
                      , Graphics.Gudni.Layout.Token
                      , Graphics.Gudni.Layout.WithBox
+                     , Graphics.Gudni.Layout.Combinators
+                     , Graphics.Gudni.Layout.Class
+                     , Graphics.Gudni.Layout.Type
 
                      , Graphics.Gudni.Raster.Serial.Reference
                      , Graphics.Gudni.Raster.Serial.Slice

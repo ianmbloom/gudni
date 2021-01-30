@@ -14,14 +14,13 @@ import Graphics.Gudni.Util.Segment
 import Control.Monad.Random
 import System.Random
 
-basicShapes :: [(String, SubSpace -> Int -> Layout DefaultStyle)]
+basicShapes :: [(String, SubSpace -> Int -> Layout Rgba DefaultStyle)]
 basicShapes =
     [ ("randomCurves",
       \ playhead step ->
       let range = makePoint 2 2
-          randomCurves = evalRand (sequence . replicate 8 $ fuzzyCurve range 20) (mkStdGen $ step) :: [Layout DefaultStyle]
-      in  place .
-          scaleBy 100 .
+          randomCurves = evalRand (sequence . replicate 6 $ fuzzyCurve range 20) (mkStdGen $ step) :: [Layout Rgba DefaultStyle]
+      in  scaleBy 100 .
           rotateBy (playhead @@ deg)
           $
           overlap randomCurves
@@ -34,24 +33,24 @@ basicShapes =
      scaleBy 100
      $
      overlap [ withColor (transparent 0.5 red) .
-               mask
+               place
                $
                triangle
                ,
                withColor (transparent 0.5 cyan) .
-               mask
+               place
                $
                triangleOff
                -- ,
                -- withColor (transparent 0.5 purple) .
                -- translateByXY 0.5 0.5 .
-               -- mask
+               -- place
                -- $
                -- triangle
                -- ,
                -- withColor (transparent 0.5 green) .
                -- translateByXY 1 1 .
-               -- mask
+               -- place
                -- $
                -- triangle
              ]
@@ -66,7 +65,7 @@ basicShapes =
                 translateByXY 0 0 .
                 rotateBy (playhead @@ deg) .
                 scaleBy 10 .
-                mask
+                place
                 $
                 triangle
                 ,
@@ -74,7 +73,7 @@ basicShapes =
                 translateByXY 1 1 .
                 rotateBy (playhead @@ deg) .
                 scaleBy 10 .
-                mask
+                place
                 $
                 triangle
                 ,
@@ -82,7 +81,7 @@ basicShapes =
                 translateByXY 2 2  .
                 rotateBy (playhead @@ deg) .
                 scaleBy 10 .
-                mask
+                place
                 $
                 triangle
                 ,
@@ -90,7 +89,7 @@ basicShapes =
                 translateByXY 3 3  .
                 rotateBy (playhead @@ deg) .
                 scaleBy 10 .
-                mask
+                place
                 $
                 triangle
               ]
@@ -101,7 +100,7 @@ basicShapes =
       -- rotateBy ((negate playhead) @@ deg) .
       -- rotateBy (playhead @@ deg) .
       withColor ({-transparent 0.25-} red) .
-      mask
+      place
       $
       bigTriangle
       )
@@ -113,7 +112,7 @@ basicShapes =
       scaleBy 5 .
       -- rotateBy (playhead @@ deg) .
       withColor ({-transparent 0.25-} red) .
-      mask
+      place
       $
       triangle2
       )
@@ -124,7 +123,7 @@ basicShapes =
       translateByXY 4 4 .
       rotateBy (playhead @@ deg) .
       withColor (transparent 0.25 purple) .
-      mask
+      place
       $
       Shape . pure . fromSegments $
       [ straightXY 2 2
@@ -140,7 +139,7 @@ basicShapes =
       translateByXY 6 1 .
       rotateBy (playhead @@ deg) .
       withColor (transparent 0.25 purple) .
-      mask
+      place
       $
       Shape . pure . fromSegments $
       [ straightXY 2 1
@@ -156,7 +155,7 @@ basicShapes =
       translateByXY 4 4 .
       rotateBy (playhead @@ deg) .
       withColor (transparent 0.25 purple) .
-      mask
+      place
       $
       triangle3
       )
@@ -166,7 +165,7 @@ basicShapes =
       scaleBy 10 .
       rotateBy (playhead @@ deg) .
       withColor (transparent 0.25 purple) .
-      mask
+      place
       $
       knob
       )
@@ -178,7 +177,7 @@ basicShapes =
       overlap [
           rotateBy (playhead @@ deg) .
           withColor (transparent 0.25 orange) .
-          mask
+          place
           $
           Shape . pure . fromSegments $
           [ straightXY 0 0
@@ -188,7 +187,7 @@ basicShapes =
           -- ,
           -- rotateBy (playhead @@ deg) .
           -- withColor (transparent 0.25 (light blue)) .
-          -- mask
+          -- place
           -- $
           -- Shape . pure . fromSegments $
           -- [ straightXY   1.5  0.5

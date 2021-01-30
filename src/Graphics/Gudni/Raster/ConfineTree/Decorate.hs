@@ -37,10 +37,10 @@ modifyItemStackIfCrossedAlong :: ( Axis axis
                               -> Along axis s
                               -> PrimTagId
                               -> Primitive s
-                              -> StateT ShapeStack m ()
+                              -> StateT [FabricTagId] m ()
 modifyItemStackIfCrossedAlong limit lineAxis start baseline end primTagId prim =
     when (crossesPrimAlong limit lineAxis start baseline end prim) $
-         modify (toggleShapeActive (prim ^. primFabricTagId))
+        modify (toggleItemActive (prim ^. primFabricTagId))
 
 buildDecorateTreeBruteForce :: forall s m
                             .  ( TreeConstraints s m

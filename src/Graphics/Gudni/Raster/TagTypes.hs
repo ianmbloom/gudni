@@ -18,6 +18,7 @@ import Graphics.Gudni.Raster.Constants
 
 import Foreign.Storable
 import Foreign.Ptr
+-- import Numeric (showHex)
 
 -- | The word "tag" is used to describe a bitfield that usually includes type metadata and pointers to other data.
 
@@ -28,6 +29,9 @@ newtype TransformId = TransformId {unTransformId :: TransformId_        } derivi
 
 nullFabricTagId :: FabricTagId
 nullFabricTagId = FabricTagId (Ref $ nULLfABRICtAGiD)
+
+-- instance Show FabricTag where
+--   show tag = (showHex . unFabricTag $ tag) ""
 
 instance Show FabricTagId where
   show fabricTagId = if fabricTagId == nullFabricTagId

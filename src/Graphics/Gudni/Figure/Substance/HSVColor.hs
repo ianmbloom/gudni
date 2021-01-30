@@ -1,88 +1,135 @@
 module Graphics.Gudni.Figure.Substance.HSVColor
-  (
+  ( cHue
+  , cSat
+  , cVal
+  , rgbToHsv
+  , hsvToRgb
+  , hsvAdjust
+  , saturate
+  , shiftHue
+  , lighten
+  , hsvaColor
+  , redish, orangeish, yellowish, greenish, blueish, purpleish
+  , light
+  , dark
+  , veryDark
   )
 where
 
-rgbToHsv :: 
-inline HsvColor_ rgbToHsv(Color_ rgba) {
-    SubSpace_ mx = max(max(r,g),b);
-    SubSpace_ mn = min(min(r,g),b);
-    SubSpace_ h = mx;
-    SubSpace_ s = mx;
-    SubSpace_ v = mx;
+import Graphics.Gudni.Figure.Principle
+import Graphics.Gudni.Figure.Substance.Color
+import Graphics.Gudni.Util.Util
+import Linear.V4
 
-    SubSpace_ d = mx - mn;
-    s = mx == 0 ? 0 : d / mx;
+import Control.Lens
 
-    if (mx == mn) {
-        h = 0; // achromatic
-    } else {
-        switch (mx) {
-            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-            case g: h = (b - r) / d + 2; break;
-            case b: h = (r - g) / d + 4; break;
-        }
-        h = h / 6;
-    }
-    return (HsvColor_) (h, s, v, aCh(rgba));
-}
+cHue :: Lens' (Color s) s
+cSat :: Lens' (Color s) s
+cVal :: Lens' (Color s) s
+cHue = cRed
+cSat = cGreen
+cVal = cBlue
 
-#define hCh(hsva) hsv.s0
-#define sCh(hsva) hsv.s1
-#define vCh(hsva) hsv.s2
-// aCh is the same as for rgba
+rgbToHsv :: Space s => Color s -> Color s
+rgbToHsv rgba =
+    let mx = max (max (rgba ^. cRed) (rgba ^. cGreen)) (rgba ^. cBlue)
+        mn = min (min (rgba ^. cRed) (rgba ^. cGreen)) (rgba ^. cBlue)
+        v = mx
+        d = mx - mn
+        s = if mx == 0 then 0 else d / mx
+        h = 1/6 * (if mx == mn
+                   then 0 -- achromatic
+                   else if mx == rgba ^. cRed
+                        then (rgba ^. cGreen - rgba ^. cBlue) / d + (if rgba ^. cGreen < rgba ^. cBlue then 6 else 0)
+                        else
+                            if mx == rgba ^. cGreen
+                            then (rgba ^. cBlue - rgba ^. cRed) / d + 2
+                            else {-(mx == (rgba ^. cBlue))-}
+                                 (rgba ^. cRed - rgba ^. cGreen) / d + 4
+                  )
+    in  makeColor h s v (rgba ^. cAlpha)
 
-inline Color_ hsvToRgb(HsvColor_ hsva) {
-    SubSpace_ i = floor(h * 6);
-    SubSpace_ f = hCh(hsva) * 6 - i;
-    SubSpace_ p = vCh(hsva) * (1 - sCh(hsva));
-    SubSpace_ q = vCh(hsva) * (1 - f * sCh(hsva));
-    SubSpace_ t = vCh(hsva) * (1 - (1 - f) * sCh(hsva));
+hsvToRgb :: Space s => Color s -> Color s
+hsvToRgb hsva =
+    let i = floor (hsva ^. cHue * 6)
+        f = hsva ^. cHue * 6 - fromIntegral i
+        p = hsva ^. cVal * (1 - hsva ^. cSat)
+        q = hsva ^. cVal * (1 - f * hsva ^. cSat)
+        t = hsva ^. cVal * (1 - (1 - f) * hsva ^. cSat)
+        v = hsva ^. cVal
+        a = hsva ^. cAlpha
+    in
+    case i `mod` 6 of
+        0 -> makeColor v t p a
+        1 -> makeColor q v p a
+        2 -> makeColor p v t a
+        3 -> makeColor p q v a
+        4 -> makeColor t p v a
+        5 -> makeColor v p q a
 
-    switch (i % 6) {
-        case 0: return (Color_) (v, t, p, aCh hsva); break;
-        case 1: return (Color_) (q, v, p, aCh hsva); break;
-        case 2: return (Color_) (p, v, t, aCh hsva); break;
-        case 3: return (Color_) (p, q, v, aCh hsva); break;
-        case 4: return (Color_) (t, p, v, aCh hsva); break;
-        case 5: return (Color_) (v, p, q, aCh hsva); break;
-    }
-}
+-- | Generate a 'Color' from hue saturation and lightness values.
+hsvaColor :: (Space s) => s -> s -> s -> s -> Color s
+hsvaColor h s v a = hsvToRgb $ makeColor h s v a
 
-inline Color_ composite(Color_ foreground, Color_ background) {
-  float alphaOut = ALPHA(foreground) + ALPHA(background) * (1.0f - ALPHA(foreground));
-  if (alphaOut > 0) {
-     Color_ color = ((foreground * ALPHA(foreground)) + (background * ALPHA(background) * (1.0f - ALPHA(foreground)))) / alphaOut;
-     return (Color_) (rCh(color),gCh(color),bCh(color),alphaOut);
-  }
-  else {
-    return CLEARBLACK;
-  }
-}
 
-inline Color_ adjustHsva(HsvColor_ amountHsva, Color_ rgba) {
-  HsvColor_ hsva = rgbToHsv(rgba);
-  hsva = (HsvColor_) ( fract(hCh(hsva) + hCh(amountHsva))
-                     , clamp(sCh(hsva) + sCh(amountHsva), 0, 1)
-                     , clamp(sCh(hsva) + sCh(amountHsva), 0, 1)
-                     , aCh(hsva)
-                     );
-  return hsvToRgb(hsva);
-}
+fract :: (Floating a, RealFrac a) => a -> a
+fract x = x - (fromIntegral . floor) x
 
-inline Color_ saturate(SubSpace_ amount, Color_ rgba) {
-  return adjustHsva((HsvColor_)(0,amount,0,0),rgba);
-}
+hsvAdjust :: Space s => Color s -> Color s -> Color s
+hsvAdjust amountHsva rgba =
+  let hsva = rgbToHsv rgba
+  in
+  hsvToRgb $ makeColor ( fract (hsva ^. cHue + amountHsva ^. cHue)) -- should rotate around 1.0
+                       ( clamp (hsva ^. cSat + amountHsva ^. cSat) 0 1 )
+                       ( clamp (hsva ^. cSat + amountHsva ^. cSat) 0 1 )
+                       (hsva ^. cAlpha)
 
-inline Color_ shiftHue(SubSpace_ amount, Color_ rgba) {
-  return adjustHsva((HsvColor_)(amount,0,0,0),rgba);
-}
 
-inline Color_ lighten(SubSpace_ amount, Color_ rgba) {
-  return adjustHsva((HsvColor_)(0,0,amount,0),rgba);
-}
+saturate :: Space s => s -> Color s -> Color s
+shiftHue :: Space s => s -> Color s -> Color s
+lighten  :: Space s => s -> Color s -> Color s
+saturate amount rgba = hsvAdjust (makeColor 0 amount 0 0) rgba
+shiftHue amount rgba = hsvAdjust (makeColor amount 0 0 0) rgba
+lighten  amount rgba = hsvAdjust (makeColor 0 0 amount 0) rgba
 
-inline Color_ transparent(SubSpace_ amount, Color_ rgba) {
-  aCh(rgba) = amount;
-  return rgba;
-}
+-- | The amount to mix in a color to ish it.
+ishAmount :: Space s => s
+ishAmount = 0.05
+
+influenceHue :: (Space s) => s -> Color s -> Color s -> Color s
+influenceHue amount blender color =
+  let blended = blend amount blender color
+      (Color (V4 h s _ _)) = rgbToHsv blended
+      (Color (V4 _ _ l a)) = rgbToHsv color
+  in  hsvaColor h s l a
+
+-- | Make a slightly redder version of the color.
+redish    :: (Space s) => Color s -> Color s
+-- | Make a slightly oranger version of the color.
+orangeish :: (Space s) => Color s -> Color s
+-- | Make a slightly yellower version of the color.
+yellowish :: (Space s) => Color s -> Color s
+-- | Make a slightly greener version of the color.
+greenish  :: (Space s) => Color s -> Color s
+-- | Make a slightly bluer version of the color.
+blueish   :: (Space s) => Color s -> Color s
+-- | Make a slightly purpler version of the color.
+purpleish :: (Space s) => Color s -> Color s
+redish    = influenceHue ishAmount red
+orangeish = influenceHue ishAmount orange
+yellowish = influenceHue ishAmount yellow
+greenish  = influenceHue ishAmount green
+blueish   = influenceHue ishAmount blue
+purpleish = influenceHue ishAmount purple
+
+-- | Make a slightly lighter version of the color.
+light :: (Space s) => Color s -> Color s
+light = saturate (-0.25) . lighten 0.2
+
+-- | Make a slightly darker version of the color.
+dark :: (Space s) => Color s -> Color s
+dark  = saturate 1.25 . lighten (-0.2)
+
+-- | Make a much darker version of the color.
+veryDark :: (Space s) => Color s -> Color s
+veryDark  = saturate 0.25 . lighten (-0.2)

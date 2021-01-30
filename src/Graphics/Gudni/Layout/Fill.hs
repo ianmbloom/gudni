@@ -19,8 +19,7 @@
 -- Typeclass for assigning textures to masks.
 
 module Graphics.Gudni.Layout.Fill
-  ( CanFill(..)
-  , withColor
+  ( withColor
   , withTexture
   , withRadialGradient
   , withLinearGradient
@@ -30,23 +29,48 @@ where
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout.Token
+import Graphics.Gudni.Layout.Style
+import Graphics.Gudni.Layout.Type
+import Graphics.Gudni.Layout.Combinators
+import Graphics.Gudni.Raster.TextureReference
+
 
 import Control.Lens
 
-class (HasSpace a) => CanFill a where
-    type UnFilled a :: *
-    withFill :: Substance NamedTexture (SpaceOf a) -> UnFilled a -> a
+withColor :: (IsStyle style)
+          => Color (SpaceOf style)
+          -> Layout Mono style
+          -> Layout Rgba style
+withColor color layout = maskWith layout (constantLayer color)
 
-withColor :: (CanFill a) => Color (SpaceOf a) -> UnFilled a -> a
-withColor color = withFill (Solid color)
+withTexture :: (IsStyle style)
+            => NamedTexture
+            -> Layout Mono style
+            -> Layout Rgba style
+withTexture texture layout = maskWith layout (textureLayer texture)
 
-withTexture :: (CanFill a) => NamedTexture -> UnFilled a -> a
-withTexture texture = withFill (Texture texture)
+withRadialGradient :: (IsStyle style)
+                   => Point2 (SpaceOf style)
+                   -> SpaceOf style
+                   -> Color (SpaceOf style)
+                   -> SpaceOf style
+                   -> Color (SpaceOf style)
+                   -> Layout Mono style
+                   -> Layout Rgba style
+withRadialGradient center innerRadius innerColor outerRadius outerColor layout =
+    maskWith layout (translateBy center .
+                     scaleBy outerRadius .
+                     undefined -- innerRadius innerColor outerColor
+                     sqrtOf $
+                     quadranceLayer
+                     )
 
-withRadialGradient :: (CanFill a) => Point2 (SpaceOf a) -> SpaceOf a -> Color (SpaceOf a) -> SpaceOf a -> Color (SpaceOf a) -> UnFilled a -> a
-withRadialGradient center innerRadius innerColor outerRadius outerColor =
-  withFill (Radial $ RadialGradient center innerRadius outerRadius innerColor outerColor)
-
-withLinearGradient :: (CanFill a) => Point2 (SpaceOf a) -> Color (SpaceOf a) -> Point2 (SpaceOf a) -> Color (SpaceOf a) -> UnFilled a -> a
-withLinearGradient start startColor end endColor =
-  withFill (Linear $ LinearGradient start end startColor endColor)
+withLinearGradient :: (IsStyle style)
+                   => Point2 (SpaceOf style)
+                   -> Color (SpaceOf style)
+                   -> Point2 (SpaceOf style)
+                   -> Color (SpaceOf style)
+                   -> Layout Mono style
+                   -> Layout Rgba style
+withLinearGradient start startColor end endColor layout =
+    maskWith layout (withColor startColor . translateBy start $ {- start end startColor endColor-} linearLayer)

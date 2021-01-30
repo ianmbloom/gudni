@@ -63,8 +63,8 @@ data OpenCurve_ t s = OpenCurve
 makeLenses ''OpenCurve_
 
 deriving instance (Show (t (Bezier s))) => Show (OpenCurve_ t s)
-deriving instance (Eq   (t (Bezier s))) => Eq (OpenCurve_ t s)
-deriving instance (Ord  (t (Bezier s))) => Ord (OpenCurve_ t s)
+deriving instance (Eq   (t (Bezier s))) => Eq   (OpenCurve_ t s)
+deriving instance (Ord  (t (Bezier s))) => Ord  (OpenCurve_ t s)
 
 instance Space s => HasSpace (OpenCurve_ t s) where
     type SpaceOf (OpenCurve_ t s) = s
@@ -80,7 +80,6 @@ instance ( Chain f
   where
   type BezFunctor (OpenCurve_ f s) = f
   joinOverBeziers f = OpenCurve .  join . fmap f . view curveSegments
-
 
 type OpenCurve s = OpenCurve_ V.Vector s
 

@@ -22,17 +22,6 @@ import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
 import Graphics.Gudni.Raster.Serial.BytePile
 import Graphics.Gudni.Raster.TagTypes
---  import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
---  import Graphics.Gudni.Raster.ConfineTree.Primitive.Tag
---  import Graphics.Gudni.Raster.Fabric.Filter.Type
---  import Graphics.Gudni.Raster.Fabric.Transformer.Type
---  import Graphics.Gudni.Raster.Fabric.Combine.Type
---  import Graphics.Gudni.Raster.Fabric.Combine.Tag
---  import Graphics.Gudni.Raster.Fabric.Substance.Type
---  import Graphics.Gudni.Raster.Fabric.Substance.Storage
---  import Graphics.Gudni.Raster.Fabric.Type
---  import Graphics.Gudni.Raster.Fabric.Tag
---  import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Util.Util
 
 import Foreign.Storable

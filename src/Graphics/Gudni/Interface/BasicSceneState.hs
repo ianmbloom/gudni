@@ -20,7 +20,6 @@ module Graphics.Gudni.Interface.BasicSceneState
   , stateStep
   , stateCursor
   , transformFromState
-  , simpleTransformFromState
   , statusDisplay
   , updateSceneState
   )
@@ -57,15 +56,6 @@ makeLenses ''BasicSceneState
 
 instance Out BasicSceneState
 
-simpleTransformFromState :: (SimpleTransformable t, SpaceOf t ~ SubSpace) => BasicSceneState -> t -> t
-simpleTransformFromState state constructed =
-    let sc    = state ^. stateScale
-        delta = state ^. stateDelta
-    in  translateBy delta .
-        scaleBy sc $
-        constructed
-
-
 transformFromState :: (Transformable t, SpaceOf t ~ SubSpace) => BasicSceneState -> t -> t
 transformFromState state constructed =
     let sc    = state ^. stateScale
@@ -82,7 +72,7 @@ statusDisplay :: ( IsStyle style
               => BasicSceneState
               -> String
               -> [String]
-              -> Layout style
+              -> Layout Rgba style
 statusDisplay state testName status =
     translateByXY 1800 800 .
     rotateBy (45 @@ deg) .

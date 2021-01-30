@@ -50,7 +50,7 @@ instance HasStyle StrokeState where
 instance Model StrokeState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
-    constructScene state _status =
+    constructLayout state _status =
         return .
         withBackgroundColor gray .
         place .

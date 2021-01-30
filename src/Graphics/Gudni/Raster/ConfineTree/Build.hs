@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE FlexibleContexts           #-}
 
 module Graphics.Gudni.Raster.ConfineTree.Build
   ( addPileToConfineTree
@@ -36,18 +37,23 @@ addPileToConfineTree enableShuffle slice pile treeId =
     flip evalRandT (mkStdGen 10000) $
         numLoopState 0 (size - 1) treeId go
         where
+        start = sliceStart slice
         size = sliceLength slice
+        store :: Reference PrimTagId -> PrimTagId -> RandT g (TreeMonad s m) ()
+        store x a = liftIO $ toPile   pile (x + start) a
+        load :: Reference PrimTagId -> RandT g (TreeMonad s m) PrimTagId
+        load  x   = liftIO $ fromPile pile (x + start)
         go :: RandomGen g => ConfineTagId s -> Reference PrimTagId -> RandT g (TreeMonad s m) (ConfineTagId s)
         go treeId i =
             do  primTagId <- if enableShuffle
                              then do -- Swap the next tagId for a random on in the remaining slice.
                                      j <- Ref <$> getRandomR (unRef i, unRef size - 1)
-                                     liftIO $ do (hold :: PrimTagId) <- fromPile pile i
-                                                 primTagId <- fromPile pile j
-                                                 toPile pile j hold
-                                                 toPile pile i primTagId
-                                                 return primTagId
-                             else    liftIO $ fromPile pile i
+                                     hold <- load i
+                                     primTagId <- load j
+                                     store j hold
+                                     store i primTagId
+                                     return primTagId
+                             else load i
                 -- Add the primitive to the tree.
                 box <- lift $ boxOf <$> loadTreePrim primTagId
                 lift $ addPrimToConfineTree box primTagId treeId

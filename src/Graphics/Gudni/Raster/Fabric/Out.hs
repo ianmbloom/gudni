@@ -54,7 +54,7 @@ outFabric =
                            else go (cursor - 1)
        textTag tag = text (show tag)
        hangTag tag = hang (textTag tag) 4
-       jumpFab tagId = hang (text (show tagId) <+> text "-->") 4 <$> go (fromIntegral . unFabricTagId $ tagId)
+       jumpFab mess tagId = hang (text mess <+> text (show tagId) <+> text "-->") 4 <$> go (fromIntegral . unFabricTagId $ tagId)
        marshallTag tag
            | fabTagIsReturn      tag = return $ textTag tag
            | fabTagIsConstant    tag = do color <- loadColorS tag
@@ -67,11 +67,11 @@ outFabric =
            | fabTagIsConfineTree tag = do let confineId = fabTagConfineId tag
                                           confineOut <- return $ text "..." -- inTree $ outConfineTree confineId
                                           fabricList <- inTree $ extractConfineTreeFabrics confineId
-                                          primFabrics <- mapM jumpFab fabricList
+                                          primFabrics <- mapM (jumpFab "T") fabricList
                                           return $ hangTag tag (confineOut
                                                                 $$
                                                                 vcat primFabrics)
-           | fabTagIsStacker     tag = hangTag tag <$> jumpFab (fabTagStackerId tag)
+           | fabTagIsStacker     tag = hangTag tag <$> (jumpFab "S") (fabTagStackerId tag)
            | fabTagIsAffine      tag = do  affine <- loadAffineS tag
                                            return $ hangTag tag $ doc affine
            | fabTagIsFacet       tag = do  facet <- loadFacetS tag

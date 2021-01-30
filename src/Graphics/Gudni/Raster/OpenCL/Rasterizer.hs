@@ -25,15 +25,6 @@ module Graphics.Gudni.Raster.OpenCL.Rasterizer
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Interface.Query
-import Graphics.Gudni.Interface.DrawTarget
-
-import Graphics.Gudni.Raster.Class
-import Graphics.Gudni.Raster.Serial.Slice
-import Graphics.Gudni.Raster.Serial.Pile
-import Graphics.Gudni.Raster.FromLayout
-import Graphics.Gudni.Raster.Serialize
-import Graphics.Gudni.Raster.TextureReference
 
 import CLUtil
 import Control.Lens

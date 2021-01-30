@@ -30,29 +30,55 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.State
 
-modifyItemStackIfCrossed :: (TreeConstraints s m) => s -> Point2 s -> Point2 s -> PrimTagId -> StateT ShapeStack (TreeMonad s m) ()
-modifyItemStackIfCrossed limit start end primTagId =
+modifyItemStackIfCrossed :: Ord item => (TreeConstraints s m) => s -> (FabricTagId -> item) -> Point2 s -> Point2 s -> PrimTagId -> StateT [item] (TreeMonad s m) ()
+modifyItemStackIfCrossed limit makeItem start end primTagId =
   do prim <- lift $ loadTreePrim primTagId
      let crosses = crossesPrim limit start end prim
-     when crosses $ modify (toggleShapeActive (prim ^. primFabricTagId))
+     when crosses $ modify (toggleItemActive (makeItem $ prim ^. primFabricTagId))
 
-buildStack :: (TreeConstraints s m) => Slice FabricTagId -> StateT (Point2 s, ShapeStack) (TreeMonad s m) ()
-buildStack slice = do newStack <- mapSliceM (lift . fromPileS (treeCrossingPile)) slice
-                      modify (over _2 (combineShapeStacks newStack))
+buildStack :: (TreeConstraints s m, Ord item) => (FabricTagId -> item) -> Slice FabricTagId -> StateT (Point2 s, [item]) (TreeMonad s m) ()
+buildStack makeItem slice = do newStack <- map makeItem <$> mapSliceM (lift . fromPileS (treeCrossingPile)) slice
+                               modify (over _2 (combineItemStacks newStack))
 
-holdAnchor :: (Monad m) => Point2 s -> StateT (Point2 s, ShapeStack) m ()
+holdAnchor :: (Monad m) => Point2 s -> StateT (Point2 s, [item]) m ()
 holdAnchor anchor = modify (set _1 anchor)
 
-getAnchorStack :: (TreeConstraints s m) => Point2 s -> ShapeStack -> DecoTagId s -> TreeMonad s m (Point2 s, ShapeStack)
-getAnchorStack point initStack decoTree = execStateT (traverseDecorateTree buildStack holdAnchor point decoTree) (zeroPoint, initStack)
+getAnchorStack :: ( TreeConstraints s m
+                  , Ord item
+                  )
+               => (FabricTagId -> item)
+               -> Point2 s
+               -> [item]
+               -> DecoTagId s
+               -> TreeMonad s m (Point2 s, [item])
+getAnchorStack makeItem point initStack decoTree = execStateT (traverseDecorateTree (buildStack makeItem) holdAnchor point decoTree) (zeroPoint, initStack)
 
-secondLeg :: (TreeConstraints s m) => s -> Point2 s -> Point2 s -> ConfineTagId s -> ShapeStack -> TreeMonad s m ShapeStack
-secondLeg limit anchor point confineTagId anchorStack = execStateT (traverseCTagBetweenPoints (modifyItemStackIfCrossed limit anchor point) anchor point confineTagId) anchorStack
+secondLeg :: ( TreeConstraints s m
+             , Ord item
+             )
+          => s
+          -> (FabricTagId -> item)
+          -> Point2 s
+          -> Point2 s
+          -> ConfineTagId s
+          -> [item]
+          -> TreeMonad s m [item]
+secondLeg limit makeItem anchor point confineTagId anchorStack = execStateT (traverseCTagBetweenPoints (modifyItemStackIfCrossed limit makeItem anchor point) anchor point confineTagId) anchorStack
 
-queryConfinePoint :: forall s m . (TreeConstraints s m) => s -> DecoTagId s -> ConfineTagId s -> ShapeStack -> Point2 s -> TreeMonad s m ShapeStack
-queryConfinePoint limit decoId confineId initStack point =
-    do  (anchor, anchorStack) <- getAnchorStack point initStack decoId
+queryConfinePoint :: forall s m item
+                  . ( TreeConstraints s m
+                    , Ord item
+                    )
+                  => s
+                  -> (FabricTagId -> item)
+                  -> DecoTagId s
+                  -> ConfineTagId s
+                  -> [item]
+                  -> Point2 s
+                  -> TreeMonad s m [item]
+queryConfinePoint limit makeItem decoId confineId initStack point =
+    do  (anchor, anchorStack) <- getAnchorStack makeItem point initStack decoId
         --when (point == Point2 2.22 0.44) $ liftIO $ putStrLn $ "afterDecorate point " ++ show point ++ " anchor " ++ show anchor ++ " \n" ++ show anchorStack
-        stack <- secondLeg limit anchor point confineId anchorStack
+        stack <- secondLeg limit makeItem anchor point confineId anchorStack
         --when (point == Point2 2.22 0.44) $ liftIO $ putStrLn $ "after SecondLeg " ++ " \n" ++ show stack
         return stack

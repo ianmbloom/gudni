@@ -23,6 +23,7 @@ module Graphics.Gudni.Raster.TextureReference
   , PictUsageId(..)
   , PictureMemoryReference(..)
   , PictureMemoryMap(..)
+  , NamedTexture(..)
   , makePictureMap
   , collectPictureMemory
   , getPixelColor
@@ -69,6 +70,10 @@ type MemOffset_  = Reference CFloat
 
 type PictureMemoryMap = M.Map PictureName PictureMemoryReference
 type PictureIdMap     = M.Map PictureName PictMemId
+
+data NamedTexture
+  = NewTexture PictureName Picture
+  | SharedTexture PictureName
 
 -- | The starting memory offset and size of a picture.
 data PictureMemoryReference = PictureMemory

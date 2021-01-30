@@ -62,10 +62,8 @@ instance Model FacetState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     --shouldLoop _ = False
-    constructScene state _status =
+    constructLayout state _status =
        let angle   = state ^. stateBase . stateAngle
-           repMode = state ^. stateBase . stateRepMode
-           repDk   = state ^. stateBase . stateRepDk
            offset  = state ^. stateOffset
            point   = state ^. stateBase . stateCursor
            triangle :: V3 (Point2 SubSpace)

@@ -12,6 +12,7 @@ import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
 import Graphics.Gudni.Raster.ConfineTree.Primitive.Stack
+import Graphics.Gudni.Raster.ConfineTree.Primitive.Cross
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.Storage
 import Graphics.Gudni.Raster.TagTypes
@@ -38,13 +39,16 @@ addCrossingM :: forall axis s m
              -> Athwart axis s
              -> Along axis s
              -> ConfineTagId s
-             -> ShapeStack
+             -> [FabricTagId]
              -> PrimTagId
-             -> TreeMonad s m ShapeStack
+             -> TreeMonad s m [FabricTagId]
 addCrossingM limit axis parentCut parentLine treeId stack primTagId =
     do tree <- loadConfineTag treeId
        prim <- loadTreePrim primTagId
-       return $ passPrimAlong limit (perpendicularTo axis) parentCut parentLine (toAthwart axis $ tree ^. confineTagCut) primTagId prim stack
+       return $
+           if crossesPrimAlong limit (perpendicularTo axis) parentCut parentLine (toAthwart axis $ tree ^. confineTagCut) prim
+           then toggleItemActive (prim ^. primFabricTagId) stack
+           else stack
 
 sweepConfineTree :: forall s m
                  . ( TreeConstraints s m

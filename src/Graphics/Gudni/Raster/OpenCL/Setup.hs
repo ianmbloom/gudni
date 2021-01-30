@@ -109,7 +109,7 @@ cppDefines spec =
   , Cpp "fABRICiSqUADRANCE"       (CppHex32  fABRICiSqUADRANCE       )
   , Cpp "fABRICtAGdATAbITMASK"    (CppHex32  fABRICtAGdATAbITMASK    )
   , Cpp "nULLfABRICtAGiD"         (CppHex32  nULLfABRICtAGiD         )
-  , Cpp "dEBUGoUTPUT"             (CppNothing) -- uncomment this to turn on simple debugging output
+  --, Cpp "dEBUGoUTPUT"             (CppNothing) -- uncomment this to turn on simple debugging output
   , Cpp "dEBUG0"                  (CppInt dEBUG0 ) -- determines the column for DEBUG_IF macro
   , Cpp "dEBUG1"                  (CppInt dEBUG1 ) -- determines the row    for DEBUG_IF macro
   ]

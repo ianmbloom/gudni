@@ -39,6 +39,7 @@ class (Alternative t, Monad t, Functor t, Foldable t, Eq1 t) => Chain t where
   overChainNeighbors f chain = zipWithChain f chain (rest chain) <|> pure (lastLink chain)
   chainFromList :: [a] -> t a
   concatChains :: [t a] -> t a
+  chainLength :: t a -> Int
 
 instance Chain V.Vector where
   firstLink = V.head
@@ -56,6 +57,7 @@ instance Chain V.Vector where
   scanlChain = V.scanl
   chainFromList = V.fromList
   concatChains = V.concat
+  chainLength = V.length
 
 instance (Reversible t) => Reversible (V.Vector t) where
   reverseItem = reverseChain . fmap reverseItem
@@ -76,6 +78,7 @@ instance Chain [] where
   scanlChain = L.scanl
   chainFromList = id
   concatChains = L.concat
+  chainLength = L.length
 
 instance (Reversible t) => Reversible [t] where
   reverseItem = reverseChain . fmap reverseItem

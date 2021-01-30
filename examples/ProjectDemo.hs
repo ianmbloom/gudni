@@ -63,7 +63,7 @@ instance HasStyle ProjectionState where
 instance Model ProjectionState where
     screenSize state = Window (Point2 512 512)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
-    constructScene state _status =
+    constructLayout state _status =
         do let text = blurb "Georg Guðni Hauksson    Georg Guðni Hauksson    Georg Guðni Hauksson"
                angle   = state ^. stateBase . stateAngle
                repMode = state ^. stateBase . stateRepMode

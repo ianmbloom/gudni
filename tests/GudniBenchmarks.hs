@@ -63,7 +63,7 @@ initialModel pictureMap =
     , _stateCurrentTest = 0
     }
 
-getTest :: BenchmarkState -> (String, SubSpace -> Int -> Layout DefaultStyle)
+getTest :: BenchmarkState -> (String, SubSpace -> Int -> Layout Rgba DefaultStyle)
 getTest state = testList !! (state ^. stateCurrentTest)
 
 instance HasStyle BenchmarkState where
@@ -75,7 +75,7 @@ instance Model BenchmarkState where
     -- shouldLoop _ = False
     updateModelState frame elapsedTime inputs state =
         over stateBase (updateSceneState frame elapsedTime) $ foldl (flip processInput) state inputs
-    constructScene state status =
+    constructLayout state status =
         do let testScene  = (snd $ getTest state) (state ^. stateBase . statePlayhead) (state ^. stateBase . stateStep)
                testName   = (fst $ getTest state)
                statusTree = statusDisplay (state ^. stateBase) testName (lines status)

@@ -1207,18 +1207,18 @@ inline void deleteTagId(FabricStack *stack, int i) {
 inline bool sameRay(Point2_ a, Point2_ b) {
     return (a.x == b.x) && (a.y == b.y); //  all(isequal(a,b));
 }
-inline void toggleShapeActive(  FabricStack *stack
+inline void toggleItemActive(  FabricStack *stack
                              , FabricTagId_  newFabId
                              ,      Point2_  newRay
                              ) {
     bool done = false;
     int i = stack->fsSize;
-    dEBUGiF(printf("toggleShapeActive i %i newFabId %i newRay %v2f\n",i, newFabId, newRay);)
+    dEBUGiF(printf("toggleItemActive i %i newFabId %i newRay %v2f\n",i, newFabId, newRay);)
     while (i > 0 && !done) {
         FabricTagId_ oldFabId = stack->fsStack[i-1];
         Point2_      oldRay   = stack->fsRayStack[i-1];
         bool same = sameRay(newRay,oldRay);
-        dEBUGiF(printf("toggleShapeActive i %i oldFabId %i newRay %v2f \n",i, oldFabId, oldRay);)
+        dEBUGiF(printf("toggleItemActive i %i oldFabId %i newRay %v2f \n",i, oldFabId, oldRay);)
         if (newFabId == oldFabId && same) {
             // it is the same exact tag so delete it from the stack
             deleteTagId(stack,i-1);
@@ -1231,7 +1231,7 @@ inline void toggleShapeActive(  FabricStack *stack
         i--;
     }
     if (!done) { // if we reach the bottom just insert on the end.
-        dEBUGiF(printf("toggleShapeActive !done i %i\n",i);)
+        dEBUGiF(printf("toggleItemActive !done i %i\n",i);)
         insertTagId(stack,i,newFabId, newRay);
 
     }
@@ -1248,7 +1248,7 @@ inline void combineFabricStacks (         Dag *dag
         ; i < (sliceStart(tree.decoTagCrossings) + sliceLength(tree.decoTagCrossings))
         ; i ++
         ) {
-       toggleShapeActive(stack, dag->dagCrossingHeap[(int)i], ray);
+       toggleItemActive(stack, dag->dagCrossingHeap[(int)i], ray);
     }
 }
 
@@ -1303,7 +1303,7 @@ inline void modifyItemStackIfCrossed(      Space_  limit
     bool crosses = crossesPrim(debugFlag, limit, bzStack, dag, primTag, start, ray);
     //dEBUGiF(printf("crossesPrim %i primFabricTagId %i result %i\n",primTagId, primTagFabricTagId(primTag), crosses);)
     if (crosses) {
-        toggleShapeActive (stack, primTagFabricTagId(primTag), ray);
+        toggleItemActive (stack, primTagFabricTagId(primTag), ray);
     }
 }
 
@@ -1480,7 +1480,7 @@ inline Color_ traverseFabric( Space_ limit
                       break;
                  case fABRICiSsTACKER:
                       //pushFabric(tS, fabTagStackerId(tag), ray);
-                      toggleShapeActive(&(tS->tSFabricStack),fabTagStackerId(tag),ray);
+                      toggleItemActive(&(tS->tSFabricStack),fabTagStackerId(tag),ray);
                       break;
                  case fABRICiSaFFINE:
                       ray = applyAffine(loadAffine(dag, tag), ray);
@@ -1636,6 +1636,7 @@ __kernel void traverseDagKernel
 Random number code below is part of MWC64X by David Thomas, dt10@imperial.ac.uk
 This is provided under BSD, full license is with the main package.
 See http://www.doc.ic.ac.uk/~dt10/research
+http://cas.ee.ic.ac.uk/people/dt10/research/rngs-gpu-mwc64x.html#source_code
 */
 #ifndef dt10_mwc64x_skip_cl
 #define dt10_mwc64x_skip_cl

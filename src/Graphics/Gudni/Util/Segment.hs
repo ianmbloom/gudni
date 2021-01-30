@@ -154,9 +154,8 @@ class HasFromSegments a where
 instance (Loop f, Space s) => HasFromSegments (Outline_ f s) where
   fromSegments = segmentsToOutline
 
--- | Instance for creating a simple shape from a list of segments.
-instance Space s => HasFromSegments (CompoundTree s) where
-  fromSegments = mask . segmentsToShape . pure
+instance (Loop f, Space s) => HasFromSegments (Shape_ f s) where
+  fromSegments = Shape . pure . segmentsToOutline
 
 instance Hashable s => Hashable (Segment s) where
   hashWithSalt s (Seg o c) = s `hashWithSalt` o `hashWithSalt` c

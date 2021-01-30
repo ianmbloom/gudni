@@ -96,7 +96,7 @@ runTraverseDagKernel rasterizer
         workWidthDepth  = tr "workWidthDepth " $ computeDepth - workHeightDepth
         workHeight      = tr "workHeight     " $ 2 ^ workHeightDepth
         workWidth       = tr "workWidth      " $ 2 ^ workWidthDepth
-        samplesPerPixel = 1
+        samplesPerPixel = 4
     in
     announceKernel "traverseDagKernel" $
         do  runKernel (rasterizer ^. dagOpenCLTraverseDagKernel)

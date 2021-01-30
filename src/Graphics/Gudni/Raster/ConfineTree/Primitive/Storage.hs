@@ -27,6 +27,7 @@ import Graphics.Gudni.Raster.ConfineTree.Primitive.Tag
 
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Pile
+import Graphics.Gudni.Util.Debug
 
 import Foreign.Storable
 import Foreign.Ptr

@@ -18,6 +18,7 @@ module Graphics.Gudni.Raster.Haskell.Rasterizer
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Image
 import Graphics.Gudni.Interface.DrawTarget
@@ -27,13 +28,17 @@ import Graphics.Gudni.Raster.Class
 
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
-import Graphics.Gudni.Raster.FromLayout
-import Graphics.Gudni.Raster.Serialize
+
+import Graphics.Gudni.Raster.WithSerialized
 import Graphics.Gudni.Raster.Fabric.Type
 import Graphics.Gudni.Raster.Fabric.Traverse
 import Graphics.Gudni.Raster.Fabric.Ray.Class
+import Graphics.Gudni.Raster.Fabric.FromLayout
 import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.TextureReference
+import Graphics.Gudni.Raster.Fabric.Out
+
+import Graphics.Gudni.Layout
 
 import CLUtil
 import Control.Lens
@@ -46,14 +51,21 @@ makeLenses ''DagHaskellState
 instance Rasterizer DagHaskellState where
     setupRasterizer = return DagHaskellState
     prepareTarget _ = prepareTargetSDL False
-    rasterFrame rasterizer canvasSize pictureMap scene frameCount queries _ target =
+    rasterFrame rasterizer canvasSize pictureMap layout frameCount queries cursor target =
       do (pictureMemoryMap, pixelPile) <- liftIO $ collectPictureMemory pictureMap
-         fabric <- sceneToFabric pictureMemoryMap scene
-         let limit = realToFrac cROSSsPLITlIMIT
+         let fabric = prepFabric pictureMemoryMap $ unLayout layout
+             limit = realToFrac cROSSsPLITlIMIT
              canvas = sizeToBox . fmap fromIntegral $ canvasSize
+         liftIO . putStrLn . render . doc $ fabric
          withSerializedFabric limit 0 (Just canvas) pixelPile fabric $ \storage ->
-             evalStateT (evalRandT (
-                 do let traversePixel loc = traverseFabric limit (Point2 10 10) (fmap fromIntegral loc)
-                    img <- createImageM traversePixel canvasSize
-                    copyImageToTarget img target
-             ) (mkStdGen frameCount)) storage
+             do  out <- evalStateT outFabric storage
+                 liftIO $ putStrLn "**** outFabric *******************************************"
+                 liftIO $ putStrLn $ render out
+                 out <- evalStateT simpleOutFabric storage
+                 liftIO $ putStrLn "**** simpleOutFabric *******************************************"
+                 liftIO $ putStrLn $ render out
+                 evalStateT (evalRandT (
+                     do let traversePixel loc = traverseFabric limit (fmap fromIntegral cursor) (fmap fromIntegral loc)
+                        img <- createImageM traversePixel canvasSize
+                        copyImageToTarget img target
+                     ) (mkStdGen frameCount)) storage

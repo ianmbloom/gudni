@@ -34,24 +34,24 @@ import Control.Monad.IO.Class
 ring :: IsStyle style
      => SpaceOf style
      -> Int
-     -> CompoundLayout style
+     -> Layout Mono style
 ring r layer =
     let l = fromIntegral layer
     in
     if layer > 0
-    then (scaleBy (l * r) . mask $ circle) `subtractFrom` (scaleBy ((l + 1) * r) . mask $ circle)
-    else (scaleBy ((l + 1) * r) . mask $ circle)
+    then (scaleBy (l * r) . place $ circle) `subtractFrom` (scaleBy ((l + 1) * r) . place $ circle)
+    else (scaleBy ((l + 1) * r) . place $ circle)
 
 layerRing :: IsStyle style
           => Int
           -> Color (SpaceOf style)
-          -> Layout style
+          -> Layout Rgba style
 layerRing depth color = withColor color $ ring 16 (depth + 1)
 
 ringStack :: IsStyle style
           => Point2 (SpaceOf style)
           -> [Color (SpaceOf style)]
-          -> Layout style
+          -> Layout Rgba style
 ringStack point stack =
       translateBy point .
       overlap $ (withColor black $ hatch 1 8):
@@ -63,7 +63,7 @@ constructRayQuery :: forall style m
                      )
                   => SpaceOf style
                   -> Point2 (SpaceOf style)
-                  -> RayMonad (SpaceOf style) m (Layout style)
+                  -> RayMonad (SpaceOf style) m (Layout Rgba style)
 constructRayQuery limit point =
   do (ColorStack stack) <- traverseFabric limit point (Point2 0 0) :: RayMonad (SpaceOf style) m (ColorStack (SpaceOf style))
      return $ ringStack point $ reverse stack
@@ -77,11 +77,11 @@ constructRayColor :: forall style m
                      )
                   => SpaceOf style
                   -> Point2 (SpaceOf style)
-                  -> RayMonad (SpaceOf style) m (Layout style)
+                  -> RayMonad (SpaceOf style) m (Layout Rgba style)
 constructRayColor limit point =
   do (color :: Color (SpaceOf style)) <- traverseFabric limit point (Point2 0 0)
      return $ translateBy point $
               overlap [ withColor black $ hatch 1 4
-                      , withColor color . scaleBy sizeCircle . mask $ circle
-                      , withColor black $ (scaleBy sizeCircle . mask $ circle) `subtractFrom` (scaleBy (sizeCircle + 1) . mask $ circle)
+                      , withColor color . scaleBy sizeCircle . place $ circle
+                      , withColor black $ (scaleBy sizeCircle . place $ circle) `subtractFrom` (scaleBy (sizeCircle + 1) . place $ circle)
                       ]

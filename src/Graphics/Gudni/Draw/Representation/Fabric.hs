@@ -41,14 +41,14 @@ import Data.List
 import qualified Data.Map as M
 import Text.PrettyPrint.GenericPretty
 
-scaler :: IsStyle style => Layout style -> Layout style
+scaler :: IsStyle style => Layout Rgba style -> Layout Rgba style
 scaler = scaleBy 30
 
 constructDag :: ( MonadIO m
                 , IsStyle style
                 )
              => FabricTagId
-             -> DagMonad (SpaceOf style) m (Layout style)
+             -> DagMonad (SpaceOf style) m (Layout Rgba style)
 constructDag fabricTagId =
     error "not implemented for instruction version"
     {-

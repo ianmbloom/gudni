@@ -39,6 +39,7 @@ import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
 import Graphics.Gudni.Raster.ConfineTree.Primitive.Constants
 import Graphics.Gudni.Raster.TagTypes
 import Graphics.Gudni.Raster.Serial.Reference
+import Graphics.Gudni.Util.Debug
 
 import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
 
@@ -56,7 +57,7 @@ makePrimFabricTagId :: Reference FabricTag -> PrimTag_
 makePrimFabricTagId i = fromIntegral i .&. pRIMtAGfABRICiDbITMASK
 
 fromPrimStorage :: PrimTag_ -> StorageId_
-fromPrimStorage i = fromIntegral $ i `shiftR` pRIMtAGsTORAGEiDsHIFT
+fromPrimStorage i = fromIntegral $ (i `shiftR` pRIMtAGsTORAGEiDsHIFT) .&. pRIMtAGfABRICiDbITMASK
 
 fromPrimFabricTagId :: PrimTag_ -> Reference FabricTag
 fromPrimFabricTagId i = fromIntegral $ i .&. pRIMtAGfABRICiDbITMASK

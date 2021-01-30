@@ -21,6 +21,7 @@
 module Graphics.Gudni.Raster.Fabric.Substance.Type
   ( SubstanceType(..)
   , FSubstance(..)
+  , convertSubstance
   )
 where
 
@@ -32,11 +33,11 @@ class HasSpace i => SubstanceType i where
     type FQuery i :: *
 
 data FSubstance i where
-     FConst     :: FQuery i    -> FSubstance i
-     FTexture   :: FTex   i    -> FSubstance i
-     FLinear    ::                FSubstance i
-     FQuadrance ::                FSubstance i
-     deriving (Generic)
+    FConst     :: FQuery i    -> FSubstance i
+    FTexture   :: FTex   i    -> FSubstance i
+    FLinear    ::                FSubstance i
+    FQuadrance ::                FSubstance i
+    deriving (Generic)
 
 instance HasSpace i => HasSpace (FSubstance i) where
     type SpaceOf (FSubstance i) = SpaceOf i
@@ -44,3 +45,15 @@ instance HasSpace i => HasSpace (FSubstance i) where
 deriving instance (Show (FQuery i), Show (FTex i)) => Show (FSubstance i)
 
 instance (Out (FTex i), Out (FQuery i)) => Out (FSubstance i)
+
+convertSubstance :: ( FTex i   ~ FTex j
+                    , FQuery i ~ FQuery j
+                    )
+                 => FSubstance i
+                 -> FSubstance j
+convertSubstance substance =
+    case substance of
+        FConst    c -> FConst    c
+        FTexture  t -> FTexture  t
+        FLinear     -> FLinear
+        FQuadrance  -> FQuadrance

@@ -9,7 +9,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Figure.Transformable
+-- Module      :  Graphics.Gudni.Figure.Transform.Transformable
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --

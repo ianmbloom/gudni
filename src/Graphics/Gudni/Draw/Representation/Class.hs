@@ -17,7 +17,6 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Draw.ArrowHead
 import Graphics.Gudni.Draw.Elipse
 import Graphics.Gudni.Draw.Stroke
-import Graphics.Gudni.Util.FlattenTree
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Util.Debug
 import Linear.V2
@@ -26,29 +25,31 @@ import Control.Monad
 import Control.Applicative
 import Control.Lens
 
+import Graphics.Gudni.Layout.Combinators
+
 mkLine :: Space s => V2 (Point2 s) -> Bezier s
 mkLine (V2 a b) = line a b
 
-openCircle :: forall token s .  (Space s) => s -> CompoundTree s
-openCircle r = (scaleBy (r/2) . mask $ circle) `subtractFrom` (scaleBy r . mask $ circle)
+openCircle :: forall style . (IsStyle style) => SpaceOf style -> Layout Mono style
+openCircle r = (scaleBy (r/2) . place $ circle) `subtractFrom` (scaleBy r . place $ circle)
 
-closedCircle :: forall token s . Space s => s -> CompoundTree s
-closedCircle r =  scaleBy r . mask $ circle
+closedCircle :: forall style . (IsStyle style) => SpaceOf style -> Layout Mono style
+closedCircle r =  scaleBy r . place $ circle
 
 class (HasSpace t) => HasRepresentation t where
-    represent :: (HasDefault token) => Bool -> t -> ShapeTree token (SpaceOf t)
+    represent :: (IsStyle style, SpaceOf t ~ SpaceOf style) => Bool -> t -> Layout Rgba style
 
-instance forall s . (Space s) => HasRepresentation (Bezier s) where
+instance (Space s) => HasRepresentation (Bezier s) where
     represent _ bz@(Bez v0 c v1) =
         let r = 5
             w = 10
             h = 7.5
         in  overlap [ --withColor black . place . withArrowHead (Point2 w h) PointingForward $ bz
-                      (withColor black . withArrowHead (Point2 w h) PointingForward $ bz) :: ShapeTree token s
+                      withColor black . withArrowHead (Point2 w h) PointingForward $ bz
                     --, withColor red   $ translateBy v0 $ closedCircle r
                     , withColor (light blue) . translateBy  c . openCircle $ r
                     --, withColor red   $ translateBy v1 $ closedCircle r
-                    , withColor black . mask . stroke 1 $ makeOpenCurve [bz]
+                    , withColor black . place . stroke 1 $ makeOpenCurve [bz]
                     ]
 
 instance (Alternative f, Monad f, Foldable f, Space s) => HasRepresentation (Outline_ f s) where

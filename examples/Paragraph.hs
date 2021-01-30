@@ -51,7 +51,7 @@ instance Model ParagraphState where
     updateModelState frame elapsedTime inputs state =
         let state' = foldl (flip processInput) state inputs
         in  over stateBase (updateSceneState frame elapsedTime) state'
-    constructScene state status =
+    constructLayout state status =
         do  let layout :: Layout (StyleOf ParagraphState)
                 layout = withColor black . rack $ [paragraphOf Wide mobyDick, scaleBy 10 . mask $ circle]
                 --statusTree = statusDisplay (state ^. stateBase) "Test Paragraph" (lines status)
