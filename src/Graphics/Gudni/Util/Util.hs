@@ -1,4 +1,5 @@
 {-# LANGUAGE RankNTypes         #-}
+{-# LANGUAGE DoAndIfThenElse       #-}
 
 -----------------------------------------------------------------------------
 -- |
@@ -203,7 +204,7 @@ lpad i m = let l = i - length m
 rpad :: Int -> String -> String
 rpad i m = let l = i - length m
            in m ++ replicate l ' '
-           
+
 putStrList :: (Show a) => [a] -> IO ()
 putStrList ls =
   do

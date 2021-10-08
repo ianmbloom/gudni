@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE EmptyDataDecls      #-}
 
 -----------------------------------------------------------------------------
 -- |

@@ -30,6 +30,7 @@ module Graphics.Gudni.Raster.OpenCL.Buffer
 where
 
 import Graphics.Gudni.Raster.Serial.Pile
+import Graphics.Gudni.Util.Debug
 
 import qualified Data.Vector.Storable as VS
 
@@ -59,10 +60,17 @@ pileToBuffer context (Pile cursor _ startPtr) =
         adjustedVecSize = max 1 vecSize -- OpenCL will reject a memory buffer with size 0 so the minimum size is 1.
     in  CLBuffer vecSize <$> clCreateBuffer context [CL_MEM_READ_ONLY, CL_MEM_COPY_HOST_PTR] (adjustedVecSize, castPtr startPtr)
 
+-- | Convert a pile to an OpenCL memory buffer.
+pileToBufferMes :: forall t . (Storable t) => String -> CLContext -> Pile t -> IO (CLBuffer t)
+pileToBufferMes message context (Pile cursor _ startPtr) =
+    let vecSize = (tr (message ++ " cursor") $ fromIntegral cursor) * (tr (message ++ " sizeOf t") $ sizeOf (undefined :: t))
+        adjustedVecSize = tr (message ++ "adjustedVecSize") $ max 1 vecSize -- OpenCL will reject a memory buffer with size 0 so the minimum size is 1.
+    in  CLBuffer vecSize <$> clCreateBuffer context [CL_MEM_READ_ONLY, CL_MEM_COPY_HOST_PTR] (adjustedVecSize, castPtr startPtr)
+
 bufferFromPile :: (Storable a) => String -> Pile a -> CL (CLBuffer a)
 bufferFromPile message pile =
    do context <- clContext <$> ask
-      buffer <- liftIO $ pileToBuffer context pile
+      buffer <- liftIO $ pileToBufferMes message context pile
       --liftIO $ putStrLn $ "  pileBuffer " ++ message ++ " " ++ (show . bufferObject $ buffer)
       return buffer
 

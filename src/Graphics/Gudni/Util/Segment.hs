@@ -1,6 +1,7 @@
 {-# LANGUAGE PatternSynonyms       #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE DoAndIfThenElse       #-}
 
 -----------------------------------------------------------------------------
 -- |

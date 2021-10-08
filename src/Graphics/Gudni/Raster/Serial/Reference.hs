@@ -36,6 +36,7 @@ import Foreign.C.Types(CUInt)
 import Foreign.Ptr
 
 type Reference_ = CUInt
+
 instance Out Reference_ where
     doc x = text . show $ x
     docPrec _ = doc

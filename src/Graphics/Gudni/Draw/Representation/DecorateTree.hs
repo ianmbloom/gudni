@@ -5,6 +5,7 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE UndecidableSuperClasses    #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DoAndIfThenElse #-}
 
 module Graphics.Gudni.Draw.Representation.DecorateTree
   ( constructDecorateTree

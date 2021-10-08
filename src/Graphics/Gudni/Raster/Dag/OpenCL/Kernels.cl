@@ -183,10 +183,10 @@ ulong MWC_MulMod64(ulong a, ulong b, ulong M);
 ulong MWC_PowMod64(ulong a, ulong e, ulong M);
 uint2 MWC_SkipImpl_Mod64(uint2 curr, ulong A, ulong M, ulong distance);
 uint2 MWC_SeedImpl_Mod64(ulong A, ulong M, uint vecSize, uint vecOffset, ulong streamBase, ulong streamGap);
-void MWC64XVEC2_Step(mwc64xvec2_state_t *s);
-void MWC64XVEC2_Skip(mwc64xvec2_state_t *s, ulong distance);
-void MWC64XVEC2_SeedStreams(mwc64xvec2_state_t *s, ulong baseOffset, ulong perStreamOffset);
-uint2 MWC64XVEC2_NextUint2(mwc64xvec2_state_t *s);
+void MWC64XVEC2_Step(PMEM mwc64xvec2_state_t *s);
+void MWC64XVEC2_Skip(PMEM mwc64xvec2_state_t *s, ulong distance);
+void MWC64XVEC2_SeedStreams(PMEM mwc64xvec2_state_t *s, ulong baseOffset, ulong perStreamOffset);
+uint2 MWC64XVEC2_NextUint2(PMEM mwc64xvec2_state_t *s);
 
 // ------------------- functions matching Graphics.Gudni.Raster.Dag.ConfineTree.Type -------------------
 
@@ -201,7 +201,7 @@ typedef struct ConfineTag {
 
 typedef struct DecoTag
     {     Space_ decoTagCut       ;
-            bool decoTagHorizontal;
+           bool  decoTagHorizontal;
           Slice_ decoTagCrossings ;
       DecoTagId_ decoTagLessCut   ;
       DecoTagId_ decoTagMoreCut   ;
@@ -247,9 +247,9 @@ typedef struct TreeStack {
 } TreeStack;
 
 typedef struct BzStack {
-    PMEM Bezier_  bezStack[bEZIERsTACKsIZE];
-    PMEM    Box_  boxStack[bEZIERsTACKsIZE];
-             int  bezStackTop;
+      Bezier_  bezStack[bEZIERsTACKsIZE];
+      Box_  boxStack[bEZIERsTACKsIZE];
+      int  bezStackTop;
 } BzStack;
 
 
@@ -259,6 +259,22 @@ typedef struct TraverseState {
         TreeStack  tSTreeStack  ;
           BzStack  tSBzStack    ;
 } TraverseState;
+
+// --------------------- Load from Dag ---------------------
+
+inline ConfineTag loadConfineTree(Dag *dag, ConfineTagId_ confineTreeId) {
+    return *(dag->dagTreeConfineHeap + (int)confineTreeId);
+}
+
+inline FabricTagId_ loadCrossing ( Dag *dag
+                                 , uint i
+                                 ) {
+    return *(dag->dagCrossingHeap+(int)i);
+}
+
+inline __global DecoTag loadTree(Dag *dag, DecoTagId_ decoTreeId) {
+    return *(dag->dagTreeDecoHeap + (int)decoTreeId);
+}
 
 // ------------------- boilerplate for various stack types -----------------
 
@@ -511,13 +527,13 @@ inline bool isKnobAbsolute(    bool axis
    return isKnobThreshold(0,axis,bez);
 }
 
-inline void initBezierStack (PMEM BzStack *stack) {
+inline void initBezierStack (BzStack *stack) {
    stack->bezStackTop = 0;
 }
 
-inline void pushBezier( PMEM BzStack *stack
-                      ,      Bezier_  bez
-                      ,         Box_  box
+inline void pushBezier(BzStack *stack
+                      , Bezier_  bez
+                      ,    Box_  box
                       ) {
     if (stack->bezStackTop < bEZIERsTACKsIZE - 1) {
         stack->bezStack[stack->bezStackTop] = bez;
@@ -529,9 +545,9 @@ inline void pushBezier( PMEM BzStack *stack
     }
 }
 
-inline Bezier_ popBezier( PMEM BzStack *stack
-                        ,      Bezier_ *bez
-                        ,         Box_ *box
+inline Bezier_ popBezier( BzStack *stack
+                        , Bezier_ *bez
+                        ,    Box_ *box
                         ) {
     Bezier_ ret;
     if (stack->bezStackTop > 0) {
@@ -545,7 +561,7 @@ inline Bezier_ popBezier( PMEM BzStack *stack
     return ret;
 }
 
-inline bool emptyBezierStack ( PMEM BzStack *stack
+inline bool emptyBezierStack ( BzStack *stack
                              ) {
     return stack->bezStackTop <= 0;
 }
@@ -1091,12 +1107,13 @@ inline Point2_ applyAffine(Affine_ a, Point2_ p) {
 // ------------------- functions matching Graphics.Gudni.Raster.Dag.Fabric.Storage -------------------
 
 inline FabricTag_ loadFabricTag(Dag *dag, FabricTagId_ tagId) {
-    return dag->dagFabricTagHeap[tagId];
+    dEBUGiF(printf("tagId %i\n", tagId);)
+    return *(dag->dagFabricTagHeap + tagId);
 }
 
 inline Affine_ loadAffine(Dag *dag, FabricTag_ tag) {
     TransformId_ transformId = fabTagTransformId(tag);
-    return *((Affine_ *)(dag->dagFabricHeap + transformId));
+    return *((Affine_ *) (dag->dagFabricHeap + transformId));
 }
 
 inline Space_ loadConvolve(Dag *dag, FabricTag_ tag) {
@@ -1140,7 +1157,7 @@ inline Color_ textureQuery(        Dag *dag
                           , FabricTag_  tag
                           ,    Point2_  ray
                           ) {
-    return getPixel(dag, loadPictUse(dag, tag), (Loc2_)floor(ray));
+    return getPixel(dag, loadPictUse(dag, tag), (Loc2_)(floor(ray.x),floor(ray.y)));
 }
 
 inline Color_ linearQuery(Point2_ ray) {
@@ -1213,7 +1230,7 @@ inline void toggleShapeActive(  FabricStack *stack
                              ) {
     bool done = false;
     int i = stack->fsSize;
-    dEBUGiF(printf("toggleShapeActive i %i newFabId %i newRay %v2f\n",i, newFabId, newRay);)
+    //dEBUGiF(printf("toggleShapeActive i %i newFabId %i newRay %v2f\n",i, newFabId, newRay);)
     while (i > 0 && !done) {
         FabricTagId_ oldFabId = stack->fsStack[i-1];
         Point2_      oldRay   = stack->fsRayStack[i-1];
@@ -1233,9 +1250,7 @@ inline void toggleShapeActive(  FabricStack *stack
     if (!done) { // if we reach the bottom just insert on the end.
         dEBUGiF(printf("toggleShapeActive !done i %i\n",i);)
         insertTagId(stack,i,newFabId, newRay);
-
     }
-
 }
 
 inline void combineFabricStacks (         Dag *dag
@@ -1243,12 +1258,13 @@ inline void combineFabricStacks (         Dag *dag
                                 ,     DecoTag  tree
                                 ,     Point2_  ray
                                 ) {
-    dEBUGiF(printf("combineFabricStacks start %i length %i \n", sliceStart(tree.decoTagCrossings), sliceLength(tree.decoTagCrossings));)
+    //dEBUGiF(printf("combineFabricStacks start %i length %i \n", sliceStart(tree.decoTagCrossings), sliceLength(tree.decoTagCrossings));)
     for ( uint i = sliceStart(tree.decoTagCrossings)
         ; i < (sliceStart(tree.decoTagCrossings) + sliceLength(tree.decoTagCrossings))
         ; i ++
         ) {
-       toggleShapeActive(stack, dag->dagCrossingHeap[(int)i], ray);
+       FabricTagId_ tagId = loadCrossing(dag, i);
+       // toggleShapeActive(stack, tagId, ray);
     }
 }
 
@@ -1257,8 +1273,10 @@ inline Point2_ traverseDecorateTree(         Dag *dag
                                    ,     Point2_  ray
                                    ,  DecoTagId_  decoTreeId
                                    ) {
+
     bool done = false;
-    Point2_ anchor;
+    Point2_ anchor = (Point2_) (777.777,777.777);
+    /*
     Space_ parentCut  = (-MAXFLOAT);
     Space_ parentLine = (-MAXFLOAT);
     bool axis = false; // is vertical
@@ -1269,7 +1287,7 @@ inline Point2_ traverseDecorateTree(         Dag *dag
             done = true;
         }
         else {
-            DecoTag tree = dag->dagTreeDecoHeap[(int)decoTreeId];
+            DecoTag tree = loadTree(dag, decoTreeId);
             axis = tree.decoTagHorizontal == 1;
             Space_ cut = tree.decoTagCut;
             combineFabricStacks(dag, fabricStack, tree, ray);
@@ -1281,10 +1299,12 @@ inline Point2_ traverseDecorateTree(         Dag *dag
             else {
                 decoTreeId = tree.decoTagMoreCut;
             }
-            dEBUGiF(printf("        decoTreeId %i\n", decoTreeId);)
+            // dEBUGiF(printf("        decoTreeId %i\n", decoTreeId);)
+            done = true;
         }
         axis = !axis;
     }
+    */
     return anchor;
 }
 
@@ -1298,7 +1318,7 @@ inline void modifyItemStackIfCrossed(      Space_  limit
                                     ,     Point2_  ray
                                     ,  PrimTagId_  primTagId
                                     ) {
-    PrimTag_ primTag = dag->dagPrimTagHeap[(int)primTagId];
+    PrimTag_ primTag = *(dag->dagPrimTagHeap + (int)primTagId);
     bool debugFlag = primTagId == 0;
     bool crosses = crossesPrim(debugFlag, limit, bzStack, dag, primTag, start, ray);
     //dEBUGiF(printf("crossesPrim %i primFabricTagId %i result %i\n",primTagId, primTagFabricTagId(primTag), crosses);)
@@ -1325,11 +1345,12 @@ inline void traverseCTBox(        Space_  limit
     Box_ box = boxAroundPoints(anchor, ray);
     resetTreeStack(spine);
     pushTreeStack(spine, confineTreeId);
+    /*
     while (!emptyTreeStack(spine)) {
         confineTreeId = popTreeStack(spine);
         //dEBUGiF(printf("confineTreeId %i \n", confineTreeId);)
         if (confineTreeId != nULLcONFINEtAGiD) {
-            ConfineTag tree = dag->dagTreeConfineHeap[(int)confineTreeId];
+            ConfineTag tree = loadConfineTree(dag, confineTreeId);
             bool axis = tree.confineTagHorizontal == 1;
             if (athwart(axis, maxBox(box)) > tree.confineTagCut) {
                 pushTreeStack(spine, tree.confineTagMoreCut);
@@ -1347,6 +1368,7 @@ inline void traverseCTBox(        Space_  limit
                                     );
         }
     }
+    */
 }
 
 // ------------------- functions matching Graphics.Gudni.Raster.Dag.ConfineTree.Query -------------------
@@ -1364,11 +1386,11 @@ inline void queryConfineTreePoint(        Space_  limit
     dEBUGiF(printf("beforeDecorate\n");)
     dEBUGiF(showFabricStack(dag,tS);)
     Point2_ anchor = traverseDecorateTree(dag, fabricStack, ray, decoId);
-    dEBUGiF(printf("afterDecorate\n");)
-    dEBUGiF(showFabricStack(dag,tS);)
-    traverseCTBox(limit, dag, bzStack, fabricStack, spine, anchor, ray, confineId);
-    dEBUGiF(printf("afterTraverseCT\n");)
-    dEBUGiF(showFabricStack(dag,tS);)
+    // dEBUGiF(printf("afterDecorate\n");)
+    // dEBUGiF(showFabricStack(dag,tS);)
+    // traverseCTBox(limit, dag, bzStack, fabricStack, spine, anchor, ray, confineId);
+    // dEBUGiF(printf("afterTraverseCT\n");)
+    // dEBUGiF(showFabricStack(dag,tS);)
 }
 
 // ------------------- functions matching Graphics.Gudni.Raster.Dag.Fabric.Traverse -------------------
@@ -1428,6 +1450,8 @@ inline Color_ traverseFabric( Space_ limit
                             , Point2_ ray
                             ) {
     resetTraverseState(tS);
+    dEBUGiF(printf("inTraverseFabric %f %f \n", ray.x, ray.y);)
+    float dbg; // temporary for debugging.
     bool done = false;
     Color_ aboveAnswer, belowAnswer;
     FabricTag_ confineTag;
@@ -1484,6 +1508,7 @@ inline Color_ traverseFabric( Space_ limit
                       break;
                  case fABRICiSaFFINE:
                       ray = applyAffine(loadAffine(dag, tag), ray);
+                      dEBUGiF(printf("****************affine set %f %f \n", ray.x, ray.y);)
                       break;
                  case fABRICiSfACET:
                       // ray = inverseFacet(limit, flatness, &(tS->tSBzStack), loadFacet(dag, tag),  ray);
@@ -1495,19 +1520,20 @@ inline Color_ traverseFabric( Space_ limit
                      dEBUGiF(printf("MARSHALL DEFAULT codePointer %i tag %x\n", codePointer, tag);)
                      break;
              }
-             dEBUGiF(printf("afterMarshall codePointer %i tag %x\n", codePointer, tag);)
+             dEBUGiF(printf("afterMarshall codePointer %i tag %x ray %f\n", codePointer, tag, ray);)
              dEBUGiF(showFabricStack(dag,tS);)
              codePointer -= 1;
              done = false;
-         }
-    }
-    return popAnswer(tS);
+         } // else
+    } // ! done
+    return cLEARbLACK; // popAnswer(tS);
 }
 
 // ------------------- Run Kernel ---------------------
 
 inline Space2_ getRandom2(Dag *dag) {
-    uint2 point = MWC64XVEC2_NextUint2(&dag->dagRandomSeed);
+    dag->e
+    uint2 point = MWC64XVEC2_NextUint2(&);
     Space2_ ret;
     ret.x = (Space_)((double)point.x / (double)0xFFFFFFFF);
     ret.y = (Space_)((double)point.y / (double)0xFFFFFFFF);
@@ -1553,7 +1579,8 @@ inline void initDag
     dag->dagTreeDecoHeap    = treeDecoHeap   ;
     dag->dagCrossingHeap    = crossingHeap   ;
     dag->dagPictHeap        = pictHeap       ;
-    MWC64XVEC2_SeedStreams(&dag->dagRandomSeed, thread, 0);
+
+    MWC64XVEC2_SeedStreams(&(dag->dagRandomSeed), thread, 0);
 }
 
 __kernel void traverseDagKernel
@@ -1585,12 +1612,15 @@ __kernel void traverseDagKernel
                       );
     // int sample = get_global_id(2);
     //dEBUGiF(printf("---pos %v2i get_global_id(0) %i get_global_id(1) %i get_local_id(0) %i get_local_id(1) %i\n", pos, get_global_id(0) ,get_global_id(1), get_local_id(0), get_local_id(1));)
+    for (int k=0; k < 12; k++) {
+        dEBUGiF(printf("fabricTagHeap %x\n", fabricTagHeap[k]);)
+    }
     Dag dag;
     TraverseState tS;
     Color_ accColor = cLEARbLACK;
     if (pos.x < bitmapSize.x && pos.y < bitmapSize.y) {
          // dEBUGiF(printf("sizeOf (DecoTag) %i\n", sizeof(DecoTag));)
-         // dEBUGiF(showDecoTagHeap(7, treeDecoHeap);)
+         dEBUGiF(showDecoTagHeap(16, treeDecoHeap);)
          // dEBUGiF(printf("sizeOf (ConfineTag) %i\n", sizeof(ConfineTag));)
          // dEBUGiF(showConfineTagHeap(7, treeConfineHeap);)
          // dEBUGiF(printf("----------inTraverseDagKernel-----------%i %i\n", get_global_id(0),get_global_id(1));)
@@ -1611,16 +1641,16 @@ __kernel void traverseDagKernel
                     ,  thread          //
                     );
              float2 ray = convert_float2(pos) + getRandom2(&dag);
-             dEBUGiF(printf("sample %i ray %v2f \n", sample, ray);)
-             accColor += traverseFabric(  cROSSsPLITlIMIT
-                                       ,  tAXICABfLATNESS
-                                       , &dag
-                                       , &tS
-                                       ,  startCodePointer
-                                       ,  ray
-                                       );
+             // dEBUGiF(printf("sample %i ray %v2f \n", sample, ray);)
+             // accColor += traverseFabric(  cROSSsPLITlIMIT
+             //                           ,  tAXICABfLATNESS
+             //                           , &dag
+             //                           , &tS
+             //                           ,  startCodePointer
+             //                           ,  ray
+             //                           );
          } // for sample
-         dEBUGiF(printf("pos %v2i accColor %v4f bitmapSize %v2i \n", pos, accColor, bitmapSize);)
+        // dEBUGiF(printf("pos %v2i accColor %v4f bitmapSize %v2i \n", pos, accColor, bitmapSize);)
          if (pos.x == dEBUG0 || pos.y == dEBUG1) {accColor = composite((Color_)(0.0,0.0,1.0,0.25),accColor);}
          // else {accColor=(Color_)(0.0,0.5,0.5,1.0);}
          writePixelGlobal ( pos
@@ -1720,7 +1750,7 @@ uint2 MWC_SeedImpl_Mod64(ulong A, ulong M, uint vecSize, uint vecOffset, ulong s
 enum{ MWC64XVEC2_A = 4294883355U };
 enum{ MWC64XVEC2_M = 18446383549859758079UL };
 
-void MWC64XVEC2_Step(mwc64xvec2_state_t *s)
+void MWC64XVEC2_Step(PMEM mwc64xvec2_state_t *s)
 {
 	uint2 X=s->x, C=s->c;
 
@@ -1734,7 +1764,7 @@ void MWC64XVEC2_Step(mwc64xvec2_state_t *s)
 	s->c=Cn;
 }
 
-void MWC64XVEC2_Skip(mwc64xvec2_state_t *s, ulong distance)
+void MWC64XVEC2_Skip(PMEM mwc64xvec2_state_t *s, ulong distance)
 {
 	uint2 tmp0=MWC_SkipImpl_Mod64((uint2)(s->x.s0,s->c.s0), MWC64XVEC2_A, MWC64XVEC2_M, distance);
 	uint2 tmp1=MWC_SkipImpl_Mod64((uint2)(s->x.s1,s->c.s1), MWC64XVEC2_A, MWC64XVEC2_M, distance);
@@ -1742,7 +1772,7 @@ void MWC64XVEC2_Skip(mwc64xvec2_state_t *s, ulong distance)
 	s->c=(uint2)(tmp0.y, tmp1.y);
 }
 
-void MWC64XVEC2_SeedStreams(mwc64xvec2_state_t *s, ulong baseOffset, ulong perStreamOffset)
+void MWC64XVEC2_SeedStreams(PMEM mwc64xvec2_state_t *s, ulong baseOffset, ulong perStreamOffset)
 {
 	uint2 tmp0=MWC_SeedImpl_Mod64(MWC64XVEC2_A, MWC64XVEC2_M, 2, 0, baseOffset, perStreamOffset);
 	uint2 tmp1=MWC_SeedImpl_Mod64(MWC64XVEC2_A, MWC64XVEC2_M, 2, 1, baseOffset, perStreamOffset);
@@ -1751,7 +1781,7 @@ void MWC64XVEC2_SeedStreams(mwc64xvec2_state_t *s, ulong baseOffset, ulong perSt
 }
 
 //! Return a 32-bit integer in the range [0..2^32)
-uint2 MWC64XVEC2_NextUint2(mwc64xvec2_state_t *s)
+uint2 MWC64XVEC2_NextUint2(PMEM mwc64xvec2_state_t *s)
 {
 	uint2 res=s->x ^ s->c;
 	MWC64XVEC2_Step(s);
@@ -1775,7 +1805,7 @@ void showDecoTagHeap(int size, GMEM DecoTag *treeDecoHeap) {
 }
 
 void showDecoTag(DecoTag tag) {
-    printf ("  decoTagCut       %2i %f  \n" , (long) &tag.decoTagCut       - (long)&tag, tag.decoTagCut         );
+    printf ("  decoTagCut       %2i %f\n"   , (long) &tag.decoTagCut       - (long)&tag, tag.decoTagCut         );
     printf ("  decoTagCrossings %2i %v2i\n" , (long) &tag.decoTagCrossings - (long)&tag, tag.decoTagCrossings   );
     printf ("  decoTagLessCut   %2i "       , (long) &tag.decoTagLessCut   - (long)&tag); if (tag.decoTagLessCut == nULLdECOtAGiD) {printf("null\n");} else {printf("%i  \n", tag.decoTagLessCut);}
     printf ("  decoTagMoreCut   %2i "       , (long) &tag.decoTagMoreCut   - (long)&tag); if (tag.decoTagMoreCut == nULLdECOtAGiD) {printf("null\n");} else {printf("%i  \n", tag.decoTagMoreCut);}
@@ -1805,7 +1835,7 @@ void showFabricStack(Dag *dag, TraverseState *tS) {
 }
 
 void showAnswer(Color_ color) {
-  printf("%2.2f,%2.2f,%2.2f,%2.2f", color.s0, color.s1, color.s2, color.s3);
+  printf("ans %2.2f,%2.2f,%2.2f,%2.2f", color.s0, color.s1, color.s2, color.s3);
 }
 
 void showAnswerStack(TraverseState *tS) {

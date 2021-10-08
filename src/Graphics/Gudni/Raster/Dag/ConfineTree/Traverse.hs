@@ -10,6 +10,7 @@
 {-# LANGUAGE UndecidableSuperClasses    #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE StandaloneDeriving         #-}
+{-# LANGUAGE DoAndIfThenElse            #-}
 
 module Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
   ( traverseCTAlong

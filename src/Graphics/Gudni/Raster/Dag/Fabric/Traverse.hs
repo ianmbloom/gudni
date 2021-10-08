@@ -8,6 +8,7 @@
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DoAndIfThenElse #-}
 
 module Graphics.Gudni.Raster.Dag.Fabric.Traverse
   ( traverseFabric

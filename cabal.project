@@ -1,5 +1,4 @@
-packages: submodules/CLUtil
-          submodules/FontyFruity
+packages: ../CLUtil
           submodules/opencl
           ./
 package sdl2

@@ -50,13 +50,13 @@ instance Rasterizer DagOpenCLState where
            let limit = realToFrac cROSSsPLITlIMIT
                canvas = sizeToBox . fmap fromIntegral $ canvasSize
            withSerializedFabric limit 0 (Just canvas) pixelPile fabric $ \storage ->
-               do let start = storageCodeStart storage
+               do let codeStart = storageCodeStart storage
                   liftIO $ runCL (rasterizer ^. dagOpenCLState) $
                       withBuffersInCommon storage $ \bic ->
                           withOutputBuffer canvasSize target $ \ outputBuffer ->
                               runTraverseDagKernelTiles rasterizer
                                                         bic
-                                                        start
+                                                        codeStart
                                                         canvasSize
                                                         frameCount
                                                         cursor

@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE ViewPatterns               #-}
+{-# LANGUAGE DoAndIfThenElse            #-}
 
 module Graphics.Gudni.Raster.Thresholds.OpenCL.ProcessBuffers
   ( collectTileBlocks

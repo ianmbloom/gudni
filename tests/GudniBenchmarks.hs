@@ -62,7 +62,7 @@ initialModel pictureMap =
         , _stateCursor      = Point2 0 0
         }
     , _statePictureMap  = pictureMap
-    , _stateCurrentTest = 8
+    , _stateCurrentTest = 26
     }
 
 getTest :: BenchmarkState -> (String, SubSpace -> Int -> Layout DefaultStyle)

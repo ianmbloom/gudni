@@ -10,6 +10,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE StandaloneDeriving    #-}
+{-# LANGUAGE EmptyDataDecls        #-}
 
 -----------------------------------------------------------------------------
 -- |

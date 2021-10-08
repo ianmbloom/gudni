@@ -136,14 +136,14 @@ getGlyph codepoint =
                 glyphVector :: V.Vector F.RawGlyph
                 (advance, glyphVector) = F.getCharacterGlyphsAndMetrics font (chr . unCodePoint $ codepoint)
                 -- get the general metadata header for the font.
-                header = font ^. F.fontHorizontalHeader
+                header = FI._fontHorizontalHeader font
                 -- pull the acent and descent information for the header.
-                ascent  = (fromJust header) ^. FI.hheaAscent
-                descent = (fromJust header) ^. FI.hheaDescent
+                (FI.FWord ascent ) = FI._hheaAscent (fromJust header)
+                (FI.FWord descent) = FI._hheaDescent (fromJust header)
                 -- get the list of contours from first rawglyph.
                 contours :: [VU.Vector (Int16, Int16)]
                 contours = if V.length glyphVector > 0
-                           then (V.head glyphVector) ^. F.rawGlyphContour
+                           then F._rawGlyphContour (V.head glyphVector)
                            else []
                 height = ascent + descent
                 vertices :: [[(Int16,Int16)]]

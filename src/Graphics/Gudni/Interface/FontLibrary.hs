@@ -31,10 +31,13 @@ import Data.Maybe (fromJust, fromMaybe, listToMaybe)
 import Data.List (isPrefixOf)
 import Data.Monoid (First(..))
 import Graphics.Text.TrueType (buildCache, enumerateFonts, findFontInCache, FontDescriptor(..), FontCache(..), FontStyle(..))
-
+import Graphics.Gudni.Util.Debug
 
 findDefaultFont :: IO String
-findDefaultFont = fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
+findDefaultFont =
+    case os of
+      "linux" -> fromMaybe "FreeSerif.ttf" <$> listToMaybe . filter (isInfixOf "FreeSerif.ttf") <$> fontLibrary
+      _       -> fromMaybe "Times New Roman.ttf" <$> listToMaybe . filter (isInfixOf "Times New Roman.ttf") <$> fontLibrary
 
 -- | Make a relative path absolute on MacOS.
 absolutizeMacPath :: String -> IO String
@@ -50,6 +53,7 @@ fontDirectories :: IO [String]
 fontDirectories =
   case os of
     "darwin" -> mapM absolutizeMacPath ["~/Library/Fonts/", "/Library/Fonts/", "/System/Library/Fonts/Supplemental/"]
+    "linux"  -> return ["/usr/share/fonts/truetype/freefont","/usr/local/share/fonts"]
     _        -> return ["C:\\windows\\fonts\\"]
 
 -- | Get the absolute contents of a director.
@@ -63,7 +67,7 @@ fontLibrary :: IO [String]
 fontLibrary =
   do dirs <- fontDirectories
      files <- concat <$> mapM absoluteDirectoryContents dirs
-     return $ filter (isSuffixOf "ttf") files
+     return $ tr "fontLibrary" $ filter (isSuffixOf "ttf") files
 
 {-
 findDefaultFont :: IO String

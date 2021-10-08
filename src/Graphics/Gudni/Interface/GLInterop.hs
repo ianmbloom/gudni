@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiParamTypeClasses    #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE EmptyDataDecls #-}
 
 -----------------------------------------------------------------------------
 -- |

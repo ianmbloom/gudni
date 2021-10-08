@@ -1,6 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE EmptyDataDecls      #-}
 
 module Graphics.Gudni.Raster.Dag.FromLayout
   ( PicturePass(..)

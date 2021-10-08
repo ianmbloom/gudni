@@ -88,7 +88,7 @@ addTreeS limit decorationLimit slice =
     do pile <- use dagPrimTagIds
        inTree $ buildConfineTree limit decorationLimit slice pile
 
-loadFabricTagS  :: (DagConstraints s m) => FabricTagId    -> DagMonad s m FabricTag
+loadFabricTagS  :: (DagConstraints s m) => FabricTagId -> DagMonad s m FabricTag
 loadFabricTagS  fabricTagId = overStateT dagFabricStorage $ loadFabricTag      fabricTagId
 
 loadColorS :: (MonadIO m, Storable s, Space s) => FabricTag -> DagMonad s m (Color s)

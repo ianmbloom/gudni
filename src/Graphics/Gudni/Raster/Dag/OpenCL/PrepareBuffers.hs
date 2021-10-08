@@ -127,7 +127,9 @@ createBuffersInCommon :: (Storable s, Space s)
                       => DagStorage s
                       -> CL (BuffersInCommon s)
 createBuffersInCommon storage =
-    do  primBezierHeap   <- bufferFromPile   "primBezierHeap  " (storage ^. dagTreeStorage . treePrimStorage . primBezierPile  )
+    do  list <- pileToList (storage ^. dagFabricStorage . fabricTagPile)
+        liftIO . putStrLn $ "fabricTagPile" ++ show list
+        primBezierHeap   <- bufferFromPile   "primBezierHeap  " (storage ^. dagTreeStorage . treePrimStorage . primBezierPile  )
         primFacetHeap    <- bufferFromPile   "primFacetHeap   " (storage ^. dagTreeStorage . treePrimStorage . primFacetPile   )
         primBoxHeap      <- bufferFromPile   "primBoxHeap     " (storage ^. dagTreeStorage . treePrimStorage . primBoxPile     )
         primTagHeap      <- bufferFromPile   "primTagHeap     " (storage ^. dagTreeStorage . treePrimStorage . primTagPile     )
