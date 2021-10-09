@@ -2,7 +2,7 @@
 {-# LANGUAGE ConstraintKinds  #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-module Graphics.Gudni.Raster.State
+module Graphics.Gudni.Raster.Dag.State
    ( Tile(..)
    , DagState(..)
    , dagFabricTokenMap
@@ -18,8 +18,8 @@ module Graphics.Gudni.Raster.State
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.Raster.Storage
-import Graphics.Gudni.Raster.TagTypes
+import Graphics.Gudni.Raster.Dag.Storage
+import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Interface.DrawTarget
 
 import Control.Lens

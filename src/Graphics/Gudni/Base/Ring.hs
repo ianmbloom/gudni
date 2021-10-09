@@ -1,8 +1,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Graphics.Gudni.Base.Loop
-  ( Loop(..)
+module Graphics.Gudni.Base.Ring
+  ( Ring(..)
   )
 where
 
@@ -15,12 +15,12 @@ overLoopNeighbors' f vector =
   let rotated = rest vector <|> pure (firstLink vector)
   in  zipWithChain f vector rotated
 
-class Chain t => Loop t where
+class Chain t => Ring t where
     -- | Zip each element with its next neighbor or the first element.
     overLoopNeighbors :: (a -> a -> b) -> t a -> t b
 
-instance Loop V.Vector where
+instance Ring V.Vector where
    overLoopNeighbors = overLoopNeighbors'
 
-instance Loop [] where
+instance Ring [] where
    overLoopNeighbors = overLoopNeighbors'

@@ -35,7 +35,7 @@ where
 import Graphics.Gudni.Base
 import Graphics.Gudni.Base.Reversible
 import Graphics.Gudni.Base.Chain
-import Graphics.Gudni.Base.Loop
+import Graphics.Gudni.Base.Ring
 
 import Graphics.Gudni.Figure.Principle.Space
 import Graphics.Gudni.Figure.Principle.Point

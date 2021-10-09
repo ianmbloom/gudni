@@ -55,13 +55,13 @@ instance (Storable s, Space s) => Answer (Color s) where
     outsideShape = clearBlack
     insideShape  = opaqueWhite
     traverseStop op color =
-      case op of
-        -- in the case of a composite combination we can short circuit the combination if the first value is opaque. (alpha ~ 1)
-        FComposite -> isOpaque color
-        -- conversely in the case of a mask we can short circut the combination if the first value is clear. (alpha ~ 0)
-        FMask      -> isClear  color
-        -- any other type of combination can't short circuit.
-        _          -> False
+        case op of
+            -- in the case of a composite combination we can short circuit the combination if the first value is opaque. (alpha ~ 1)
+            FComposite -> isOpaque color
+            -- conversely in the case of a mask we can short circut the combination if the first value is clear. (alpha ~ 0)
+            FMask      -> isClear  color
+            -- any other type of combination can't short circuit.
+            _          -> False
     applyCombine combiner a b = combineColor combiner a b
     applyFilter filt =
         case filt of

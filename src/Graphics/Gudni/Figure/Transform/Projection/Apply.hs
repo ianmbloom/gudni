@@ -12,7 +12,7 @@ module Graphics.Gudni.Figure.Transform.Projection.Apply
 where
 
 import Graphics.Gudni.Base.Chain
-import Graphics.Gudni.Base.Loop
+import Graphics.Gudni.Base.Ring
 
 import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Transform.Projection.BezierSpace

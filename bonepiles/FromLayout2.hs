@@ -40,7 +40,6 @@ import Graphics.Gudni.Layout.Style
 import Graphics.Gudni.Layout.Proximity
 import Graphics.Gudni.Layout.ApplyProximity
 import Graphics.Gudni.Layout.Font
-import Graphics.Gudni.Layout.Layout
 
 import Graphics.Gudni.Util.Util
 

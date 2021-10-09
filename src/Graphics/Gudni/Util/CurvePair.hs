@@ -16,7 +16,7 @@ where
 
 import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Bezier.Type
-import Graphics.Gudni.Base.Loop
+import Graphics.Gudni.Base.Ring
 
 import Control.Lens
 import Linear.V2
@@ -56,7 +56,7 @@ makeBezier :: CurvePair s -> CurvePair s -> Bezier s
 makeBezier a b = Bez (a ^. onCurve) (a ^. offCurve) (b ^. onCurve)
 
 -- | Turn a sequence of curve pairs into a sequence of curve sections (called beziers)
-pairsToBeziers :: Loop t => t (CurvePair s) -> t (Bezier s)
+pairsToBeziers :: Ring t => t (CurvePair s) -> t (Bezier s)
 pairsToBeziers  = overLoopNeighbors makeBezier
 
 bezierToCurvePair :: Bezier s -> CurvePair s

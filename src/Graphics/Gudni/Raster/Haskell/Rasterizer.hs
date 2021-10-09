@@ -25,11 +25,11 @@ import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Interface.TargetFromImage
 import Graphics.Gudni.Interface.InterfaceSDL
 import Graphics.Gudni.Raster.Class
+import Graphics.Gudni.Raster.Serialize
 
 import Graphics.Gudni.Raster.Serial.Slice
 import Graphics.Gudni.Raster.Serial.Pile
 
-import Graphics.Gudni.Raster.WithSerialized
 import Graphics.Gudni.Raster.Fabric.Type
 import Graphics.Gudni.Raster.Fabric.Traverse
 import Graphics.Gudni.Raster.Fabric.Ray.Class
@@ -40,7 +40,6 @@ import Graphics.Gudni.Raster.Fabric.Out
 
 import Graphics.Gudni.Layout
 
-import CLUtil
 import Control.Lens
 import Control.Monad.State
 import Control.Monad.Random

@@ -130,7 +130,7 @@ segmentsToShape :: (Space s) => [[Segment s]] -> Shape s
 segmentsToShape = Shape . map segmentsToOutline
 
 -- | Convert a list of
-segmentsToOutline :: (Loop f, Space s) => [Segment s] -> Outline_ f s
+segmentsToOutline :: (Ring f, Space s) => [Segment s] -> Outline_ f s
 segmentsToOutline = Outline . pairsToBeziers . chainFromList . segmentsToCurvePairs
 
 -- | Basic curve definition for a simple line (Temporary until stroke implemented.)
@@ -152,10 +152,10 @@ oldLine thickness p0 p1 = segmentsToShape . pure $ lineCurve thickness p0 p1
 class HasFromSegments a where
   fromSegments :: [Segment (SpaceOf a)] -> a
 
-instance (Loop f, Space s) => HasFromSegments (Outline_ f s) where
+instance (Ring f, Space s) => HasFromSegments (Outline_ f s) where
   fromSegments = segmentsToOutline
 
-instance (Loop f, Space s) => HasFromSegments (Shape_ f s) where
+instance (Ring f, Space s) => HasFromSegments (Shape_ f s) where
   fromSegments = Shape . pure . segmentsToOutline
 
 instance Hashable s => Hashable (Segment s) where

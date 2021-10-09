@@ -10,7 +10,7 @@ module Graphics.Gudni.Util.FlattenTree
   )
 where
 
-import Graphics.Gudni.Base.Loop
+import Graphics.Gudni.Base.Ring
 import Graphics.Gudni.Figure
 import Graphics.Gudni.ShapeTree
 

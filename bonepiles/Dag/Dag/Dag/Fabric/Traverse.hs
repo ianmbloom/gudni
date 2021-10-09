@@ -10,7 +10,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 
-module Graphics.Gudni.Raster.Fabric.Traverse
+module Graphics.Gudni.Raster.Dag.Fabric.Traverse
   ( traverseFabric
   )
 where
@@ -18,27 +18,28 @@ where
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 
-import Graphics.Gudni.Raster.TagTypes
-import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
-import Graphics.Gudni.Raster.ConfineTree.Primitive.Tag
-import Graphics.Gudni.Raster.ConfineTree.Primitive.Storage
-import Graphics.Gudni.Raster.ConfineTree.Primitive.Stack
-import Graphics.Gudni.Raster.Fabric.Type
-import Graphics.Gudni.Raster.Fabric.Tag
-import Graphics.Gudni.Raster.Fabric.Storage
-import Graphics.Gudni.Raster.Fabric.Ray.Class
-import Graphics.Gudni.Raster.Fabric.Transformer.Type
-import Graphics.Gudni.Raster.Fabric.Filter.Type
-import Graphics.Gudni.Raster.Fabric.Ray.Answer
-import Graphics.Gudni.Raster.Fabric.Substance.Type
-import Graphics.Gudni.Raster.Fabric.Combine.Type
-import Graphics.Gudni.Raster.Fabric.Combine.Tag
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.ConfineTree.Storage
-import Graphics.Gudni.Raster.ConfineTree.Type
-import Graphics.Gudni.Raster.Storage
-import Graphics.Gudni.Raster.State
-import Graphics.Gudni.Raster.Constants
+import Graphics.Gudni.Raster.Dag.TagTypes
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Tag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Storage
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Stack
+import Graphics.Gudni.Raster.Dag.Fabric.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Tag
+import Graphics.Gudni.Raster.Dag.Fabric.Storage
+import Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
+import Graphics.Gudni.Raster.Dag.Fabric.Transformer.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Filter.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Ray.Answer
+import Graphics.Gudni.Raster.Dag.Fabric.Substance.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Combine.Type
+import Graphics.Gudni.Raster.Dag.Fabric.Combine.Tag
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
+import Graphics.Gudni.Raster.Dag.ConfineTree.Type
+import Graphics.Gudni.Raster.Dag.Storage
+import Graphics.Gudni.Raster.Dag.State
+import Graphics.Gudni.Raster.Dag.Serialize
+import Graphics.Gudni.Raster.Dag.Constants
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.Serial.Reference
 
@@ -60,26 +61,25 @@ import Control.Monad.Loops
 
 data TraverseState ray q =
      TraverseState
-     { _tSFabricStack  :: [FabricItem ray]
+     { _tSFabricStack  :: [ShapeStack]
+     , _tSRayStack     :: [ray]
      , _tSAnswerStack  :: [q]
      , _tSRay          :: ray
      , _tSCodePointer  :: FabricTagId
      }
 makeLenses ''TraverseState
 
-instance (Out ray) => Out (FabricItem ray) where
-    doc (Item tagId ray) = doc tagId <+> doc ray
-    docPrec _ = doc
-
 instance (Out ray, Out q) => Out (TraverseState ray q) where
     doc state =
-        hang (text "FabricStack") 4 (vcat $ map doc (state ^. tSFabricStack))
-        $$
-        hang (text "AnswerStack") 4 (vcat $ map doc (state ^. tSAnswerStack))
+      let stacks = zip (state ^. tSFabricStack) (state ^. tSRayStack)
+          docStack (shapeStack, ray) = hang (doc ray) 4 (vcat $ map doc shapeStack)
+      in  hang (text "FabricStack") 4 (vcat $ map docStack stacks)
+          $$
+          hang (text "AnswerStack") 4 (vcat $ map doc (state ^. tSAnswerStack))
     docPrec _ = doc
 
 initTraverseState :: ray -> FabricTagId -> TraverseState ray q
-initTraverseState initRay tagId = TraverseState [] [] initRay tagId
+initTraverseState initRay tagId = TraverseState [] [] [] initRay tagId
 
 emptyStack :: (MonadState g m) => Lens' g [a] -> m Bool
 emptyStack lens = null <$> use lens
@@ -120,22 +120,44 @@ pushFabric :: ( Eq ray
 pushFabric =
     do ray <- use tSRay
        code <- use tSCodePointer
-       pushStack tSFabricStack (Item ray code)
+       rayEmpty <- emptyStack tSRayStack
+       newRay <- if rayEmpty
+                 then return True
+                 else do oldRay <- peekStack "tSRayStack" tSRayStack
+                         return $ ray == oldRay
+       if newRay
+       then do pushStack tSFabricStack [code]
+               pushStack tSRayStack    ray
+       else overShapeStack (return . (code:))
 
 popFabric :: MonadIO m
           => StateT (TraverseState ray q) m ()
 popFabric =
-    do (Item ray code)  <- popStack "tSFabricStack" tSFabricStack
-       tSRay .= ray
-       tSCodePointer .= code
+    do rayEmpty <- emptyStack tSRayStack
+       if rayEmpty
+       then error "popFabric empty"
+       else do ray  <- popStack "tSRayStack"    tSRayStack
+               cs   <- popStack "tSFabricStack" tSFabricStack
+               when (not . null . tail $ cs) $
+                   do pushStack tSRayStack ray
+                      pushStack tSFabricStack (tail cs)
+               tSRay .= ray
+               tSCodePointer .= head cs
 
-overShapeStack :: MonadIO m => ([FabricItem ray] -> m [FabricItem ray]) -> StateT (TraverseState ray q) m ()
+overShapeStack :: MonadIO m => (ShapeStack -> m ShapeStack) -> StateT (TraverseState ray q) m ()
 overShapeStack f =
-    do stack <- use tSFabricStack
-       --liftIO . putStrLn $ "stack full " ++ show stack
-       newStack <- lift $ f stack
-       --liftIO . putStrLn $ "newStack full " ++ show newStack
-       tSFabricStack .= newStack
+    do rayEmpty <- emptyStack tSRayStack
+       if rayEmpty
+       then do newStack <- lift $ f []
+               --liftIO . putStrLn $ "newStack empty " ++ show newStack
+               pushStack tSFabricStack newStack
+               ray <- use tSRay
+               pushStack tSRayStack ray
+       else do stack <- popStack "tSFabricStack overShapeStack" tSFabricStack
+               --liftIO . putStrLn $ "stack full " ++ show stack
+               newStack <- lift $ f stack
+               --liftIO . putStrLn $ "newStack full " ++ show newStack
+               pushStack tSFabricStack newStack
 
 traverseFabric :: forall m ray q
                .  ( Show ray
@@ -166,13 +188,12 @@ traverseFabric limit checkRay initRay =
                         tag <- loadNextInstruction
                         debugIf $ render $ hang (doc (state ^. tSCodePointer) <+> text (show tag) <+> doc (state ^. tSRay) <+> text mess) 8 (doc state)
     go =
-      do -- showState "before"
+      do showState "before"
          fabricTag <- loadNextInstruction
          if fabTagIsReturn fabricTag
          then do isEmpty <- emptyFabric
                  if not isEmpty
-                 then do showState "return"
-                         popFabric
+                 then do popFabric
                          go
                  else return ()
          else do marshallTag fabricTag
@@ -199,11 +220,9 @@ traverseFabric limit checkRay initRay =
                                        let decoId    = fabTagDecoId    tag
                                        let confineId = fabTagConfineId confineTag
                                        ray <- use tSRay
-                                       stack <- lift $ rayTraverseTree limit decoId confineId ray []
-                                       overShapeStack (return . (stack ++))
+                                       overShapeStack (rayTraverseTree limit decoId confineId ray)
         | fabTagIsConfineTree tag = error "decoTag must come first"
-        | fabTagIsStacker     tag = do ray <- use tSRay
-                                       insertStack (fabTagStackerId tag) ray
+        | fabTagIsStacker     tag = do insertStack (fabTagStackerId tag)
         | fabTagIsAffine      tag = do affine <- loadAffineT tag
                                        tSRay %= rayApplyTransform limit affine
         | fabTagIsFacet       tag = do facet <- loadFacetT tag
@@ -220,8 +239,8 @@ traverseFabric limit checkRay initRay =
                                        debugIf $ "Quadrance " ++ show answer
                                        pushAnswer $ answer
 
-insertStack :: (MonadIO m, Eq ray) => FabricTagId -> ray -> StateT (TraverseState ray q) m ()
-insertStack tagId ray = overShapeStack (return . (Item ray tagId:))
+insertStack :: (MonadIO m, Eq ray) => FabricTagId -> StateT (TraverseState ray q) m ()
+insertStack tagId = overShapeStack (return . toggleShapeActive tagId)
 
 loadFabricTagT :: (DagConstraints s m) => FabricTagId -> StateT t (RayMonad s m) FabricTag
 loadAffineT    :: (DagConstraints s m) => FabricTag   -> StateT t (RayMonad s m) (FTransformer s)

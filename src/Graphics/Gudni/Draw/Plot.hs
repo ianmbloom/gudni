@@ -64,12 +64,12 @@ data LR s = L | R | UTurn | Arb (Angle s) deriving (Ord, Eq, Show)
 
 -- | Simple data structure for creating shapes by moving a turtle.
 data Turtle s where
-  TGo :: s -> Turtle s
-  TRadius :: s -> Turtle s
-  TTurn :: Turn -> LR s -> Turtle s
-  TReverse :: [Turtle s] -> Turtle s
-  TMirror :: [Turtle s] -> Turtle s
-  deriving (Ord, Eq, Show)
+    TGo :: s -> Turtle s
+    TRadius :: s -> Turtle s
+    TTurn :: Turn -> LR s -> Turtle s
+    TReverse :: [Turtle s] -> Turtle s
+    TMirror :: [Turtle s] -> Turtle s
+    deriving (Ord, Eq, Show)
 
 -- | State constructor for parsing a list of turtle moves.
 data TurtleState s = TurtleState

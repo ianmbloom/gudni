@@ -39,7 +39,6 @@ import Graphics.Gudni.Layout.Empty
 import Graphics.Gudni.Layout.Alignment
 import Graphics.Gudni.Layout.Proximity
 import Graphics.Gudni.Layout.Overlappable
-import Graphics.Gudni.Layout.Compound
 import Graphics.Gudni.Layout.Style
 import Graphics.Gudni.Layout.Font
 import Graphics.Gudni.Layout.WithBox

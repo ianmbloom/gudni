@@ -27,7 +27,7 @@ import Control.Monad
 
 data ArrowDirection = PointingForward | PointingBackward deriving (Eq, Show)
 
-defaultArrowHead :: (Loop f, Space s) => Point2 s -> ArrowDirection -> Shape_ f s
+defaultArrowHead :: (Ring f, Space s) => Point2 s -> ArrowDirection -> Shape_ f s
 defaultArrowHead size direction = Shape . pure . applyStretch size $ fromSegments [straightXY (-1) (-0.5), straightXY 0 0, straightXY (-1) 0.5]
 
 class (HasSpace t, HasArcLength t, Reversible t) => CanArrow t where

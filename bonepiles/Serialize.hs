@@ -18,7 +18,7 @@
 -- Functions for serializing a scene into bytecode and confine trees.
 
 module Graphics.Gudni.Raster.Fabric.Serialize
-  ( serializeFabric
+  ( encodeFabric
   )
 where
 
@@ -101,12 +101,25 @@ data ShapeDependant i
      = Dependant (Maybe (WithBox (Shape (SpaceOf i)))) (Fabric i)
      | Encoded ([Slice PrimTagId], [FabricTagId])
 
-encodeFabric :: DagConstraints (SpaceOf i) m
+encodeFabric :: forall glyphType i m
+             .  ( DagConstraints (SpaceOf i) m
+                , HasSpace i
+                , Answer (FQuery i)
+                , Storable (FTex i)
+                , Storable (FQuery i)
+                , FChildType i ~ Fabric i
+                , FBinaryType i ~ ProximityMeld (StyleOf i) FCombineType
+                , FPostType i ~ FFilter
+                , FPreType i ~ FTransformer (SpaceOf i)
+                , FLeafType i ~ FLeaf i
+                , FVarName i ~ FabricTagId
+                )
              => Fabric i -> SerialMonad i glyphType m (FabricTagId)
 encodeFabric fabric =
    do go fabric
       currentPointer
    where
+   go :: Fabric i -> SerialMonad i glypthType m ()
    go fabric =
        case fabric of
            FBinary ty above below ->
@@ -122,99 +135,12 @@ encodeFabric fabric =
                    addTransformTag pre
            FLeaf leaf ->
                case leaf of
-                   FShape -> addSubstanceTag (FConst insideShape :: FSubstance i)
-                   FSubstance -> addSubstanceTag substance
+                   FShape {} -> addSubstanceTag (FConst insideShape :: FSubstance i)
+                   FSubstance substance -> addSubstanceTag substance
            FVar  tagId -> addStackerTag tagId
            FDefine {} -> error "FDefine"
 
 type DependentShape s = Maybe (Shape s, Box s)
-
-simpleCombine ty (FLeaf (FSubstance (FConst i))) (FLeaf (FSubstance (FConst j))) =
-    FLeaf $ FSubstance $ applyCombine ty i j
-simpleCombine ty a b =
-    FBinary ty (FLeaf a) (FLeaf b)
-
-combineIsConfined ty =
-    case ty of
-        FMask -> True
-        _     -> False
-
-buildCombine ty aFab bFab =
-    do  addReturnTag
-        addBinaryTag ty
-        encodeFabric bFab
-        bJump <- currentPointer
-        addReturnTag
-        encodeFabric aFab
-        aJump <- currentPointer
-        return $ (aJump, bJump) (combineBoxes a b)
-
-
-simplifyFabric :: (s ~ SpaceOf i)
-               => Fabric i -> x
-simplifyFabric fabric = go
-    where
-    go :: Fabric i -> (DependentShape s, Either (Fabric j) ([FabricTagId], Maybe (Box s))
-    go fabric =
-        case fabric of
-            FBinary ty above below ->
-                do  bChild <- go below
-                    aChild <- go above
-                    let melder = ty ^. proxMeld
-                    combineChildren aChild bChild
-            FUnaryPost post child ->
-                do  go child
-            FUnaryPre pre child ->
-                do  go child
-            FLeaf leaf ->
-                case leaf of
-                  FShape     shape     -> (Just shape, Left $ FLeaf (FConst insideShape :: FSubstance i))
-                  FSubstance substance -> (Nothing,    Left $ FLeaf substance)
-            FVar var -> (Nothing, Left $ FVar var)
-            FDefine var body applied ->
-               do addReturnTag
-                  appliedTop <- go applied
-                  withVar var body appliedTop
-
-call :: ( DagConstraints (SpaceOf i) m
-        , Show item
-        , Ord item
-        )
-     => item
-     -> Lens' (SerialState i glyphType) (M.Map item (Maybe (Box (SpaceOf i)), FabricTagId))
-     -> SerialMonad i glyphType m ()
-call item itemMapLens =
-    do itemMap <- use itemMapLens
-       case M.lookup item itemMap of
-           Just child -> addStackerTag tagId
-           Nothing -> error $ "item not found " ++ show item
-
-withVar :: ( DagConstraints (SpaceOf i) m
-           , Ord (FVarName i)
-           )
-        => FVarName i
-        -> (Maybe (Box (SpaceOf i)), Either
-        -> SerialMonad i glyphType m ()
-        -> SerialMonad i glyphType m ()
-withVar varName (mBox, _) code =
-    do codePointer <- currentPointer
-       varMap <- use srVarMap
-       let (mOld, varMap') = insertLookup varName (codePointer, mBox) varMap
-       srVarMap .= varMap'
-       h <- code
-       case mOld of
-           Nothing  -> srVarMap %= M.delete varName
-           Just old -> srVarMap %= M.insert varName old
-       return h
-
-goto :: (DagConstraints (SpaceOf i) m) => (FabricTagId, Maybe (Box (SpaceOf i))) -> SerialMonad i glyphType m (Head (SpaceOf i))
-goto (tagId, mBox) =
-   do -- currentId <- currentPointer
-      addReturnTag
-      addStackerTag tagId
-      -- addStackerTag currentId
-      return ([], mBox)
-      --srMBox .= mBox
 
 currentPointer :: (DagConstraints (SpaceOf i) m) => SerialMonad i glyphType m FabricTagId
 currentPointer =
@@ -228,6 +154,8 @@ transBoundary trans box =
           FAffine ray back -> boxOf $ fmap (applyAffine back) boxPoints
           FFacet facet -> boxOf $ facet ^. facetInput
           FConvolve scale -> addMarginsBox scale box
+
+type Head s = ([Slice PrimTagId], [FabricTagId], Maybe (Box s))
 
 addShapeToPrims :: (DagConstraints (SpaceOf i) m)
                 => WithBox (Shape (SpaceOf i))
@@ -268,7 +196,7 @@ makeTree :: (DagConstraints (SpaceOf i) m)
          -> Head (SpaceOf i)
          -> SerialMonad i glyphType m (Head (SpaceOf i))
 makeTree limit decorateLimit (slices, tagIds, mBox) =
-  do when (not . null slices) $
+  do when (not $ null slices) $
           do let primSlice = foldl1 combineSlices slices
              when (sliceLength primSlice > 0) $
                   do addReturnTag
