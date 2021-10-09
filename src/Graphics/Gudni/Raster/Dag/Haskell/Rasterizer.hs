@@ -35,7 +35,6 @@ import Graphics.Gudni.Raster.Dag.Fabric.Ray.Class
 import Graphics.Gudni.Raster.Dag.Constants
 import Graphics.Gudni.Raster.TextureReference
 
-import CLUtil
 import Control.Lens
 import Control.Monad.State
 import Control.Monad.Random

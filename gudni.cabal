@@ -60,7 +60,6 @@ library
                      , Graphics.Gudni.Figure
                      , Graphics.Gudni.Interface
                      , Graphics.Gudni.Layout
-                     , Graphics.Gudni.ShapeTree
                      , Graphics.Gudni.Draw
                      , Graphics.Gudni.Image
 
@@ -68,7 +67,6 @@ library
                      , Graphics.Gudni.Util.CurvePair
                      , Graphics.Gudni.Util.MonadST
                      , Graphics.Gudni.Util.Debug
-                     , Graphics.Gudni.Util.FlattenTree
                      , Graphics.Gudni.Util.MonadUnique
                      , Graphics.Gudni.Util.Segment
                      , Graphics.Gudni.Util.StorableM
@@ -117,13 +115,6 @@ library
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.WithinBox
 
                      , Graphics.Gudni.Raster.Dag.Haskell.Rasterizer
-
-                     , Graphics.Gudni.Raster.Dag.OpenCL.CallKernels
-                     , Graphics.Gudni.Raster.Dag.OpenCL.EmbeddedOpenCLSource
-                     , Graphics.Gudni.Raster.Dag.OpenCL.PrepareBuffers
-                     , Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
-                     , Graphics.Gudni.Raster.Dag.OpenCL.Setup
-                     , Graphics.Gudni.Raster.Dag.OpenCL.Instance
 
                      , Graphics.Gudni.Raster.Dag.TagTypes
                      , Graphics.Gudni.Raster.Dag.Storage
@@ -202,7 +193,6 @@ library
                      , Graphics.Gudni.Interface.BasicSceneState
                      , Graphics.Gudni.Interface.DrawTarget
                      , Graphics.Gudni.Interface.FontLibrary
-                     , Graphics.Gudni.Interface.GLInterop
                      , Graphics.Gudni.Interface.Input
                      , Graphics.Gudni.Interface.InterfaceSDL
                      , Graphics.Gudni.Interface.Query
@@ -250,34 +240,6 @@ library
                      , Graphics.Gudni.Raster.Serial.BytePile
                      , Graphics.Gudni.Raster.Serial.CopyPile
 
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.CallKernels
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.EmbeddedOpenCLSource
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.PrepareBuffers
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.ProcessBuffers
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.Rasterizer
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.Instance
-                     , Graphics.Gudni.Raster.Thresholds.OpenCL.Setup
-
-                     , Graphics.Gudni.Raster.Thresholds.Constants
-                     , Graphics.Gudni.Raster.Thresholds.Enclosure
-                     , Graphics.Gudni.Raster.Thresholds.ItemInfo
-                     , Graphics.Gudni.Raster.Thresholds.Params
-                     , Graphics.Gudni.Raster.Thresholds.ReorderTable
-                     , Graphics.Gudni.Raster.Thresholds.Serialize
-                     , Graphics.Gudni.Raster.Thresholds.Strand
-                     , Graphics.Gudni.Raster.Thresholds.StrandReference
-                     , Graphics.Gudni.Raster.Thresholds.SubstanceInfo
-                     , Graphics.Gudni.Raster.Thresholds.TileTree
-
-                     , Graphics.Gudni.Raster.OpenCL.Buffer
-                     , Graphics.Gudni.Raster.OpenCL.CppDefines
-                     , Graphics.Gudni.Raster.OpenCL.DeviceQuery
-                     , Graphics.Gudni.Raster.OpenCL.Instances
-                     , Graphics.Gudni.Raster.OpenCL.KernelQuery
-
-                     , Graphics.Gudni.ShapeTree.STree
-                     , Graphics.Gudni.ShapeTree.FinalTree
-                     , Graphics.Gudni.ShapeTree.Traverse
 
   -- LANGUAGE extensions used by modules in this package.
   other-extensions:    FlexibleContexts
@@ -304,8 +266,6 @@ library
                      , ViewPatterns
                      , ExistentialQuantification
 
-  build-tools:         c2hs
-                     , happy
   -- Other library packages from which modules are imported.
   build-depends:       base
                      , hashable
@@ -336,12 +296,9 @@ library
                      , file-embed
 
                      , sdl2 >= 2.5
-                     -- text only needed for window names
                      , text
                      , OpenGL
                      , OpenGLRaw
-                     , OpenCL
-                     , CLUtil
 
                      , diagrams-lib
                      , FontyFruity

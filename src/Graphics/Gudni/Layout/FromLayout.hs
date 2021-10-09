@@ -34,8 +34,6 @@ where
 
 import Graphics.Gudni.Figure
 
-import Graphics.Gudni.ShapeTree
-
 import Graphics.Gudni.Layout.Token
 import Graphics.Gudni.Layout.WithBox
 import Graphics.Gudni.Layout.Style

@@ -30,7 +30,6 @@ module Graphics.Gudni.Layout.ApplyProximity
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Layout.Fill
 import Graphics.Gudni.Layout.Empty
 import Graphics.Gudni.Layout.Alignment

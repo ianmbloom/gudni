@@ -29,17 +29,7 @@ module Graphics.Gudni.Interface.GLInterop
 where
 
 import Control.Monad.Trans.Class
-import Control.Parallel.OpenCL
-import Control.Parallel.OpenCL.Context(CLContextProperty(..))
 import Control.Monad (void, forM)
-
-import CLUtil
-import CLUtil.CL
-import CLUtil.State
-import CLUtil.KernelArgs
-
-import Graphics.Gudni.Raster.OpenCL.DeviceQuery
-import Control.Parallel.OpenCL
 
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Array(withArray)

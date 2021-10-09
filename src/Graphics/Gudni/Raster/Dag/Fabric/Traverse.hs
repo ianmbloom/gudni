@@ -17,7 +17,6 @@ where
 
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree.STree
 
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type

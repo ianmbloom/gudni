@@ -2,7 +2,6 @@ module Graphics.Gudni.Interface
     ( module Graphics.Gudni.Interface.BasicSceneState
     , module Graphics.Gudni.Interface.DrawTarget
     , module Graphics.Gudni.Interface.FontLibrary
-    , module Graphics.Gudni.Interface.GLInterop
     , module Graphics.Gudni.Interface.Input
     , module Graphics.Gudni.Interface.InterfaceSDL
     , module Graphics.Gudni.Interface.Query
@@ -14,7 +13,6 @@ where
 import Graphics.Gudni.Interface.BasicSceneState
 import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Interface.FontLibrary
-import Graphics.Gudni.Interface.GLInterop
 import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Interface.InterfaceSDL
 import Graphics.Gudni.Interface.Query

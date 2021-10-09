@@ -38,7 +38,6 @@ where
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.StorableInstances
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Layout.FromLayout
 
 import Graphics.Gudni.Raster.Serial.Reference

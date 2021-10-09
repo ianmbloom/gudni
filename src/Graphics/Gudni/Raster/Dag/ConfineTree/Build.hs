@@ -8,7 +8,6 @@ where
 
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type

@@ -19,8 +19,6 @@ where
 
 import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Substance.Picture
-import Graphics.Gudni.ShapeTree.STree
-import Graphics.Gudni.ShapeTree.FinalTree
 import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Interface.Query
 import Graphics.Gudni.Interface.InterfaceSDL

@@ -23,7 +23,6 @@ module Graphics.Gudni.Raster.Dag.Serialize
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Raster.Dag.Fabric.Type
 import Graphics.Gudni.Raster.Dag.FromLayout
 import Graphics.Gudni.Layout.Layout
@@ -32,7 +31,6 @@ import Graphics.Gudni.Layout.FromLayout
 import Graphics.Gudni.Layout.Proximity
 import Graphics.Gudni.Layout.WithBox
 
-import Graphics.Gudni.Raster.Thresholds.Constants
 import Graphics.Gudni.Raster.TextureReference
 
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type

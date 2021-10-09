@@ -13,7 +13,6 @@ where
 
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Layout.Layout
 import Graphics.Gudni.Layout.Style

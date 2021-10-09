@@ -45,7 +45,7 @@ instance HasStyle SquareState where
   type StyleOf SquareState = DefaultStyle
 
 instance Model SquareState where
-    screenSize state = Window (Point2 100 100)
+    screenSize state = Window (Point2 30 30)
     updateModelState frame elapsedTime inputs state =
         execState (
             do  squareAngle .= (realToFrac elapsedTime / 2) @@ turn

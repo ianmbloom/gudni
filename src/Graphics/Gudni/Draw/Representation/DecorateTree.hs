@@ -14,7 +14,6 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Storage

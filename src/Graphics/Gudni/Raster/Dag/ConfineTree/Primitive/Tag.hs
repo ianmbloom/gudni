@@ -35,17 +35,11 @@ where
 
 import Graphics.Gudni.Figure
 
---import Graphics.Gudni.ShapeTree.STree
-
 import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Constants
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Serial.Reference
-
-
-import Graphics.Gudni.Raster.Thresholds.SubstanceInfo
-
-import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
 
 import Data.Bits
 import Numeric

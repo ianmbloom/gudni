@@ -19,7 +19,6 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Raster.Dag.Storage
-import Graphics.Gudni.Raster.Dag.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Interface.DrawTarget
 

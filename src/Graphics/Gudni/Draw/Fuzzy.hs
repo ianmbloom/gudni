@@ -17,7 +17,6 @@ module Graphics.Gudni.Draw.Fuzzy
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Draw.Elipse
 import Graphics.Gudni.Draw.Rectangle

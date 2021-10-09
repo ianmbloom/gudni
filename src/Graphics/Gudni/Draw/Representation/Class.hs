@@ -13,7 +13,6 @@ module Graphics.Gudni.Draw.Representation.Class
 where
 
 import Graphics.Gudni.Figure
-import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Draw.ArrowHead
 import Graphics.Gudni.Draw.Elipse

@@ -27,7 +27,6 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Interface.ScreenMode
-import Graphics.Gudni.Raster.OpenCL.DeviceQuery
 import Graphics.Gudni.Util.Debug
 
 import qualified SDL
@@ -51,8 +50,6 @@ import Linear
 
 import Graphics.GL.Core31
 import Graphics.Rendering.OpenGL
-
-import CLUtil.State
 
 -- | State information about the host interface library.
 data InterfaceState = InterfaceState
