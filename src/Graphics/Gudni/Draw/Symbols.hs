@@ -31,10 +31,10 @@ import Graphics.Gudni.Draw.Stroke
 hatch :: IsStyle style
       => SpaceOf style
       -> SpaceOf style
-      -> CompoundLayout style
+      -> Layout Mono style
 hatch thickness size =
   let s = size / 2
-  in
-  overlap [ mask . stroke thickness . makeOpenCurve $ [line (Point2 (-s) (-s)) (Point2 s s)]
-          , mask . stroke thickness . makeOpenCurve $ [line (Point2 s (-s)) (Point2 (-s) s)]
-          ]
+  in  overlap
+      [ place . stroke thickness . makeOpenCurve $ [line (Point2 (-s) (-s)) (Point2 s s)]
+      , place . stroke thickness . makeOpenCurve $ [line (Point2 s (-s)) (Point2 (-s) s)]
+      ]

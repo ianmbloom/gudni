@@ -25,7 +25,6 @@ module Graphics.Gudni.Layout.WithBox
   ( WithBox(..)
   , withItem
   , withBox
-  , meldWithBox
   )
 where
 
@@ -44,20 +43,5 @@ makeLenses ''WithBox
 
 deriving instance (Show a, Show (SpaceOf a)) => Show (WithBox a)
 
-instance SimpleTransformable a => SimpleTransformable (WithBox a) where
-  translateBy delta  (WithBox item box) = WithBox (translateBy delta item) (translateBox delta box)
-  stretchBy   size   (WithBox item box) = WithBox (stretchBy size item) (stretchBox size box)
-  simpleTransformWith t (WithBox item box) = WithBox (simpleTransformWith t item) (applySimpleTransformer t box)
-
 instance HasSpace a => HasSpace (WithBox a) where
   type SpaceOf (WithBox a) = SpaceOf a
-
-meldWithBox :: ( HasSpace (Leaf i)
-               , CanBox (Leaf i)
-               )
-            => Meld i
-            -> ( WithBox (STree i)
-               , WithBox (STree i)
-               )
-            -> WithBox (STree i)
-meldWithBox meld (WithBox aTree aBox, WithBox bTree bBox) = WithBox (SMeld meld aTree bTree) (minMaxBox aBox bBox)

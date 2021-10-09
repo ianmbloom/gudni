@@ -17,20 +17,19 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Application
 import Graphics.Gudni.Draw
-import Graphics.Gudni.ShapeTree
 import Graphics.Gudni.Image
 
 import Graphics.Gudni.Util.Debug
 
-import Graphics.Gudni.Raster.Dag.Fabric.Out
-import Graphics.Gudni.Raster.Dag.ConfineTree.Type
-import Graphics.Gudni.Raster.Dag.ConfineTree.Build
-import Graphics.Gudni.Raster.Dag.ConfineTree.Type
-import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Storage
-import Graphics.Gudni.Raster.Dag.FromLayout
-import Graphics.Gudni.Raster.Dag.Serialize
-import Graphics.Gudni.Raster.Dag.Fabric.Traverse
-import Graphics.Gudni.Raster.Dag.Constants
+import Graphics.Gudni.Raster.Fabric.Out
+import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.ConfineTree.Build
+import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.ConfineTree.Primitive.Storage
+import Graphics.Gudni.Raster.WithSerialized
+import Graphics.Gudni.Raster.Fabric.Traverse
+import Graphics.Gudni.Raster.Fabric.FromLayout
+import Graphics.Gudni.Raster.Constants
 import Graphics.Gudni.Raster.TextureReference
 
 import qualified Data.Map as M
@@ -75,16 +74,14 @@ initialModel =
           , _statePace        = 50
           , _stateLastTime    = 0
           , _stateDirection   = True
-          , _statePlayhead    = 10
+          , _statePlayhead    = 0
           , _stateFrameNumber = 0
-          , _stateStep        = 53
-          , _stateRepMode     = False
-          , _stateRepDk       = False
-          , _stateCursor      = Point2 128 96
+          , _stateStep        = 65
+          , _stateCursor      = Point2 76 20
           }
     , _stateShapeAngle = 0 @@ deg -- @@ rad -- 0 @@ rad
     , _stateTraceStep = 0
-    , _stateCurrentTest = flip findTest allTests "onTriangles"  -- "randomCurves" -- "onTriangles" -- "benchmark1" -- "twoTriangles" -- "bigTriangle" -- "randomCurves" -- "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
+    , _stateCurrentTest = flip findTest allTests "fuzzyGlyphs" -- {-"simpleGlyph" -- "tallRectangle" -} "randomCurves" -- "onTriangles" -- "benchmark1" -- "twoTriangles" -- "bigTriangle" -- "randomCurves" -- "diamondBox" "fuzzyGlyphs" "millionFuzzyCircles"
     , _stateDecorationType = True
     , _stateDecorationLimit = 0
     }
@@ -93,7 +90,7 @@ allTests = testList ++ basicShapes
 numTests :: Int
 numTests = length allTests
 
-getTest :: ConfineTreeState -> (String, SubSpace -> Int -> Layout DefaultStyle)
+getTest :: ConfineTreeState -> (String, SubSpace -> Int -> Layout Rgba DefaultStyle)
 getTest state = allTests !! (state ^. stateCurrentTest)
 
 instance HasStyle ConfineTreeState where
@@ -107,7 +104,7 @@ instance Model ConfineTreeState where
     updateModelState frame elapsedTime inputs state =
         over stateBase (updateSceneState frame elapsedTime) $ foldl (flip processInput) state inputs
     ioTask = return
-    constructScene state status =
+    constructLayout state status =
         do  let testShape = (snd $ getTest state) (view deg $ state ^. stateShapeAngle) (round (state ^. stateBase . statePlayhead))
                 name = (fst $ getTest state)
                 frameNumber = state ^. stateBase . stateFrameNumber
@@ -120,15 +117,12 @@ instance Model ConfineTreeState where
             liftIO $ putStrLn name
             pictureMap <- liftIO $ providePictureMap state
             (pictureMemoryMap, pixelPile) <- liftIO $ collectPictureMemory pictureMap
-            fabric <- sceneToFabric pictureMemoryMap (Scene gray testShape)
             -- liftIO . putStrLn . render . doc $ fabric
+            let fabric = prepFabric pictureMemoryMap . unLayout . withBackgroundColor gray $ testShape
             liftIO $ putStrLn "Before withSerialized Fabric"
             testScene <- withSerializedFabric limit 0 (Just canvas) pixelPile fabric $ \storage ->
                 evalStateT (evalRandT (
-                     do  out <- lift outFabric
-                         liftIO $ putStrLn "**** outFabric *******************************************"
-                         liftIO $ putStrLn $ render out
-                         -- (tree, decoTree, sweepTrace) <- liftIO $ buildConfineTree (state ^. stateDecorationType )
+                     do  -- (tree, decoTree, sweepTrace) <- liftIO $ buildConfineTree (state ^. stateDecorationType )
                          --                                                           (state ^. stateTraceStep      )
                          --                                                           (state ^. stateDecorationLimit)
                          --                                                           (confineState ^. conPrimStorage . primBezierPile)
@@ -148,34 +142,34 @@ instance Model ConfineTreeState where
                          -- let traversePixel loc = traverseFabric limit (locationToSubSpace loc) (Point2 10 10)
                          -- img <- createImageM traversePixel canvasSize
                          -- let imageLayout :: Layout DefaultStyle
-                         --     imageLayout = withTexture (NewTexture "pictureFrozen" (PictureFrozen img)) $ mask $ rectangle $ fmap fromIntegral canvasSize
+                         --     imageLayout = withTexture (NewTexture "pictureFrozen" (PictureFrozen img)) $ place $ rectangle $ fmap fromIntegral canvasSize
 
                          -- liftIO $ putStrLn "about to constructDag"
                          -- (dag :: Layout DefaultStyle) <- lift $ constructDag root
                          -- let curs :: Layout DefaultStyle
-                         --     curs = translateBy point . scaleBy 5 . withColor black $ mask circle
+                         --     curs = translateBy point . scaleBy 5 . withColor black $ place circle
                          return $
-                             overlap [  --curs
-                                        -- ,
-                                        -- imageLayout
-                                        -- ,
-                                        -- withColor black . mask . rectangle $ fmap (+3) $ fmap fromIntegral canvasSize
-                                        -- ,
-                                        -- overlap randomPoints
-                                        -- ,
-                                        -- overlap setPoints
-                                        -- ,
-                                        -- boxQuery
-                                        -- ,
-                                        -- constructedDecoTree
-                                        -- ,
-                                        -- constructedTree
-                                        -- ,
-                                        -- traceConstructed
-                                        -- ,
-                                        -- dag
-                                        -- ,
-                                        testShape
+                             overlap [   -- curs
+                                         -- ,
+                                         -- imageLayout
+                                         -- ,
+                                         -- withColor black . place . rectangle $ fmap (+3) $ fmap fromIntegral canvasSize
+                                         -- ,
+                                         -- overlap randomPoints
+                                         -- ,
+                                         -- overlap setPoints
+                                         -- ,
+                                         -- boxQuery
+                                         -- ,
+                                         -- constructedDecoTree
+                                         -- ,
+                                         -- constructedTree
+                                         -- ,
+                                         -- traceConstructed
+                                         -- ,
+                                         -- dag
+                                         -- ,
+                                         testShape
                                      ]
                 ) (mkStdGen frameNumber)) storage
             liftIO $ putStrLn $ "sizeOf Haskell DecoTag    " ++ show (sizeOf (undefined :: DecoTag    SubSpace))

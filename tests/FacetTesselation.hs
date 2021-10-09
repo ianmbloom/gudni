@@ -32,7 +32,7 @@ import Graphics.Gudni.Draw
 import Graphics.Gudni.Util.Subdividable
 import Graphics.Gudni.Util.Segment
 import Graphics.Gudni.Util.Debug
-import Graphics.Gudni.Raster.Dag.Constants
+import Graphics.Gudni.Raster.Constants
 
 import Control.Lens
 import Control.Monad.State
@@ -62,10 +62,8 @@ instance Model FacetState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     --shouldLoop _ = False
-    constructScene state _status =
+    constructLayout state _status =
        let angle   = state ^. stateBase . stateAngle
-           repMode = state ^. stateBase . stateRepMode
-           repDk   = state ^. stateBase . stateRepDk
            offset  = state ^. stateOffset
            point   = state ^. stateBase . stateCursor
            triangle :: V3 (Point2 SubSpace)
@@ -139,8 +137,6 @@ main = runApplication $ FacetState
            , _statePlayhead    = 0
            , _stateFrameNumber = 0
            , _stateStep        = 69
-           , _stateRepMode     = False
-           , _stateRepDk       = False
            , _stateCursor      = Point2 0 0
            }
        ) 0.75 (0 @@ deg)

@@ -26,7 +26,6 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Application
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Draw
-import Graphics.Gudni.ShapeTree
 
 import Graphics.Gudni.Util.Debug
 
@@ -51,8 +50,8 @@ instance HasStyle StrokeState where
 instance Model StrokeState where
     screenSize state = Window (Point2 500 250)
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
-    constructScene state _status =
-        return . 
+    constructLayout state _status =
+        return .
         withBackgroundColor gray .
         place .
         transformFromState (state ^. stateBase) .
@@ -108,8 +107,6 @@ main = runApplication $ StrokeState
            , _statePlayhead    = 0
            , _stateFrameNumber = 0
            , _stateStep        = 69
-           , _stateRepMode     = False
-           , _stateRepDk       = False
            , _stateCursor      = Point2 0 0
            }
        ) 0

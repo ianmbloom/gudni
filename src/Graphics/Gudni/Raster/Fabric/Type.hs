@@ -49,18 +49,31 @@ import Graphics.Gudni.Raster.Serial.Slice
 
 import Control.Lens
 
+<<<<<<< HEAD
 class HasSpace i => FabricType i where
+=======
+class ( HasSpace i ) => FabricType i where
+>>>>>>> origin/flatpath
     type FChildType  i :: *
     type FBinaryType i :: *
     type FPostType   i :: *
     type FPreType    i :: *
     type FLeafType   i :: *
+<<<<<<< HEAD
+=======
+    type FVarName    i :: *
+>>>>>>> origin/flatpath
 
 data Fabric i where
     FBinary    :: FBinaryType i -> FChildType i -> FChildType i -> Fabric i
     FUnaryPost :: FPostType   i -> FChildType i                 -> Fabric i
     FUnaryPre  :: FPreType    i -> FChildType i                 -> Fabric i
     FLeaf      :: FLeafType   i                                 -> Fabric i
+<<<<<<< HEAD
+=======
+    FDefine    :: FVarName    i -> FChildType i -> FChildType i -> Fabric i
+    FVar       :: FVarName    i                                 -> Fabric i
+>>>>>>> origin/flatpath
 
 data FLeaf i where
     FShape     :: WithBox (Shape (SpaceOf i)) -> FLeaf i
@@ -72,15 +85,47 @@ data FTreeLeaf i where
 
 data FStacker = FStacker FabricTagId
 
+<<<<<<< HEAD
 showFabricHead :: ( Show (FBinaryType i)
                   , Show (FPostType   i)
                   , Show (FPreType    i)
                   , Show (FLeafType   i)
+=======
+safeInvert :: Space s => s -> s
+safeInvert 0 = maxBound
+safeInvert x = 1 / x
+
+instance (HasSpace i) => HasSpace (Fabric i) where
+    type SpaceOf (Fabric i) = SpaceOf i
+
+instance ( FabricType i
+         , FPreType i ~ FTransformer (SpaceOf i)
+         , FChildType i ~ Fabric i
+         )
+         => Transformable (Fabric i) where
+    stretchBy   p = FUnaryPre $ FAffine (affineStretch   (fmap safeInvert p)) (affineStretch   p)
+    translateBy p = FUnaryPre $ FAffine (affineTranslate (negate   p))        (affineTranslate p)
+    rotateBy    a = FUnaryPre $ FAffine (affineRotate (negateAngle a))        (affineRotate    a)
+
+instance ( FabricType i
+         , FPreType i ~ FTransformer (SpaceOf i)
+         , FChildType i ~ Fabric i
+         )
+         => Projectable (Fabric i) where
+    projectOnto path = undefined -- FUnaryPre $ FAffine (affineStretch   (fmap safeInvert p)) (affineStretch   p)
+
+showFabricHead :: (--   Show (FBinaryType i)
+                   -- , Show (FPostType   i)
+                   -- , Show (FPreType    i)
+                   -- , Show (FLeafType   i)
+                   -- , Show (FVarName    i)
+>>>>>>> origin/flatpath
                   )
                => Fabric i
                -> String
 showFabricHead fabric =
     case fabric of
+<<<<<<< HEAD
       FBinary    ty _ _ -> "FBinary   " ++ show ty
       FUnaryPost ty _   -> "FUnaryPost" ++ show ty
       FUnaryPre  ty _   -> "FUnaryPre " ++ show ty
@@ -88,11 +133,25 @@ showFabricHead fabric =
 
 
 deriving instance ( Show (SpaceOf i)
+=======
+      FBinary    ty _ _ -> "FBinary "    -- ++ show ty
+      FUnaryPost ty _   -> "FUnaryPost " -- ++ show ty
+      FUnaryPre  ty _   -> "FUnaryPre "  -- ++ show ty
+      FLeaf      ty     -> "FLeaf "      -- ++ show ty
+      FDefine    v _ _  -> "FDefine "    -- ++ show v
+      FVar       v      -> "FVar "       -- ++ show v
+
+deriving instance ( Show (SpaceOf     i)
+>>>>>>> origin/flatpath
                   , Show (FChildType  i)
                   , Show (FBinaryType i)
                   , Show (FPostType   i)
                   , Show (FPreType    i)
                   , Show (FLeafType   i)
+<<<<<<< HEAD
+=======
+                  , Show (FVarName    i)
+>>>>>>> origin/flatpath
                   ) => Show (Fabric i)
 
 deriving instance ( Show (SpaceOf      i)
@@ -114,6 +173,10 @@ instance ( Out (SpaceOf     i)
          , Out (FPostType   i)
          , Out (FPreType    i)
          , Out (FLeafType   i)
+<<<<<<< HEAD
+=======
+         , Out (FVarName    i)
+>>>>>>> origin/flatpath
          ) => Out (Fabric i) where
     doc tree =
         case tree of
@@ -133,6 +196,18 @@ instance ( Out (SpaceOf     i)
                  nest 4 ( doc child )
             FLeaf leaf ->
                  doc leaf
+<<<<<<< HEAD
+=======
+            FDefine v body applied ->
+                 (text "FDefine" <+> doc v)
+                 $$
+                 (nest 4 $
+                     (hang (text "Body") 4 $ doc body)
+                     $$
+                     (hang (text "Applied To") 4 $ doc applied))
+            FVar v ->
+                 text "FVar" <+> doc v
+>>>>>>> origin/flatpath
     docPrec _ = doc
 
 instance Out FStacker where
@@ -147,12 +222,21 @@ instance (Chain f, Out s) => Out (Shape_ f s) where
     doc shape = text "Shape " <+> foldl1 (<+>) (fmap doc (shape ^. shapeOutlines))
     docPrec _ = doc
 
+<<<<<<< HEAD
 instance ( Out (FSubstance i)
+=======
+instance ( Show (SpaceOf i)
+         , Out (FSubstance i)
+>>>>>>> origin/flatpath
          ) => Out (FLeaf i) where
     doc tree =
       case tree of
           FShape shape ->
+<<<<<<< HEAD
                text "FShape" <+> text "Shape X"
+=======
+               text "FShape" <+> doc (shapeSize . view withItem $ shape)
+>>>>>>> origin/flatpath
           FSubstance substance ->
                text "FSubstance" <+> doc substance
     docPrec _ = doc

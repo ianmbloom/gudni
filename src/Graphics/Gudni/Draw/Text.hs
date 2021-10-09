@@ -14,10 +14,13 @@ where
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 
-import Graphics.Gudni.Layout.Layout
+import Graphics.Gudni.Raster.Fabric.Type
+
+import Graphics.Gudni.Layout.Class
 import Graphics.Gudni.Layout.Style
 import Graphics.Gudni.Layout.Font
 import Graphics.Gudni.Layout.Collect
+import Graphics.Gudni.Layout.Type
 
 import Data.Char (ord)
 import Control.Monad.State
@@ -26,7 +29,7 @@ paragraphOf :: forall style
             .  ( IsStyle style)
             => style
             -> String
-            -> CompoundLayout style
+            -> Layout Mono style
 paragraphOf style string =
     let alignY = styleTextAlignY style
         stringLines = lines string
@@ -36,7 +39,7 @@ paragraph :: forall style
           .  ( IsStyle style
              )
           => String
-          -> CompoundLayout style
+          -> Layout Mono style
 paragraph = paragraphOf defaultValue
 
 blurbOf :: forall style
@@ -44,7 +47,7 @@ blurbOf :: forall style
               )
            => style
            -> String
-           -> CompoundLayout style
+           -> Layout Mono style
 blurbOf style string =
     let alignX = styleTextAlignX style
         glyphs = map (glyphOf style) string
@@ -54,11 +57,11 @@ blurb :: forall style
       .  ( IsStyle style
          )
       => String
-      -> CompoundLayout style
+      -> Layout Mono style
 blurb = blurbOf defaultValue
 
-glyphOf :: style -> Char -> CompoundLayout style
-glyphOf style = CompoundLayout . SLeaf . SItem . Just . Glyph style . CodePoint . ord
+glyphOf :: style -> Char -> Layout Mono style
+glyphOf style char = Layout . FLeaf . GlyphLeaf $ (style, CodePoint . ord $ char)
 
-glyph :: HasDefault style => Char -> CompoundLayout style
+glyph :: HasDefault style => Char -> Layout Mono style
 glyph = glyphOf defaultValue

@@ -33,7 +33,7 @@ where
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 
-import Graphics.Gudni.Layout.Layout
+import Graphics.Gudni.Layout.Class
 import Graphics.Gudni.Layout.Alignment
 import Graphics.Gudni.Layout.Style
 import Graphics.Gudni.Layout.Empty
@@ -63,7 +63,7 @@ loaf :: ( IsLayout layout
         -> f layout
         -> layout
 loaf axis style alignment meld =
-  foldl (nextTo axis style alignment meld) emptyItem
+    foldl (nextTo axis style alignment meld) emptyItem
 
 rackOf :: ( IsLayout layout
           , Foldable f

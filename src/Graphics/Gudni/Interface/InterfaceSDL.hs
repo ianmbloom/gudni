@@ -27,6 +27,10 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Interface.Input
 import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Interface.ScreenMode
+<<<<<<< HEAD
+=======
+import Graphics.Gudni.Raster.OpenCL.Util.DeviceQuery
+>>>>>>> origin/flatpath
 import Graphics.Gudni.Util.Debug
 
 import qualified SDL

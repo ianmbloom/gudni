@@ -14,6 +14,7 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
+<<<<<<< HEAD
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
@@ -22,6 +23,16 @@ import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Stack
 import Graphics.Gudni.Raster.Dag.Fabric.Traverse
 import Graphics.Gudni.Raster.Dag.Storage
 import Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
+=======
+import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.ConfineTree.Storage
+import Graphics.Gudni.Raster.TagTypes
+import Graphics.Gudni.Raster.ConfineTree.Primitive.Stack
+import Graphics.Gudni.Raster.Fabric.Traverse
+import Graphics.Gudni.Raster.Storage
+import Graphics.Gudni.Raster.ConfineTree.Traverse
+>>>>>>> origin/flatpath
 
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Rectangle
@@ -46,10 +57,10 @@ reasonableBoundaries =
       highPoint  = pure highValue
   in  Box (negate highPoint) highPoint
 
-rectangleAround :: IsStyle style => Point2 (SpaceOf style) -> Layout style
+rectangleAround :: IsStyle style => Point2 (SpaceOf style) -> Layout Rgba style
 rectangleAround point =
   let size = 16
-  in  withColor black . translateBy point . translateBy (pure (-size/2)) . mask $ openRectangle 2 (sizeToBox (pure size))
+  in  withColor black . translateBy point . translateBy (pure (-size/2)) . place $ openRectangle 2 (sizeToBox (pure size))
 
 constructDecorateTree :: forall style m
                       .  ( IsStyle style
@@ -57,7 +68,7 @@ constructDecorateTree :: forall style m
                          , Storable (SpaceOf style)
                          )
                       => DecoTagId (SpaceOf style)
-                      -> DagMonad (SpaceOf style) m (Layout style)
+                      -> DagMonad (SpaceOf style) m (Layout Rgba style)
 constructDecorateTree =
   go Vertical 0 (toAlong Horizontal minBound) (toAlong Vertical minBound) [] reasonableBoundaries
   where
@@ -67,10 +78,10 @@ constructDecorateTree =
      -> Int
      -> Athwart axis (SpaceOf style)
      -> Along   axis (SpaceOf style)
-     -> ShapeStack
+     -> [FabricTagId]
      -> Box (SpaceOf style)
      -> DecoTagId (SpaceOf style)
-     -> DagMonad (SpaceOf style) m (Layout style)
+     -> DagMonad (SpaceOf style) m (Layout Rgba style)
   go axis depth parentCut parentLine layers boundary treeId =
       do let anchor = pointAlongAxis (perpendicularTo axis) parentCut parentLine
          layerStack <- error "constructDecorateTree not implemented" -- constructLayerStack anchor layers
@@ -87,10 +98,10 @@ constructDecorateTree =
            -> Int
            -> Athwart axis (SpaceOf style)
            -> Along   axis (SpaceOf style)
-           -> ShapeStack
+           -> [FabricTagId]
            -> Box (SpaceOf style)
            -> DecoTag (SpaceOf style)
-           -> DagMonad (SpaceOf style) m (Layout style)
+           -> DagMonad (SpaceOf style) m (Layout Rgba style)
   goBranch axis depth parentCut parentLine layers boundary tree =
                   let cut      = toAthwart axis (tree ^. decoTagCut)
                       anchor   = pointAlongAxis (perpendicularTo axis) parentCut parentLine
@@ -99,12 +110,12 @@ constructDecorateTree =
                   if widthOf boundary > 0 && heightOf boundary > 0
                   then
                      do  newStack <- mapSliceM (fromPileS (dagTreeStorage . treeCrossingPile)) (tree ^. decoTagCrossings)
-                         let layers' = combineShapeStacks newStack layers
+                         let layers' = combineItemStacks newStack layers
                              (lessBound, moreBound) = splitBox axis cut boundary
                          lessBranch <- go (perpendicularTo axis) (depth + 1) parentLine cut layers' lessBound (tree ^. decoTagLessCut)
                          moreBranch <- go (perpendicularTo axis) (depth + 1) parentLine cut layers' moreBound (tree ^. decoTagMoreCut)
-                         let pathLine :: Layout style
-                             pathLine  = withColor (transparent 0.2 black) . mask . stroke 1 . makeOpenCurve $ [line anchor endPoint]
+                         let pathLine :: Layout Rgba style
+                             pathLine  = withColor (transparent 0.2 black) . place . stroke 1 . makeOpenCurve $ [line anchor endPoint]
                          return $ overlap [ pathLine
                                           , lessBranch
                                           , moreBranch

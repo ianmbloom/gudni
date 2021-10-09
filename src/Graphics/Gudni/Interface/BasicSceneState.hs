@@ -18,11 +18,8 @@ module Graphics.Gudni.Interface.BasicSceneState
   , statePlayhead
   , stateFrameNumber
   , stateStep
-  , stateRepMode
-  , stateRepDk
   , stateCursor
   , transformFromState
-  , simpleTransformFromState
   , statusDisplay
   , updateSceneState
   )
@@ -53,22 +50,11 @@ data BasicSceneState = BasicSceneState
   , _statePlayhead    :: SubSpace
   , _stateFrameNumber :: Int
   , _stateStep        :: Int
-  , _stateRepMode     :: Bool
-  , _stateRepDk       :: Bool
   , _stateCursor      :: Point2 SubSpace
   } deriving (Generic, Show)
 makeLenses ''BasicSceneState
 
 instance Out BasicSceneState
-
-simpleTransformFromState :: (SimpleTransformable t, SpaceOf t ~ SubSpace) => BasicSceneState -> t -> t
-simpleTransformFromState state constructed =
-    let sc    = state ^. stateScale
-        delta = state ^. stateDelta
-    in  translateBy delta .
-        scaleBy sc $
-        constructed
-
 
 transformFromState :: (Transformable t, SpaceOf t ~ SubSpace) => BasicSceneState -> t -> t
 transformFromState state constructed =
@@ -86,7 +72,7 @@ statusDisplay :: ( IsStyle style
               => BasicSceneState
               -> String
               -> [String]
-              -> Layout style
+              -> Layout Rgba style
 statusDisplay state testName status =
     translateByXY 1800 800 .
     rotateBy (45 @@ deg) .
@@ -128,9 +114,7 @@ instance HandlesInput token BasicSceneState where
                          Key Number6 -> stateScale .= 32
                          Key Number0 -> stateScale .= 0.25
                          Key Number9 -> stateScale .= 0.125
-                         KeyCommand CommandTab -> stateRepMode %= not
-                         Key SymbolBackquote -> stateRepDk %= not
-                         _                 -> return ()
+                         _           -> return ()
              (InputMouse detection modifier clicks positionInfo) ->
                  case detection of
                    Released -> stateCursor .= fmap fromIntegral positionInfo

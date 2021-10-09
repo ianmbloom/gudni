@@ -19,8 +19,8 @@ import Graphics.Gudni.Draw.Rectangle
 import Graphics.Gudni.Draw.ArrowHead
 import Graphics.Gudni.Draw.Text
 
-import Graphics.Gudni.Raster.Dag.TagTypes
-import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.TagTypes
+import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
 import Linear.V3
 
 makeList :: a -> [a]
@@ -31,15 +31,15 @@ v3ToList (V3 a b c) = [a, b, c]
 
 drawPrim :: IsStyle style
          => Primitive (SpaceOf style)
-         -> CompoundLayout style
+         -> Layout Mono style
 drawPrim (Prim fabricTagId ty) =
     case ty of
-        PrimBezier  bez   -> mask . stroke 0.1 . makeOpenCurve . makeList $ bez
-        PrimFacet   facet -> mask . stroke 0.1 . makeOpenCurve . v3ToList . facetToBeziers $ facet
-        PrimRect    box   -> mask . boxToRectangle $ box
-        PrimEllipse box   -> mask . boxToRectangle $ box
+        PrimBezier  bez   -> place . stroke 0.1 . makeOpenCurve . makeList $ bez
+        PrimFacet   facet -> place . stroke 0.1 . makeOpenCurve . v3ToList . facetToBeziers $ facet
+        PrimRect    box   -> place . boxToRectangle $ box
+        PrimEllipse box   -> place . boxToRectangle $ box
 
-labelPrim :: IsStyle style => PrimTagId -> Primitive (SpaceOf style) -> CompoundLayout style
+labelPrim :: IsStyle style => PrimTagId -> Primitive (SpaceOf style) -> Layout Mono style
 labelPrim primTagId (Prim _ ty) =
     let size  = 40
         text  = blurb (show primTagId)

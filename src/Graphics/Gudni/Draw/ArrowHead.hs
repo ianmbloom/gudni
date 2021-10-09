@@ -30,22 +30,41 @@ data ArrowDirection = PointingForward | PointingBackward deriving (Eq, Show)
 defaultArrowHead :: (Loop f, Space s) => Point2 s -> ArrowDirection -> Shape_ f s
 defaultArrowHead size direction = Shape . pure . applyStretch size $ fromSegments [straightXY (-1) (-0.5), straightXY 0 0, straightXY (-1) 0.5]
 
-class (Space (SpaceOf t), HasSpace t, HasArcLength t, Reversible t) => CanArrow t where
-  withArrowHeadOffsetShape :: Shape (SpaceOf t) -> Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> CompoundTree (SpaceOf t)
+class (HasSpace t, HasArcLength t, Reversible t) => CanArrow t where
+  withArrowHeadOffsetShape :: ( IsStyle style
+                              , SpaceOf t ~ SpaceOf style)
+                           => Shape  (SpaceOf t)
+                           -> Point2 (SpaceOf t)
+                           -> Point2 (SpaceOf t)
+                           -> ArrowDirection
+                           -> t
+                           -> Layout Mono style
 
-  withArrowHeadOffset :: Point2 (SpaceOf t) -> Point2 (SpaceOf t) -> ArrowDirection -> t -> CompoundTree (SpaceOf t)
-  withArrowHeadOffset offset size direction = withArrowHeadOffsetShape (defaultArrowHead size direction) offset size direction
+  withArrowHeadOffset :: ( IsStyle style
+                         , SpaceOf t ~ SpaceOf style)
+                      => Point2 (SpaceOf t)
+                      -> Point2 (SpaceOf t)
+                      -> ArrowDirection
+                      -> t
+                      -> Layout Mono style
+  withArrowHeadOffset offset size direction =
+      withArrowHeadOffsetShape (defaultArrowHead size direction) offset size direction
 
-  withArrowHead :: Point2 (SpaceOf t) -> ArrowDirection -> t -> CompoundTree (SpaceOf t)
+  withArrowHead :: ( IsStyle style
+                   , SpaceOf t ~ SpaceOf style)
+                => Point2 (SpaceOf t)
+                -> ArrowDirection
+                -> t
+                -> Layout Mono style
   withArrowHead size direction t =
-    let len = arcLength t
-        t' = if direction == PointingForward then t else reverseItem t
-        offset = Point2 len 0
-    in  withArrowHeadOffset offset size direction t'
+      let len = arcLength t
+          t' = if direction == PointingForward then t else reverseItem t
+          offset = Point2 len 0
+      in  withArrowHeadOffset offset size direction t'
 
 instance (Space s) => CanArrow (OpenCurve s) where
-  withArrowHeadOffsetShape shape offset size direction path =
-    projectOnto path . translateBy offset $ mask shape
+    withArrowHeadOffsetShape shape offset size direction path =
+        projectOnto path . translateBy offset $ place (shape :: Shape s)
 
 instance (Space s) => CanArrow (Bezier s) where
   withArrowHeadOffsetShape shape offset size direction bz =

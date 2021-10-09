@@ -46,7 +46,7 @@ instance Model PlotState where
     shouldLoop _ = True
     fontFile _ = findDefaultFont
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
-    constructScene state status =
+    constructLayout state status =
         return $ withBackgroundColor (light . greenish $ blue) (plots state)
     providePictureMap _ = noPictures
     handleOutput state target = do  presentTarget target
@@ -80,8 +80,6 @@ main = runApplication $ PlotState
            , _statePlayhead    = 0
            , _stateFrameNumber = 0
            , _stateStep        = 69
-           , _stateRepMode     = False
-           , _stateRepDk       = False
            , _stateCursor      = Point2 0 0
            }
        ) 0.75

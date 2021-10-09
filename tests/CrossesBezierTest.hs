@@ -18,7 +18,7 @@ import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
 import Graphics.Gudni.Draw
 
-import Graphics.Gudni.Raster.Dag.Constants
+import Graphics.Gudni.Raster.Constants
 
 import Control.Lens
 import Control.Monad
@@ -49,8 +49,6 @@ initialModel =
         , _statePlayhead    = 164
         , _stateFrameNumber = 0
         , _stateStep        = 45
-        , _stateRepMode     = False
-        , _stateRepDk       = False
         , _stateCursor      = Point2 0 0
         }
     }
@@ -66,7 +64,7 @@ instance Model CrossTestState where
     fontFile _ = findDefaultFont
     updateModelState _frame _elapsedTime inputs state = foldl (flip processInput) state inputs
     ioTask = return
-    constructScene state status =
+    constructLayout state status =
         do  let statusTree = statusDisplay (state ^. stateBase) "Test of orthogonal line segments crossing curves" (lines status)
                 treeScene  = transformFromState (state ^. stateBase) runCrossTests --runLessCurveTests) --testScene
                 withStatus = if False then overlap [statusTree, treeScene] else treeScene
@@ -88,7 +86,7 @@ showCross axis start end bez =
     let limit = realToFrac cROSSsPLITlIMIT
         doesCross = crossesBezierAlong limit axis (start ^. along axis) (start ^. athwart axis) (end ^. along axis) bez
         color = if doesCross then red else green
-    in  withColor color . mask . stroke 0.3 . makeOpenCurve $ [line start end]
+    in  withColor color . place . stroke 0.3 . makeOpenCurve $ [line start end]
 
 overCs :: (Point2 s -> Point2 s) -> (EitherAxis, Point2 s, Point2 s) -> (EitherAxis, Point2 s, Point2 s)
 overCs f (x, a, b) = (x, f a, f b)
@@ -139,7 +137,7 @@ crossTests bez =
        zs = map (overCs (^* s)) cs
    in  overlap $ (map (\(e, start, end) ->
                        withEitherAxis showCross showCross e start end reBez) zs)
-                 ++ [ (withColor white . mask . stroke 0.5 $ makeOpenCurve [reBez])]
+                 ++ [ (withColor white . place . stroke 0.5 $ makeOpenCurve [reBez])]
 
 revTests bez = crossTests bez --rack $ map crossTests $ [bez, reverseBezier bez]
 

@@ -8,7 +8,6 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE StandaloneDeriving    #-}
-
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Graphics.Gudni.Layout.Proximity
@@ -30,6 +29,10 @@ module Graphics.Gudni.Layout.ApplyProximity
 where
 
 import Graphics.Gudni.Figure
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/flatpath
 import Graphics.Gudni.Layout.Fill
 import Graphics.Gudni.Layout.Empty
 import Graphics.Gudni.Layout.Alignment
@@ -93,9 +96,9 @@ applyAlign :: ( IsStyle style
            -> (Box    (SpaceOf style), Box    (SpaceOf style))
            -> (Point2 (SpaceOf style), Point2 (SpaceOf style))
 applyAlign style axis alignment (a, b) =
-  let (aSize, bSize) = overBoth (view (acrossBox axis)) (a, b)
-      size  = max aSize bSize
-  in  overBoth (applyAlignWithSize style axis alignment size) (a, b)
+    let (aSize, bSize) = overBoth (view (acrossBox axis)) (a, b)
+        size  = max aSize bSize
+    in  overBoth (applyAlignWithSize style axis alignment size) (a, b)
 
 applyNextTo :: ( IsStyle style
                , Axis axis
@@ -106,8 +109,8 @@ applyNextTo :: ( IsStyle style
             -> (Box    (SpaceOf style), Box    (SpaceOf style))
             -> (Point2 (SpaceOf style), Point2 (SpaceOf style))
 applyNextTo style axis (a, b) =
-  let d = a ^. maxBox . along axis - b ^. minBox . along axis
-  in  (zeroPoint, deltaOnAxis axis (d + toAlong axis (styleGap axis style)) )
+    let d = a ^. maxBox . along axis - b ^. minBox . along axis
+    in  (zeroPoint, deltaOnAxis axis (d + toAlong axis (styleGap axis style)) )
 
 applyProximity :: ( IsStyle style)
                => style
@@ -115,12 +118,12 @@ applyProximity :: ( IsStyle style)
                -> (Box    (SpaceOf style), Box    (SpaceOf style))
                -> (Point2 (SpaceOf style), Point2 (SpaceOf style))
 applyProximity style proximity (aBox, bBox) =
-        case proximity of
-            NextTo eAxis mAlignment ->
-               let nextToDeltas = (fromEitherAxis (applyNextTo     style Horizontal) (applyNextTo     style Vertical  ) eAxis)          (aBox, bBox)
-                   alignDeltas  =  fromEitherAxis (applyMaybeAlign style Vertical)   (applyMaybeAlign style Horizontal) eAxis mAlignment (aBox, bBox)
-               in  combineDeltas nextToDeltas alignDeltas
-            OnTopOf mAlignHori mAlignVert ->
-               let alignHoriDeltas = applyMaybeAlign style Horizontal mAlignHori (aBox, bBox)
-                   alignVertDeltas = applyMaybeAlign style Vertical   mAlignVert (aBox, bBox)
-                in combineDeltas alignHoriDeltas alignVertDeltas
+    case proximity of
+        NextTo eAxis mAlignment ->
+           let nextToDeltas = (fromEitherAxis (applyNextTo     style Horizontal) (applyNextTo     style Vertical  ) eAxis)          (aBox, bBox)
+               alignDeltas  =  fromEitherAxis (applyMaybeAlign style Vertical)   (applyMaybeAlign style Horizontal) eAxis mAlignment (aBox, bBox)
+           in  combineDeltas nextToDeltas alignDeltas
+        OnTopOf mAlignHori mAlignVert ->
+           let alignHoriDeltas = applyMaybeAlign style Horizontal mAlignHori (aBox, bBox)
+               alignVertDeltas = applyMaybeAlign style Vertical   mAlignVert (aBox, bBox)
+            in combineDeltas alignHoriDeltas alignVertDeltas

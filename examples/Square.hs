@@ -52,7 +52,7 @@ instance Model SquareState where
             ) $ foldl (flip processInput) state inputs
     ioTask = return
     --shouldLoop _ = False
-    constructScene state status =
+    constructLayout state status =
       let l = --translateBy (Point2 100 100) .      -- translate the child ShapeTree
               scaleBy  (state ^. squareScale) .    -- scale the child ShapeTree based on the current state.
               --rotateBy (state ^. stateAngle) .    -- rotate the child ShapeTree based on the current state.

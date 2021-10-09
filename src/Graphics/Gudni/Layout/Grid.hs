@@ -60,7 +60,7 @@ gridFrom :: (HasSpace a)
          -> [a]
 gridFrom f topLeft s width height = concat . take height . verticallySpacedListBy f topLeft (toAlong Vertical s) . map (take width . horizontallySpacedBy f topLeft (toAlong Horizontal s)) . breakList width
 
-gridOf :: (HasSpace a, SimpleTransformable a)
+gridOf :: (HasSpace a, Transformable a)
        => SpaceOf a
        -> Int
        -> Int

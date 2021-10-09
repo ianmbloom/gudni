@@ -22,7 +22,7 @@ The goal is to create an engine that can create a realtime output for figures wi
 
 ## Code Guide
 
-The purpose of this library is to convert a vector description of a figure to a raster image. Because Gudni uses a GPU via OpenCL for part of this computation the library must just-in-time compiles its OpenCL kernels prior doing any work and must interact with the GPU inside of an IO and CLState monad. Unfortunately because of this there is no way to use the rasterizer as a pure function. To abstract the details of this interaction away from someone using the library we use a callback style API. Users initially call the function runApplication and pass that function a data structure which represents the state of their application and is an instance of typeclass Model. The typeclass defines functions which can modify this state and provide the rasterizer with information based on the state, including a constructScene which provides the rasterizer with all of the vector geometry and metadata that describes an individual image. The specifics of these functions are illustrated in the following examples.
+The purpose of this library is to convert a vector description of a figure to a raster image. Because Gudni uses a GPU via OpenCL for part of this computation the library must just-in-time compiles its OpenCL kernels prior doing any work and must interact with the GPU inside of an IO and CLState monad. Unfortunately because of this there is no way to use the rasterizer as a pure function. To abstract the details of this interaction away from someone using the library we use a callback style API. Users initially call the function runApplication and pass that function a data structure which represents the state of their application and is an instance of typeclass Model. The typeclass defines functions which can modify this state and provide the rasterizer with information based on the state, including a constructLayout which provides the rasterizer with all of the vector geometry and metadata that describes an individual image. The specifics of these functions are illustrated in the following examples.
 
 ### Example 1: Simple Square.
 The file examples/Square.hs provides the minimal demonstration of the library API. The program defines a datatype SquareState which happens to contain values for the scale and rotation of a square.
@@ -42,7 +42,7 @@ Each combinator is actually a member of a typeclass that has instances depending
 
 So for example the statement:
 
-    constructScene state status =
+    constructLayout state status =
         return .                          -- Push the scene into the FontMonad
         Scene (light . greenish $ blue) . -- Wrap the ShapeTree in a scene with background color
         Just .                             

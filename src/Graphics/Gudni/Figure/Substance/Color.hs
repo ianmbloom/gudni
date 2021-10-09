@@ -23,34 +23,28 @@
 module Graphics.Gudni.Figure.Substance.Color
   ( Color(..)
   , unColor
+  , makeColor
   , rgbaColor
-  , hsvColor
 
   , cRed
   , cGreen
   , cBlue
   , cAlpha
 
+  , isOpaque
+  , isClear
+  , composite
+
+  , transparent
+  , blend
+  , mixColor
+  , colourToColor
+
   , pureRed, pureGreen, pureBlue
   , red, orange, yellow, green, cyan, blue, purple
   , black, gray, white
   , clearBlack
   , opaqueWhite
-
-  , isOpaque
-  , isClear
-  , composite
-  , hsvAdjust
-  , saturate
-  , lighten
-  , light
-  , dark
-  , veryDark
-  , transparent
-  , mixColor
-
-  , redish, orangeish, yellowish, greenish, blueish, purpleish
-  , colourToColor
   )
 where
 
@@ -101,6 +95,13 @@ instance Space s => HasSpace (Color s) where
 instance Space s => HasDefault (Color s) where
   defaultValue = clearBlack
 
+makeColor :: s -> s -> s -> s -> Color s
+makeColor r g b a = Color $ V4 r g b a
+
+-- | Generate a 'Color' from simple RGB and alpha values.
+rgbaColor :: s -> s -> s -> s -> Color s
+rgbaColor = makeColor
+
 cRed   :: Lens' (Color s) s
 cGreen :: Lens' (Color s) s
 cBlue  :: Lens' (Color s) s
@@ -122,6 +123,39 @@ isOpaque color = color ^. cAlpha > 0.999
 isClear :: (Space s) => Color s -> Bool
 isClear color = color ^. cAlpha < 0.001
 
+composite :: (Space s) => Color s -> Color s -> Color s
+composite f b =
+  let alphaOut = f ^. cAlpha + (b ^. cAlpha * (1 - f ^. cAlpha))
+  in
+  if alphaOut > 0
+  then set cAlpha alphaOut $ Color $ ((f ^. unColor ^* f ^. cAlpha) ^+^ (b ^. unColor ^* (b ^. cAlpha * (1 - f ^. cAlpha)))) ^* (1 / alphaOut)
+  else clearBlack
+
+dissolve :: Space s => s -> Color s -> Color s
+dissolve s (Color v4) = Color $ fmap (*s) v4
+
+rgbaAdd :: Space s => Color s -> Color s -> Color s
+rgbaAdd (Color v0) (Color v1) = Color $ v0 + v1
+
+blend :: (Space s) => s -> Color s -> Color s -> Color s
+blend weight c1 c2 =
+   rgbaAdd (dissolve (1-weight) c1) (dissolve weight c2)
+
+-- | Mix two colors and return the alpha value of the first color.
+mixColor :: (Space s) => Color s -> Color s -> Color s
+mixColor a b = blend 0.5 a b
+
+-- | Replace the alpha value of a color.
+transparent :: (Space s) => s -> Color s -> Color s
+transparent a = set cAlpha a
+
+
+instance (Space s, Storable s) => Storable (Color s) where
+    sizeOf _    = sizeOf (undefined :: V4 CFloat)
+    alignment _ = alignment (undefined :: V4 CFloat)
+    peek ptr = Color . fmap (realToFrac :: CFloat -> s) <$> peek (F.castPtr ptr)
+    poke ptr = poke (F.castPtr ptr) . fmap (realToFrac :: s -> CFloat) . view unColor
+
 -- | Red based on simple rgb values.
 pureRed :: Num s => Color s
 pureRed   = rgbaColor 1 0 0 1
@@ -137,102 +171,6 @@ clearBlack = rgbaColor 0 0 0 0
 -- | Completely opaque color with maximum values on each channell
 opaqueWhite :: Num s => Color s
 opaqueWhite = rgbaColor 1 1 1 1
-
--- | Generate a 'Color' from hue saturation and lightness values.
-hsvColor :: (Space s) => s -> s -> s -> Color s
-hsvColor hue saturation value = colourToColor 1 (C.uncurryRGB C.sRGB $ C.hsv hue saturation value)
-
--- | Generate a 'Color' from simple RGB and alpha values.
-rgbaColor :: s -> s -> s -> s -> Color s
-rgbaColor r g b a = Color $ V4 r g b a
-
-composite :: (Space s) => Color s -> Color s -> Color s
-composite f b =
-  let alphaOut = f ^. cAlpha + (b ^. cAlpha * (1 - f ^. cAlpha))
-  in
-  if alphaOut > 0
-  then set cAlpha alphaOut $ Color $ ((f ^. unColor ^* f ^. cAlpha) ^+^ (b ^. unColor ^* (b ^. cAlpha * (1 - f ^. cAlpha)))) ^* (1 / alphaOut)
-  else clearBlack
-
--- | Generate a 'Color' based on the input color by multiplying the saturation by a factor.
-hsvAdjust :: Space s => Color s -> Color s -> Color s
-hsvAdjust adjuster color =
-    let (colour, alpha) = colorToColour color
-        (h, s, l) = C.hsvView . C.toSRGB $ colour
-        (V4 hueShift sat value _) = color ^. unColor
-        c = C.uncurryRGB C.sRGB $ C.hsv (snd . properFraction $ hueShift + h) (clamp 0 1.0 $ sat + s) (l + value)
-    in  colourToColor alpha c
-
-saturate :: (Space s) => s -> Color s -> Color s
-saturate sat = hsvAdjust (Color $ V4 0 sat 0 0)
-
--- | Generate a 'Color' based on the input color by multiplying the lightness by a factor.
-lighten :: (Space s) => s -> Color s -> Color s
-lighten value = hsvAdjust (Color $ V4 0 0 value 0)
-
--- | Make a slightly lighter version of the color.
-light :: (Space s) => Color s -> Color s
-light = saturate 0.8  . lighten 0.2
-
--- | Make a slightly darker version of the color.
-dark :: (Space s) => Color s -> Color s
-dark  = saturate 1.25 . lighten (-0.2)
-
--- | Make a much darker version of the color.
-veryDark :: (Space s) => Color s -> Color s
-veryDark  = saturate 1.25 . lighten 0.5
-
--- | Mix two colors and return the alpha value of the first color.
-mixColor :: (Space s) => Color s -> Color s -> Color s
-mixColor a b =
-  let (colourA, alphaA) = colorToColour a
-      (colourB, alphaB) = colorToColour b
-      blended = C.blend 0.5 colourA colourB
-  in  colourToColor alphaA blended
-
--- | Blend two colors by pushing the hue value toward the second color.
-influenceHue :: (Space s) => s -> Color s -> Color s -> Color s
-influenceHue amount b a =
-  let (color,   alpha) = colorToColour a
-      (blender,    _ ) = colorToColour b
-      blended = C.blend amount blender color
-      (h,s,_) = C.hsvView . C.toSRGB $ blended
-      (_,_,l) = C.hsvView . C.toSRGB $ color
-  in  transparent alpha (hsvColor h s l)
-
--- | The amount to mix in a color to ish it.
-ishAmount :: Space s => s
-ishAmount = 0.05
-
--- | Make a slightly redder version of the color.
-redish    :: (Space s) => Color s -> Color s
--- | Make a slightly oranger version of the color.
-orangeish :: (Space s) => Color s -> Color s
--- | Make a slightly yellower version of the color.
-yellowish :: (Space s) => Color s -> Color s
--- | Make a slightly greener version of the color.
-greenish  :: (Space s) => Color s -> Color s
--- | Make a slightly bluer version of the color.
-blueish   :: (Space s) => Color s -> Color s
--- | Make a slightly purpler version of the color.
-purpleish :: (Space s) => Color s -> Color s
-redish    = influenceHue ishAmount red
-orangeish = influenceHue ishAmount orange
-yellowish = influenceHue ishAmount yellow
-greenish  = influenceHue ishAmount green
-blueish   = influenceHue ishAmount blue
-purpleish = influenceHue ishAmount purple
-
--- | Replace the alpha value of a color.
-transparent :: (Space s) => s -> Color s -> Color s
-transparent a = set cAlpha a
-
-
-instance (Space s, Storable s) => Storable (Color s) where
-    sizeOf _    = sizeOf (undefined :: V4 CFloat)
-    alignment _ = alignment (undefined :: V4 CFloat)
-    peek ptr = Color . fmap (realToFrac :: CFloat -> s) <$> peek (F.castPtr ptr)
-    poke ptr = poke (F.castPtr ptr) . fmap (realToFrac :: s -> CFloat) . view unColor
 
 -- | Wrapped colors
 red    :: Space s => Color s

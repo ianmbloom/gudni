@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies    #-}
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.Dag.OpenCL.RasterState
+-- Module      :  Graphics.Gudni.Raster.OpenCL.RasterState
 -- Copyright   :  (c) Ian Bloom 2019
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -17,13 +17,19 @@ module Graphics.Gudni.Raster.Class
   )
 where
 
+import Graphics.Gudni.Base
 import Graphics.Gudni.Figure.Principle
 import Graphics.Gudni.Figure.Substance.Picture
 import Graphics.Gudni.Interface.DrawTarget
 import Graphics.Gudni.Interface.Query
 import Graphics.Gudni.Interface.InterfaceSDL
+import Graphics.Gudni.Raster.Fabric.Type
+import Graphics.Gudni.Raster.Fabric.FromLayout
+import Graphics.Gudni.Raster.TextureReference
 
-import Graphics.Gudni.Layout
+import Graphics.Gudni.Layout.Font
+import Graphics.Gudni.Layout.Style
+import Graphics.Gudni.Layout.Type
 
 import Graphics.Gudni.Util.MonadST
 import Control.Monad.IO.Class
@@ -36,13 +42,14 @@ class Rasterizer r where
                    , MonadST m
                    , IsStyle style
                    , SpaceOf style ~ SubSpace
+                   , Out style
                    )
                 => r
                 -> Point2 PixelSpace
                 -> PictureMap
-                -> Scene (Layout style)
+                -> Layout Rgba style
                 -> Int
                 -> [(PointQuery (SpaceOf style))]
                 -> Point2 PixelSpace
                 -> DrawTarget
-                -> FontMonad style m ()
+                -> FontMonad (SpaceOf style) m ()

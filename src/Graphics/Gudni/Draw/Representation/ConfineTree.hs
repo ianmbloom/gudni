@@ -19,10 +19,17 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
+<<<<<<< HEAD
 import Graphics.Gudni.Raster.Dag.ConfineTree.Type
 import Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
 import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
 import Graphics.Gudni.Raster.Dag.TagTypes
+=======
+import Graphics.Gudni.Raster.ConfineTree.Type
+import Graphics.Gudni.Raster.ConfineTree.Traverse
+import Graphics.Gudni.Raster.ConfineTree.Storage
+import Graphics.Gudni.Raster.TagTypes
+>>>>>>> origin/flatpath
 
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Rectangle
@@ -71,14 +78,14 @@ axisLine axis cut boundary =
         maxPoint = pointAlongAxis axis (boundary ^. maxBox . along axis) cut
     in  line (constrainPoint minPoint) (constrainPoint maxPoint)
 
-bezierArrow :: (IsStyle style) => Bezier (SpaceOf style) -> Layout style
+bezierArrow :: (IsStyle style) => Bezier (SpaceOf style) -> Layout Rgba style
 bezierArrow bz@(Bez v0 c v1) =
      let r = 5
          w = 10
          h = 7.5
      in
-     overlap [ withColor black . place . withArrowHead (Point2 w h) PointingForward $ bz
-             , withColor black . mask . stroke 1 $ makeOpenCurve [bz]
+     overlap [ withColor black . withArrowHead (Point2 w h) PointingForward $ bz
+             , withColor black . place . stroke 1 $ makeOpenCurve [bz]
              ]
 
 constructConfine :: forall axis style m
@@ -90,7 +97,7 @@ constructConfine :: forall axis style m
                  => axis
                  -> ConfineTag (SpaceOf style)
                  -> Box (SpaceOf style)
-                 -> TreeMonad (SpaceOf style) m (Layout style)
+                 -> TreeMonad (SpaceOf style) m (Layout Rgba style)
 constructConfine axis tree boundary =
     let thickness :: SpaceOf style
         thickness = 1
@@ -99,17 +106,17 @@ constructConfine axis tree boundary =
         aColor    = axisColor axis
         aLine :: Bezier (SpaceOf style)
         aLine = axisLine axis cut boundary
-        axisLayout :: Layout style
-        axisLayout = withColor (transparent 0.2 aColor) . mask . stroke thickness . makeOpenCurve $ [aLine]
+        axisLayout :: Layout Rgba style
+        axisLayout = withColor (transparent 0.2 aColor) . place . stroke thickness . makeOpenCurve $ [aLine]
         overhangBox :: Box (SpaceOf style)
         overhangBox = overlapBlock axis cut overhang boundary
-        overhangLayout :: Layout style
-        overhangLayout = withColor (transparent 0.01 aColor) . mask . boxToRectangle $ overhangBox
+        overhangLayout :: Layout Rgba style
+        overhangLayout = withColor (transparent 0.01 aColor) . place . boxToRectangle $ overhangBox
     in
     do  prim <- loadTreePrim (tree ^. confineTagPrimTagId)
-        let primLayout :: Layout style
+        let primLayout :: Layout Rgba style
             primLayout = withColor blue . drawPrim $ prim
-            label :: Layout style
+            label :: Layout Rgba style
             label = withColor (transparent 0.5 purple) . labelPrim (tree ^. confineTagPrimTagId) $ prim
         return $
             overlap $ [
@@ -128,7 +135,7 @@ constructConfineTreeBound :: forall style m
                              , MonadIO m )
                           => Box (SpaceOf style)
                           -> ConfineTagId (SpaceOf style)
-                          -> TreeMonad (SpaceOf style) m (Layout style)
+                          -> TreeMonad (SpaceOf style) m (Layout Rgba style)
 constructConfineTreeBound startBoundary =
   go Vertical 0 startBoundary
   where
@@ -140,7 +147,7 @@ constructConfineTreeBound startBoundary =
      -> Int
      -> Box (SpaceOf style)
      -> ConfineTagId (SpaceOf style)
-     -> TreeMonad (SpaceOf style) m (Layout style)
+     -> TreeMonad (SpaceOf style) m (Layout Rgba style)
   go axis depth boundary treeId =
         if widthOf boundary > 0 && heightOf boundary > 0
         then if treeId == nullConfineTagId
@@ -159,7 +166,7 @@ constructConfineTree :: forall style m
                         , Storable (SpaceOf style)
                         , MonadIO m )
                      => ConfineTagId (SpaceOf style)
-                     -> TreeMonad (SpaceOf style) m (Layout style)
+                     -> TreeMonad (SpaceOf style) m (Layout Rgba style)
 constructConfineTree =
      constructConfineTreeBound reasonableBoundaries
 
@@ -168,7 +175,7 @@ constructConfineTreeBoxed :: forall style m
                              , Storable (SpaceOf style)
                              , MonadIO m )
                           => ConfineTagId (SpaceOf style)
-                          -> TreeMonad (SpaceOf style) m (Layout style)
+                          -> TreeMonad (SpaceOf style) m (Layout Rgba style)
 constructConfineTreeBoxed confineTree =
     do mBox <- confineTreeBox confineTree
        case mBox of

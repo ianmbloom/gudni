@@ -29,7 +29,7 @@ module Graphics.Gudni.Raster.Serial.Reference
 where
 
 import Graphics.Gudni.Base
-import Graphics.Gudni.Raster.Dag.Constants
+import Graphics.Gudni.Raster.Constants
 
 import Foreign.Storable
 import Foreign.C.Types(CUInt)

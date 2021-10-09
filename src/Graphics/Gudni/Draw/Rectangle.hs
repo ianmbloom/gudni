@@ -28,22 +28,7 @@ where
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 
--- import Graphics.Gudni.Raster.ShapeTree
---
--- import Graphics.Gudni.Layout.Style
--- import Graphics.Gudni.Layout.Layout
--- import Graphics.Gudni.Layout.Fill
---
--- import Graphics.Gudni.Util.Util
--- import Graphics.Gudni.Util.Plot
---
--- import Graphics.Gudni.Raster.TraverseShapeTree
---
--- import Graphics.Gudni.Layout.Collect
--- import Graphics.Gudni.Util.Debug
---
 import Control.Lens
--- import qualified Data.Vector as V
 import Control.Applicative
 
 
