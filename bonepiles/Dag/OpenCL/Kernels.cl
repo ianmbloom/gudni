@@ -1230,11 +1230,7 @@ inline void toggleItemActive(  FabricStack *stack
                              ) {
     bool done = false;
     int i = stack->fsSize;
-<<<<<<< HEAD:bonepiles/Dag/OpenCL/Kernels.cl
-    //dEBUGiF(printf("toggleShapeActive i %i newFabId %i newRay %v2f\n",i, newFabId, newRay);)
-=======
     dEBUGiF(printf("toggleItemActive i %i newFabId %i newRay %v2f\n",i, newFabId, newRay);)
->>>>>>> origin/flatpath:src/Graphics/Gudni/Raster/OpenCL/Kernels.cl
     while (i > 0 && !done) {
         FabricTagId_ oldFabId = stack->fsStack[i-1];
         Point2_      oldRay   = stack->fsRayStack[i-1];
@@ -1267,12 +1263,7 @@ inline void combineFabricStacks (         Dag *dag
         ; i < (sliceStart(tree.decoTagCrossings) + sliceLength(tree.decoTagCrossings))
         ; i ++
         ) {
-<<<<<<< HEAD:bonepiles/Dag/OpenCL/Kernels.cl
-       FabricTagId_ tagId = loadCrossing(dag, i);
-       // toggleShapeActive(stack, tagId, ray);
-=======
        toggleItemActive(stack, dag->dagCrossingHeap[(int)i], ray);
->>>>>>> origin/flatpath:src/Graphics/Gudni/Raster/OpenCL/Kernels.cl
     }
 }
 

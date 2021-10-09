@@ -62,15 +62,10 @@ import Graphics.Gudni.Interface.Time
 import Graphics.Gudni.Interface.FontLibrary
 import Graphics.Gudni.Interface.Query
 
-<<<<<<< HEAD
-import Graphics.Gudni.Raster.Dag.Haskell.Rasterizer
-
-=======
 import Graphics.Gudni.Base
 import Graphics.Gudni.Raster.OpenCL.Rasterizer
 import Graphics.Gudni.Raster.Haskell.Rasterizer
 import Graphics.Gudni.Raster.OpenCL.Instance
->>>>>>> origin/flatpath
 import Graphics.Gudni.Raster.Class
 
 import Graphics.Gudni.Figure
@@ -184,33 +179,11 @@ startApplication rasterizer state =
                         -- when the loop exits close the application.
                         closeApplication
 
-<<<<<<< HEAD
 runApplicationDagHaskell :: ( Show s
                             , Model s
                             , HasStyle s
                             , Show (TokenOf (StyleOf s))
                             , SpaceOf (StyleOf s) ~ SubSpace
-=======
-runApplicationDagOpenCL :: ( Show state
-                           , Model state
-                           , HasStyle state
-                           , Show (TokenOf (StyleOf state))
-                           , SpaceOf (StyleOf state) ~ SubSpace
-                           , Out (StyleOf state)
-                           )
-                        => state
-                        -> IO ()
-runApplicationDagOpenCL state =
-    do (rasterizer :: DagOpenCLState) <- setupRasterizer
-       startApplication rasterizer state
-
-runApplicationDagHaskell :: ( Show state
-                            , Model state
-                            , HasStyle state
-                            , Show (TokenOf (StyleOf state))
-                            , SpaceOf (StyleOf state) ~ SubSpace
-                            , Out (StyleOf state)
->>>>>>> origin/flatpath
                             )
                          => state
                          -> IO ()
@@ -229,10 +202,7 @@ runApplication :: ( Show state
                -> IO ()
 --runApplication = runApplicationDagOpenCL
 runApplication = runApplicationDagHaskell
-<<<<<<< HEAD
 --runApplication = runApplicationThresholdOpenCL
-=======
->>>>>>> origin/flatpath
 
 -- | Convert a `Timespec` to the `SimpleTime` (a double in seconds from application start)
 toSimpleTime :: TimeSpec -> SimpleTime

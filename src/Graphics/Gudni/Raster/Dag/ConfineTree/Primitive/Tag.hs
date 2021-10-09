@@ -6,7 +6,7 @@
 
 -----------------------------------------------------------------------------
 -- |
--- Module      :  Graphics.Gudni.Raster.ConfineTree.PrimTag
+-- Module      :  Graphics.Gudni.Raster.Dag.ConfineTree.PrimTag
 -- Copyright   :  (c) Ian Bloom 2020
 -- License     :  BSD-style (see the file libraries/base/LICENSE)
 --
@@ -16,7 +16,7 @@
 --
 -- Constructors for attaching metadata to shapes∘
 
-module Graphics.Gudni.Raster.ConfineTree.Primitive.Tag
+module Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Tag
     ( makeFacetPrimTag
     , makeBezierPrimTag
     , makeRectPrimTag
@@ -35,13 +35,11 @@ where
 
 import Graphics.Gudni.Figure
 
-import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
-import Graphics.Gudni.Raster.ConfineTree.Primitive.Constants
-import Graphics.Gudni.Raster.TagTypes
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Constants
+import Graphics.Gudni.Raster.Dag.ConfineTree.Primitive.Type
+import Graphics.Gudni.Raster.Dag.TagTypes
 import Graphics.Gudni.Raster.Serial.Reference
-import Graphics.Gudni.Util.Debug
-
-import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
 
 import Data.Bits
 import Numeric
@@ -57,7 +55,7 @@ makePrimFabricTagId :: Reference FabricTag -> PrimTag_
 makePrimFabricTagId i = fromIntegral i .&. pRIMtAGfABRICiDbITMASK
 
 fromPrimStorage :: PrimTag_ -> StorageId_
-fromPrimStorage i = fromIntegral $ (i `shiftR` pRIMtAGsTORAGEiDsHIFT) .&. pRIMtAGfABRICiDbITMASK
+fromPrimStorage i = fromIntegral $ i `shiftR` pRIMtAGsTORAGEiDsHIFT
 
 fromPrimFabricTagId :: PrimTag_ -> Reference FabricTag
 fromPrimFabricTagId i = fromIntegral $ i .&. pRIMtAGfABRICiDbITMASK

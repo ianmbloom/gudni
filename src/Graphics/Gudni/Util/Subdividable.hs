@@ -12,11 +12,6 @@ module Graphics.Gudni.Util.Subdividable
 where
 
 import Graphics.Gudni.Figure
-<<<<<<< HEAD
-import Graphics.Gudni.Layout.Layout
-import Graphics.Gudni.Layout.Style
-=======
->>>>>>> origin/flatpath
 import Graphics.Gudni.Util.Debug
 import Linear.V2
 import Linear.V3

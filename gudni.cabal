@@ -75,7 +75,6 @@ library
                      , Graphics.Gudni.Util.Shuffle
                      , Graphics.Gudni.Util.TreeOrderTable
 
-<<<<<<< HEAD
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Add
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Build
                      , Graphics.Gudni.Raster.Dag.ConfineTree.Decorate
@@ -121,62 +120,6 @@ library
                      , Graphics.Gudni.Raster.Dag.Storage
                      , Graphics.Gudni.Raster.Dag.State
                      , Graphics.Gudni.Raster.Dag.Serialize
-=======
-                     , Graphics.Gudni.Raster.ConfineTree.Add
-                     , Graphics.Gudni.Raster.ConfineTree.Build
-                     , Graphics.Gudni.Raster.ConfineTree.Decorate
-                     , Graphics.Gudni.Raster.ConfineTree.Depth
-                     , Graphics.Gudni.Raster.ConfineTree.Query
-                     , Graphics.Gudni.Raster.ConfineTree.Sweep
-                     , Graphics.Gudni.Raster.ConfineTree.Traverse
-                     , Graphics.Gudni.Raster.ConfineTree.Type
-                     , Graphics.Gudni.Raster.ConfineTree.Storage
-                     , Graphics.Gudni.Raster.ConfineTree.Out
-
-                     , Graphics.Gudni.Raster.Constants
-                     , Graphics.Gudni.Raster.Fabric.Combine.Type
-                     , Graphics.Gudni.Raster.Fabric.Combine.Tag
-                     , Graphics.Gudni.Raster.Fabric.Combine.Apply
-                     , Graphics.Gudni.Raster.Fabric.Ray.Class
-                     , Graphics.Gudni.Raster.Fabric.Ray.Answer
-                     , Graphics.Gudni.Raster.Fabric.Filter.Type
-                     , Graphics.Gudni.Raster.Fabric.Filter.Tag
-                     , Graphics.Gudni.Raster.Fabric.Transformer.Type
-                     , Graphics.Gudni.Raster.Fabric.Transformer.Storage
-                     , Graphics.Gudni.Raster.Fabric.Substance.Type
-                     , Graphics.Gudni.Raster.Fabric.Substance.Storage
-                     , Graphics.Gudni.Raster.Fabric.Type
-                     , Graphics.Gudni.Raster.Fabric.Tag
-                     , Graphics.Gudni.Raster.Fabric.Traverse
-                     , Graphics.Gudni.Raster.Fabric.Out
-                     , Graphics.Gudni.Raster.Fabric.Storage
-                     , Graphics.Gudni.Raster.Fabric.Serialize
-                     , Graphics.Gudni.Raster.Fabric.Pull
-                     , Graphics.Gudni.Raster.Fabric.FromLayout
-                     , Graphics.Gudni.Raster.Fabric
-
-                     , Graphics.Gudni.Raster.ConfineTree.Primitive.Constants
-                     , Graphics.Gudni.Raster.ConfineTree.Primitive.Cross
-                     , Graphics.Gudni.Raster.ConfineTree.Primitive.Stack
-                     , Graphics.Gudni.Raster.ConfineTree.Primitive.Storage
-                     , Graphics.Gudni.Raster.ConfineTree.Primitive.Tag
-                     , Graphics.Gudni.Raster.ConfineTree.Primitive.Type
-                     , Graphics.Gudni.Raster.ConfineTree.Primitive.WithinBox
-
-                     , Graphics.Gudni.Raster.Haskell.Rasterizer
-
-                     , Graphics.Gudni.Raster.OpenCL.CallKernels
-                     , Graphics.Gudni.Raster.OpenCL.EmbeddedOpenCLSource
-                     , Graphics.Gudni.Raster.OpenCL.PrepareBuffers
-                     , Graphics.Gudni.Raster.OpenCL.Rasterizer
-                     , Graphics.Gudni.Raster.OpenCL.Setup
-                     , Graphics.Gudni.Raster.OpenCL.Instance
-
-                     , Graphics.Gudni.Raster.TagTypes
-                     , Graphics.Gudni.Raster.Storage
-                     , Graphics.Gudni.Raster.State
-                     , Graphics.Gudni.Raster.WithSerialized
->>>>>>> origin/flatpath
                      , Graphics.Gudni.Raster.TextureReference
                      , Graphics.Gudni.Raster.Class
 
@@ -295,14 +238,11 @@ library
                      , Graphics.Gudni.Raster.Serial.BytePile
                      , Graphics.Gudni.Raster.Serial.CopyPile
 
-<<<<<<< HEAD
-=======
                      , Graphics.Gudni.Raster.OpenCL.Util.Buffer
                      , Graphics.Gudni.Raster.OpenCL.Util.CppDefines
                      , Graphics.Gudni.Raster.OpenCL.Util.DeviceQuery
                      , Graphics.Gudni.Raster.OpenCL.Util.KernelArg
                      , Graphics.Gudni.Raster.OpenCL.Util.KernelQuery
->>>>>>> origin/flatpath
 
   -- LANGUAGE extensions used by modules in this package.
   other-extensions:    FlexibleContexts

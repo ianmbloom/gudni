@@ -60,11 +60,7 @@ initialModel pictureMap =
         , _stateCursor      = Point2 0 0
         }
     , _statePictureMap  = pictureMap
-<<<<<<< HEAD
-    , _stateCurrentTest = 26
-=======
     , _stateCurrentTest = 0
->>>>>>> origin/flatpath
     }
 
 getTest :: BenchmarkState -> (String, SubSpace -> Int -> Layout Rgba DefaultStyle)

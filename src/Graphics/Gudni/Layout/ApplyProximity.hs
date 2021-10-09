@@ -29,10 +29,6 @@ module Graphics.Gudni.Layout.ApplyProximity
 where
 
 import Graphics.Gudni.Figure
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/flatpath
 import Graphics.Gudni.Layout.Fill
 import Graphics.Gudni.Layout.Empty
 import Graphics.Gudni.Layout.Alignment

@@ -59,9 +59,6 @@ instance Rasterizer DagOpenCLState where
                canvas = sizeToBox . fmap fromIntegral $ canvasSize
            liftIO . putStrLn . render . doc $ fabric
            withSerializedFabric limit 0 (Just canvas) pixelPile fabric $ \storage ->
-<<<<<<< HEAD:bonepiles/Dag/OpenCL/Instance.hs
-               do let codeStart = storageCodeStart storage
-=======
                do let start = storageCodeStart storage
                   out <- evalStateT outFabric storage
                   liftIO $ putStrLn "**** outFabric *******************************************"
@@ -69,7 +66,6 @@ instance Rasterizer DagOpenCLState where
                   out <- evalStateT simpleOutFabric storage
                   liftIO $ putStrLn "**** simpleOutFabric *******************************************"
                   liftIO $ putStrLn $ render out
->>>>>>> origin/flatpath:src/Graphics/Gudni/Raster/OpenCL/Instance.hs
                   liftIO $ runCL (rasterizer ^. dagOpenCLState) $
                       withBuffersInCommon storage $ \bic ->
                           withOutputBuffer canvasSize target $ \ outputBuffer ->

@@ -31,17 +31,6 @@ where
 import Control.Monad.Trans.Class
 import Control.Monad (void, forM)
 
-<<<<<<< HEAD:bonepiles/GLInterop.hs
-=======
-import CLUtil
-import CLUtil.CL
-import CLUtil.State
-import CLUtil.KernelArgs
-
-import Graphics.Gudni.Raster.OpenCL.Util.DeviceQuery
-import Control.Parallel.OpenCL
-
->>>>>>> origin/flatpath:src/Graphics/Gudni/Interface/GLInterop.hs
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Array(withArray)
 import Foreign.Ptr (nullPtr, castPtr, Ptr)

@@ -19,17 +19,10 @@ where
 
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout
-<<<<<<< HEAD
-import Graphics.Gudni.Raster.Dag.ConfineTree.Type
-import Graphics.Gudni.Raster.Dag.ConfineTree.Traverse
-import Graphics.Gudni.Raster.Dag.ConfineTree.Storage
-import Graphics.Gudni.Raster.Dag.TagTypes
-=======
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.Traverse
 import Graphics.Gudni.Raster.ConfineTree.Storage
 import Graphics.Gudni.Raster.TagTypes
->>>>>>> origin/flatpath
 
 import Graphics.Gudni.Draw.Stroke
 import Graphics.Gudni.Draw.Rectangle

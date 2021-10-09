@@ -33,10 +33,6 @@ where
 import Graphics.Gudni.Base
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Figure.StorableInstances
-<<<<<<< HEAD
-import Graphics.Gudni.Layout.FromLayout
-=======
->>>>>>> origin/flatpath
 
 import Graphics.Gudni.Raster.Serial.Reference
 import Graphics.Gudni.Raster.Serial.Slice

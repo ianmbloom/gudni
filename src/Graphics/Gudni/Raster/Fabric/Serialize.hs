@@ -1,19 +1,9 @@
-<<<<<<< HEAD
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-=======
-{-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE RankNTypes                 #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE AllowAmbiguousTypes        #-}
->>>>>>> origin/flatpath
 
 -----------------------------------------------------------------------------
 -- |
@@ -32,26 +22,17 @@ module Graphics.Gudni.Raster.Fabric.Serialize
   )
 where
 
-<<<<<<< HEAD
-=======
 import Graphics.Gudni.Base
->>>>>>> origin/flatpath
 import Graphics.Gudni.Figure
 import Graphics.Gudni.Layout.Style
 import Graphics.Gudni.Layout.Proximity
 import Graphics.Gudni.Layout.WithBox
-<<<<<<< HEAD
-
-import Graphics.Gudni.Raster.TagTypes
-import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
-=======
 import Graphics.Gudni.Layout.Font
 
 import Graphics.Gudni.Raster.TagTypes
 import Graphics.Gudni.Raster.TextureReference
 import Graphics.Gudni.Raster.ConfineTree.Primitive.Type
 import Graphics.Gudni.Raster.ConfineTree.Primitive.Storage
->>>>>>> origin/flatpath
 import Graphics.Gudni.Raster.ConfineTree.Type
 import Graphics.Gudni.Raster.ConfineTree.Storage
 import Graphics.Gudni.Raster.Fabric.Combine.Type
@@ -66,11 +47,7 @@ import Graphics.Gudni.Raster.Fabric.Ray.Answer
 import Graphics.Gudni.Raster.Fabric.Type
 import Graphics.Gudni.Raster.Fabric.Storage
 import Graphics.Gudni.Raster.Fabric.Tag
-<<<<<<< HEAD
--- import Graphics.Gudni.Raster.FromLayout
-=======
 import Graphics.Gudni.Raster.Fabric.FromLayout
->>>>>>> origin/flatpath
 import Graphics.Gudni.Raster.Storage
 
 import Graphics.Gudni.Raster.Serial.Reference
@@ -84,23 +61,6 @@ import Control.Monad.State
 import Control.Lens
 import Foreign.Storable
 
-<<<<<<< HEAD
-import qualified Data.Vector as V
-
-data PrimTop s
-  = PTag FabricTagId
-  | PSlice [Slice PrimTagId]
-  deriving (Show)
-
-data SerialState s
-   = SerialState
-   { _tSPrimTop   :: PrimTop s
-   , _tSBox       :: Maybe (Box s)
-   }
-makeLenses ''SerialState
-
-type SerialMonad s m a = StateT (SerialState s) (DagMonad s m) a
-=======
 import qualified Data.Vector     as V
 import qualified Data.Map.Strict as M
 
@@ -126,83 +86,10 @@ primsFromSlice =
                   prim   <- overStateT dagTreeStorage (loadTreePrim primId)
                   return (primId, prim ^. primFabricTagId)
 
->>>>>>> origin/flatpath
 
 announce :: MonadIO m => String -> m ()
 announce mess = liftIO $ putStrLn $ "===================== Serialize Fabric " ++ mess ++ " ====================="
 
-<<<<<<< HEAD
-serializeFabric :: forall i m style
-                .  ( DagConstraints (SpaceOf style) m
-                   , IsStyle style
-                   , SpaceOf (i style) ~ SpaceOf style
-                   , FBinaryType (i style) ~ ProximityMeld style FCombineType
-                   , FChildType (i style) ~ Fabric (i style)
-                   , FLeafType (i style) ~ FLeaf (i style)
-                   , FPreType (i style) ~ FTransformer (SpaceOf style)
-                   , FPostType (i style) ~ FFilter
-                   , Answer (FQuery (i style))
-                   , Storable (FTex (i style))
-                   , Storable (FQuery (i style))
-                   )
-                => SpaceOf style
-                -> Int
-                -> Fabric (i style)
-                -> DagMonad (SpaceOf style) m FabricTagId
-serializeFabric limit decorateLimit fabric =
-    evalStateT (do announce "Start"
-                   addReturnTag
-                   go fabric
-                   makeTree limit decorateLimit
-                   announce "End"
-                   currentPointer
-               ) (SerialState (PTag 0) Nothing)
-    where
-    go :: Fabric (i style)
-       -> SerialMonad (SpaceOf style) m ()
-    go fabric =
-        do top <- use tSPrimTop
-           -- liftIO $ putStrLn $ "goSerial " ++ showFabricHead fabric
-           case fabric of
-               FBinary ty above below ->
-                   do let melder = ty ^. proxMeld
-                      addBinaryTag melder
-                      go below
-                      go above
-               FLeaf leaf ->
-                   case leaf of
-                       FShape shape ->
-                           do  addSubstanceTag (FConst insideShape :: FSubstance (i style))
-                               addShapeToPrims shape
-                               addReturnTag
-                       FSubstance substance ->
-                           do  addSubstanceTag substance
-               FUnaryPre trans child ->
-                    do jumpTo <- currentPointer
-                       addReturnTag
-                       go child
-                       addReturnTag
-                       makeTree limit decorateLimit
-                       addTransformTag trans
-                       addStackerTag jumpTo
-                       setTop
-                       tSBox %= fmap (transBoundary trans)
-               FUnaryPost filt child ->
-                    do addReturnTag
-                       go child
-                       addReturnTag
-                       addFilterTag filt
-                       makeTree limit decorateLimit
-
-
-currentPointer :: (DagConstraints s m) => SerialMonad s m FabricTagId
-currentPointer = do pile <- lift $ use (dagFabricStorage . fabricTagPile)
-                    return $ FabricTagId (view pileCursor pile - 1)
-
-setTop :: (DagConstraints s m) => SerialMonad s m ()
-setTop = do codePointer <- currentPointer
-            tSPrimTop .= PTag codePointer
-=======
 atDepth :: (DagConstraints (SpaceOf i) m) => String -> SerialMonad i glyphType m ()
 atDepth mess =
     do  depth <- use srDepth
@@ -333,7 +220,6 @@ currentPointer :: (DagConstraints (SpaceOf i) m) => SerialMonad i glyphType m Fa
 currentPointer =
      do pile <- lift $ use (dagFabricStorage . fabricTagPile)
         return $ FabricTagId (view pileCursor pile - 1)
->>>>>>> origin/flatpath
 
 transBoundary :: Space s => FTransformer s -> Box s -> Box s
 transBoundary trans box =
@@ -343,13 +229,9 @@ transBoundary trans box =
           FFacet facet -> boxOf $ facet ^. facetInput
           FConvolve scale -> addMarginsBox scale box
 
-<<<<<<< HEAD
-addShapeToPrims :: (DagConstraints s m) => WithBox (Shape s) -> SerialMonad s m (Slice PrimTagId, Maybe (Box s))
-=======
 addShapeToPrims :: (DagConstraints (SpaceOf i) m)
                 => WithBox (Shape (SpaceOf i))
                 -> SerialMonad i glyphType m (Head (SpaceOf i))
->>>>>>> origin/flatpath
 addShapeToPrims (WithBox shape box) =
     do codePointer <- currentPointer
        let outlines = view shapeOutlines . mapOverPoints (fmap clampReasonable) $ shape
@@ -359,35 +241,6 @@ addShapeToPrims (WithBox shape box) =
                        ) $
                        outlines
            boundingBox = minMaxBoxes . fmap boxOf $ prims
-<<<<<<< HEAD
-       --liftIO . putStrLn $ "add " ++ show (length prims) ++ " prims " ++ show codePointer
-       primTagIds <- lift $ inTree $ V.mapM addTreePrim prims
-       primSlice <- lift $ foldIntoPileS dagPrimTagIds primTagIds
-       holdPrims primSlice
-       tSBox .= Just boundingBox
-       return (primSlice, Just boundingBox)
-
-addBoxPrim :: (DagConstraints s m) => FabricTagId -> Box s -> DagMonad s m (Slice PrimTagId)
-addBoxPrim fabricTagId box =
-    do primTagId <- inTree $ addTreePrim (Prim fabricTagId $ PrimRect box)
-       primSlice <- foldIntoPileS dagPrimTagIds [primTagId]
-       return primSlice
-
-holdPrims :: (DagConstraints s m) => Slice PrimTagId -> SerialMonad s m ()
-holdPrims slice =
-    do  top <- use tSPrimTop
-        mBox <- use tSBox
-        newTop <- case top of
-                      PTag tagId     ->
-                          case mBox of
-                              Just box -> do boxSlice <- lift $ addBoxPrim tagId box
-                                             return $ PSlice [boxSlice, slice]
-                              Nothing -> return $ PSlice [slice]
-                      PSlice slices  -> return $ PSlice (slice:slices)
-        tSPrimTop .= newTop
-
-addTreeTags :: (DagConstraints s m) => DecoTagId s -> ConfineTagId s -> SerialMonad s m ()
-=======
        primTagIds <- lift $ inTree $ V.mapM addTreePrim prims
        primSlice <- lift $ foldIntoPileS dagPrimTagIds primTagIds
        return ([primSlice], [], Just boundingBox)
@@ -405,39 +258,10 @@ addTreeTags :: (DagConstraints (SpaceOf i) m)
             => DecoTagId (SpaceOf i)
             -> ConfineTagId (SpaceOf i)
             -> SerialMonad i glyphType m ()
->>>>>>> origin/flatpath
 addTreeTags decoId confineId =
     do addFabricTagS (makeFabTagConfineTree confineId)
        addFabricTagS (makeFabTagDecoTree    decoId   )
 
-<<<<<<< HEAD
-makeTree :: (DagConstraints s m) => s -> Int -> SerialMonad s m ()
-makeTree limit decorateLimit =
-  do top <- use tSPrimTop
-     --liftIO . putStrLn $ "makeTree top " ++ show top
-     case top of
-         PTag _ ->
-             do  codePointer <- currentPointer
-                 tSPrimTop .= PTag codePointer
-         PSlice slices ->
-             do  let primSlice = foldl1 combineSlices slices
-                 when (sliceLength primSlice > 0) $
-                      do (decoTagId, confineTagId) <- lift $ addTreeS limit decorateLimit primSlice
-                         addTreeTags decoTagId confineTagId
-                         return ()
-                 codePointer <- currentPointer
-                 tSPrimTop .= PTag codePointer
-
-addFabricTagS :: (DagConstraints s m) => FabricTag -> SerialMonad s m ()
-addFabricTagS tag = do lift $ overStateT dagFabricStorage $ addFabricTag tag
-                       return ()
-
-addReturnTag    :: (DagConstraints s m) =>                   SerialMonad s m ()
-addStackerTag   :: (DagConstraints s m) => FabricTagId    -> SerialMonad s m ()
-addBinaryTag    :: (DagConstraints s m) => FCombineType   -> SerialMonad s m ()
-addFilterTag    :: (DagConstraints s m) => FFilter        -> SerialMonad s m ()
-addTransformTag :: (DagConstraints s m) => FTransformer s -> SerialMonad s m ()
-=======
 makeTree :: (DagConstraints (SpaceOf i) m)
          => SpaceOf i
          -> Int
@@ -465,7 +289,6 @@ addStackerTag   :: (DagConstraints (SpaceOf i) m) => FabricTagId              ->
 addBinaryTag    :: (DagConstraints (SpaceOf i) m) => FCombineType             -> SerialMonad i glyphType m ()
 addFilterTag    :: (DagConstraints (SpaceOf i) m) => FFilter                  -> SerialMonad i glyphType m ()
 addTransformTag :: (DagConstraints (SpaceOf i) m) => FTransformer (SpaceOf i) -> SerialMonad i glyphType m ()
->>>>>>> origin/flatpath
 addReturnTag  = addFabricTagS   makeFabTagReturn
 addStackerTag = addFabricTagS . makeFabTagStacker
 addBinaryTag  = addFabricTagS . combineTypeToFabTag
@@ -474,19 +297,12 @@ addTransformTag trans = do tag <- lift $ overStateT dagFabricStorage $ storeTran
                            addFabricTagS tag
 
 addSubstanceTag :: ( DagConstraints (SpaceOf i) m
-<<<<<<< HEAD
-=======
                    , HasSpace i
                    , Storable (SpaceOf i)
->>>>>>> origin/flatpath
                    , Storable (FTex i)
                    , Storable (FQuery i)
                    )
                 => FSubstance i
-<<<<<<< HEAD
-                -> SerialMonad (SpaceOf (FSubstance i)) m ()
-=======
                 -> SerialMonad i glyphType m ()
->>>>>>> origin/flatpath
 addSubstanceTag substance = do tag <- lift $ overStateT (dagFabricStorage . fabricHeapPile) $ storeSubstance substance
                                addFabricTagS tag
